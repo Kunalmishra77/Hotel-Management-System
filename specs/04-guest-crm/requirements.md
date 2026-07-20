@@ -1,0 +1,43 @@
+# 04 · Guest CRM — Requirements
+
+> Source: client doc §3. Read with `.claude/rules/compliance.md` (Aadhaar/PII/DPDP), `security.md`, `data-model.md` (PII), `non-functional-requirements.md`, `docs/architecture/rbac-matrix.md`, `prisma/schema.prisma`. Depth bar: `specs/03-reservations/*`.
+
+## Purpose & scope
+Own the **permanent guest record** and its identity documents: a single, deduplicated, searchable, privacy-safe profile that every reservation (03), folio (06), and history projection (05) references. This module is the sole writer of `Guest`/`GuestId` and the sole gate for guest PII exposure.
+
+**In scope:** guest profile CRUD (identity, contact, address, company/GST, preferences, sensitive notes); government IDs (`GuestId`) with **masked Aadhaar by default** + encrypted full value (gated) + **scan object-key** (not bytes); **duplicate detection** on mobile/email/ID with confirm-or-merge; **guest merge**; **fast multi-field search** (name/mobile/email/company/GST); **PII masking-by-default** with permissioned, reasoned, audited reveal; **DPDP export & erase** (data-portability + right-to-erasure with financial-record preservation).
+
+**Out of scope:** derived visit/revenue/outstanding history and the `GuestStatsSnapshot` (05 — this module emits the events 05 consumes); folio/billing money (06); cross-entity global search UI (15 — this module owns the guest-scoped search it federates); reservation lifecycle (03). Check-in emits `GuestCheckedIn` jointly with 03; the reservation state machine lives in 03.
+
+## Dependencies
+- **Tier 0:** 00-platform (auth, tenancy/`orgId`, `DomainEvent` outbox, `AuditLog`, object storage adapter, `lib/permissions`, encryption/KMS in `lib/*`).
+- **Tier 0 (read):** 01-property-management (property scope), 02-room-inventory (`RoomCategory` for `preferredRoomCategoryId`).
+- **Tier 1 peer:** 03-reservations (references `Guest`; joint `GuestCheckedIn`).
+- **Downstream consumers:** 05-guest-history, 06-billing, 12-communications, 14-analytics, 15-search-export, 18-ai-features.
+
+## Data owned
+`Guest`, `GuestId`, enum `IdType`. Reads only: `RoomCategory` (preference), `Reservation` (erase/merge guard — via 03 queries, not foreign SELECT). Emits events consumed by 05/12/14. ID scans live in **object storage** (`lib/integrations` S3/MinIO, `DATA_REGION`), never in a DB column.
+
+## Functional requirements (EARS)
+- **FR-1 (ubiquitous):** Represent every guest as a permanent `Guest` scoped to one `orgId`; guests are **soft-deleted** (`deletedAt`) and never hard-deleted (`data-model.md`).
+- **FR-2 (ubiquitous):** Capture profile fields — identity (`fullName` [required], `gender`, `dob`, `anniversary`, `nationality`, `occupation`), contact (`mobile` [required], `whatsapp`, `email`), address (`addressLine`, `city`, `state`, `country`, `pincode`), business (`companyName`, `gstNumber`), and preferences (`purposeOfVisit`, `specialRequests`, `foodPreference`, `preferredRoomCategoryId`, `preferredFloor`, `medicalNotes` [sensitive]).
+- **FR-3 (ubiquitous):** Represent each government ID as a `GuestId` of a closed `IdType`, always storing `maskedValue`; store the full value in `encryptedValue` (app-encrypted) only when policy permits; store scans as `scanObjectKey` + `scanChecksum` (a storage reference + integrity checksum), never the bytes.
+- **FR-4 (state):** While `COMPLIANCE_STORE_FULL_AADHAAR` is **off** (default), the system shall persist Aadhaar as **masked last-4 only** (`maskedValue`), reject any attempt to store a full Aadhaar number or scan, and treat Aadhaar as **optional** (a guest is creatable with a passport/DL/voter/PAN instead).
+- **FR-5 (event):** When a guest create or contact-field update is submitted, the system shall run **duplicate detection** on normalized `mobile`, `email`, and any `GuestId` value within the org (via the keyed `mobileHash`/`emailHash`/`GuestId.valueHash` search tokens); if a probable duplicate exists it shall return `DUPLICATE_GUEST` with candidate matches and **require explicit confirmation** (create-anyway) or a **merge**, rather than silently creating a second record (`business-rules.md` §16). The schema carries only a **non-unique** index on the contact tokens (`@@index([orgId, mobileHash])`, `@@index([orgId, emailHash])`), so a duplicate row is **not** blocked by a DB constraint; the create-vs-create race is instead serialized by a **per-`(orgId, contact-token)` advisory lock (or a serializable transaction)** around the detect-then-insert, while still allowing an explicit **create-anyway** to proceed.
+- **FR-6 (unwanted):** If `mobile` is missing or fails phone validation, or `email`/`gstNumber` fail format validation, then the system shall reject at validation and persist nothing.
+- **FR-7 (event):** When an ID scan is uploaded, the system shall store it in access-controlled, encrypted object storage in `DATA_REGION`, record only `scanObjectKey` + `scanChecksum` on the row, and never write the bytes, key contents, or full ID number to logs.
+- **FR-8 (state):** While `PII_MASK_IN_LISTS` is on (default), the system shall return guest **contact and ID PII masked** in lists, search results, and exports unless the caller holds `guest:view-pii` **and** supplies a reason; the display `fullName` remains visible to `guest:view` holders (front desk must identify the guest).
+- **FR-9 (event):** When a user reveals a guest's full PII (unmasked contact or full ID), the system shall require `guest:view-pii` + a reason, return the value, and emit `GuestPiiAccessed` + write an audit record (who, guest, field, reason).
+- **FR-10 (ubiquitous):** The system shall provide **fast multi-field search** across `fullName`, `mobile`, `email`, `companyName`, and `gstNumber`, org/property-scoped, cursor-paginated, with **p95 < 500ms** at target volume (`non-functional-requirements.md`).
+- **FR-11 (ubiquitous):** Every guest mutation (create, update, add/replace ID, upload scan, reveal PII, merge, erase, export) shall be property/org-scoped, authorized server-side, emit its domain event, and write an audit record (`business-rules.md` §20).
+- **FR-12 (event):** When two records are confirmed duplicates, the system shall **merge** them under **`guest:merge`** (🔒, audited): choose a survivor, combine fields per a deterministic rule, re-point `Reservation`/`Feedback`/history to the survivor, set the loser's **`Guest.mergedIntoId`** to the survivor and soft-delete it, and emit `GuestMerged` (consumed by 05 to recompute **both** survivor and loser) — atomically and audited.
+- **FR-13 (event):** When a data-portability request is made, the system shall **export** a single guest's personal data (profile + IDs metadata + stay references) in a portable file, gated by `export:pii`, audited (`compliance.md` DPDP).
+- **FR-14 (event):** When an erasure request is made, the system shall **soft-delete + PII-scrub** the guest — null/tokenize personal fields **and clear the keyed search/PII tokens so the erased guest is no longer discoverable or reversible: `Guest.mobileHash`, `Guest.emailHash`, and every `GuestId.valueHash` + `GuestId.encryptedValue`** — and purge scans from object storage, while preserving legally-required financial records (folios/invoices) in anonymized-but-linked form; gated by `guest:delete`, audited; and it shall **reject** erasure while the guest has an active `ENQUIRY`/`CONFIRMED`/`IN_HOUSE` reservation.
+- **FR-15 (unwanted):** If a `HOUSEKEEPING` or `MAINTENANCE` user calls any guest read or write action, then the system shall deny server-side (403) regardless of UI (`rbac-matrix.md`: no `guest:view`).
+- **FR-16 (ubiquitous):** All guest contact/ID PII shall be encrypted at rest and in transit; sensitive `medicalNotes` and full ID values are additionally access-restricted; no PII appears in logs, SSE payloads, or low-privilege responses beyond need (`security.md`, `compliance.md`).
+
+## Non-functional (cited)
+Multi-field search **p95 < 500ms** on 100k+ guests; create/update common mutations server-confirm **p95 < 800ms**; profile reachable in a few taps on a phone; PII reveal + audit adds no perceptible latency. Data in **India region**; PII encrypted at rest + in transit. (`non-functional-requirements.md`, `compliance.md`)
+
+## Business rules referenced
+`business-rules.md` §16 (duplicate detection on phone/email/ID before creating a guest), §17 (history is derived, not stored here — see 05), §20 (validate→authorize→transaction→event→audit). `data-model.md` (PII encryption, masked Aadhaar, scans as reference + checksum, soft-delete). `compliance.md` (DPDP export/erase, Aadhaar masking + `COMPLIANCE_STORE_FULL_AADHAAR`, data residency).

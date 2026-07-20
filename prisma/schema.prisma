@@ -1,0 +1,1318 @@
+// =============================================================================
+// Woodpecker PMS — Canonical Data Model (SINGLE SOURCE OF TRUTH) — FINALIZED
+// Rules: .claude/rules/data-model.md  ·  Invariants: business-rules.md
+// Money = Int/BigInt paise. Time = UTC instants; local dates as @db.Date + property tz.
+// Financial/guest/audit rows are append-only or soft-deleted, never hard-deleted.
+// All 26 modules' schema-deltas are now folded in (see docs/architecture/schema-deltas.md
+// for the history). Foreign ids on peripheral tables are plain Strings (no back-relation)
+// to keep owning-module boundaries clean — cross-module reads go via query layers.
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  // NOTE: enable extensions in migrations: btree_gist (03 no-overbooking), pg_trgm (04/15 search).
+}
+
+// ============================ 00 PLATFORM / TENANCY ==========================
+
+model Organization {
+  id         String     @id @default(cuid())
+  name       String
+  properties Property[]
+  users      User[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+}
+
+model Property {
+  id           String       @id @default(cuid())
+  orgId        String
+  org          Organization @relation(fields: [orgId], references: [id])
+  name         String
+  code         String // short code, used in invoice numbering
+  addressLine1 String
+  addressLine2 String?
+  city         String
+  state        String
+  country      String       @default("India")
+  pincode      String
+  timezone     String       @default("Asia/Kolkata")
+  gstin        String?
+  ownerName    String?
+  ownerContact String?
+  isActive     Boolean      @default(true)
+
+  // 14 night-audit: property-local operating day + scheduled audit time
+  currentBusinessDate DateTime? @db.Date
+  nightAuditTime      String? // "03:00" property-local
+
+  // Operational config (referenced by 03/12 — previously "config with no home")
+  dayUseEnabled       Boolean @default(false) // allow checkIn == checkOut (nights=1)
+  holdTtlHours        Int     @default(24) // tentative ENQUIRY hold expiry
+  quietHoursStart     String? // "21:00" property-local — marketing defer window (12)
+  quietHoursEnd       String? // "08:00"
+  noShowRetainAdvance Boolean @default(true) // no-show policy: retain vs release advance
+
+  floors         Floor[]
+  roomCategories RoomCategory[]
+  rooms          Room[]
+  reservations   Reservation[]
+  expenses       Expense[]
+  staff          Staff[]
+  invoiceSeries  InvoiceSeries[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@unique([orgId, code])
+  @@index([orgId])
+}
+
+// -------- Access control & security (15/16/18) --------
+
+enum RoleName {
+  ADMINISTRATOR
+  MANAGER
+  RECEPTION
+  ACCOUNTS
+  HOUSEKEEPING
+  MAINTENANCE
+}
+
+model User {
+  id           String       @id @default(cuid())
+  orgId        String
+  org          Organization @relation(fields: [orgId], references: [id])
+  email        String       @unique
+  name         String
+  passwordHash String
+  isActive     Boolean      @default(true)
+
+  // 2FA
+  totpSecret  String? // encrypted at rest
+  totpEnabled Boolean  @default(false)
+  backupCodes String[] // hashed
+
+  // lockout (00 FR-4)
+  failedLoginCount Int       @default(0)
+  lockedUntil      DateTime?
+
+  roleAssignments RoleAssignment[]
+  auditLogs       AuditLog[]
+  sessions        Session[]
+  resetTokens     PasswordResetToken[]
+
+  lastLoginAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  @@index([orgId])
+}
+
+model RoleAssignment {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  role        RoleName
+  // Property scope: empty = all properties in org (admin); else specific properties.
+  propertyIds String[]
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+}
+
+// Permissions are code-defined (module:action) from rbac-matrix.md; stored here
+// only when an org customizes the default role→permission map.
+model PermissionOverride {
+  id         String   @id @default(cuid())
+  role       RoleName
+  permission String // e.g. "folio:refund"
+  granted    Boolean
+
+  @@unique([role, permission])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// DB-backed sessions (16); JWT claims may also be used — this supports force-logout.
+model Session {
+  id               String    @id @default(cuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id])
+  tokenHash        String    @unique
+  activePropertyId String?
+  ip               String?
+  device           String?
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model SecuritySettings {
+  orgId                  String     @id
+  passwordMinLength      Int        @default(10)
+  lockoutThreshold       Int        @default(5) // 00 FR-4 source (not hardcoded)
+  enforced2faRoles       RoleName[]
+  sessionTtlMinutes      Int        @default(480) // 00 FR-7 session TTL source
+  discountThresholdPaise Int        @default(100000) // 03/06 audited-override threshold (₹1,000)
+  updatedAt              DateTime   @updatedAt
+}
+
+// -------- Audit, events, backup (cross-cutting) --------
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  orgId      String
+  propertyId String?
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String // "reservation:create"
+  entityType String
+  entityId   String
+  reason     String? // required for some 🔒 actions
+  before     Json? // PII-redacted
+  after      Json? // PII-redacted
+  requestId  String?
+  ip         String?
+  device     String?
+  createdAt  DateTime @default(now())
+
+  @@index([orgId, entityType, entityId])
+  @@index([createdAt])
+  @@index([userId])
+  @@index([orgId, action])
+  @@index([propertyId])
+}
+
+model DomainEvent {
+  id           String    @id @default(cuid())
+  seq          BigInt    @unique @default(autoincrement()) // monotonic per-aggregate ordering tiebreaker
+  orgId        String
+  propertyId   String?
+  type         String // "ReservationCreated"
+  aggregateId  String
+  payload      Json
+  occurredAt   DateTime  @default(now())
+  dispatchedAt DateTime? // outbox dispatch
+  attempts     Int       @default(0)
+
+  @@index([type, aggregateId])
+  @@index([dispatchedAt])
+}
+
+model IntegrationInbox {
+  id          String    @id @default(cuid())
+  provider    String
+  externalId  String
+  type        String
+  payload     Json
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@unique([provider, externalId])
+}
+
+model BackupRun {
+  id          String    @id @default(cuid())
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+  status      String    @default("RUNNING") // RUNNING | SUCCESS | FAILED
+  target      String? // "s3://…" or "local"
+  sizeBytes   BigInt?
+  error       String?
+
+  @@index([startedAt])
+}
+
+// ======================= 01 PROPERTY / 02 ROOM INVENTORY =====================
+
+model Floor {
+  id         String   @id @default(cuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id])
+  name       String // "Ground", "1", "2"
+  sortOrder  Int      @default(0)
+  rooms      Room[]
+
+  @@unique([propertyId, name])
+  @@index([propertyId])
+}
+
+model RoomCategory {
+  id            String     @id @default(cuid())
+  propertyId    String
+  property      Property   @relation(fields: [propertyId], references: [id])
+  name          String // "Deluxe", "Suite"
+  baseRatePaise Int // default nightly tariff (paise)
+  floorPaise    Int? // dynamic-pricing guardrail (24)
+  ceilPaise     Int?
+  maxAdults     Int        @default(2)
+  maxChildren   Int        @default(1)
+  hsnSac        String? // for GST on room tariff
+  gstBps        Int        @default(1200) // room GST slab in bps (config-driven; 23/06 use this for GST-inclusive display + posting)
+  rooms         Room[]
+  ratePlans     RatePlan[]
+
+  @@unique([propertyId, name])
+  @@index([propertyId])
+}
+
+enum RoomStatus {
+  VACANT
+  OCCUPIED
+  RESERVED
+  UNDER_MAINTENANCE
+  HOUSEKEEPING
+}
+
+model Room {
+  id         String       @id @default(cuid())
+  propertyId String
+  property   Property     @relation(fields: [propertyId], references: [id])
+  floorId    String?
+  floor      Floor?       @relation(fields: [floorId], references: [id])
+  categoryId String
+  category   RoomCategory @relation(fields: [categoryId], references: [id])
+  number     String // "101"
+  status     RoomStatus   @default(VACANT)
+  isActive   Boolean      @default(true)
+
+  allocations RoomAllocation[]
+  blocks      RoomBlock[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@unique([propertyId, number])
+  @@index([propertyId, status])
+}
+
+// Date-ranged out-of-order block (11 maintenance) — feeds 03 availability exclusion.
+model RoomBlock {
+  id               String   @id @default(cuid())
+  propertyId       String
+  roomId           String
+  room             Room     @relation(fields: [roomId], references: [id])
+  startDate        DateTime @db.Date
+  endDate          DateTime @db.Date
+  reason           String
+  maintenanceJobId String?
+  createdAt        DateTime @default(now())
+
+  @@index([roomId, startDate, endDate])
+}
+
+// ============================== 03 RESERVATIONS ==============================
+
+enum BookingSource {
+  DIRECT
+  WEBSITE
+  PHONE
+  WALK_IN
+  AIRBNB
+  BOOKING_COM
+  AGODA
+  MAKEMYTRIP
+  GOIBIBO
+  CORPORATE
+  TRAVEL_AGENT
+}
+
+enum ReservationStatus {
+  ENQUIRY
+  CONFIRMED
+  IN_HOUSE
+  CHECKED_OUT
+  CANCELLED
+  NO_SHOW
+}
+
+model Reservation {
+  id               String            @id @default(cuid())
+  propertyId       String
+  property         Property          @relation(fields: [propertyId], references: [id])
+  code             String // human-friendly booking id
+  guestId          String
+  guest            Guest             @relation(fields: [guestId], references: [id])
+  status           ReservationStatus @default(CONFIRMED)
+  source           BookingSource
+  channelRef       String? // OTA reservation id if applicable
+  channelAccountId String? // which ChannelAccount sourced it (13)
+  corporateId      String?
+  corporate        Corporate?        @relation(fields: [corporateId], references: [id])
+  travelAgentId    String?
+  travelAgent      TravelAgent?      @relation(fields: [travelAgentId], references: [id])
+
+  checkInDate  DateTime  @db.Date
+  checkOutDate DateTime  @db.Date
+  checkInAt    DateTime?
+  checkOutAt   DateTime?
+  nights       Int
+  adults       Int       @default(1)
+  children     Int       @default(0)
+
+  // Tentative hold (03 FR-16 / 23): ENQUIRY holds consume inventory until expiry.
+  holdExpiresAt DateTime?
+
+  // Financial snapshot at booking (authoritative charges live on the folio)
+  ratePaise         Int
+  discountPaise     Int @default(0)
+  extraBedPaise     Int @default(0)
+  taxPaise          Int @default(0)
+  otherChargesPaise Int @default(0)
+  advancePaise      Int @default(0)
+
+  allocations RoomAllocation[]
+  folio       Folio?
+  posOrders   PosOrder[]
+
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([propertyId, code])
+  @@index([propertyId, status])
+  @@index([propertyId, checkInDate])
+  @@index([guestId])
+  @@index([corporateId])
+  @@index([travelAgentId])
+  @@index([channelRef])
+}
+
+// A room assigned to a reservation for a date range — the availability truth.
+// Migration adds: EXCLUDE USING gist (roomId WITH =, daterange(startDate,endDate,'[)') WITH &&)
+model RoomAllocation {
+  id            String      @id @default(cuid())
+  propertyId    String
+  reservationId String
+  reservation   Reservation @relation(fields: [reservationId], references: [id])
+  roomId        String
+  room          Room        @relation(fields: [roomId], references: [id])
+  startDate     DateTime    @db.Date
+  endDate       DateTime    @db.Date
+
+  @@index([roomId, startDate, endDate])
+  @@index([propertyId])
+}
+
+// ===================== 04 GUEST CRM / 05 GUEST HISTORY =======================
+
+enum IdType {
+  AADHAAR
+  PASSPORT
+  DRIVING_LICENCE
+  PAN
+  VOTER_ID
+  VISA
+}
+
+model Guest {
+  id          String    @id @default(cuid())
+  orgId       String
+  fullName    String
+  gender      String?
+  dob         DateTime? @db.Date
+  anniversary DateTime? @db.Date
+  nationality String?
+  occupation  String?
+
+  // Contact (encrypted at rest); *Hash columns are keyed hashes for exact-match search
+  mobile     String
+  mobileHash String?
+  whatsapp   String?
+  email      String?
+  emailHash  String?
+
+  addressLine String?
+  city        String?
+  state       String?
+  country     String?
+  pincode     String?
+
+  companyName             String?
+  gstNumber               String?
+  purposeOfVisit          String?
+  specialRequests         String?
+  foodPreference          String?
+  medicalNotes            String? // sensitive PII
+  preferredRoomCategoryId String?
+  preferredFloor          String?
+
+  // merge lineage (04 FR-12)
+  mergedIntoId String?
+
+  ids          GuestId[]
+  reservations Reservation[]
+  feedback     Feedback[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  // migration adds a pg_trgm GIN index on fullName for fast fuzzy search (04/15)
+
+  @@index([orgId, mobileHash])
+  @@index([orgId, emailHash])
+  @@index([orgId, gstNumber])
+  @@index([orgId, city])
+}
+
+model GuestId {
+  id             String   @id @default(cuid())
+  guestId        String
+  guest          Guest    @relation(fields: [guestId], references: [id])
+  type           IdType
+  maskedValue    String // e.g. "XXXX XXXX 1234"
+  valueHash      String? // keyed hash → search by ID number (client §4) without decrypting
+  encryptedValue String? // full value only if compliance flag permits
+  scanObjectKey  String? // object-storage ref, not bytes
+  scanChecksum   String?
+  createdAt      DateTime @default(now())
+
+  @@index([guestId])
+  @@index([type, valueHash])
+}
+
+// Guest history (05) is DERIVED; snapshot cache for fast profile view.
+model GuestStatsSnapshot {
+  guestId             String    @id
+  visits              Int       @default(0)
+  totalRoomNights     Int       @default(0)
+  totalRevenuePaise   BigInt    @default(0)
+  outstandingPaise    BigInt    @default(0)
+  preferredCategoryId String?
+  preferredRatePaise  Int?
+  lastStayAt          DateTime?
+  lastReconciledAt    DateTime?
+  updatedAt           DateTime  @updatedAt
+}
+
+// ======================= 06 BILLING / FOLIO / PAYMENTS =======================
+
+model Folio {
+  id            String       @id @default(cuid())
+  propertyId    String
+  kind          String       @default("RESERVATION") // RESERVATION | DIRECT_SALE (walk-in POS, no reservation)
+  reservationId String?      @unique
+  reservation   Reservation? @relation(fields: [reservationId], references: [id])
+  isClosed      Boolean      @default(false)
+  lines         FolioLine[]
+  payments      Payment[]
+  invoices      Invoice[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([propertyId])
+}
+
+enum ChargeType {
+  ROOM
+  FOOD
+  LAUNDRY
+  AIRPORT_TRANSFER
+  TAXI
+  KITCHEN
+  EXTRA_BED
+  POS
+  MISC
+  DISCOUNT
+  TAX
+  REVERSAL
+}
+
+// Append-only. A correction is a new REVERSAL line referencing the original.
+model FolioLine {
+  id                 String     @id @default(cuid())
+  folioId            String
+  folio              Folio      @relation(fields: [folioId], references: [id])
+  type               ChargeType
+  description        String
+  quantity           Int        @default(1)
+  unitPaise          Int
+  amountPaise        BigInt // signed; discounts/reversals negative (BigInt: banquet/long-stay safe)
+  taxRateBps         Int        @default(0) // basis points (e.g. 1200 = 12%)
+  cgstPaise          Int        @default(0)
+  sgstPaise          Int        @default(0)
+  igstPaise          Int        @default(0)
+  hsnSac             String?
+  placeOfSupplyState String? // for intra/inter-state GST determination
+  businessDate       DateTime   @db.Date
+  reversalOfId       String?
+  postedById         String?
+  createdAt          DateTime   @default(now())
+
+  @@index([folioId])
+  @@index([businessDate])
+}
+
+enum PaymentMode {
+  CASH
+  CREDIT_CARD
+  DEBIT_CARD
+  UPI
+  BANK_TRANSFER
+  ONLINE
+  CORPORATE_CREDIT
+}
+
+model Payment {
+  id                String      @id @default(cuid())
+  propertyId        String
+  folioId           String
+  folio             Folio       @relation(fields: [folioId], references: [id])
+  mode              PaymentMode
+  amountPaise       BigInt // stored positive; isRefund distinguishes direction (see 06 refund-sign rule)
+  reference         String? // txn id / gateway ref
+  gatewayOrderId    String?
+  settlementBatchId String? // groups split tenders under one PaymentReceived event
+  isRefund          Boolean     @default(false)
+  receivedAt        DateTime    @default(now())
+  receivedById      String?
+
+  @@index([folioId])
+  @@index([propertyId, receivedAt])
+}
+
+model InvoiceSeries {
+  id            String   @id @default(cuid())
+  propertyId    String
+  property      Property @relation(fields: [propertyId], references: [id])
+  financialYear String // "2026-27"
+  prefix        String
+  nextNumber    Int      @default(1)
+
+  @@unique([propertyId, financialYear])
+}
+
+enum InvoiceType {
+  TAX_INVOICE
+  CREDIT_NOTE
+}
+
+model Invoice {
+  id                String      @id @default(cuid())
+  propertyId        String
+  folioId           String
+  folio             Folio       @relation(fields: [folioId], references: [id])
+  number            String // gap-free per property/FY
+  financialYear     String
+  type              InvoiceType @default(TAX_INVOICE)
+  cancelsInvoiceId  String? // for CREDIT_NOTE / void (06 FR-21)
+  customerName      String
+  customerGstin     String?
+  placeOfSupply     String
+  taxableValuePaise BigInt
+  cgstPaise         Int         @default(0)
+  sgstPaise         Int         @default(0)
+  igstPaise         Int         @default(0)
+  totalPaise        BigInt
+  pdfObjectKey      String?
+  issuedAt          DateTime    @default(now())
+  issuedById        String?
+
+  @@unique([propertyId, number])
+  @@index([propertyId, issuedAt])
+}
+
+// ============================ 07 EXPENSES ====================================
+
+enum ExpenseHead {
+  HOUSEKEEPING
+  KITCHEN
+  MAINTENANCE
+  UTILITIES
+  STAFF
+  ADMINISTRATION
+  MISC
+}
+
+enum ExpenseStatus {
+  DRAFT
+  APPROVED
+  REJECTED
+}
+
+model Expense {
+  id            String        @id @default(cuid())
+  propertyId    String
+  property      Property      @relation(fields: [propertyId], references: [id])
+  head          ExpenseHead
+  subCategory   String? // "Cleaning Material", "Vegetables", "Electricity"...
+  description   String?
+  amountPaise   Int
+  spentOn       DateTime      @db.Date
+  paidVia       PaymentMode?
+  vendor        String?
+  billObjectKey String?
+  status        ExpenseStatus @default(DRAFT)
+  approvedById  String?
+  createdById   String?
+  createdAt     DateTime      @default(now())
+
+  @@index([propertyId, spentOn])
+  @@index([propertyId, head])
+}
+
+// ==================== 09 STAFF / 21 PAYROLL ==================================
+
+model Staff {
+  id                 String    @id @default(cuid())
+  propertyId         String
+  property           Property  @relation(fields: [propertyId], references: [id])
+  name               String
+  mobile             String
+  address            String?
+  department         String
+  monthlySalaryPaise Int
+  joinedOn           DateTime  @db.Date
+  leftOn             DateTime? @db.Date
+  aadhaarMasked      String?
+  panMasked          String?
+  bankAccount        String? // encrypted
+  bankIfsc           String?
+  isActive           Boolean   @default(true)
+
+  attendance   Attendance[]
+  payrollLines PayrollLine[]
+  advances     StaffAdvance[]
+  documents    StaffDocument[]
+  createdAt    DateTime        @default(now())
+  deletedAt    DateTime?
+
+  @@index([propertyId])
+}
+
+model StaffDocument {
+  id        String   @id @default(cuid())
+  staffId   String
+  staff     Staff    @relation(fields: [staffId], references: [id])
+  type      String // "AADHAAR_SCAN", "CONTRACT"...
+  objectKey String
+  createdAt DateTime @default(now())
+
+  @@index([staffId])
+}
+
+enum LeaveType {
+  NONE
+  CASUAL
+  SICK
+  PAID
+  UNPAID
+}
+
+model Attendance {
+  id              String    @id @default(cuid())
+  staffId         String
+  staff           Staff     @relation(fields: [staffId], references: [id])
+  day             DateTime  @db.Date
+  checkInAt       DateTime?
+  checkOutAt      DateTime?
+  workedMinutes   Int?
+  isLeave         Boolean   @default(false)
+  leaveType       LeaveType @default(NONE)
+  overtimeMinutes Int       @default(0)
+
+  @@unique([staffId, day])
+  @@index([staffId])
+}
+
+model StaffAdvance {
+  id             String   @id @default(cuid())
+  staffId        String
+  staff          Staff    @relation(fields: [staffId], references: [id])
+  amountPaise    Int
+  recoveredPaise Int      @default(0)
+  note           String?
+  createdAt      DateTime @default(now())
+
+  @@index([staffId])
+}
+
+enum PayrollRunStatus {
+  DRAFT
+  FINALIZED
+}
+
+model PayrollRun {
+  id            String           @id @default(cuid())
+  propertyId    String
+  month         String // "2026-07"
+  sequence      Int              @default(1) // 1 = regular; >1 = correction/adjustment runs (21 FR-8)
+  runType       String           @default("REGULAR") // REGULAR | ADJUSTMENT
+  status        PayrollRunStatus @default(DRAFT)
+  netTotalPaise BigInt           @default(0)
+  finalizedAt   DateTime?
+  finalizedById String?
+  lines         PayrollLine[]
+  createdAt     DateTime         @default(now())
+
+  @@unique([propertyId, month, sequence]) // allows a separately-audited adjustment run per month
+}
+
+model PayrollLine {
+  id               String     @id @default(cuid())
+  runId            String
+  run              PayrollRun @relation(fields: [runId], references: [id])
+  staffId          String
+  staff            Staff      @relation(fields: [staffId], references: [id])
+  basePaise        Int
+  advancePaise     Int        @default(0)
+  bonusPaise       Int        @default(0)
+  deductionPaise   Int        @default(0)
+  overtimePaise    Int        @default(0)
+  netPaise         Int
+  paidDays         Float?
+  lopDays          Float?
+  otMinutes        Int?
+  notes            String?
+  payslipObjectKey String?
+  createdAt        DateTime   @default(now())
+
+  @@index([runId])
+}
+
+// ==================== 10 HOUSEKEEPING / 11 MAINTENANCE =======================
+
+model HousekeepingTask {
+  id                     String    @id @default(cuid())
+  propertyId             String
+  roomId                 String
+  type                   String // "CLEANING", "LINEN_CHANGE", "TOWEL_CHANGE"
+  status                 String    @default("PENDING") // PENDING | IN_PROGRESS | DONE
+  linenChanged           Boolean   @default(false)
+  towelChanged           Boolean   @default(false)
+  complaintText          String?
+  raisedMaintenanceJobId String?
+  notes                  String?
+  assignedToStaffId      String?
+  clientUpdatedAt        DateTime? // when the offline device made the change
+  serverStatusChangedAt  DateTime? // authoritative last status change; conflict = clientUpdatedAt < this ⇒ reject stale offline write
+  updatedAt              DateTime  @updatedAt
+  createdAt              DateTime  @default(now())
+
+  @@index([propertyId, status])
+  @@index([roomId])
+}
+
+enum MaintenancePriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+model MaintenanceJob {
+  id           String              @id @default(cuid())
+  propertyId   String
+  roomId       String?
+  category     String // AC, ELECTRICAL, PLUMBING, FURNITURE, PAINTING, PEST_CONTROL
+  description  String
+  status       String              @default("OPEN") // OPEN | IN_PROGRESS | CLOSED
+  priority     MaintenancePriority @default(NORMAL)
+  isPreventive Boolean             @default(false)
+  scheduledFor DateTime?           @db.Date
+  recurrence   String? // cron-ish for preventive
+  roomBlockId  String? // links to RoomBlock while out of service
+  costPaise    Int?
+  reportedById String?
+  closedAt     DateTime?
+  createdAt    DateTime            @default(now())
+
+  @@index([propertyId, status])
+  @@index([scheduledFor])
+}
+
+// ==================== 12 COMMUNICATIONS ======================================
+
+enum Channel {
+  WHATSAPP
+  EMAIL
+  SMS
+}
+
+enum AutomationCategory {
+  BEFORE_ARRIVAL
+  DURING_STAY
+  AFTER_CHECKOUT
+  MARKETING
+}
+
+enum ConsentStatus {
+  GRANTED
+  OPTED_OUT
+}
+
+model MessageTemplate {
+  id                 String  @id @default(cuid())
+  orgId              String
+  key                String // "BOOKING_CONFIRMATION", "CHECKOUT_THANKYOU"...
+  channel            Channel
+  language           String  @default("en")
+  body               String
+  providerTemplateId String? // approved template id (WhatsApp HSM / DLT)
+  isActive           Boolean @default(true)
+
+  @@unique([orgId, key, channel, language])
+}
+
+model MessageAutomation {
+  id                    String             @id @default(cuid())
+  orgId                 String
+  category              AutomationCategory
+  triggerEvent          String? // domain event type, OR
+  scheduleOffsetMinutes Int? // relative to check-in/out (property-local)
+  templateKey           String
+  channel               Channel
+  audienceFilter        Json?
+  isActive              Boolean            @default(true)
+
+  @@index([orgId, category])
+}
+
+model Campaign {
+  id           String    @id @default(cuid())
+  orgId        String
+  templateKey  String
+  channel      Channel
+  segmentRef   String? // GuestSegment id or rule
+  status       String    @default("DRAFT") // DRAFT | APPROVED | SENT
+  approvedById String?
+  scheduledAt  DateTime?
+  createdAt    DateTime  @default(now())
+}
+
+model CommunicationConsent {
+  id              String        @id @default(cuid())
+  guestId         String
+  channel         Channel
+  marketingStatus ConsentStatus @default(GRANTED)
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([guestId, channel])
+}
+
+model MessagingAccount {
+  id       String  @id @default(cuid())
+  orgId    String
+  channel  Channel
+  provider String // "meta_cloud" | "gupshup" | "twilio" | "msg91" | "resend"…
+  mode     String  @default("sandbox") // sandbox | live
+  config   Json
+
+  @@unique([orgId, channel, provider])
+}
+
+model MessageLog {
+  id               String              @id @default(cuid())
+  propertyId       String?
+  guestId          String?
+  channel          Channel
+  category         AutomationCategory?
+  templateKey      String?
+  toAddress        String
+  status           String              @default("QUEUED") // QUEUED | SENT | DELIVERED | READ | FAILED
+  providerRef      String?
+  error            String?
+  attempts         Int                 @default(0)
+  scheduledFor     DateTime?
+  deadLetteredAt   DateTime?
+  triggeredByEvent String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  @@index([guestId])
+  @@index([status])
+  @@index([propertyId, createdAt]) // property-scoped, paginated message history
+}
+
+model Feedback {
+  id             String   @id @default(cuid())
+  propertyId     String
+  guestId        String
+  guest          Guest    @relation(fields: [guestId], references: [id])
+  rating         Int?
+  comment        String?
+  sentiment      String? // AI-labelled: POSITIVE | NEUTRAL | NEGATIVE
+  sentimentScore Float?
+  source         String? // "post-checkout", "google"
+  createdAt      DateTime @default(now())
+
+  @@index([guestId])
+  @@index([propertyId, createdAt])
+}
+
+// ==================== 13 CHANNELS / OTA ======================================
+
+model ChannelAccount {
+  id             String            @id @default(cuid())
+  propertyId     String
+  provider       String // "booking_com", "agoda", "channel_manager_x"
+  isActive       Boolean           @default(false) // live only after certification
+  certifiedAt    DateTime?
+  credentialsRef String? // secret-store reference (never the secret itself)
+  config         Json
+  lastSyncAt     DateTime?
+  mappings       RoomTypeMapping[]
+  syncLogs       ChannelSyncLog[]
+
+  @@unique([propertyId, provider])
+}
+
+model RoomTypeMapping {
+  id               String         @id @default(cuid())
+  channelAccountId String
+  channelAccount   ChannelAccount @relation(fields: [channelAccountId], references: [id])
+  roomCategoryId   String
+  externalRoomType String
+  externalRatePlan String?
+
+  @@unique([channelAccountId, externalRoomType])
+}
+
+model ChannelSyncLog {
+  id               String         @id @default(cuid())
+  channelAccountId String
+  channelAccount   ChannelAccount @relation(fields: [channelAccountId], references: [id])
+  direction        String // IN | OUT
+  type             String // "pushAvailability" | "pullReservation"…
+  status           String         @default("PENDING") // PENDING | OK | FAILED | DEAD_LETTER
+  externalId       String?
+  error            String?
+  createdAt        DateTime       @default(now())
+
+  @@index([channelAccountId, createdAt])
+}
+
+// ==================== 14 ANALYTICS / NIGHT AUDIT =============================
+
+// Immutable per-property daily snapshot produced by night audit.
+model DailyStatSnapshot {
+  id                  String   @id @default(cuid())
+  propertyId          String
+  businessDate        DateTime @db.Date
+  availableRoomNights Int
+  occupiedRoomNights  Int
+  roomRevenuePaise    BigInt
+  totalRevenuePaise   BigInt
+  expensePaise        BigInt
+  adrPaise            Int
+  revparPaise         Int
+  occupancyBps        Int // basis points
+  createdAt           DateTime @default(now())
+
+  @@unique([propertyId, businessDate])
+}
+
+model NightAuditRun {
+  id           String    @id @default(cuid())
+  propertyId   String
+  businessDate DateTime  @db.Date
+  status       String    @default("PENDING") // PENDING | RUNNING | COMPLETED | FAILED
+  startedAt    DateTime?
+  completedAt  DateTime?
+
+  @@unique([propertyId, businessDate])
+}
+
+// ==================== 15 SEARCH / EXPORT =====================================
+
+model ExportJob {
+  id          String   @id @default(cuid())
+  userId      String
+  kind        String // "guests" | "reservations" | "invoices" | report id
+  format      String // "xlsx" | "pdf" | "csv"
+  filter      Json
+  status      String   @default("QUEUED") // QUEUED | RUNNING | DONE | FAILED
+  objectKey   String?
+  rowCount    Int?
+  includesPii Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+// ==================== 18 AI ==================================================
+
+model AiInteractionLog {
+  id            String   @id @default(cuid())
+  userId        String?
+  feature       String // "chatbot" | "nl-search" | "forecast"…
+  provider      String // "mock" | "anthropic" | "openai"
+  inputRedacted Json?
+  outputRef     String?
+  createdAt     DateTime @default(now())
+
+  @@index([feature, createdAt])
+}
+
+model GuestSegment {
+  id        String   @id @default(cuid())
+  orgId     String
+  name      String
+  ruleJson  Json
+  guestIds  String[] // cached membership
+  updatedAt DateTime @updatedAt
+
+  @@index([orgId])
+}
+
+// ==================== 19 POS ================================================
+
+model PosOutlet {
+  id            String     @id @default(cuid())
+  propertyId    String
+  name          String // "Restaurant", "Room Service", "Bar"
+  defaultGstBps Int        @default(500)
+  menuItems     MenuItem[]
+  orders        PosOrder[]
+
+  @@unique([propertyId, name])
+}
+
+model MenuItem {
+  id         String    @id @default(cuid())
+  propertyId String
+  outletId   String
+  outlet     PosOutlet @relation(fields: [outletId], references: [id])
+  name       String
+  ratePaise  Int
+  hsnSac     String?
+  gstBps     Int       @default(500)
+  isActive   Boolean   @default(true)
+
+  @@index([outletId])
+}
+
+model PosOrder {
+  id                  String         @id @default(cuid())
+  propertyId          String
+  outletId            String
+  outlet              PosOutlet      @relation(fields: [outletId], references: [id])
+  code                String // gap-free per property (KOT/order no.)
+  reservationId       String? // post to folio if in-house
+  reservation         Reservation?   @relation(fields: [reservationId], references: [id])
+  status              String         @default("OPEN") // OPEN | SETTLED | VOID
+  items               PosOrderItem[]
+  subtotalPaise       Int            @default(0)
+  discountPaise       Int            @default(0)
+  cgstPaise           Int            @default(0)
+  sgstPaise           Int            @default(0)
+  igstPaise           Int            @default(0)
+  roundOffPaise       Int            @default(0)
+  totalPaise          Int            @default(0)
+  settlementInvoiceId String?
+  settlementPaymentId String?
+  settledAt           DateTime?
+  settledById         String?
+  createdAt           DateTime       @default(now())
+
+  @@unique([propertyId, code])
+  @@index([propertyId, status])
+}
+
+model PosOrderItem {
+  id          String   @id @default(cuid())
+  orderId     String
+  order       PosOrder @relation(fields: [orderId], references: [id])
+  menuItemId  String?
+  name        String
+  quantity    Int
+  unitPaise   Int
+  amountPaise Int
+  hsnSac      String?
+  gstBps      Int      @default(500)
+}
+
+// ==================== 20 INVENTORY (STOCK) ==================================
+
+model InventoryItem {
+  id               String              @id @default(cuid())
+  propertyId       String
+  name             String
+  unit             String
+  category         String
+  onHand           Float               @default(0) // cached; reconciled from movements
+  reorderLevel     Float               @default(0)
+  lastCostPaise    Int?
+  movements        InventoryMovement[]
+  recipeComponents RecipeComponent[]
+
+  @@unique([propertyId, name])
+}
+
+model InventoryMovement {
+  id        String        @id @default(cuid())
+  itemId    String
+  item      InventoryItem @relation(fields: [itemId], references: [id])
+  delta     Float // + purchase, - consumption
+  reason    String // PURCHASE | CONSUMPTION | ADJUST
+  refType   String? // "PosOrder", "Expense"
+  refId     String?
+  createdAt DateTime      @default(now())
+
+  @@unique([refType, refId, itemId]) // idempotent consumption: a redelivered PosOrderSettled deducts once
+  @@index([itemId])
+}
+
+// Maps a POS menu item to the stock it consumes (19 PosOrderSettled → 20 deduction).
+model RecipeComponent {
+  id         String        @id @default(cuid())
+  menuItemId String
+  itemId     String
+  item       InventoryItem @relation(fields: [itemId], references: [id])
+  qtyPerUnit Float
+
+  @@unique([menuItemId, itemId])
+}
+
+// ==================== 21 helpers already above (Payroll) =====================
+// ==================== 22 ACCOUNTING SYNC ====================================
+
+model AccountingConfig {
+  id             String  @id @default(cuid())
+  orgId          String
+  provider       String // "tally" | "zoho"
+  mode           String  @default("sandbox") // sandbox | live
+  credentialsRef String?
+  glMappings     Json?
+
+  @@unique([orgId, provider])
+}
+
+model AccountingSyncLog {
+  id         String   @id @default(cuid())
+  provider   String // "tally" | "zoho"
+  entityType String // "Invoice" | "Expense" | "Payment" | "Payroll"
+  entityId   String
+  status     String   @default("PENDING") // PENDING | SANDBOX | SYNCED | FAILED
+  externalId String?
+  error      String?
+  createdAt  DateTime @default(now())
+
+  @@unique([provider, entityType, entityId])
+}
+
+// ==================== 23 BOOKING ENGINE =====================================
+
+model BookingEngineConfig {
+  id                        String   @id @default(cuid())
+  propertyId                String   @unique
+  slug                      String   @unique
+  onlineSellableCategoryIds String[]
+  depositPolicy             String   @default("PCT") // FULL | PCT | FIXED
+  depositValue              Int      @default(2000) // % (bps of 100) or paise, per policy
+  checkoutTtlMin            Int      @default(15)
+  minLos                    Int      @default(1)
+  maxLos                    Int?
+  leadTimeDays              Int      @default(0)
+  maxRoomsPerBooking        Int      @default(5)
+  cancelWindowHours         Int      @default(48)
+  gatewayProvider           String?
+  isPublished               Boolean  @default(false)
+}
+
+model BookingEngineOrder {
+  id             String    @id @default(cuid())
+  propertyId     String
+  reservationId  String?
+  gatewayOrderId String    @unique
+  amountPaise    Int
+  status         String    @default("CREATED") // CREATED | PAID | FAILED | EXPIRED
+  idempotencyKey String    @unique
+  consentVersion String?
+  consentAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([propertyId, status])
+}
+
+// ==================== 24 DYNAMIC PRICING ====================================
+
+enum DynamicRateStatus {
+  SUGGESTED
+  APPROVED
+  REJECTED
+}
+
+model RatePlan {
+  id             String       @id @default(cuid())
+  roomCategoryId String
+  roomCategory   RoomCategory @relation(fields: [roomCategoryId], references: [id])
+  name           String
+  ratePaise      Int
+
+  @@index([roomCategoryId])
+}
+
+model DynamicRate {
+  id             String            @id @default(cuid())
+  propertyId     String
+  roomCategoryId String
+  date           DateTime          @db.Date
+  suggestedPaise Int
+  appliedPaise   Int?
+  status         DynamicRateStatus @default(SUGGESTED)
+  approvedById   String?
+  reason         String?
+
+  @@unique([roomCategoryId, date])
+}
+
+// ==================== 25 CORPORATE CRM ======================================
+
+model Corporate {
+  id               String           @id @default(cuid())
+  orgId            String
+  name             String
+  gstin            String?
+  contactName      String?
+  contactPhone     String?
+  contactEmail     String?
+  creditLimitPaise BigInt           @default(0)
+  receivablePaise  BigInt           @default(0) // cached; written by 06.reserveCredit/releaseCredit under row lock
+  reservations     Reservation[]
+  negotiatedRates  NegotiatedRate[]
+  createdAt        DateTime         @default(now())
+
+  @@index([orgId])
+}
+
+model NegotiatedRate {
+  id             String    @id @default(cuid())
+  corporateId    String
+  corporate      Corporate @relation(fields: [corporateId], references: [id])
+  roomCategoryId String
+  ratePaise      Int
+
+  @@unique([corporateId, roomCategoryId])
+}
+
+model TravelAgent {
+  id            String        @id @default(cuid())
+  orgId         String
+  name          String
+  commissionBps Int           @default(0)
+  contactPhone  String?
+  reservations  Reservation[]
+  createdAt     DateTime      @default(now())
+
+  @@index([orgId])
+}

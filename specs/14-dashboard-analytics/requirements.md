@@ -1,0 +1,44 @@
+# 14 · Dashboard & Analytics — Requirements
+
+> Source: client doc §13. Read with `.claude/rules/reporting.md` (canonical metric definitions), `.claude/rules/business-rules.md` §14–15 (night audit, closed-day immutability), `.claude/rules/non-functional-requirements.md`, `.claude/rules/mobile-first.md` (LISTEN/NOTIFY→SSE), `prisma/schema.prisma` (§14 slice). Depth bar: `specs/03-reservations/*`.
+
+## Purpose & scope
+Give owners/managers real-time business insight per property and consolidated across properties, and run the nightly **night-audit** close that produces the immutable daily record every history/report reads. This module is the **single home of metric computation** (`reporting.md`): occupancy, ADR/ARR, RevPAR, revenue, expense, profit are defined once here and reused everywhere — no screen recomputes them.
+
+**In scope:** live dashboard tiles for the open business date (today's check-ins/outs, vacant/occupied rooms, revenue today, expenses today, pending payments, advance bookings, cancelled bookings — per property and consolidated); the canonical metric library (occupancy%/ADR/RevPAR/revenue/expense/profit) reused by `08-profit-reports`; the per-property **night-audit run** (orchestrate → post room-night charges via 06, flag no-shows via 03, compute + persist an immutable `DailyStatSnapshot`, roll the business date, lock the closed day, emit `NightAuditCompleted`); trends (daily & monthly occupancy and revenue, cancellations, advance-booking pace); segmented views (top corporate clients, travel agents, repeat guests); realtime push to dashboards via Postgres `LISTEN/NOTIFY` → SSE.
+
+**Out of scope:** folio charge-posting mechanics & GST math (06 — this module *calls* `06.postRoomCharges(propertyId, businessDate)`); no-show state transition (03 — this module *calls* `03.markNoShows(propertyId, businessDate)`); expense entry/approval (07); profit-report screens (08 — reuses this module's metric library and snapshots); GST invoice generation (06); search & export of any of this data (15).
+
+## Dependencies
+- **Tier 0:** 00-platform (auth, tenancy/property scope, domain events + outbox, audit, pg-boss jobs, LISTEN/NOTIFY→SSE), 01-property-management (property + timezone + sellable-room count), 02-room-inventory (room status, maintenance/OOO blocks).
+- **Tier 1–2:** 03-reservations (reservations, allocations, `markNoShows(propertyId, businessDate)`), 06-billing-payments (`postRoomCharges(propertyId, businessDate)`, folio lines, payments, balances), 07-expense-management (approved expenses), 05-guest-history (`GuestStatsSnapshot` for repeat guests), 25-corporate-crm (`Corporate`, `TravelAgent` for segments).
+- **Downstream consumers:** 08-profit-reports (reuses metric library + snapshots), 15-search-export, 12-communications (consumes `PaymentDueDetected`, `NightAuditCompleted`).
+
+## Data owned
+`DailyStatSnapshot`, `NightAuditRun`. **Reads (through owning modules' query layers):** `Room`, `RoomCategory`, `Reservation`, `RoomAllocation`, `Folio`, `FolioLine`, `Payment`, `Expense`, `Corporate`, `TravelAgent`, `GuestStatsSnapshot`. This module posts nothing to the folio itself.
+
+## Functional requirements (EARS)
+- **FR-1 (ubiquitous):** Compute occupancy%, ADR/ARR, RevPAR, revenue, expense, and profit **exactly once** in `features/analytics/domain`, per `reporting.md`; every dashboard, trend, and downstream report (08) reads these functions — no divergent recomputation (`business-rules.md` §21).
+- **FR-2 (ubiquitous):** Present the live dashboard for the **open business date**, per property and consolidated over the user's property scope: check-ins (expected vs arrived), check-outs (expected vs done), vacant/occupied/maintenance room counts, revenue today, expenses today, pending payments (balance due), advance bookings, cancelled bookings.
+- **FR-3 (state):** While a business date is **open**, tiles read live state; while a date is **closed**, historical/trend tiles read the immutable `DailyStatSnapshot` for that date (`business-rules.md` §15).
+- **FR-4 (event):** When a tile-affecting event is received (`RoomStatusChanged`, `ReservationCreated/Modified/Cancelled`, `GuestCheckedIn/Out`, `FolioCharged`, `PaymentReceived`, `ExpenseRecorded`), push the updated tile to subscribed dashboards within **2s** via `LISTEN/NOTIFY`→SSE, filtered to the subscriber's property scope and permissions.
+- **FR-5 (event):** When a property's scheduled night-audit time is reached (pg-boss) **or** an authorized manual run is triggered, start a `NightAuditRun` for that property's open business date.
+- **FR-6 (event):** During a night-audit run, in order: (a) call `06.postRoomCharges(propertyId, businessDate)` for in-house reservations, (b) call `03.markNoShows(propertyId, businessDate)`, (c) compute and persist a `DailyStatSnapshot` for the business date.
+- **FR-7 (ubiquitous):** A `DailyStatSnapshot` is **immutable** and unique per `(propertyId, businessDate)`; a run for an already-closed date is a **no-op** returning the existing snapshot (idempotent).
+- **FR-8 (event):** When the snapshot is persisted, roll the property business date forward by one property-local day and **lock** the closed date against back-dated edits except via an audited adjustment.
+- **FR-9 (event):** When a night-audit run completes, emit `NightAuditCompleted` (payload: propertyId, businessDate, stats) and write an audit record (`business-rules.md` §20).
+- **FR-10 (unwanted):** If a night-audit run fails part-way, mark the run `FAILED`, emit **no** completion event, leave the business date unchanged, and permit a safe re-run. Because `NightAuditRun` is unique per `(propertyId, businessDate)`, a re-run **upserts/resets that same row back to `RUNNING`** rather than inserting a second (the unique key blocks a duplicate insert); every downstream call is idempotent.
+- **FR-11 (ubiquitous):** Compute ADR/RevPAR/occupancy from **available room-nights** (sellable rooms minus maintenance/out-of-order blocks) and **occupied room-nights** (in-house/checked-out; excludes cancelled/no-show), **room revenue only** (excludes F&B/other charges and tax) per `reporting.md`.
+- **FR-12 (ubiquitous):** Provide trends — daily & monthly occupancy and revenue, cancellations, advance-booking pace — from snapshots for closed dates and live for the open date.
+- **FR-13 (ubiquitous):** Provide segmented views — top corporate clients, travel agents, and repeat guests — ranked by revenue **and** room-nights over a date range (`reporting.md` §Segmented views). Segments are **computed live** over the requested range from the owning query layers (06 revenue, 05 `GuestStatsSnapshot`, 25 `Corporate`/`TravelAgent`); they are **not** part of the immutable `DailyStatSnapshot` (which carries no segment rollup), so the closed-date immutability guarantee applies to day metrics only, not to segment rankings.
+- **FR-14 (unwanted):** If a user lacks `report:view-financial`, exclude all financial tiles/trends (revenue, expenses, pending payments, ADR, RevPAR, top corporates/agents) server-side; operational tiles require `report:view-operational`.
+- **FR-15 (state):** While consolidating multiple properties, aggregate only properties in the user's scope; a property with an **open** business date contributes live figures, a **closed** one contributes its snapshot.
+- **FR-16 (unwanted):** If two night-audit runs for the same `(propertyId, businessDate)` are triggered concurrently, exactly one proceeds (unique constraint + advisory lock); the other no-ops.
+- **FR-17 (event):** When the audit (or a live check) detects an in-house/checked-out folio with a balance due, emit `PaymentDueDetected` (consumed by 12 reminders).
+- **FR-18 (ubiquitous):** Every read is property-scoped and authorized server-side; the night-audit run and each snapshot are audited; money is stored/returned in **paise** and percentages in **basis points** internally, formatted only at the edge (`data-model.md`, `reporting.md`).
+
+## Non-functional (cited)
+Live dashboard update latency (event→screen) **< 2s**; snapshot reads are O(1) per `(property, date)`; **trend** queries read those O(1) snapshots for closed dates; **segment** queries are computed live over the range (not snapshotted) and stay in budget on 10+ properties / years of history via indexed aggregation + pagination; night-audit run bounded and idempotent under retry. (`rules/non-functional-requirements.md` — live update, scale, reliability.)
+
+## Business rules referenced
+`business-rules.md` §14 (night audit: post room charges, roll business date, snapshot, lock day), §15 (closed dates = immutable snapshots; live dashboards = current state), §2 (availability truth for occupancy), §6 (balance derivation for pending payments), §20–21 (validate→authorize→txn→event→audit; no divergent client recomputation). `reporting.md` for every metric definition.

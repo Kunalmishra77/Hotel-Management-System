@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Read",
+      "Edit",
+      "Write",
+      "Bash(npm run typecheck)",
+      "Bash(npm run lint)",
+      "Bash(npm run test:*)",
+      "Bash(npm run db:*)",
+      "Bash(npx prisma *)",
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "Bash(git add:*)",
+      "Bash(git log:*)",
+      "Bash(exit 1)",
+      "Bash(MEM=\"C:/Users/Dell/.claude/projects/c--Users-Dell-Documents-VSCODE-PMS/memory\" *)",
+      "Read(//c/Users/Dell/.claude/projects/c--Users-Dell-Documents-VSCODE-PMS/**)",
+      "Bash(npm --version)",
+      "Bash(psql --version)",
+      "Bash(docker --version)",
+      "Bash(rmdir docs/architecture/diagrams)",
+      "Bash(awk '{print $2}')",
+      "Bash(awk '/^model /{name=$2; hasid=0} /@id/{hasid=1} /^}/{if\\(name!=\"\"\\){if\\(hasid==0\\) print \"  MISSING @id: \" name; name=\"\"}}' prisma/schema.prisma)",
+      "Bash(awk '{print $1}')",
+      "Bash(read t *)",
+      "Bash(grep -qE '^model __TRACKED_VAR__ ' prisma/schema.prisma)",
+      "Bash(awk '/^model /{n=$2;h=0} /@id/{h=1} /^}/{if\\(n!=\"\"\\){if\\(h==0\\)print \"  MISSING @id: \"n; n=\"\"}}' prisma/schema.prisma)",
+      "Bash(export DATABASE_URL=\"postgresql://u:p@localhost:5432/db?schema=public\")",
+      "Bash(npx --yes prisma@6 validate --schema prisma/schema.prisma)",
+      "Bash(npx --yes prisma@6 format --schema prisma/schema.prisma)"
+    ],
+    "deny": [
+      "Read(.env)",
+      "Read(.env.local)",
+      "Read(./prisma/*.db)"
+    ]
+  }
+}
