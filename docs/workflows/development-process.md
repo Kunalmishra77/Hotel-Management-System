@@ -1,6 +1,6 @@
 # Development Process (spec-driven, automated)
 
-How work flows from idea to done in this repo. This is the process the 26 modules are built through — documented so any developer or agent follows the same path. **No feature code exists before an approved `tasks.md`.**
+How work flows from idea to done in this repo. This is the process the 27 modules are built through — documented so any developer or agent follows the same path. **No feature code exists before an approved `tasks.md`.**
 
 ## The pipeline
 ```
@@ -27,13 +27,13 @@ Tier 3  08-profit · 14-analytics · 15-search-export
 Tier 4  12-communications · 18-ai
 Tier 5  13-ota · 23-booking-engine · 24-dynamic-pricing
 Tier 6  19-pos · 20-inventory · 21-payroll · 22-accounting-sync
-Tier 7  25-corporate-crm
+Tier 7  25-corporate-crm · 26-data-onboarding (go-live import)
 ```
-A module builds only after its dependencies are green. Its **task T-1** folds that module's [schema deltas](../architecture/schema-deltas.md) into `prisma/schema.prisma` via a migration.
+A module builds only after its dependencies are green. Its **task T-1** materializes that module's slice of the **already-finalized** [`prisma/schema.prisma`](../../prisma/schema.prisma) via a migration (all [schema deltas](../architecture/schema-deltas.md) are folded in; T-1 also adds the DB-level constraints in [database-setup.md](../architecture/database-setup.md)).
 
 ## Per-module loop (when implementation begins)
 1. Load only: `CLAUDE.md` + relevant `.claude/rules/*` + this module's spec + its schema slice (token discipline).
-2. Fold schema deltas + migration (T-1).
+2. Materialize the module's schema slice + migration + DB constraints (T-1) — the deltas are already in the canonical schema.
 3. **Test-first**: write the failing test for a `tasks.md` item (mapped to its AC/FR) → watch it fail → minimal code → green → refactor.
 4. Enforce non-negotiables every task: money in paise, server-side authz, event+audit on mutations, PII rules, integrations sandbox-by-default.
 5. Check a `tasks.md` box only when it passes the [Definition of Done](../../.claude/rules/definition-of-done.md).

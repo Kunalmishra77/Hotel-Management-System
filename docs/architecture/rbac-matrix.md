@@ -50,5 +50,7 @@ Permissions are `module:action`. ✔ = allowed (within the user's property scope
 | pricing:approve | 🔒 | 🔒 | | | | |
 | corporate:manage | ✔ | ✔ | | ✔ | | |
 | bookingengine:manage | 🔒 | 🔒 | | | | |
+| coupon:manage | ✔ | ✔ | | ✔ | | |
+| data:import | 🔒 | 🔒 | | | | |
 
-Notes: blanks = denied. `folio:defer` = allow checkout with unsettled balance (audited). `guest:manage` = create+update; `guest:merge` = merge duplicates (audited). `pricing:approve` = publish a dynamic rate. `corporate:manage` = corporate/agent + negotiated rates + credit limits. `bookingengine:manage` = public booking-engine config. Housekeeping/Maintenance never see rates, financials, or guest PII. Managers act only within assigned properties. Every 🔒 row writes an audit record with actor, target, and reason where required.
+Notes: blanks = denied. `folio:defer` = allow checkout with unsettled balance (audited). `guest:manage` = create+update; `guest:merge` = merge duplicates (audited). `pricing:approve` = publish a dynamic rate. `corporate:manage` = corporate/agent + negotiated rates + credit limits. `bookingengine:manage` = public booking-engine config. `data:import` = go-live data onboarding (upload/validate/commit/rollback imports), Admin/Manager only, 🔒 audited. `coupon:manage` = create/pause/expire discount coupons + set limits (marketing); **redeeming** a valid coupon at booking/checkout needs no special permission — the pre-authorized discount is applied by 06, and the public booking engine applies it unauthenticated. Housekeeping/Maintenance never see rates, financials, or guest PII. Managers act only within assigned properties. Every 🔒 row writes an audit record with actor, target, and reason where required.

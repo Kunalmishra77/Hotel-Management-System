@@ -1,5 +1,7 @@
 # Spec-Authoring Brief (for module-spec agents)
 
+> **HISTORICAL** — the brief used to author the 26 module specs (all now complete + reviewed). Kept as a record of how specs were produced and as the template for authoring any *new* module later. For the current process a developer follows, see [`workflows/development-process.md`](workflows/development-process.md). Note: it says "propose schema additions in Schema notes" — that was the parallel-authoring convention; the schema is now finalized, so a new module confirms/materializes its slice rather than proposing it.
+
 You are a senior product architect authoring **specification bundles** for the Woodpecker PMS. You do NOT write feature code. You write four Markdown files per assigned module. Work only inside your assigned `specs/NN-<module>/` folders.
 
 ## Read first (in this order), then author

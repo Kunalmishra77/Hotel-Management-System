@@ -39,9 +39,18 @@ The money core — highest test rigor. Test-first for ALL domain fns. Each ends 
 - [ ] T-27 Take-payment split flow (remaining→0 to confirm). (AC-8)
 - [ ] T-28 GST invoice preview + download/WhatsApp/email. (AC-16)
 
+## Coupons (§11)
+- [ ] T-C1 Confirm `Coupon`/`CouponRedemption` slice (**present in canonical schema**); migration + indexes (`@@unique([orgId,code])`, `@@unique([couponId,reservationId])`, `@@index([couponId,guestId])`). (FR-27)
+- [ ] T-C2 Domain `computeCouponDiscount` (percent+cap vs fixed; min-booking gate) — tests first. (FR-27, AC-27)
+- [ ] T-C3 `createCoupon/pauseCoupon/expireCoupon` (`coupon:manage`) + `validateCoupon` (no side effects). (FR-27, AC-27/31)
+- [ ] T-C4 `applyCoupon` ATOMIC (row-lock coupon → re-check → increment `timesUsed` → `CouponRedemption` → pre-tax `DISCOUNT` line + GST recompute → `CouponRedeemed`). (FR-28, AC-28)
+- [ ] T-C5 Concurrency test: last-use coupon applied by two guests → exactly one wins, other `COUPON_EXHAUSTED`. (FR-28, AC-29)
+- [ ] T-C6 Invalid/expired/ineligible/per-guest-limit/min-booking rejections. (FR-29, AC-30)
+
 ## E2E
 - [ ] T-29 Journey: charge → discount → split payment → generate GST invoice → verify totals + numbering. (AC-3/6/8/13/16)
 - [ ] T-29b Journey: walk-in POS → `settlePosSaleDirect` → verify `DIRECT_SALE` folio, CGST+SGST, gap-free invoice, `{invoiceId, paymentId}`. (AC-26)
+- [ ] T-29c Journey: create coupon → redeem at checkout → verify DISCOUNT line + GST recompute + `timesUsed`++ + `CouponRedeemed`. (AC-27/28)
 
 ## Done
 - [ ] T-30 `/review-module` clean; every AC → green test; reconciliation test passes; DoD satisfied. Money module — no `PLAUSIBLE`-only coverage; all money paths CONFIRMED by tests.

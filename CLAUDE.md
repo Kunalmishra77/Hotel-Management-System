@@ -23,7 +23,7 @@ Steering rules are small and always-true. Specs are large and loaded on demand. 
 | Rule | Governs |
 |---|---|
 | `product.md` | Who this is for, the outcomes, the client |
-| `scope.md` | The 26 modules; what is in / out |
+| `scope.md` | The 27 modules; what is in / out |
 | `architecture.md` | Layers, module boundaries, dependency graph, folder map |
 | `tech-stack.md` | Approved libraries and versions; what not to add |
 | `data-model.md` | How to model data; Prisma conventions; money & time rules |
@@ -41,10 +41,11 @@ Steering rules are small and always-true. Specs are large and loaded on demand. 
 | `testing-strategy.md` | Test pyramid, what to test, coverage gates |
 | `non-functional-requirements.md` | Performance/latency/reliability budgets |
 | `definition-of-done.md` | The checklist every task must pass |
+| `glossary.md` | Ubiquitous language — the exact term for each concept |
 
 ## Non-negotiables (violating any of these is a bug)
 
-1. **Money** is never a JS `number`. Use integer **minor units (paise)** in the DB and `Decimal.js` in logic. See `data-model.md`.
+1. **Money** is never a JS `number`. Integer **paise** in the DB (**`BigInt` for accumulating totals**, `Int` for small bounded values) + `Decimal.js` in logic. See `data-model.md`.
 2. **Time**: store UTC; the business day / night-audit boundary is property-local. See `business-rules.md`.
 3. **Multi-property tenancy**: every operational row carries `propertyId`; every query is property-scoped. See `architecture.md`.
 4. **Availability** is enforced in a transaction — overbooking is impossible by construction. See `business-rules.md`.

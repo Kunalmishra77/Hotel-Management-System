@@ -29,6 +29,7 @@ Public + payment + no-overbooking. Test-first for domain; security tests for pub
 - [ ] T-16 Signed-link status + windowed cancel → 03 cancel + 06 refund. (FR-16, AC-15)
 - [ ] T-17 Public responses expose no other-guest PII / internal room numbers. (FR-20, AC-2)
 - [ ] T-17b Staff `BookingEngineConfig` edit/publish gated on `bookingengine:manage` (🔒, audited); public flow stays unauthenticated. (FR-17, AC-19)
+- [ ] T-17c Coupon at checkout: `06.validateCoupon` preview (recompute total+deposit, no consume); `06.applyCoupon({reservationId})` inside the confirm tx (redeem once); abandoned checkout redeems nothing; invalid coupon → reason + proceed without. (FR-23/24, AC-20)
 
 ## UI (public, mobile-first)
 - [ ] T-18 Search + results (GST-inclusive). (AC-1)

@@ -25,3 +25,9 @@ Roles per `rules/user-roles.md`.
 ## US-4 — Guardrails / permission
 - **AC-6:** Given negative-stock disallowed, when a consumption would make on-hand negative, then flagged `NEGATIVE_STOCK` (not silent). (FR-5)
 - **AC-7:** Given a user without `inventory:manage`, when mutating, then `FORBIDDEN`. (FR-6)
+
+## US-5 — Edge & idempotency
+- **AC-8:** Given the **same `PosOrderSettled(orderId)`** is delivered twice, when consumed, then stock deducts **exactly once** — the `@@unique([refType, refId, itemId])` constraint makes the redelivery a no-op (no double-deduct). (FR-3)
+- **AC-9:** Given a physical stock-take differs from `onHand`, when U-STORE records an **ADJUST** movement, then `onHand` reconciles to the counted quantity and the adjustment is audited. (FR-2)
+- **AC-10:** Given a settled POS order for a menu item with **no `RecipeComponent`**, when consumed, then that item is **skipped with a flagged note** (no crash); other items still deduct. (FR-3)
+- **AC-11:** Given a stock purchase referencing a 07 expense, when recorded, then a positive `InventoryMovement(refType="Expense")` posts and `onHand` increases. (FR-2)

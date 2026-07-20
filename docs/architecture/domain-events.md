@@ -26,6 +26,7 @@ Every business state change emits an immutable event (persisted to `DomainEvent`
 | `GuestStatsUpdated` | 05 | guestId | (profile cache) |
 | `FolioCharged` | 06/19 | folioId, type, amountPaise | 14, 05 |
 | `DiscountApplied` | 06 | folioId, amountPaise, by | audit, 14 |
+| `CouponRedeemed` | 06 | couponId, guestId, discountPaise, reservationId? | 14 analytics, 12 |
 | `PaymentReceived` | 06 | folioId, **settlementBatchId, tenders[]{mode,amountPaise}** | 12, 14, 22, 05, 25 |
 | `PaymentRefunded` | 06 | folioId, amountPaise | 12, 14, 22, 05 |
 | `InvoiceIssued` | 06 | invoiceId, number, type | 12, 22 |
@@ -58,6 +59,7 @@ Every business state change emits an immutable event (persisted to `DomainEvent`
 | `UserCreated` / `RoleAssigned` / `PermissionOverrideChanged` / `SecuritySettingsChanged` / `BackupTriggered` / `SessionForceLoggedOut` | 16/00 | id | audit |
 | `AccountingSynced` / `AccountingSyncFailed` | 22 | provider, entityType, entityId | admin alert |
 | `DataExported` | 15 | exportJobId | audit |
+| `ImportCommitted` / `ImportRolledBack` | 26 | batchId, kind, okCount | 14 analytics, audit |
 
 ## Guarantees
 - **Outbox**: event persisted in the same transaction as the state change → no lost events.

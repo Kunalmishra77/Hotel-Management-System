@@ -18,7 +18,7 @@ The shared visual/interaction foundation every module's UI inherits. This is a *
 | `forms/` | FormField, MoneyInput (paise-aware, ₹), DateRangePicker, OccupancyPicker, PhoneInput |
 | `tables/` | DataTable (paginated, cursor), collapses to cards on mobile |
 | `cards/` | ReservationCard, RoomChip, GuestCard, StatTile |
-| `charts/` | TrendChart, OccupancyBar (see [dataviz]) |
+| `charts/` | TrendChart, OccupancyBar (recharts; brand-neutral categorical palette, AA contrast) |
 | `layout/` | AppShell, BottomNav (permission-filtered), PropertySwitcher, PageHeader |
 | `mobile/` | ConnectivityBadge, SyncStatus, InstallPrompt, OfflineBanner (from 17) |
 

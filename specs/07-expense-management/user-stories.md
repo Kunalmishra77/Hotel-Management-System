@@ -25,3 +25,9 @@ Roles per `rules/user-roles.md`.
 ## US-4 — No double count with payroll
 - **AC-6:** Given payroll finalized for July (staff salary ₹50,481 via 21), when profit is computed, then salary cost comes from `PayrollFinalized`/`getFinalizedStaffCost`, not a hand-keyed STAFF expense; a STAFF-head entry is only non-payroll staff spend. (FR-6)
 - **AC-7:** Given U-ACC records a STAFF-head expense whose subCategory names "Salary"/"Wages"/"Payroll", when saving, then it is **rejected** (`VALIDATION_FAILED`); and a reconciliation test asserts no approved STAFF-head expense overlaps `getFinalizedStaffCost` for the same `(property, month)`. (FR-6)
+
+## US-5 — Edge & permission
+- **AC-8:** Given an expense with a **bill photo**, when saved, then the image is stored in access-controlled object storage and only `billObjectKey` is on the row (never the bytes, never in logs). (FR-3)
+- **AC-9:** Given a DRAFT expense, when U-ACC **rejects** it (`status = REJECTED`, audited), then it is excluded from all rollups and profit and cannot be silently un-rejected. (FR-4)
+- **AC-10:** Given U-REC (no `expense:create`), when recording an expense, then `FORBIDDEN`; expense entry is Accounts/Manager/Admin only per `rbac-matrix.md`. (FR-7)
+- **AC-11:** Given amount ≤ 0 or an invalid/missing head, when saved, then `VALIDATION_FAILED`; nothing persists. (FR-2)

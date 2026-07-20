@@ -12,11 +12,11 @@ These are invariants — always true, enforced in the domain layer and in DB con
 5. Every in-house reservation has exactly one **folio**. All charges (room, food, laundry, transfer, taxi, extra bed, POS, misc) and all payments post to the folio as immutable line items.
 6. **Balance = Σ charges + Σ taxes − Σ payments − Σ discounts.** Never stored as an editable field; always derived.
 7. Charges/payments are **append-only**. Corrections are reversing entries (never edit/delete a posted line). Full audit trail.
-8. **Money = integer minor units (paise)**; all arithmetic via Decimal.js; round half-up to the paisa at line level, per GST rules.
+8. **Money = integer minor units (paise)** — **`BigInt` for accumulating totals** (folio lines, payments, invoices, receivables, credit limits, snapshot totals), `Int` only for small bounded values (per-unit rates, tax components); see `data-model.md`. All arithmetic via Decimal.js; round half-up to the paisa at line level, per GST rules.
 9. Advance received reduces balance; balance due is shown at checkout and drives payment reminders.
 
 ## GST (India tax correctness)
-10. GST is computed per line by HSN/SAC and applicable rate. Intra-state → CGST+SGST (split equally); inter-state → IGST. Determined by property state vs place-of-supply.
+10. GST is computed per line by HSN/SAC and applicable rate. Intra-state → CGST+SGST (split equally); inter-state → IGST — determined by property state vs place-of-supply. **For accommodation and all on-premise / point-of-consumption services (room, food, laundry, airport-transfer, taxi, kitchen, extra-bed, POS), place-of-supply = the PROPERTY's state (IGST Act §12) — so these are ALWAYS CGST+SGST, regardless of the guest's billing/home state.** IGST applies only to a genuinely inter-state supply where place-of-supply law dictates it (rare here). Every GST-computing module (06 billing, 19 POS, 23 booking-engine) follows this — never derive GST type from the customer's bill-to state for on-premise supplies.
 11. Room tariff GST slab follows declared tariff bands (rate depends on per-night tariff). Config-driven, not hard-coded.
 12. A **GST tax invoice** carries: invoice no. (sequential, gap-free, per property/financial year), GSTIN (property + customer if B2B), HSN/SAC, taxable value, tax breakup, total in words.
 13. Invoice numbering is gap-free and never reused; issuance is transactional.

@@ -29,7 +29,13 @@
       "Bash(awk '/^model /{n=$2;h=0} /@id/{h=1} /^}/{if\\(n!=\"\"\\){if\\(h==0\\)print \"  MISSING @id: \"n; n=\"\"}}' prisma/schema.prisma)",
       "Bash(export DATABASE_URL=\"postgresql://u:p@localhost:5432/db?schema=public\")",
       "Bash(npx --yes prisma@6 validate --schema prisma/schema.prisma)",
-      "Bash(npx --yes prisma@6 format --schema prisma/schema.prisma)"
+      "Bash(npx --yes prisma@6 format --schema prisma/schema.prisma)",
+      "Bash(grep -c \"glossary.md\\\\` | Ubiquitous\" CLAUDE.md)",
+      "Bash(grep -niE 'arrival|§2|check-in date .{0,3}time|actual .{0,3}timestamp|checkInAt' specs/03-reservations/requirements.md)",
+      "Bash(npx --yes prisma@6 validate)",
+      "Bash(DATABASE_URL=\"postgresql://u:p@localhost:5432/db\" npx --yes prisma@6 validate)",
+      "Bash(git check-ignore *)",
+      "Bash(xargs echo \"staged files:\")"
     ],
     "deny": [
       "Read(.env)",

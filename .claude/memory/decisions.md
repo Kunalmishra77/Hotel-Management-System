@@ -13,6 +13,11 @@ Running log of settled decisions. Big architectural ones get a full ADR in `docs
 | 2026-07-18 | Provider abstraction, sandbox-by-default | ADR-0003 |
 | 2026-07-18 | Mobile-first PWA, no native apps | ADR-0004 |
 | 2026-07-18 | 26 module split (§19 expanded into full modules) | rules/scope.md |
+| 2026-07-20 | GST place-of-supply = property state for on-premise supplies (always CGST+SGST) | rules/business-rules.md §10 |
+| 2026-07-20 | Money: BigInt for accumulating totals, Int for bounded values | rules/data-model.md, business-rules §8 |
+| 2026-07-20 | DB-backed sessions + per-request `revokedAt` check (force-logout); `activePropertyId` in claims | rules/security.md, spec 00/16 |
+| 2026-07-20 | Independent 5-reviewer audit → 92 findings fixed; schema finalized to 66 models + `prisma validate` PASS | docs/handover-review-findings.md |
+| 2026-07-20 | Manual folder audit (Pass 3): §11 coupons built as a redeemable feature; per-property comms content; **new module 26 data-onboarding** (go-live import). Schema → **70 models / 27 modules** | docs/requirements-traceability.md, specs/26-data-onboarding |
 
 ## Open questions (need client/stakeholder input before their module is built)
 - Aadhaar full-storage flag: on or off for go-live? (compliance)

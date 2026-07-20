@@ -30,7 +30,7 @@ Principle: automations are **byproducts of events**, decoupled from write paths 
 | `ReservationCancelled` | 03 | 12 notice · 13 inventory release · 14 |
 | `GuestCheckedIn` | 03/04 | 12 welcome (Wi-Fi/house rules) · 10 housekeeping · 14 |
 | `GuestCheckedOut` | 03/06 | 12 thank-you + Google review + feedback form + invoice copy · 10 cleaning task · 14 · 05 history |
-| `FolioCharged` | 06/19 | 14 revenue · 22 accounting |
+| `FolioCharged` | 06/19 | 14 revenue · 05 history  (22 consumes `InvoiceIssued`, not raw charges) |
 | `PaymentReceived` | 06 | 12 receipt · 14 · 22 · 05 · 25 receivable |
 | `InvoiceIssued` | 06 | 12 invoice copy · 22 accounting |
 | `PaymentDueDetected` | 06/14 | 12 payment reminder |

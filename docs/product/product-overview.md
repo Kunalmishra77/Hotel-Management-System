@@ -8,8 +8,8 @@ Full steering: [`.claude/rules/product.md`](../../.claude/rules/product.md) · S
 ## Users
 Reception (highest-frequency — optimise for speed), Manager/Owner (occupancy/revenue/profit), Accounts (billing/expenses/exports), Housekeeping (mobile, offline), Maintenance, Administrator.
 
-## Scope — 26 modules, all built (nothing deferred)
-Property & room inventory · reservations · guest CRM + history · GST billing & folio · expenses · profit reports · staff & payroll · housekeeping · maintenance · communications (WhatsApp/Email/SMS) · OTA/channel integration · dashboard & analytics · fast search & export · access control & security · mobile PWA · AI features · POS · stock inventory · accounting sync · online booking engine · dynamic pricing · corporate CRM.
+## Scope — 27 modules, all built (nothing deferred)
+Property & room inventory · reservations · guest CRM + history · GST billing & folio · expenses · profit reports · staff & payroll · housekeeping · maintenance · communications (WhatsApp/Email/SMS) · OTA/channel integration · dashboard & analytics · fast search & export · access control & security · mobile PWA · AI features · POS · stock inventory · accounting sync · online booking engine · dynamic pricing · corporate CRM · go-live data onboarding/import.
 
 ## Success outcomes
 1. Less manual work — booking-to-invoice with no double entry.

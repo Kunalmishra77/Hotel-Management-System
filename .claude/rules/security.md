@@ -3,7 +3,7 @@
 ## Authentication
 - Auth.js v5, credentials provider, passwords hashed with bcrypt (cost ≥ 12).
 - **2FA (TOTP)** available per user; enforceable per role (admin/accounts can be mandated). Backup codes issued.
-- Sessions: short-lived, rotated; session carries userId, roles, and property scope claims.
+- Sessions: **DB-backed** (`Session` model), short-lived + rotated; claims carry `userId`, `orgId`, resolved permissions, **property scope + `activePropertyId`** (never guest PII). Every request re-checks `Session.revokedAt` server-side, so **force-logout and permission changes take effect immediately** — a still-unexpired token cannot ride a revoked or re-permissioned session.
 - Lockout + backoff on repeated failed logins; password reset via signed, expiring token.
 
 ## Authorization (RBAC)

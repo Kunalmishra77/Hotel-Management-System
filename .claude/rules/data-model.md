@@ -17,7 +17,7 @@
 - Never compare a stored UTC instant to a local date without converting via the property timezone.
 
 ## Enums & status
-- Use Prisma enums for closed sets (RoomStatus, ReservationStatus, PaymentMode, BookingSource, ExpenseHead, UserRole, etc.). Keep enum values aligned with `scope.md`/`business-rules.md`.
+- Use Prisma enums for closed sets (RoomStatus, ReservationStatus, PaymentMode, BookingSource, ExpenseHead, RoleName, etc.). Keep enum values aligned with `scope.md`/`business-rules.md`.
 
 ## Append-only / immutability
 - Folio lines, payments, invoices, audit logs, domain events: **insert-only**. No updates that change financial meaning; corrections are new reversing rows.

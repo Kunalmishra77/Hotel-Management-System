@@ -58,6 +58,14 @@ model Property {
   quietHoursEnd       String? // "08:00"
   noShowRetainAdvance Boolean @default(true) // no-show policy: retain vs release advance
 
+  // §11 communication merge content (per-property; injected into message templates by 12)
+  wifiSsid            String?
+  wifiPassword        String? // operational config; access-controlled, not guest PII
+  houseRules          String?
+  emergencyContact    String?
+  locationMapUrl      String?
+  checkInInstructions String?
+
   floors         Floor[]
   roomCategories RoomCategory[]
   rooms          Room[]
@@ -243,6 +251,73 @@ model BackupRun {
   @@index([startedAt])
 }
 
+// ==================== 26 DATA ONBOARDING / IMPORT ============================
+
+enum ImportKind {
+  GUESTS
+  RESERVATIONS
+  BALANCES
+  ROOMS
+  STAFF
+}
+
+enum ImportBatchStatus {
+  DRAFT // uploaded, not yet validated
+  VALIDATED // dry-run done, preview available, no writes yet
+  COMMITTING
+  COMMITTED
+  FAILED
+  ROLLED_BACK
+}
+
+enum ImportRowStatus {
+  PENDING
+  OK
+  ERROR
+  SKIPPED_DUPLICATE
+}
+
+// A go-live data import (guests / historical bookings / opening balances / master data)
+// from CSV/Excel: validated as a dry-run first, then committed via the owning modules'
+// authorized actions (04/03/06); idempotent + reversible per batch. Owned by spec 26.
+model ImportBatch {
+  id             String            @id @default(cuid())
+  orgId          String
+  propertyId     String?
+  kind           ImportKind
+  status         ImportBatchStatus @default(DRAFT)
+  fileObjectKey  String // uploaded source in object storage
+  mapping        Json // column → field map
+  rowCount       Int               @default(0)
+  okCount        Int               @default(0)
+  errorCount     Int               @default(0)
+  duplicateCount Int               @default(0)
+  createdById    String?
+  createdAt      DateTime          @default(now())
+  committedAt    DateTime?
+  rows           ImportRow[]
+
+  @@index([orgId, status])
+}
+
+model ImportRow {
+  id         String          @id @default(cuid())
+  batchId    String
+  batch      ImportBatch     @relation(fields: [batchId], references: [id])
+  rowNum     Int
+  raw        Json // original row values
+  status     ImportRowStatus @default(PENDING)
+  action     String          @default("CREATE") // CREATE | MERGE | SKIP
+  targetType String? // "Guest" | "Reservation" | "Folio" …
+  targetId   String? // created/merged record id (traceability + rollback)
+  error      String?
+  importKey  String? // natural idempotency key (e.g. normalized mobile) — re-import is a no-op
+
+  @@unique([batchId, rowNum])
+  @@index([batchId, status])
+  @@index([importKey])
+}
+
 // ======================= 01 PROPERTY / 02 ROOM INVENTORY =====================
 
 model Floor {
@@ -361,13 +436,14 @@ model Reservation {
   travelAgentId    String?
   travelAgent      TravelAgent?      @relation(fields: [travelAgentId], references: [id])
 
-  checkInDate  DateTime  @db.Date
-  checkOutDate DateTime  @db.Date
-  checkInAt    DateTime?
-  checkOutAt   DateTime?
-  nights       Int
-  adults       Int       @default(1)
-  children     Int       @default(0)
+  checkInDate     DateTime  @db.Date
+  checkOutDate    DateTime  @db.Date
+  checkInAt       DateTime?
+  checkOutAt      DateTime?
+  expectedArrival String? // §2 planned check-in time / ETA at booking (e.g. "18:00", "late evening")
+  nights          Int
+  adults          Int       @default(1)
+  children        Int       @default(0)
 
   // Tentative hold (03 FR-16 / 23): ENQUIRY holds consume inventory until expiry.
   holdExpiresAt DateTime?
@@ -631,6 +707,61 @@ model Invoice {
   @@index([propertyId, issuedAt])
 }
 
+// ==================== COUPONS (§11 discount coupons; owned by 06) ============
+
+enum CouponDiscountType {
+  PERCENT
+  FIXED
+}
+
+enum CouponStatus {
+  ACTIVE
+  PAUSED
+  EXPIRED
+}
+
+// A redeemable promo code. Redemption applies a DISCOUNT folio line via 06 and is
+// atomic (usage-limit enforced under row lock — same integrity pattern as credit/overbooking).
+model Coupon {
+  id                   String             @id @default(cuid())
+  orgId                String
+  code                 String // the redeemable code (unique per org)
+  description          String?
+  discountType         CouponDiscountType
+  discountBps          Int? // for PERCENT (e.g. 1000 = 10%)
+  discountPaise        Int? // for FIXED
+  maxDiscountPaise     Int? // cap for PERCENT
+  minBookingPaise      Int                @default(0)
+  validFrom            DateTime
+  validTo              DateTime
+  usageLimit           Int? // total redemptions allowed (null = unlimited)
+  usageLimitPerGuest   Int                @default(1)
+  timesUsed            Int                @default(0) // incremented atomically on redeem
+  appliesToPropertyIds String[] // empty = all properties
+  appliesToCategoryIds String[] // empty = all categories
+  status               CouponStatus       @default(ACTIVE)
+  createdById          String?
+  createdAt            DateTime           @default(now())
+  redemptions          CouponRedemption[]
+
+  @@unique([orgId, code])
+  @@index([orgId, status])
+}
+
+model CouponRedemption {
+  id            String   @id @default(cuid())
+  couponId      String
+  coupon        Coupon   @relation(fields: [couponId], references: [id])
+  guestId       String
+  reservationId String?
+  folioId       String?
+  discountPaise Int // actual discount applied
+  redeemedAt    DateTime @default(now())
+
+  @@unique([couponId, reservationId]) // at most one redemption per coupon per reservation
+  @@index([couponId, guestId]) // per-guest usage-limit checks
+}
+
 // ============================ 07 EXPENSES ====================================
 
 enum ExpenseHead {
@@ -791,22 +922,35 @@ model PayrollLine {
 
 // ==================== 10 HOUSEKEEPING / 11 MAINTENANCE =======================
 
+enum HousekeepingTaskType {
+  CLEANING
+  LINEN_CHANGE
+  TOWEL_CHANGE
+  INSPECTION
+}
+
+enum HousekeepingStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+}
+
 model HousekeepingTask {
-  id                     String    @id @default(cuid())
+  id                     String               @id @default(cuid())
   propertyId             String
   roomId                 String
-  type                   String // "CLEANING", "LINEN_CHANGE", "TOWEL_CHANGE"
-  status                 String    @default("PENDING") // PENDING | IN_PROGRESS | DONE
-  linenChanged           Boolean   @default(false)
-  towelChanged           Boolean   @default(false)
+  type                   HousekeepingTaskType
+  status                 HousekeepingStatus   @default(PENDING)
+  linenChanged           Boolean              @default(false)
+  towelChanged           Boolean              @default(false)
   complaintText          String?
   raisedMaintenanceJobId String?
   notes                  String?
   assignedToStaffId      String?
   clientUpdatedAt        DateTime? // when the offline device made the change
   serverStatusChangedAt  DateTime? // authoritative last status change; conflict = clientUpdatedAt < this ⇒ reject stale offline write
-  updatedAt              DateTime  @updatedAt
-  createdAt              DateTime  @default(now())
+  updatedAt              DateTime             @updatedAt
+  createdAt              DateTime             @default(now())
 
   @@index([propertyId, status])
   @@index([roomId])
@@ -819,13 +963,29 @@ enum MaintenancePriority {
   URGENT
 }
 
+enum MaintenanceCategory {
+  AC
+  ELECTRICAL
+  PLUMBING
+  FURNITURE
+  PAINTING
+  PEST_CONTROL
+  OTHER
+}
+
+enum MaintenanceStatus {
+  OPEN
+  IN_PROGRESS
+  CLOSED
+}
+
 model MaintenanceJob {
   id           String              @id @default(cuid())
   propertyId   String
   roomId       String?
-  category     String // AC, ELECTRICAL, PLUMBING, FURNITURE, PAINTING, PEST_CONTROL
+  category     MaintenanceCategory
   description  String
-  status       String              @default("OPEN") // OPEN | IN_PROGRESS | CLOSED
+  status       MaintenanceStatus   @default(OPEN)
   priority     MaintenancePriority @default(NORMAL)
   isPreventive Boolean             @default(false)
   scheduledFor DateTime?           @db.Date
@@ -893,6 +1053,7 @@ model Campaign {
   templateKey  String
   channel      Channel
   segmentRef   String? // GuestSegment id or rule
+  couponId     String? // §11: a marketing campaign may distribute a coupon code (06 owns the Coupon)
   status       String    @default("DRAFT") // DRAFT | APPROVED | SENT
   approvedById String?
   scheduledAt  DateTime?
@@ -1101,6 +1262,12 @@ model MenuItem {
   @@index([outletId])
 }
 
+enum PosOrderStatus {
+  OPEN
+  SETTLED
+  VOID
+}
+
 model PosOrder {
   id                  String         @id @default(cuid())
   propertyId          String
@@ -1109,7 +1276,7 @@ model PosOrder {
   code                String // gap-free per property (KOT/order no.)
   reservationId       String? // post to folio if in-house
   reservation         Reservation?   @relation(fields: [reservationId], references: [id])
-  status              String         @default("OPEN") // OPEN | SETTLED | VOID
+  status              PosOrderStatus @default(OPEN)
   items               PosOrderItem[]
   subtotalPaise       Int            @default(0)
   discountPaise       Int            @default(0)

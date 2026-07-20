@@ -31,7 +31,7 @@ Tier 3  08-profit-reports · 14-dashboard-analytics · 15-search-export
 Tier 4  12-communications · 18-ai-features
 Tier 5  13-ota-channel · (payments live) · 23-booking-engine · 24-dynamic-pricing
 Tier 6  19-pos · 20-inventory-stock · 21-payroll · 22-accounting-sync
-Tier 7  25-corporate-crm
+Tier 7  25-corporate-crm · 26-data-onboarding (go-live import; creates via 04/03/06)
 ```
 A module may depend only on lower/equal tiers. No upward or cyclic dependencies.
 

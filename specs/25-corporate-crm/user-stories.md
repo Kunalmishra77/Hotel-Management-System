@@ -9,7 +9,7 @@ Roles per `rules/user-roles.md`.
 | TA-SKY | TravelAgent, commission 10% (1000 bps) |
 | NEG-DLX | Negotiated Deluxe rate ₹3,500 for ACME |
 | U-MGR | MANAGER (`corporate:manage` + `report:view-financial`) |
-| U-ACC | ACCOUNTS (`corporate:manage`; no `report:view-financial`) |
+| U-ACC | ACCOUNTS with `report:view-financial` **removed by an explicit per-user override** (`PermissionOverrideChanged`) — the default Accounts role *has* it; this fixture exists to prove financial figures are gated server-side, not by role name (AC-8) |
 
 ## US-1 — Records & negotiated rates
 - **AC-1:** Given U-MGR with `corporate:manage`, when creating ACME (limit ₹2,00,000, BigInt paise) and TA-SKY (10%), then both persist; audited. (FR-1)
@@ -26,3 +26,9 @@ Roles per `rules/user-roles.md`.
 ## US-4 — Statement
 - **AC-7:** Given ACME, when the account statement runs, then charges/payments/balance + aging buckets are shown and exportable via 15. (FR-2/7)
 - **AC-8:** Given U-ACC without financial-report permission on a scoped property, then financial figures are gated server-side. (FR-8)
+
+## US-5 — Credit atomicity & rate resolution (edge)
+- **AC-9:** Given ACME near its limit, when **two `CORPORATE_CREDIT` settlements call `reserveCredit` concurrently**, then the `SELECT … FOR UPDATE` row lock serializes them — the second re-reads the updated `receivablePaise` and is rejected if now over limit (**no over-limit, no lost update**). (FR-3)
+- **AC-10:** Given a corporate payment or a **voided** settlement, when `releaseCredit` runs, then `receivablePaise` decreases atomically under the same row lock and reconciles with the folios. (FR-2/3)
+- **AC-11:** Given ACME has a negotiated Deluxe rate ₹3,500, when 03/23 resolve a rate for an ACME booking, then `getNegotiatedRate` returns ₹3,500 and it **wins** the resolution chain (passed into `24.resolvedRate`, above dynamic/plan/base). (FR-4)
+- **AC-12:** Given `corporate:manage` is required, when a user without it creates/edits a corporate, agent, negotiated rate, or credit limit, then `FORBIDDEN`. (FR-1/8)

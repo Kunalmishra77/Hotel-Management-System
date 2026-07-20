@@ -1,8 +1,8 @@
 # Entity-Relationship Model
 
-Visual companion to the canonical [`prisma/schema.prisma`](../../prisma/schema.prisma) (the source of truth). Shows the core relationships; the schema has the full field set and the [schema-deltas](../architecture/schema-deltas.md) list additive extensions per module.
+Visual companion to the canonical [`prisma/schema.prisma`](../../prisma/schema.prisma) (the source of truth, **finalized — 66 models, all deltas applied**). The mermaid diagram below shows the **core** relationships (not every table); the ownership table further down lists **all 66 models** by owning module.
 
-## Core ERD
+## Core ERD (key relationships)
 
 ```mermaid
 erDiagram
@@ -51,25 +51,34 @@ erDiagram
     ChannelAccount ||--o{ RoomTypeMapping : maps
 ```
 
-## Entity ownership (which module writes which table)
+## Entity ownership (all 66 models, by owning module)
 | Owning module | Tables |
 |---|---|
-| 00-platform | Organization, User, RoleAssignment, PermissionOverride, AuditLog, DomainEvent, IntegrationInbox |
+| 00-platform | Organization, User, RoleAssignment, PermissionOverride, PasswordResetToken, Session, SecuritySettings, AuditLog, DomainEvent, IntegrationInbox, BackupRun |
 | 01-property | Property, Floor |
-| 02-room-inventory | RoomCategory, Room |
+| 02-room-inventory | RoomCategory, Room, RoomBlock |
 | 03-reservations | Reservation, RoomAllocation |
 | 04-guest-crm | Guest, GuestId |
 | 05-guest-history | GuestStatsSnapshot |
-| 06-billing | Folio, FolioLine, Payment, InvoiceSeries, Invoice |
+| 06-billing | Folio, FolioLine, Payment, InvoiceSeries, Invoice, Coupon, CouponRedemption |
 | 07-expenses | Expense |
-| 09-staff | Staff, Attendance |
+| 09-staff | Staff, Attendance, StaffAdvance, StaffDocument |
 | 21-payroll | PayrollRun, PayrollLine |
 | 10 / 11 | HousekeepingTask / MaintenanceJob |
-| 12-comms | MessageTemplate, MessageLog, Feedback |
-| 13-channels | ChannelAccount, RoomTypeMapping |
+| 12-comms | MessageTemplate, MessageAutomation, Campaign, CommunicationConsent, MessagingAccount, MessageLog, Feedback |
+| 13-channels | ChannelAccount, RoomTypeMapping, ChannelSyncLog |
 | 14-analytics | DailyStatSnapshot, NightAuditRun |
-| 19 / 20 | PosOrder, PosOrderItem / InventoryItem, InventoryMovement |
-| 24 / 25 | DynamicRate, RatePlan / Corporate, TravelAgent |
+| 15-search-export | ExportJob |
+| 18-ai | AiInteractionLog, GuestSegment |
+| 19-pos | PosOutlet, MenuItem, PosOrder, PosOrderItem |
+| 20-inventory | InventoryItem, InventoryMovement, RecipeComponent |
+| 22-accounting-sync | AccountingConfig, AccountingSyncLog |
+| 23-booking-engine | BookingEngineConfig, BookingEngineOrder |
+| 24-dynamic-pricing | RatePlan, DynamicRate |
+| 25-corporate-crm | Corporate, TravelAgent, NegotiatedRate |
+| 26-data-onboarding | ImportBatch, ImportRow |
+
+(16-access-control and 17-mobile own no tables — they operate on 00's models / are client-side. Total = 70.)
 
 ## Invariants encoded in the schema
 - **No overbooking**: `RoomAllocation` gets a PostgreSQL `EXCLUDE` constraint on `(roomId, daterange)` (03).

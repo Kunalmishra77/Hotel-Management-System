@@ -17,7 +17,7 @@ Roles per `rules/user-roles.md`. All money stays in 06; POS never writes folio/p
 ## US-1 — Capture an order
 - **AC-1:** Given U-POS at OUT-REST, when creating an order with 2× Masala Dosa + 1× Coffee, then a `PosOrder(OPEN)` with a gap-free `code` and items persists; `totalPaise` is **derived** (2×12000 + 6000 = 30000), never trusted from client. (FR-1/2)
 - **AC-2:** Given the OPEN order, when an item is added/removed, then the bill preview `{subtotal, discount, cgst, sgst, igst, roundOff, total}` recomputes via the shared bill function; **no money posts while OPEN**. (FR-3)
-- **AC-3:** Given intra-state PROP-A at 5%, when previewed, then CGST 2.5% + SGST 2.5% each rounded half-up independently; an inter-state place-of-supply yields IGST 5%. (FR-4)
+- **AC-3:** Given PROP-A at 5%, when previewed, then CGST 2.5% + SGST 2.5% each rounded half-up independently — and **always** so: POS F&B is consumed on-premise, so place-of-supply = the property's state (§10), which pins the split to CGST+SGST **regardless of the guest's/corporate bill-to state**; `igst` is `0` for every POS line. (The shared `lib/tax` engine keeps an IGST branch only for 06's rare genuine off-premise supply; POS never takes it.) (FR-4)
 - **AC-4:** Given a line with quantity 0 or negative price, when submitted, then `VALIDATION_FAILED`; nothing persists. (FR-16)
 
 ## US-2 — Settle to folio (in-house)

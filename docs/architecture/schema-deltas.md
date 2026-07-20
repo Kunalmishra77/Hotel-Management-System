@@ -4,6 +4,13 @@
 
 Every module spec originally proposed **additive** schema changes in its `design.md` "Schema notes" rather than editing the canonical model directly (to keep it conflict-free during parallel spec authoring). Those are now integrated. None were breaking.
 
+**Pass-3 additions (manual folder audit, 2026-07-20) — schema now 68 models / 24 enums, `prisma validate` PASS:**
+- **§11 discount coupons (feature):** `Coupon` + `CouponRedemption` (owned by 06) + enums `CouponDiscountType`/`CouponStatus`; `Campaign.couponId` (marketing distributes a code). Redeemed atomically at 23/06.
+- **§11 per-property comms content:** `Property.wifiSsid/wifiPassword/houseRules/emergencyContact/locationMapUrl/checkInInstructions` (merge values for during-stay/before-arrival templates).
+- **§2 planned arrival:** `Reservation.expectedArrival`.
+- **Consistency:** enum-typed the operational status machines — `HousekeepingTaskType`, `HousekeepingStatus`, `MaintenanceCategory`, `MaintenanceStatus`, `PosOrderStatus`.
+- **Go-live onboarding (new module 26, derived from the Objective):** `ImportBatch` + `ImportRow` + enums `ImportKind`/`ImportBatchStatus`/`ImportRowStatus` — bulk import of existing guests / historical bookings / opening balances (CSV/Excel), created via 04/03/06 (no foreign INSERTs). Schema now **70 models / 27 enums**; **27 modules** total.
+
 ## Proposed additive schema changes, by module
 | Module | Additions to fold into `prisma/schema.prisma` |
 |---|---|

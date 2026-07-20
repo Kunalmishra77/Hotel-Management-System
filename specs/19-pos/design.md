@@ -5,7 +5,7 @@ Owns `PosOrder`, `PosOrderItem`. **Confirmed present in canonical schema:** `Men
 
 ## Domain layer (pure, shares 06's tax) — `features/pos/domain/`
 - `orderTotal(items): { subtotalPaise }` — derived (FR-2).
-- `billPreview(items, discountPaise, propertyState, placeOfSupply): { subtotal, discount, cgst, sgst, igst, roundOff, total }` — uses the **same** `lib/tax` split as 06 (FR-3/4).
+- `billPreview(items, discountPaise, propertyState): { subtotal, discount, cgst, sgst, igst, roundOff, total }` — uses the **same** `lib/tax` split as 06 (FR-3/4). Place of supply is **not a caller argument**: POS is on-premise, so it is pinned internally to `propertyState` via 06's `placeOfSupply(POS, …)` helper → `igst` is always `0` and the split is always CGST+SGST (§10). The `igst` key stays in the return shape only so POS and 06 share one bill type. (FR-4)
 - `canTransition(from, to)` — OPEN→SETTLED→VOID state machine (FR-10).
 
 ## Application — server actions (`features/pos/actions.ts`)

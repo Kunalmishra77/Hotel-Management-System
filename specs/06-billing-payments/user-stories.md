@@ -63,3 +63,11 @@ Roles per `rules/user-roles.md`. Money in paise; every figure reconciles to the 
 
 ## US-9 — Walk-in POS direct sale
 - **AC-26:** Given DS-1 (a walk-in POS sale with **no reservation**), when 19 calls `settlePosSaleDirect`, then `ensureDirectSaleFolio(PROP-A)` returns the idempotent `DIRECT_SALE` house folio (`reservationId` null), the sale line posts with CGST+SGST (place of supply = PROP-A state), a `Payment` is recorded, a **gap-free GST invoice** is issued through the same numbering path, and the action returns `{invoiceId, paymentId}`. (FR-25)
+
+## US-10 — Discount coupons (§11)
+*Fixture COUP-SAVE10:* code `SAVE10`, PERCENT 10% (`discountBps=1000`), `maxDiscountPaise=₹500`, valid this month, `usageLimit=100`, `usageLimitPerGuest=1`, `minBookingPaise=₹2,000`.
+- **AC-27:** Given COUP-SAVE10 and a ₹4,000 booking for G-RAVI, when `validateCoupon("SAVE10", ctx)` is called, then it returns `discountPaise = ₹400` (10% capped at ₹500) with **no side effect** (no line posted, `timesUsed` unchanged). (FR-27)
+- **AC-28:** Given the above, when `applyCoupon` runs, then in one row-locked transaction `Coupon.timesUsed` increments, a `CouponRedemption` is written, a **−₹400 pre-tax `DISCOUNT` `FolioLine`** posts (GST recomputed), and `CouponRedeemed` is emitted. (FR-28)
+- **AC-29:** Given COUP-SAVE10 with exactly 1 use remaining, when two guests apply it **concurrently**, then exactly **one** succeeds; the other gets `COUPON_EXHAUSTED` — the row lock prevents over-redemption. (FR-28)
+- **AC-30:** Given a coupon that is expired / below `minBookingPaise` / already used by this guest (per-guest limit) / ineligible for the property or category, when applied, then rejected with `COUPON_INVALID` / `COUPON_INELIGIBLE` / `COUPON_EXHAUSTED`; nothing persists. (FR-29)
+- **AC-31:** Given U-REC (no `coupon:manage`), when creating/pausing a coupon, then `FORBIDDEN`; but **applying** a valid coupon at checkout needs no special permission. (FR-27)

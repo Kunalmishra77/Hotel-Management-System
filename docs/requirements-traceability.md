@@ -82,10 +82,10 @@ Maps **every** section of the client's *PMS Requirement Document* (§1–19 + Ob
 ## §11 Guest Communication Automation
 | Requirement | Covered by | Status |
 |---|---|---|
-| Before Arrival (confirmation/map/check-in instructions) | 12 automations | ✅ |
-| During Stay (welcome/Wi-Fi/rules/emergency) | 12 | ✅ |
+| Before Arrival (confirmation/map/check-in instructions) | 12 automations + `Property.locationMapUrl`/`checkInInstructions` merge content | ✅ 🔧 |
+| During Stay (welcome/Wi-Fi/rules/emergency) | 12 + per-property `Property.wifiSsid/wifiPassword/houseRules/emergencyContact` | ✅ 🔧 |
 | After Check-out (thank-you/review/feedback/invoice) | 12 | ✅ |
-| Marketing (birthday/anniversary/festival/offers/promos/coupons) | 12 (consent-gated) | ✅ |
+| Marketing (birthday/anniversary/festival/offers/promos/**coupons**) | 12 (consent-gated); **coupons = redeemable `Coupon`/`CouponRedemption` owned by 06, distributed via `Campaign.couponId`, redeemed atomically at 23 booking / front-desk checkout** | ✅ 🔧 |
 | Channels: WhatsApp/Email/SMS(optional) | 12 `Channel` enum + provider abstraction | ✅ / ❗ live = BSP/DLT/DKIM |
 
 ## §12 Booking Channel Integration
@@ -110,7 +110,7 @@ Maps **every** section of the client's *PMS Requirement Document* (§1–19 + Ob
 ## §15 User Access Control
 | Requirement | Covered by | Status |
 |---|---|---|
-| Roles: Admin/Manager/Reception/Accounts/Housekeeping/Maintenance | 16 + `RoleName` + rbac-matrix (37 permissions) | ✅ |
+| Roles: Admin/Manager/Reception/Accounts/Housekeeping/Maintenance | 16 + `RoleName` + rbac-matrix (48 permissions) | ✅ |
 | Each user only accesses authorised modules | 16 server-side RBAC + property scope | ✅ |
 
 ## §16 Mobile Application
@@ -149,10 +149,12 @@ Maps **every** section of the client's *PMS Requirement Document* (§1–19 + Ob
 ## Objective & Expected Outcome
 Reduce manual work, complete guest DB, simplify billing, expenses, reports, automate comms, multi-property, learnable by non-technical staff → covered across product.md + all modules; mobile-first + minimal-training baked into mobile-first.md + every spec's UX.
 
-## Gaps found this review pass
-1. 🔧 **Canonical schema was v1 with 22 modules' additions unapplied** → finalized `prisma/schema.prisma` (all deltas folded in).
-2. 🔧 **Search facets City / ID Number / Booking Source (§4) missing from 15** → added to 15 spec + schema (`Guest.city` index, `GuestId.valueHash`, source filter).
-3. 🔧 **No consolidated module-connectivity map** → added `docs/architecture/module-connectivity.md`.
-4. ❗ **Open (client), documented in `schema-deltas.md`:** Aadhaar full-storage flag; live provider choices (WhatsApp BSP/SMS DLT/payment gateway/Tally-vs-Zoho); OTA certification vs aggregator; payroll statutory PF/ESI/PT/TDS auto-calc; POS table-mgmt/KDS/printers scope; inventory procurement/PO scope.
+## Review history
+- **Pass 1** (structural): finalized the canonical schema (all deltas folded in → 66 models); added §4 search facets (City / ID Number / Booking Source) to module 15 + schema; added `docs/architecture/module-connectivity.md`.
+- **Pass 2** (independent 5-reviewer adversarial audit): **92 findings (7 blocker / 41 major / 44 minor), all fixed + re-verified** — GST place-of-supply, folio-less POS sales, tier inversions, RBAC/event-catalog/contract completeness, and more. Full register: [`handover-review-findings.md`](handover-review-findings.md).
+- **Pass 3** (manual folder-by-folder vs client doc): steering (`.claude/`) + `docs/` drift fixed serially; and **two real feature gaps built** — §11 **discount coupons** as a redeemable system (`Coupon`/`CouponRedemption`, 06/23/12) and **module 26 data-onboarding** (go-live import of guests/bookings/opening-balances, derived from the Objective's "complete guest database"). Schema → 70 models / 27 modules.
+
+## Open (client business/legal calls — not documentation gaps)
+Documented in [`schema-deltas.md`](architecture/schema-deltas.md): Aadhaar full-storage flag; live provider choices (WhatsApp BSP / SMS DLT / payment gateway / Tally-vs-Zoho); OTA certification vs aggregator; payroll statutory PF/ESI/PT/TDS auto-calc; POS table-mgmt/KDS/printers scope; inventory procurement/PO scope.
 
 **Conclusion:** all 19 client sections + Objective/Outcome are traceable to specs. Remaining items are external/business decisions (❗), not documentation gaps.

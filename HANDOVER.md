@@ -3,11 +3,11 @@
 **To:** the full-stack developer · **From:** the principal architect · **Status:** documentation complete, independently reviewed, schema-validated. **No application code written yet — that's your build.**
 
 ## What this is
-A complete, spec-driven definition of a Property Management System for Woodpecker Apartments & Suites — 26 modules covering the client's full §1–19 requirement doc. Every module is specified to the field level; the database is finalized and **`prisma validate` passes**; every module-to-module seam has a contract.
+A complete, spec-driven definition of a Property Management System for Woodpecker Apartments & Suites — 27 modules covering the client's full §1–19 requirement doc. Every module is specified to the field level; the database is finalized and **`prisma validate` passes**; every module-to-module seam has a contract.
 
 ## What's been done (so you can trust it)
-- **26 modules** each fully specified: `requirements` (EARS) → `user-stories` (testable acceptance criteria + fixtures) → `design` (schema slice, wireframes, sequences, error catalog) → `tasks` (traced, checkboxed).
-- **Finalized 66-model Prisma schema** — validated (`npx prisma validate` 🚀).
+- **27 modules** each fully specified: `requirements` (EARS) → `user-stories` (testable acceptance criteria + fixtures) → `design` (schema slice, wireframes, sequences, error catalog) → `tasks` (traced, checkboxed).
+- **Finalized 70-model Prisma schema** — validated (`npx prisma validate` 🚀).
 - **Independent adversarial review**: 5 reviewers found **92 defects (7 blockers, 41 major, 44 minor)** — all fixed and re-verified. Audit trail: [`docs/handover-review-findings.md`](docs/handover-review-findings.md).
 - Traceability, module-connectivity, contracts, event catalog, RBAC matrix, automation catalog, deployment/CI-CD, observability, UI foundation, seed plan — all written.
 

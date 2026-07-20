@@ -21,3 +21,10 @@ Roles per `rules/user-roles.md`. Suggestions never auto-apply.
 
 ## US-3 — Resolution fallback
 - **AC-6:** Given `resolvedRate({categoryId, date, negotiatedRatePaise?})`: a passed-in `negotiatedRatePaise` (from `25.getNegotiatedRate`, corporate booking) wins; with none passed and no approved DynamicRate for the date, 03/23 fall back to `RatePlan` then `baseRatePaise` — booking never fails. (FR-5)
+
+## US-4 — Guardrails, edge & concurrency
+- **AC-7:** Given a suggestion computed **above the ceiling ₹8,000** (or below the floor ₹3,000), when produced/approved, then it is **clamped to the band and flagged** (`OUT_OF_BOUNDS`) — an out-of-bounds rate is never published. (FR-3, AC-2)
+- **AC-8:** Given occupancy data is unavailable for a date, when the engine runs, then it **falls back to the base suggestion and does not fail** (no divide-by-zero, no crash). (FR-1)
+- **AC-9:** Given two managers **approve the same `(category, date)` suggestion concurrently**, then exactly **one** `APPROVED` row results (unique `(roomCategoryId, date)`); no double publish. (FR-2)
+- **AC-10:** Given a `SUGGESTED` rate that no one approves, when 03/23 resolve a rate for that date, then the suggestion is **never used** — only `APPROVED` rates publish (human-in-the-loop). (FR-1/7)
+- **AC-11:** Given an already-`APPROVED` rate is later re-run/re-suggested, then existing bookings keep their **snapshotted** rate (06/03); only future resolutions see the new one. (FR-4)

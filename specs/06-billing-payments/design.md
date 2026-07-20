@@ -64,7 +64,7 @@ Per `api-conventions.md`: zod → authorize → transaction → event + audit. A
 **Take payment (split):** amount, then add tenders (UPI/Card/Cash…) each with amount; running "remaining" must reach 0 to enable Confirm; all tenders post under one `settlementBatchId`. **Invoice preview:** GST layout with breakup + total-in-words; "Download / WhatsApp / Email" (via 12).
 
 ## Events
-Emits: `FolioCharged`, `DiscountApplied`, `PaymentReceived` (payload `{folioId, settlementBatchId, tenders[]{mode, amountPaise}}` per the catalog — so 22/12 reconcile the batch from the event), `PaymentRefunded`, `InvoiceIssued`, `PaymentDueDetected`, `CorporateReceivableChanged` (on `CORPORATE_CREDIT` settlement → 25). Consumed by 05/08/14/12/22/25. Catalog: `docs/architecture/domain-events.md`.
+Emits: `FolioCharged`, `DiscountApplied`, `PaymentReceived` (payload `{folioId, settlementBatchId, tenders[]{mode, amountPaise}}` per the catalog — so 22/12 reconcile the batch from the event), `PaymentRefunded`, `InvoiceIssued`, `PaymentDueDetected`, `CorporateReceivableChanged` (on `CORPORATE_CREDIT` settlement → 25), `CouponRedeemed` (on coupon apply → 14/12). Consumed by 05/08/14/12/22/25. Catalog: `docs/architecture/domain-events.md`.
 
 ## Sequences
 **Generate invoice (short tx + PDF after commit):** BEGIN → `financialYearOf(date)` (1 Apr boundary) → get-or-create `InvoiceSeries(propertyId,FY)` → `SELECT … FOR UPDATE` on the series → allocate number → compute totals → INSERT Invoice(number, `pdfObjectKey=null`) → emit `InvoiceIssued` + audit → **COMMIT**. *After commit:* render PDF → object storage → set `pdfObjectKey` (retryable, idempotent). A numbering-tx rollback ⇒ number not consumed (FR-14); a post-commit render failure ⇒ invoice valid, PDF retried, no gap. **Void:** `CREDIT_NOTE` drawing the same series via the identical path.
@@ -73,8 +73,12 @@ Emits: `FolioCharged`, `DiscountApplied`, `PaymentReceived` (payload `{folioId, 
 **Online payment:** create provider order (sandbox if no creds) → guest pays → webhook (verify signature) → inbox dedupe → `recordPayment` → `PaymentReceived`.
 **Night-audit posting (idempotent):** 14 calls `postRoomCharges(prop, date)` → for each in-house folio, insert one ROOM line for `date`; the partial-unique index `FolioLine(folioId,businessDate) WHERE type='ROOM'` makes a re-run's duplicate insert conflict and be skipped → GST by tariff slab.
 
+## Coupons (§11)
+Owns `Coupon`/`CouponRedemption`. Domain: `computeCouponDiscount(coupon, bookingPaise): paise` (PERCENT with `maxDiscountPaise` cap vs FIXED; `minBookingPaise` gate). Actions: `createCoupon`/`pauseCoupon`/`expireCoupon` (`coupon:manage`); `validateCoupon(code, ctx)` (no side effects — for 23 booking preview + front-desk checkout); `applyCoupon(target, code, guestId)`.
+**Apply-coupon sequence (atomic):** BEGIN → `SELECT … FOR UPDATE` on the `Coupon` row → re-check (ACTIVE, within `validFrom..validTo`, `timesUsed < usageLimit`, this guest's redemptions `< usageLimitPerGuest`, `bookingPaise ≥ minBookingPaise`, property/category eligible) → increment `timesUsed` → INSERT `CouponRedemption` (unique `(couponId, reservationId)`) → post a negative **pre-tax** `DISCOUNT` `FolioLine` for the computed amount (GST recomputed, FR-6) → emit `CouponRedeemed` + audit → COMMIT. The row lock makes the usage-limit race-safe — concurrent redemptions can't exceed the limit (same class as no-overbooking / corporate credit).
+
 ## Error catalog
-`INVALID_AMOUNT`, `SPLIT_MISMATCH`, `REFUND_EXCEEDS_PAID`, `DISCOUNT_OVER_THRESHOLD`, `CLOSED_DATE_POSTING`, `CREDIT_LIMIT_EXCEEDED`, `SERIES_LOCK_TIMEOUT`, `FORBIDDEN`, `WEBHOOK_SIGNATURE_INVALID`.
+`INVALID_AMOUNT`, `SPLIT_MISMATCH`, `REFUND_EXCEEDS_PAID`, `DISCOUNT_OVER_THRESHOLD`, `CLOSED_DATE_POSTING`, `CREDIT_LIMIT_EXCEEDED`, `SERIES_LOCK_TIMEOUT`, `FORBIDDEN`, `WEBHOOK_SIGNATURE_INVALID`, `COUPON_INVALID`, `COUPON_EXHAUSTED`, `COUPON_INELIGIBLE`.
 
 ## Edge cases
 - Concurrent invoice generation → row-locked series serializes them; gap-free guaranteed (AC-14). PDF render is outside the lock, so it never serializes numbering.

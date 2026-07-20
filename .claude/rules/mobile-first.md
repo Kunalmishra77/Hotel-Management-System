@@ -10,7 +10,7 @@ The primary device is a **phone in the hand of reception/housekeeping staff**. D
 
 ## PWA (§16 — "works on Windows/Android/iPhone/tablet, data syncs instantly")
 - Installable PWA (manifest + service worker). One codebase covers all four devices — no native apps in scope.
-- **Offline-capable where it matters:** housekeeping room-status updates and basic lookups queue offline and sync when connectivity returns (background sync). Conflict resolution: last-writer-wins on status with server timestamp, surfaced to user.
+- **Offline-capable where it matters:** housekeeping room-status updates and basic lookups queue offline and sync when connectivity returns (background sync). Conflict resolution: on sync, compare the offline write's `clientUpdatedAt` against the room/task's authoritative `serverStatusChangedAt` — a **stale** write (client older than server) is **rejected and surfaced** to the user, never blindly applied; the `02` room-status transition guard is the final gate (a stale "clean" cannot overwrite a re-occupation). Not blind last-writer-wins. See spec 10.
 - **Instant sync / live occupancy:** Postgres `LISTEN/NOTIFY` → SSE keeps dashboards and room boards current across devices without refresh.
 
 ## Performance on mobile networks

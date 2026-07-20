@@ -11,7 +11,7 @@ Tier 3  08-profit · 14-analytics · 15-search-export
 Tier 4  12-communications · 18-ai
 Tier 5  13-ota · 23-booking-engine · 24-dynamic-pricing
 Tier 6  19-pos · 20-inventory · 21-payroll · 22-accounting-sync
-Tier 7  25-corporate-crm (CRM reporting: statements/aging/dashboards)
+Tier 7  25-corporate-crm (CRM reporting: statements/aging/dashboards) · 26-data-onboarding (go-live import)
 ```
 **Split-tier note (resolves the inversion):** `Corporate`/`TravelAgent` **entities** + the `reserveCredit`/`releaseCredit`/`getNegotiatedRate` **services** are **Tier-1 master data** (they must exist before reservations reference them, and 03/06/23 legitimately call down to them). Only module 25's *reporting* features (account statements, aging, commission dashboards) are Tier 7. So there is **no upward call**: 06 (Tier 2) → 25-services (Tier 1) is downward and valid.
 
@@ -28,6 +28,8 @@ Tier 7  25-corporate-crm (CRM reporting: statements/aging/dashboards)
 | 18-ai | 12-comms | `recordSentiment` (write sentiment label) |
 | 24-pricing | 18-ai | `suggestRates` (24 calls AI, then writes DynamicRate) |
 | 23-booking-engine | 25-services | `getNegotiatedRate` |
+| 23 / front-desk | 06-billing | `validateCoupon` / `applyCoupon` (§11 redeemable discount coupons) |
+| 26-data-onboarding | 04 / 03 / 06 | `upsertGuest` / historical reservation / opening-balance `postFolioCharge` (go-live import; never a foreign INSERT) |
 | 10-housekeeping | 02-room | `changeRoomStatus` (mark clean) |
 | 10-housekeeping | 11-maintenance | `createJob` (complaint → job) |
 | 11-maintenance | 02-room | `blockRoom`/`unblockRoom` (out-of-order) |

@@ -27,5 +27,13 @@ Use these terms exactly — in code, specs, and UI. One concept, one word.
 | **Domain Event** | An immutable record that something happened (`ReservationCreated`, `PaymentReceived`…). Drives comms/AI/analytics. |
 | **Channel Manager** | A system that syncs availability/rates/reservations with OTAs. |
 | **Outbox / Inbox** | Reliable messaging patterns for outbound/inbound integration events. |
+| **Direct-Sale / House Folio** | A `Folio` with no reservation (`kind=DIRECT_SALE`), used for walk-in POS sales. |
+| **Hold** | A tentative `ENQUIRY` reservation that consumes inventory until `holdExpiresAt`. |
+| **Room Block** | A date-ranged out-of-order period on a room (maintenance) that removes it from availability. |
+| **Negotiated Rate** | A contract room rate agreed with a corporate; wins the rate-resolution chain (before dynamic/plan/base). |
+| **Dynamic Rate** | An occupancy/season/lead-time-derived rate *suggestion*, human-approved before it publishes. |
+| **Coupon** | A redeemable promo code (§11) applying a discount at booking/checkout, with a validity window + usage limits; redeemed atomically (usage-limit enforced under row lock). |
+| **Import Batch** | A go-live bulk data import (guests / historical bookings / opening balances) from CSV/Excel — validated as a dry-run, then committed via 04/03/06; idempotent + reversible per batch (module 26). |
+| **Needs-Attention / Oversell** | An OTA booking ingested with no free room (sync lag); flagged for reception, never dropped. |
 | **PII** | Personal data (name, contact, Aadhaar, passport…) governed by `compliance.md`. |
 | **Property scope** | The set of properties a user may access; every query is filtered by it. |

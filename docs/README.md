@@ -6,16 +6,16 @@ This repository is **spec-driven and fully documented**. No feature code is writ
 - [`/CLAUDE.md`](../CLAUDE.md) — entry point; the prime directive, non-negotiables, and how to load context.
 - [`product/product-overview.md`](product/product-overview.md) — what we're building and why.
 - [`requirements-traceability.md`](requirements-traceability.md) — **every client §1–19 line → its spec coverage + gaps** (the audit).
-- [`architecture/module-connectivity.md`](architecture/module-connectivity.md) — how all 26 modules wire together (calls + events + tiers).
+- [`architecture/module-connectivity.md`](architecture/module-connectivity.md) — how all 27 modules wire together (calls + events + tiers).
 
 ## 2. Steering (always-loaded project law) — [`/.claude/rules/`](../.claude/rules/)
 `product` · `scope` · `architecture` · `tech-stack` · `data-model` · `business-rules` · `user-roles` · `security` · `compliance` · `integrations` · `ai-features` · `reporting` · `mobile-first` · `api-conventions` · `coding-standards` · `testing-strategy` · `non-functional-requirements` · `definition-of-done` · `glossary` (19 files).
 
 ## 3. Architecture — [`architecture/`](architecture/)
 - [`high-level-architecture.md`](architecture/high-level-architecture.md) — C4, layers, request/data flow.
-- [`module-connectivity.md`](architecture/module-connectivity.md) — how all 26 modules wire (tiers + calls + events).
+- [`module-connectivity.md`](architecture/module-connectivity.md) — how all 27 modules wire (tiers + calls + events).
 - [`contracts.md`](architecture/contracts.md) — **exact cross-module + provider interface signatures**.
-- [`rbac-matrix.md`](architecture/rbac-matrix.md) — 37 permissions × 6 roles.
+- [`rbac-matrix.md`](architecture/rbac-matrix.md) — 48 permissions × 6 roles.
 - [`domain-events.md`](architecture/domain-events.md) — the event catalog (internal backbone).
 - [`database-setup.md`](architecture/database-setup.md) — extensions, DB-level constraints, migration order.
 - [`deployment-and-infra.md`](architecture/deployment-and-infra.md) — hosting, Docker, CI/CD, environments, DR.
@@ -23,12 +23,12 @@ This repository is **spec-driven and fully documented**. No feature code is writ
 - [`ui-foundation.md`](architecture/ui-foundation.md) — design system, tokens, shared components, UX patterns.
 - [`schema-deltas.md`](architecture/schema-deltas.md) — change history (now **APPLIED**) + open client questions.
 - [`adr/`](architecture/adr/) — 5 architecture decision records.
-- [`../prisma/schema.prisma`](../prisma/schema.prisma) — **canonical data model (source of truth), finalized (66 models)**.
+- [`../prisma/schema.prisma`](../prisma/schema.prisma) — **canonical data model (source of truth), finalized (70 models)**.
 
 ## 4. Data & entities — [`entities/`](entities/)
 - [`erd.md`](entities/erd.md) — ER diagram + entity ownership map + encoded invariants.
 
-## 5. Specs — [`/specs/`](../specs/) (26 modules × 4 files)
+## 5. Specs — [`/specs/`](../specs/) (27 modules × 4 files)
 Each `specs/NN-*/`: `requirements.md` (EARS) → `user-stories.md` (Given/When/Then ACs + fixtures) → `design.md` (schema slice, wireframes, sequences, error catalog) → `tasks.md` (traced, checkboxed). Structure & quality bar: [`/specs/README.md`](../specs/README.md). Depth exemplar: [`03-reservations`](../specs/03-reservations/).
 
 ## 6. Automation & workflows — [`workflows/`](workflows/)
@@ -46,6 +46,7 @@ Each `specs/NN-*/`: `requirements.md` (EARS) → `user-stories.md` (Given/When/T
 ## 9. Reports & QA
 - [`reports/report-catalog.md`](reports/report-catalog.md) — all reports + canonical metric definitions.
 - [`qa/test-strategy-overview.md`](qa/test-strategy-overview.md) — test pyramid + AC traceability + gates.
+- [`qa/journey-acceptance.md`](qa/journey-acceptance.md) — cross-module E2E journeys (J1–J8) + NFR budgets as measured acceptance.
 
 ## 10. Process tooling — [`/.claude/`](../.claude/)
 - [`commands/`](../.claude/commands/) — `/create-spec`, `/implement-module`, `/review-module`, `/generate-tests`.

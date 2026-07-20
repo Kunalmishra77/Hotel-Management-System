@@ -25,3 +25,9 @@ Roles per `rules/user-roles.md`. History is derived; snapshot is a cache.
 - **AC-6:** Given U-REC (no financial permission), when viewing history, then revenue/outstanding are hidden/masked; stay counts remain. (FR-4)
 - **AC-7:** Given the same guest revenue read here and in 14, then they match to the paisa (both derive via `06.guestBilling`/reporting). (FR-6)
 - **AC-8:** Given G-RAVI2 is merged into G-RAVI, when `GuestMerged` fires, then **both** snapshots are recomputed — G-RAVI (survivor) absorbs the combined history and G-RAVI2 (loser) is zeroed/merged-away — idempotently. (FR-2b)
+
+## US-5 — Correctness & edge
+- **AC-9:** Given a `PaymentRefunded` or a credit-note (invoice void) on G-RAVI's folio, when consumed, then `totalRevenue`/`outstanding` recompute via `06.guestBilling` and still reconcile to the paisa with 06/14 (refunds reduce revenue; opening/closing consistent). (FR-2/6)
+- **AC-10:** Given the **same folio event delivered twice**, when consumed, then the snapshot updates **once** (deduped on event id) — no double count. (FR-2)
+- **AC-11:** Given the cached snapshot **drifts** from a fresh derivation, when `reconcileGuestStats` runs, then it recomputes from source (reservations/folios win); the source is always authoritative, not the cache. (FR-5)
+- **AC-12:** Given a guest with only `CANCELLED`/`NO_SHOW` reservations, when history is read, then visits=0, revenue=₹0, room-nights=0 (cancelled/no-show never count) — no errors. (FR-1)

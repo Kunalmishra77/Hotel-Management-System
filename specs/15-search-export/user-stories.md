@@ -22,5 +22,12 @@ Roles per `rules/user-roles.md`; PII gating per `rbac-matrix.md`.
 ## US-3 — Structured query (for 18-ai)
 - **AC-6:** Given 18-ai compiles "guests from Bangalore who stayed >2× in 2 years" into a structured query, when this module executes it, then it validates the query, runs it with the caller's permissions/scope (never raw SQL), and returns masked results. (FR-7)
 
+## US-4 — Edge, scale & injection-safety
+- **AC-8:** Given a search with **no matches**, then an empty result with a clear "no results" state (HTTP 200, not an error), still within the p95 budget. (FR-1/2)
+- **AC-9:** Given a multi-entity search over DATA, when paging with the cursor, then results are **stable and non-duplicated** across pages (federated per-entity continuation tokens + rank-merge, no full re-scan). (FR-2)
+- **AC-10:** Given a >N-row export by U-ACC (`export:pii`), then it runs as an async `ExportJob`, the file is access-controlled + the export audited, and full PII appears **only** because `export:pii` is held; the identical export by U-REC omits PII columns. (FR-4/5)
+- **AC-11:** Given 18-ai emits a structured query referencing a **non-whitelisted field** (or attempts raw SQL), when validated, then rejected `INVALID_QUERY` and **never executed**. (FR-7)
+- **AC-12:** Given a search term containing SQL/regex special characters (`' ; -- %`), when searched, then it is treated as a **literal** (parameterized) — correct results, no injection, no error. (FR-1)
+
 ## Security
 - **AC-7:** Given any search/export, then it is authorized + property-scoped; every export is audited. (FR-6)

@@ -26,3 +26,9 @@ Roles per `rules/user-roles.md`. Event-driven, idempotent, sandbox-by-default.
 ## US-4 — Reconciliation & config
 - **AC-7:** Given synced/pending/failed documents, when U-ADMIN opens reconciliation, then per-provider status + last-sync time are shown. (FR-6)
 - **AC-8:** Given U-ADMIN switches provider Tally↔Zoho or flips to live, then it is a config change (no code); non-admins are denied. (FR-7/8)
+
+## US-5 — Correctness edge cases
+- **AC-9:** Given a `PaymentRefunded` or an invoice **void/credit-note**, when synced, then a **credit/adjustment doc** is pushed (not a second invoice). (FR-2)
+- **AC-10:** Given a push fails past the retry cap, then it is **dead-lettered `FAILED` + admin alerted**; when the admin retries after fixing credentials, it syncs and clears — **idempotent** (no duplicate in the accounting system). (FR-5/3)
+- **AC-11:** Given raw `FolioCharged` events fire, then 22 does **not** consume them (only `InvoiceIssued` / `PaymentReceived` / `PaymentRefunded` / `ExpenseRecorded` / `PayrollFinalized`) — **no double entries**. (FR-2)
+- **AC-12:** Given a non-admin, when configuring accounting or triggering a sync, then `FORBIDDEN`. (FR-8)

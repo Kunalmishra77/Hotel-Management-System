@@ -36,6 +36,10 @@ recordPayment(folioId, tenders: Tender[]): Promise<Result<{batchId}>>       // s
 refund(folioId, amountPaise, reason): Promise<Result<void>>
 generateInvoice(folioId, billTo, type?: InvoiceType): Promise<Result<{invoiceId; number}>>  // credit notes draw the SAME series
 corporateReceivable(corporateId): Promise<Result<{receivablePaise: bigint}>> // 25 reads via this, not a foreign SELECT
+guestBilling(guestId): Promise<Result<{revenuePaise: bigint; outstandingPaise: bigint; bills: BillRef[]}>>  // guest-scoped folio roll-up (revenue net-of-discount tax-excluded); 05 derives history in ONE call, not a per-reservation fan-out; same derivation as reporting so 05 reconciles to the paisa with 14
+validateCoupon(code, ctx: {orgId; propertyId; categoryId?; guestId; bookingPaise}): Promise<Result<{discountPaise; couponId}>>  // preview only, no state change (used by 23 + front desk)
+applyCoupon(target: {folioId} | {reservationId}, code, guestId): Promise<Result<{discountPaise}>>  // ATOMIC: row-lock Coupon → re-check validity/limits → increment timesUsed → insert CouponRedemption → post DISCOUNT FolioLine → emit CouponRedeemed
+createCoupon(input) / pauseCoupon(id) / expireCoupon(id): Promise<Result<...>>  // coupon:manage
 
 // 09-staff  (read by 21)
 getStaffForPayroll(propertyId, month): Promise<StaffWithAttendance[]>       // salary + joinedOn/leftOn/isActive + RAW per-day attendance (for lopDays)
@@ -63,6 +67,14 @@ getFinalizedStaffCost(propertyIds, range): Promise<Result<{propertyId; month; co
 
 // 24-pricing  (called by 03, 23)
 resolvedRate(in: {categoryId; date; negotiatedRatePaise?: bigint}): Promise<bigint>  // negotiated (from 25) passed in by caller; else approved DynamicRate → RatePlan → base
+
+// 26-data-onboarding  (go-live import; Admin `data:import`; creates via 04/03/06 only)
+getTemplate(kind): CsvTemplate
+createBatch(kind, propertyId?, file, mapping): Promise<Result<{batchId}>>
+validateBatch(batchId): Promise<Result<{ok; error; duplicate; rows}>>   // dry-run, NO target writes
+commitBatch(batchId): Promise<Result<{created; skipped}>>               // per-row via 04.upsertGuest / 03 historical / 06 opening-balance; idempotent; emits ImportCommitted
+rollbackBatch(batchId): Promise<Result<void>>                           // discard (uncommitted) or soft-void created targets via ImportRow.targetId
+downloadErrors(batchId): CsvFile
 
 // 25-corporate  (MASTER-DATA services, Tier-1; called by 06, 03, 23)
 reserveCredit(corporateId, amountPaise): Promise<Result<{availablePaise: bigint}>>  // ATOMIC check-and-increment under row lock (called inside 06's settlement tx)
