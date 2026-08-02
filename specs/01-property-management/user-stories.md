@@ -16,7 +16,8 @@ Roles per `rules/user-roles.md`. ACs reference the shared fixtures.
 *As an Administrator, I want to add and edit properties, so that operations can begin.*
 - **AC-1:** Given USER-ADMIN, when creating PROP-A with all required fields, then it is saved and appears in the property list; `PropertyCreated` emitted + audit written.
 - **AC-2:** Given PROP-A exists with code `WMG`, when creating another property with code `WMG` in ORG, then rejected with "code already in use" (FR-2).
-- **AC-3:** Given GSTIN `29ABCDE1234F1Z5` (valid), it is accepted; given `29ABC` (invalid), it is rejected with a field error (FR-3).
+- **AC-3:** Given GSTIN `29ABCDE1234F1ZW` (valid — check digit `W` verified), it is accepted; given `29ABC` (malformed) or `29ABCDE1234F1Z5` (correct shape, **wrong check digit**), it is rejected with a field error (FR-3).
+  > Corrected 2026-07-21 during implementation: the original example `29ABCDE1234F1Z5` was labelled valid but fails the GSTIN check-digit algorithm. `design.md` requires checksum validation, so the two statements contradicted each other. The number now ends in its real check digit, and the old value is reused as the wrong-checksum negative case.
 - **AC-4:** Given PROP-A, when adding floors "Ground", "1", "2", then they persist ordered; a duplicate "1" is rejected (FR-4).
 
 ## US-2 — Deactivate without losing history

@@ -36,6 +36,22 @@ How the running system is monitored, so failures are seen and diagnosed. Referen
 ## Runbooks (operational)
 - Restore-from-backup drill · re-run a failed night audit (idempotent) · replay dead-lettered integration items · rotate a leaked secret · force-logout a user (16) · re-index search.
 
+**Written so far:** [restore-drill.md](../runbooks/restore-drill.md) (00 T-19).
+
+## Alert codes emitted today (00-platform)
+Alerts carry a stable machine `code` so rules match on it rather than on prose.
+| Code | Severity | Raised by |
+|---|---|---|
+| `backup.succeeded` | info | `runBackup` — FR-24 reports success too, and flags `mode: sandbox` so a degraded backup is never mistaken for a live one |
+| `backup.failed` | critical | `runBackup` |
+| `outbox.dead_letter` | critical | worker, when `dispatchOutbox` parks an event at the attempt cap (FR-19) |
+| `alert.transport_failed` | error (log) | the alert layer itself — an alerting failure never fails the operation that raised it |
+
+Transport is provider-abstracted ([`src/lib/alerts/`](../../src/lib/alerts/)): with
+no credentials it emits structured logs at the matching level, which is what a
+log-based alert rule consumes. Module 12 registers a real transport against the
+same interface — a config change, not a code change.
+
 ## SLO orientation (starting targets)
 - Booking path correctness: 100% (no overbooking) — hard invariant, not a percentage.
 - Availability of the front-desk app: high; integrations degrade gracefully and never block it.

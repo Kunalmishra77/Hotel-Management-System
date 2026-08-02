@@ -36,3 +36,21 @@ npm-debug.log*
 .vscode/*
 !.vscode/extensions.json
 .idea
+
+# database backups — encrypted dumps of production data; NEVER commit
+/.backups
+*.dump
+*.dump.enc
+
+# object storage (local sandbox for ID scans — encrypted, but never commit)
+/.storage
+
+# Build cache / session artifacts (not project source)
+/tsconfig.tsbuildinfo
+/.playwright-mcp/
+/forbidden-403.png
+/properties-overview.png
+
+# Machine-local Claude Code settings
+.claude/settings.local.json
+.claude/*.tmp.*

@@ -47,5 +47,19 @@ The web app and the worker are the **two runtime processes** (same codebase). Mo
 - Daily encrypted DB + object-storage backup to a separate India-region target ([00 BackupRun], [security.md](../../.claude/rules/security.md)); retention policy defined; **periodic restore drill** documented.
 - PITR on managed Postgres where available.
 
+**Implemented (00 T-18/T-19):**
+| Concern | Where |
+|---|---|
+| Scheduled job | `daily-backup` in [`scripts/worker.ts`](../../scripts/worker.ts) — 02:30 Asia/Kolkata, before the 03:00 night-audit window |
+| Job logic | [`src/lib/backup/`](../../src/lib/backup/) — `pg_dump` over `DIRECT_URL`, AES-256-GCM client-side, retention, `BackupRun` per attempt |
+| Targets | S3 (`ap-south-*` enforced in code) or the encrypted local fallback when credentials are absent (FR-25) |
+| Manual run | `npm run backup:now` |
+| Restore drill | `npm run restore:drill` + [runbook](../runbooks/restore-drill.md) |
+| Alerting | [`src/lib/alerts/`](../../src/lib/alerts/) — success *and* failure both alert (FR-24) |
+
+Backup artifacts are git-ignored (`/.backups`, `*.dump*`). A live target outside
+`ap-south-*` is refused at resolve time — DPDP residency is enforced in code, not
+by convention.
+
 ## Observability
 See [observability.md](observability.md) — structured logs (request id), latency/error dashboards, alerts on job/webhook/backup failure, `/api/health`.

@@ -28,9 +28,9 @@ Roles per `rules/user-roles.md`; PII rules per `rbac-matrix.md` + `compliance.md
 - **AC-6:** Given an ID scan upload (allowed type), when stored, then it lands in encrypted India-region object storage and the row keeps only `scanObjectKey` + `scanChecksum`; no bytes/number in logs. (FR-7)
 
 ## US-3 — PII masking & reveal
-- **AC-7:** Given U-REC (no `guest:view-pii`), when viewing a guest list/search, then contact + ID values are **masked**, but `fullName` is visible. (FR-8)
+- **AC-7:** Given any front-desk role, when viewing a guest list/search, then contact + ID values are **masked by default** (masking is the default view for everyone — reveal is a separate per-field action), but `fullName` is visible. (FR-8)
 - **AC-8:** Given U-MGR, when revealing G-RAVI's full mobile with a reason, then the value returns AND `GuestPiiAccessed` + an audit row (who/guest/field/reason) are written. (FR-9)
-- **AC-9:** Given U-REC, when calling the reveal action, then `FORBIDDEN` (403) — lacks `guest:view-pii`. (FR-8/9)
+- **AC-9:** Given U-HK (a role **without** `guest:view-pii` — see `docs/architecture/rbac-matrix.md`), when calling the reveal action, then `FORBIDDEN` (403). Reception/Manager/Accounts **do** hold `guest:view-pii` at the audited (🔒) tier — front desk legitimately needs a guest's contact — so for them reveal succeeds **with a reason** and is audited (as AC-8); it is never silent. (FR-8/9) *(Corrected in the 04 review: an earlier draft wrongly assumed Reception lacked this permission, contradicting the RBAC matrix.)*
 
 ## US-4 — Search
 - **AC-10:** Given 100k seeded guests, when U-REC searches "9800000001" or "Ravi" or "ACME" or a GSTIN, then matching guests return org/property-scoped, cursor-paginated, **p95 < 500ms**, with PII masked. (FR-10)

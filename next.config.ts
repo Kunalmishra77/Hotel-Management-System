@@ -6,6 +6,11 @@ const nextConfig: NextConfig = {
   experimental: {
     // Server Actions are used for mutations across the app.
     serverActions: { bodySizeLimit: "10mb" }, // ID/scan uploads
+    // Enables forbidden() / unauthorized(), so an unauthorized page render
+    // returns a real HTTP 403 as 00 FR-13 requires ("reject server-side with
+    // FORBIDDEN (HTTP 403)"). Without this flag Next falls back to 404, which
+    // would silently violate the spec.
+    authInterrupts: true,
   },
   images: {
     // Object-storage host for guest ID scans / property images is added here.

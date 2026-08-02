@@ -1,0 +1,115 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Design tokens — docs/architecture/ui-foundation.md.
+ * Colours are HSL triplets so Tailwind can compose them with opacity modifiers.
+ * Status colours are defined ONCE here and reused everywhere; feature UIs must
+ * never invent an ad-hoc colour for a room/booking state.
+ */
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    /* Woodpecker brand primary — deep teal, AA on white and on white text. */
+    --primary: 187 92% 24%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 42%;
+
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+
+    --destructive: 0 72% 42%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 71% 29%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 40%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 187 92% 24%;
+
+    --radius: 0.5rem;
+
+    /* Room / booking status map (ui-foundation.md) */
+    --status-vacant: 142 71% 29%; /* green   */
+    --status-occupied: 0 72% 42%; /* red     */
+    --status-reserved: 38 92% 40%; /* amber   */
+    --status-housekeeping: 25 95% 45%; /* orange  */
+    --status-maintenance: 271 60% 48%; /* violet  */
+  }
+
+  .dark {
+    --background: 222 47% 8%;
+    --foreground: 210 40% 96%;
+
+    --card: 222 44% 11%;
+    --card-foreground: 210 40% 96%;
+
+    --popover: 222 44% 11%;
+    --popover-foreground: 210 40% 96%;
+
+    --primary: 187 78% 46%;
+    --primary-foreground: 222 47% 8%;
+
+    --secondary: 217 33% 18%;
+    --secondary-foreground: 210 40% 96%;
+
+    --muted: 217 33% 18%;
+    --muted-foreground: 215 20% 68%;
+
+    --accent: 217 33% 18%;
+    --accent-foreground: 210 40% 96%;
+
+    --destructive: 0 73% 58%;
+    --destructive-foreground: 222 47% 8%;
+
+    --success: 142 62% 46%;
+    --success-foreground: 222 47% 8%;
+
+    --warning: 38 92% 56%;
+    --warning-foreground: 222 47% 8%;
+
+    --border: 217 33% 22%;
+    --input: 217 33% 22%;
+    --ring: 187 78% 46%;
+
+    --status-vacant: 142 62% 46%;
+    --status-occupied: 0 73% 58%;
+    --status-reserved: 38 92% 56%;
+    --status-housekeeping: 25 92% 58%;
+    --status-maintenance: 271 70% 66%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    /* Mobile-first: prevent iOS auto-zoom on focus by never going below 16px. */
+    font-size: 16px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Accessibility: visible focus is never removed (mobile-first.md). */
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+}

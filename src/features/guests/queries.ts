@@ -1,0 +1,252 @@
+/**
+ * Guest queries — 04 T-16/T-17 (FR-8/10, AC-7/AC-10).
+ *
+ * searchGuests is the module's hot path (p95 < 500ms on 100k+, AC-10). Its
+ * design:
+ *  - A digit-only query is treated as a mobile: hashed and matched EXACTLY on
+ *    the indexed `mobileHash` — no scan, no decrypt.
+ *  - A text query goes to the `pg_trgm` GIN index on `fullName`/`companyName`
+ *    plus exact `gstNumber` — the index the T-1 migration added.
+ *  - An email-shaped query matches `emailHash` exactly.
+ * Everything returns MASKED (AC-7): contact is masked, fullName stays visible.
+ * Callers pass claims explicitly (layering, as in 01/02).
+ */
+import { Prisma } from "@prisma/client";
+import { db } from "@/lib/db";
+import { decryptOptional, keyedHash } from "@/lib/crypto/encryption";
+import { maskContact } from "./domain/masking";
+import { duplicateScore, isProbableDuplicate } from "./domain/dedupe";
+import { normalizeEmail, normalizeGstin, normalizePhone } from "./domain/normalize";
+import { emailToken, mobileToken } from "./internal";
+import type { SessionClaims } from "@/lib/auth/claims";
+import type { SearchGuestsInput } from "./schema";
+
+export type DuplicateCandidate = {
+  id: string;
+  fullName: string;
+  maskedMobile: string | null;
+  city: string | null;
+};
+
+export type GuestListItem = {
+  id: string;
+  fullName: string;
+  maskedMobile: string | null;
+  maskedEmail: string | null;
+  city: string | null;
+  companyName: string | null;
+};
+
+export type GuestSearchResult = {
+  guests: GuestListItem[];
+  /** Cursor for the next page, or null when exhausted (FR-10). */
+  nextCursor: string | null;
+};
+
+/**
+ * Search guests, scoped to the caller's org, cursor-paginated, masked.
+ *
+ * Raw-SQL for the text path so the trigram index is actually used — Prisma's
+ * `contains` generates `LIKE` which cannot hit a GIN index. The query is still
+ * parameterised (no injection) and org-scoped in the WHERE.
+ */
+export async function searchGuests(
+  user: SessionClaims,
+  input: SearchGuestsInput,
+): Promise<GuestSearchResult> {
+  const prisma = db.unscoped(); // guests are org-scoped, filtered explicitly below
+  const query = input.query.trim();
+  const limit = input.limit;
+
+  const where = buildWhere(user.orgId, query);
+
+  const rows = await prisma.guest.findMany({
+    where,
+    select: {
+      id: true,
+      fullName: true,
+      mobile: true,
+      email: true,
+      city: true,
+      companyName: true,
+    },
+    orderBy: [{ fullName: "asc" }, { id: "asc" }],
+    take: limit + 1, // one extra to detect a next page
+    ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
+  });
+
+  const hasMore = rows.length > limit;
+  const page = hasMore ? rows.slice(0, limit) : rows;
+
+  return {
+    guests: page.map((row) => ({
+      id: row.id,
+      fullName: row.fullName,
+      // Decrypt then mask — the raw value never leaves the server. A caller with
+      // reveal permission uses `revealPii`, never this list.
+      maskedMobile: maskContact(decryptOptional(row.mobile), "mobile"),
+      maskedEmail: maskContact(decryptOptional(row.email), "email"),
+      city: row.city,
+      companyName: row.companyName,
+    })),
+    nextCursor: hasMore ? (page[page.length - 1]?.id ?? null) : null,
+  };
+}
+
+/**
+ * Interpret the query and build the WHERE. Exact-token paths (mobile/email) are
+ * preferred because they hit a btree index and are unambiguous; text falls back
+ * to trigram name/company + exact GSTIN.
+ */
+function buildWhere(orgId: string, query: string): Prisma.GuestWhereInput {
+  const base: Prisma.GuestWhereInput = { orgId, deletedAt: null };
+  if (query === "") return base;
+
+  // A mostly-digit query is a phone number.
+  const asPhone = normalizePhone(query);
+  if (asPhone) {
+    const hash = mobileToken(asPhone);
+    if (hash) return { ...base, mobileHash: hash };
+  }
+
+  // An email-shaped query matches the email token exactly.
+  if (query.includes("@")) {
+    const normalized = normalizeEmail(query);
+    if (normalized) {
+      const hash = emailToken(normalized);
+      if (hash) return { ...base, emailHash: hash };
+    }
+  }
+
+  // A GSTIN-shaped query matches gstNumber exactly.
+  const asGstin = normalizeGstin(query);
+  if (asGstin && /^[0-3][0-9][A-Z]{5}[0-9]{4}[A-Z]/.test(asGstin)) {
+    return { ...base, gstNumber: { equals: asGstin, mode: "insensitive" } };
+  }
+
+  // Otherwise a name/company/city text search plus an exact ID-number match
+  // (15 FR-1 §4 facets). `contains` is what the trigram index accelerates; the
+  // ID branch hashes the token the same way `addGuestId` did and hits the
+  // indexed `GuestId.valueHash` — so a passport/DL/voter number is found without
+  // decrypting anything. Case-insensitive for how staff actually type.
+  const idHash = keyedHash(query.replace(/\s/g, "").toUpperCase());
+  return {
+    ...base,
+    OR: [
+      { fullName: { contains: query, mode: "insensitive" } },
+      { companyName: { contains: query, mode: "insensitive" } },
+      { city: { contains: query, mode: "insensitive" } },
+      { ids: { some: { valueHash: idHash } } },
+    ],
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Profile (T-17)
+// ---------------------------------------------------------------------------
+
+export type GuestProfile = GuestListItem & {
+  state: string | null;
+  gstNumber: string | null;
+  purposeOfVisit: string | null;
+  foodPreference: string | null;
+  ids: { id: string; type: string; maskedValue: string; hasScan: boolean }[];
+};
+
+/** One guest, masked by default (T-17). Reveal goes through `revealPii`. */
+export async function getGuestProfile(
+  user: SessionClaims,
+  guestId: string,
+): Promise<GuestProfile | null> {
+  const prisma = db.unscoped();
+  const guest = await prisma.guest.findFirst({
+    where: { id: guestId, orgId: user.orgId, deletedAt: null },
+    select: {
+      id: true,
+      fullName: true,
+      mobile: true,
+      email: true,
+      city: true,
+      state: true,
+      companyName: true,
+      gstNumber: true,
+      purposeOfVisit: true,
+      foodPreference: true,
+      ids: {
+        select: { id: true, type: true, maskedValue: true, scanObjectKey: true },
+      },
+    },
+  });
+  if (!guest) return null;
+
+  return {
+    id: guest.id,
+    fullName: guest.fullName,
+    maskedMobile: maskContact(decryptOptional(guest.mobile), "mobile"),
+    maskedEmail: maskContact(decryptOptional(guest.email), "email"),
+    city: guest.city,
+    state: guest.state,
+    companyName: guest.companyName,
+    gstNumber: guest.gstNumber,
+    purposeOfVisit: guest.purposeOfVisit,
+    foodPreference: guest.foodPreference,
+    ids: guest.ids.map((id) => ({
+      id: id.id,
+      type: id.type,
+      maskedValue: id.maskedValue,
+      hasScan: id.scanObjectKey !== null,
+    })),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Duplicate lookup for the new-guest dedupe sheet (T-20 / FR-5, AC-3)
+// ---------------------------------------------------------------------------
+
+/**
+ * Probable duplicates for a would-be new guest, MASKED (AC-7).
+ *
+ * The new-guest form calls this after `createGuest` returns CONFLICT, to render
+ * the resolution sheet (open / merge / create-anyway). It is the read-only twin
+ * of the private finder inside `createGuest`'s transaction: same tokens, same
+ * threshold — so the sheet lists exactly the guests that blocked the create.
+ * Contact is masked from the *input*, never by decrypting a stored value.
+ */
+export async function findGuestDuplicates(
+  user: SessionClaims,
+  input: { fullName: string; mobile: string; email?: string | null },
+): Promise<DuplicateCandidate[]> {
+  const prisma = db.unscoped();
+  const mobileHash = mobileToken(input.mobile);
+  const emailHash = emailToken(input.email);
+  if (!mobileHash && !emailHash) return [];
+
+  const rows = await prisma.guest.findMany({
+    where: {
+      orgId: user.orgId,
+      deletedAt: null,
+      OR: [
+        ...(mobileHash ? [{ mobileHash }] : []),
+        ...(emailHash ? [{ emailHash }] : []),
+      ],
+    },
+    select: { id: true, fullName: true, city: true },
+    take: 10,
+  });
+
+  return rows
+    .filter((row) =>
+      isProbableDuplicate(
+        duplicateScore(
+          { fullName: input.fullName, mobile: input.mobile, email: input.email ?? null, idValues: [] },
+          { fullName: row.fullName, mobile: input.mobile, email: input.email ?? null, idValues: [] },
+        ),
+      ),
+    )
+    .map((row) => ({
+      id: row.id,
+      fullName: row.fullName,
+      maskedMobile: maskContact(normalizePhone(input.mobile), "mobile"),
+      city: row.city,
+    }));
+}

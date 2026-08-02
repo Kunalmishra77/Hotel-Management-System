@@ -14,7 +14,12 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  // Runtime connection. On a pooled host (Supabase/PgBouncer transaction mode)
+  // this is the pooler port; on plain Postgres it is the same as directUrl.
+  url       = env("DATABASE_URL")
+  // Migrations, introspection and advisory locks need a non-pooled session
+  // (PgBouncer transaction mode cannot hold them). See ADR-0005.
+  directUrl = env("DIRECT_URL")
   // NOTE: enable extensions in migrations: btree_gist (03 no-overbooking), pg_trgm (04/15 search).
 }
 
@@ -420,6 +425,14 @@ enum ReservationStatus {
   NO_SHOW
 }
 
+// 03 FR-14 / AC-27 — an OTA push that couldn't be allocated (no free room, or the
+// room-type mapping is missing) is still ingested, flagged for reception to resolve.
+// A paid channel booking is never dropped; it lands unallocated with one of these.
+enum ReservationAttention {
+  OVERSELL
+  MAPPING_MISSING
+}
+
 model Reservation {
   id               String            @id @default(cuid())
   propertyId       String
@@ -447,6 +460,10 @@ model Reservation {
 
   // Tentative hold (03 FR-16 / 23): ENQUIRY holds consume inventory until expiry.
   holdExpiresAt DateTime?
+
+  // 03 FR-14 / AC-27: set when an OTA push was ingested but not allocated
+  // (oversell or missing room-type mapping). Null for a normally-allocated booking.
+  needsAttention ReservationAttention?
 
   // Financial snapshot at booking (authoritative charges live on the folio)
   ratePaise         Int
