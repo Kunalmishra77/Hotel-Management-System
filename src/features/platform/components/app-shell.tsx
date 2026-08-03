@@ -30,8 +30,10 @@ export function AppShell({
   const barItems = bottomNavItems(claims.resolvedPermissions);
 
   return (
-    <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-30 flex min-h-touch items-center justify-between gap-2 border-b bg-background px-2 pt-[env(safe-area-inset-top)]">
+    // h-dvh (not min-h) so the sidebar and main scroll INDEPENDENTLY inside a
+    // fixed viewport — the left nav no longer scrolls away with the content.
+    <div className="flex h-dvh flex-col overflow-hidden">
+      <header className="z-30 flex min-h-touch shrink-0 items-center justify-between gap-2 border-b bg-background px-2 pt-[env(safe-area-inset-top)]">
         <PropertySwitcher properties={properties} activePropertyId={claims.activePropertyId} />
 
         <div className="flex items-center gap-2">
@@ -44,11 +46,12 @@ export function AppShell({
         </div>
       </header>
 
-      <div className="flex flex-1">
+      {/* min-h-0 lets the flex children actually scroll instead of growing. */}
+      <div className="flex min-h-0 flex-1">
         <SideNav items={sideItems} />
         <main
           id="main"
-          className="min-w-0 flex-1 px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+4.5rem)] md:pb-6"
+          className="min-w-0 flex-1 overflow-y-auto px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+4.5rem)] md:pb-6"
         >
           {children}
         </main>

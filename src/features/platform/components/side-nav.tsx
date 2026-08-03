@@ -17,7 +17,7 @@ export function SideNav({ items }: { items: NavItem[] }) {
   return (
     <nav
       aria-label="Primary"
-      className="hidden w-60 shrink-0 border-r bg-background md:block"
+      className="hidden w-60 shrink-0 overflow-y-auto border-r bg-background md:block"
     >
       <ul className="space-y-1 p-3">
         {items.map((item) => {
