@@ -26,9 +26,19 @@ test.afterAll(async () => {
     const rs = await prisma.reservation.findMany({ where: { guestId: GUEST_RAVI_ID }, select: { id: true } });
     const ids = rs.map((r) => r.id);
     if (ids.length) {
-      await prisma.folio.deleteMany({ where: { reservationId: { in: ids } } });
+      // Free the rooms first (allocations are deletable) so a same-day re-run can
+      // re-book. A folio with posted charge lines is append-only and can't be
+      // deleted — best-effort remove the empty ones, leave the rest (they no
+      // longer hold a room, so they don't block anything).
       await prisma.roomAllocation.deleteMany({ where: { reservationId: { in: ids } } });
-      await prisma.reservation.deleteMany({ where: { id: { in: ids } } });
+      for (const id of ids) {
+        try {
+          await prisma.folio.deleteMany({ where: { reservationId: id } });
+          await prisma.reservation.deleteMany({ where: { id } });
+        } catch {
+          /* folio has append-only lines — leave this reservation in place */
+        }
+      }
     }
     // Restore ROOMS-A statuses the journey moved.
     const { resetRoomsA } = await import("../../prisma/seed/01-property");

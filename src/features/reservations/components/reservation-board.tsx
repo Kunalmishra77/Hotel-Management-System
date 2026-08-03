@@ -63,19 +63,23 @@ function ReservationCard({ r }: { r: ReservationListItem }) {
   };
 
   return (
-    <Card data-testid={`reservation-${r.code}`}>
-      <CardContent className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="font-medium">
-            {r.guestName}
-            {r.roomNumbers.length > 0 && <span className="text-muted-foreground"> · {r.roomNumbers.join(", ")}</span>}
-          </p>
+    <Card data-testid={`reservation-${r.code}`} className="transition-shadow hover:shadow-md">
+      <CardContent className="flex flex-col gap-3 p-3.5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="truncate font-medium">{r.guestName}</p>
+            <StatusPill status={r.status} />
+            {r.needsAttention && (
+              <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-medium text-destructive">{r.needsAttention}</span>
+            )}
+          </div>
           <p className="text-sm text-muted-foreground">
-            {r.code} · {r.status}
-            {r.needsAttention && <span className="text-destructive"> · {r.needsAttention}</span>}
+            <span className="font-mono text-xs">{r.code}</span>
+            {r.roomNumbers.length > 0 && <> · Room {r.roomNumbers.join(", ")}</>}
+            {" · "}{fmtDate(r.checkInDate)} → {fmtDate(r.checkOutDate)} · {r.nights}n
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <Button asChild variant="ghost" size="sm"><Link href={`/bookings/${r.id}`}>Open</Link></Button>
           {r.status === "CONFIRMED" && (
             <Button size="sm" disabled={pending} onClick={() => act(() => checkIn({ reservationId: r.id }))}
@@ -90,4 +94,23 @@ function ReservationCard({ r }: { r: ReservationListItem }) {
       </CardContent>
     </Card>
   );
+}
+
+function fmtDate(d: Date | string): string {
+  return new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+}
+
+const STATUS_STYLE: Record<string, string> = {
+  CONFIRMED: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+  IN_HOUSE: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+  CHECKED_OUT: "bg-muted text-muted-foreground",
+  CANCELLED: "bg-destructive/10 text-destructive",
+  NO_SHOW: "bg-destructive/10 text-destructive",
+  ENQUIRY: "bg-primary/10 text-primary",
+};
+
+function StatusPill({ status }: { status: string }) {
+  const cls = STATUS_STYLE[status] ?? "bg-muted text-muted-foreground";
+  const label = status.replace("_", "-").toLowerCase();
+  return <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ${cls}`}>{label}</span>;
 }
