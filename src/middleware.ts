@@ -23,6 +23,7 @@ const { auth } = NextAuth(authConfig);
 
 /** Routes reachable without a session. Everything else requires one. */
 const PUBLIC_PREFIXES = [
+  "/", // public landing/overview (exact match only — see isPublic)
   "/sign-in",
   "/two-factor",
   "/forgot-password",
