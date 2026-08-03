@@ -1,0 +1,15 @@
+node_modules
+.next
+.git
+.env
+.env.*
+.storage
+.backups
+.playwright-mcp
+test-results
+playwright-report
+coverage
+tsconfig.tsbuildinfo
+prisma/seed/fixtures/imports
+*.log
+npm-debug.log*
