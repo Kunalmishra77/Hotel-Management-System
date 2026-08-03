@@ -13,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { configureAccounting, retrySync } from "../actions";
+import { formatIstDateTime } from "@/lib/utils";
 import type { ProviderSummary, ReconciliationRow } from "../queries";
 
 export function AccountingView(props: {
@@ -119,7 +120,7 @@ export function AccountingView(props: {
                     <span className={p.failed > 0 ? "text-destructive" : ""}>{p.failed} failed</span>
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    last sync {p.lastSyncAt ? new Date(p.lastSyncAt).toLocaleString() : "never"}
+                    last sync {p.lastSyncAt ? formatIstDateTime(p.lastSyncAt) : "never"}
                   </p>
                 </CardContent>
               </Card>

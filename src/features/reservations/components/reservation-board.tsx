@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { formatDayMonth } from "@/lib/utils";
 import { checkIn, checkOut } from "../lifecycle-actions";
 import type { ReservationListItem } from "../queries";
 
@@ -97,7 +98,9 @@ function ReservationCard({ r }: { r: ReservationListItem }) {
 }
 
 function fmtDate(d: Date | string): string {
-  return new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+  // Deterministic (see formatDayMonth) so the UTC server and IST browser render
+  // the same text — a locale/tz formatter here trips React hydration error #418.
+  return formatDayMonth(d);
 }
 
 const STATUS_STYLE: Record<string, string> = {

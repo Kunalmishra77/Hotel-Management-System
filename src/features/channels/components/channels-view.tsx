@@ -18,6 +18,7 @@ import {
   mapRoomType,
   resolveAttention,
 } from "../actions";
+import { formatIstDateTime } from "@/lib/utils";
 import type { AttentionItem, ChannelHealth, MappingRow } from "../queries";
 
 type Category = { id: string; name: string };
@@ -121,7 +122,7 @@ export function ChannelsView(props: {
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    last sync {h.lastSyncAt ? new Date(h.lastSyncAt).toLocaleString() : "never"} ·{" "}
+                    last sync {h.lastSyncAt ? formatIstDateTime(h.lastSyncAt) : "never"} ·{" "}
                     {h.pendingCount} pending · {h.deadLetterCount} dead · {h.needsAttentionCount} attn
                   </p>
 
