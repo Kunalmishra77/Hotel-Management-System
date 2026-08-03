@@ -37,7 +37,10 @@ export function resExtFixturePayload(): Record<string, unknown> {
 }
 
 export async function seedChannels(prisma: PrismaClient): Promise<void> {
-  await prisma.channelAccount.upsert({
+  // Upsert by the natural (property, provider) key and use the RESULTING id for
+  // the mapping — a leftover account from a prior test run may already own this
+  // (property, provider) under a different id, so never assume CHANNEL_BDC_ID.
+  const account = await prisma.channelAccount.upsert({
     where: { propertyId_provider: { propertyId: PROP_A_ID, provider: "booking_com" } },
     create: {
       id: CHANNEL_BDC_ID,
@@ -57,18 +60,18 @@ export async function seedChannels(prisma: PrismaClient): Promise<void> {
       } as Prisma.InputJsonValue,
     },
     update: { isActive: false },
+    select: { id: true },
   });
 
   await prisma.roomTypeMapping.upsert({
     where: {
       channelAccountId_externalRoomType: {
-        channelAccountId: CHANNEL_BDC_ID,
+        channelAccountId: account.id,
         externalRoomType: "DLX-BB",
       },
     },
     create: {
-      id: MAPPING_DLX_ID,
-      channelAccountId: CHANNEL_BDC_ID,
+      channelAccountId: account.id,
       roomCategoryId: CAT_DLX_ID,
       externalRoomType: "DLX-BB",
       externalRatePlan: "BB",
