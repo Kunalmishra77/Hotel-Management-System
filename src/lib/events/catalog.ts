@@ -36,6 +36,7 @@ export const DOMAIN_EVENT_TYPES = [
   "NoShowMarked",
   "GuestCheckedIn",
   "GuestCheckedOut",
+  "RegistrationCardCaptured",
 
   // 04 guest CRM
   "GuestCreated",

@@ -84,6 +84,16 @@ export const checkOutSchema = z.object({
   defer: z.boolean().default(false),
 });
 
+/** Registration card + e-signature captured during check-in (03 T6). The
+ *  signature is a base64 PNG (uploaded to encrypted storage server-side); the
+ *  guest snapshot is built server-side from the reservation, never trusted input. */
+export const saveRegistrationCardSchema = z.object({
+  reservationId: z.string().min(1),
+  signatureBase64: z.string().min(1).optional(),
+  keyCardRef: z.string().max(60).optional(),
+});
+export type SaveRegistrationCardInput = z.infer<typeof saveRegistrationCardSchema>;
+
 export const markNoShowsSchema = z.object({
   propertyId: z.string().min(1),
   businessDate: dateInput,

@@ -11,18 +11,20 @@
 import { useMemo, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check, ChevronLeft, IdCard, ListChecks, UserCheck } from "lucide-react";
+import { Check, ChevronLeft, FileSignature, IdCard, ListChecks, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDayMonth, formatINR } from "@/lib/utils";
 import { checkIn } from "../lifecycle-actions";
 import { IdentityStep } from "./check-in-identity-step";
+import { RegistrationStep } from "./check-in-registration-step";
 import type { CheckInContext, CheckInIdSummary } from "../queries";
 
 const STEPS = [
   { key: "verify", label: "Verify", icon: ListChecks },
   { key: "identity", label: "Identity", icon: IdCard },
+  { key: "registration", label: "Register", icon: FileSignature },
   { key: "confirm", label: "Confirm", icon: UserCheck },
 ] as const;
 type StepKey = (typeof STEPS)[number]["key"];
@@ -43,6 +45,7 @@ export function CheckInWizard({
   const router = useRouter();
   const [step, setStep] = useState<StepKey>("verify");
   const [ids, setIds] = useState<CheckInIdSummary[]>(context.ids);
+  const [registrationSaved, setRegistrationSaved] = useState(false);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -78,8 +81,14 @@ export function CheckInWizard({
               onAdded={(id) => setIds((prev) => [...prev, id])}
               canStoreAadhaarScan={canStoreAadhaarScan}
             />
+          ) : step === "registration" ? (
+            <RegistrationStep
+              context={{ ...context, ids }}
+              saved={registrationSaved}
+              onSaved={() => setRegistrationSaved(true)}
+            />
           ) : (
-            <ConfirmStep context={context} idCount={ids.length} />
+            <ConfirmStep context={context} idCount={ids.length} registrationSaved={registrationSaved} />
           )}
 
           {step === "identity" && !hasAadhaar ? (
@@ -112,7 +121,7 @@ export function CheckInWizard({
         ) : (
           <Button
             onClick={() => setStep(STEPS[stepIndex + 1]!.key)}
-            disabled={step === "identity" && !hasAadhaar}
+            disabled={(step === "identity" && !hasAadhaar) || (step === "registration" && !registrationSaved)}
             data-testid="wizard-continue"
           >
             Continue
@@ -193,7 +202,15 @@ function VerifyStep({ context }: { context: CheckInContext }) {
   );
 }
 
-function ConfirmStep({ context, idCount }: { context: CheckInContext; idCount: number }) {
+function ConfirmStep({
+  context,
+  idCount,
+  registrationSaved,
+}: {
+  context: CheckInContext;
+  idCount: number;
+  registrationSaved: boolean;
+}) {
   return (
     <div className="space-y-1 divide-y divide-border/60">
       <div className="pb-2">
@@ -204,6 +221,13 @@ function ConfirmStep({ context, idCount }: { context: CheckInContext; idCount: n
       </div>
       <Row label="Room(s)">{context.roomNumbers.join(", ") || "Unallocated"}</Row>
       <Row label="Documents">{idCount} captured</Row>
+      <Row label="Registration">
+        {registrationSaved ? (
+          <span className="text-success">Signed</span>
+        ) : (
+          <span className="text-muted-foreground">Not signed</span>
+        )}
+      </Row>
       <Row label="Payment">{SETTLEMENT_LABEL[context.settlementIntent] ?? context.settlementIntent}</Row>
       {context.balancePaise !== null ? (
         <Row label="Balance due">

@@ -71,13 +71,14 @@ model Property {
   locationMapUrl      String?
   checkInInstructions String?
 
-  floors         Floor[]
-  roomCategories RoomCategory[]
-  rooms          Room[]
-  reservations   Reservation[]
-  expenses       Expense[]
-  staff          Staff[]
-  invoiceSeries  InvoiceSeries[]
+  floors            Floor[]
+  roomCategories    RoomCategory[]
+  rooms             Room[]
+  reservations      Reservation[]
+  expenses          Expense[]
+  staff             Staff[]
+  invoiceSeries     InvoiceSeries[]
+  registrationCards RegistrationCard[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -490,9 +491,10 @@ model Reservation {
   otherChargesPaise Int @default(0)
   advancePaise      Int @default(0)
 
-  allocations RoomAllocation[]
-  folio       Folio?
-  posOrders   PosOrder[]
+  allocations      RoomAllocation[]
+  folio            Folio?
+  posOrders        PosOrder[]
+  registrationCard RegistrationCard?
 
   notes     String?
   createdAt DateTime @default(now())
@@ -505,6 +507,27 @@ model Reservation {
   @@index([corporateId])
   @@index([travelAgentId])
   @@index([channelRef])
+}
+
+// Digital registration card + e-signature captured at check-in (03 T6, MoM).
+// One per stay. The signature image lives in ENCRYPTED object storage (PII, like
+// an ID scan) — the row holds only the object key + checksum, never the bytes.
+// `guestSnapshot` freezes what the guest signed (name/room/dates/IDs) so the card
+// is an immutable record even if the reservation is later corrected.
+model RegistrationCard {
+  id                 String      @id @default(cuid())
+  propertyId         String
+  property           Property    @relation(fields: [propertyId], references: [id])
+  reservationId      String      @unique
+  reservation        Reservation @relation(fields: [reservationId], references: [id])
+  signatureObjectKey String? // encrypted PNG in object storage
+  signatureChecksum  String?
+  keyCardRef         String? // room key / access-card handover note (record-only)
+  guestSnapshot      Json // frozen name/room/dates/IDs shown on the signed card
+  capturedById       String? // reception user who ran check-in
+  createdAt          DateTime    @default(now())
+
+  @@index([propertyId])
 }
 
 // A room assigned to a reservation for a date range — the availability truth.
