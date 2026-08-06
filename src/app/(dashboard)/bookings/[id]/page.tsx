@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { CalendarDays, IndianRupee, ReceiptText } from "lucide-react";
+import { CalendarDays, IndianRupee, ReceiptText, UserCheck } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
 import { hasPermission } from "@/lib/permissions";
 import { getReservation } from "@/features/reservations/queries";
@@ -32,6 +32,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
   if (!r) notFound();
 
   const canFolio = hasPermission(user, "folio:view");
+  const canCheckIn = r.status === "CONFIRMED" && hasPermission(user, "checkin:perform");
   const balancePaise = canFolio ? await getBalance(user, id) : null;
 
   return (
@@ -49,8 +50,15 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
         }
         actions={
           <>
-            {canFolio ? (
+            {canCheckIn ? (
               <Button asChild size="sm">
+                <Link href={`/bookings/${r.id}/check-in`} data-testid="start-checkin">
+                  <UserCheck /> Check in
+                </Link>
+              </Button>
+            ) : null}
+            {canFolio ? (
+              <Button asChild variant={canCheckIn ? "outline" : "default"} size="sm">
                 <Link href={`/bookings/${r.id}/folio`} data-testid="open-folio">
                   <ReceiptText /> Folio
                 </Link>

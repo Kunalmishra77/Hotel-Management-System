@@ -4,6 +4,8 @@
  * front desk must see to run the board).
  */
 import { db } from "@/lib/db";
+import { getGuestProfile } from "@/features/guests/queries";
+import { getBalance } from "@/features/billing";
 import { utcEpochDay } from "./internal";
 import type { SessionClaims } from "@/lib/auth/claims";
 
@@ -137,6 +139,92 @@ export async function getReservation(
     select: LIST_SELECT,
   })) as Row | null;
   return r ? toItem(r) : null;
+}
+
+// ---------------------------------------------------------------------------
+// Check-in wizard context (03 T6) — the richer read the guided flow needs:
+// booking + occupancy + settlement intent + live folio balance + the guest's
+// masked IDs (so the Identity step knows what's already on file). Composed from
+// the guest (04) and billing (06) query surfaces, never a foreign SELECT.
+// ---------------------------------------------------------------------------
+
+export type CheckInIdSummary = { id: string; type: string; maskedValue: string; hasScan: boolean };
+
+export type CheckInContext = {
+  id: string;
+  code: string;
+  status: string;
+  guestId: string;
+  guestName: string;
+  guestMaskedMobile: string | null;
+  roomNumbers: string[];
+  checkInDate: Date;
+  checkOutDate: Date;
+  nights: number;
+  adults: number;
+  children: number;
+  settlementIntent: string;
+  balancePaise: number | null;
+  ids: CheckInIdSummary[];
+};
+
+type CheckInRow = {
+  id: string;
+  code: string;
+  status: string;
+  guestId: string;
+  checkInDate: Date;
+  checkOutDate: Date;
+  nights: number;
+  adults: number;
+  children: number;
+  settlementIntent: string;
+  guest: { fullName: string };
+  allocations: { room: { number: string } }[];
+};
+
+export async function getCheckInContext(user: SessionClaims, id: string): Promise<CheckInContext | null> {
+  const r = (await db.scoped(user).reservation.findFirst({
+    where: { id },
+    select: {
+      id: true,
+      code: true,
+      status: true,
+      guestId: true,
+      checkInDate: true,
+      checkOutDate: true,
+      nights: true,
+      adults: true,
+      children: true,
+      settlementIntent: true,
+      guest: { select: { fullName: true } },
+      allocations: { select: { room: { select: { number: true } } } },
+    },
+  })) as CheckInRow | null;
+  if (!r) return null;
+
+  const [profile, balancePaise] = await Promise.all([
+    getGuestProfile(user, r.guestId),
+    getBalance(user, id),
+  ]);
+
+  return {
+    id: r.id,
+    code: r.code,
+    status: r.status,
+    guestId: r.guestId,
+    guestName: r.guest.fullName,
+    guestMaskedMobile: profile?.maskedMobile ?? null,
+    roomNumbers: r.allocations.map((a) => a.room.number),
+    checkInDate: r.checkInDate,
+    checkOutDate: r.checkOutDate,
+    nights: r.nights,
+    adults: r.adults,
+    children: r.children,
+    settlementIntent: r.settlementIntent,
+    balancePaise,
+    ids: profile?.ids ?? [],
+  };
 }
 
 /** Today's arrivals (due to check in) and departures (due to check out) (dashboard). */
