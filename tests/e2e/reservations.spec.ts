@@ -31,6 +31,9 @@ test.afterAll(async () => {
       // deleted — best-effort remove the empty ones, leave the rest (they no
       // longer hold a room, so they don't block anything).
       await prisma.roomAllocation.deleteMany({ where: { reservationId: { in: ids } } });
+      // Registration cards (T6) are deletable — remove them so an empty-folio
+      // reservation can still be cleaned; a folio with posted lines stays anyway.
+      await prisma.registrationCard.deleteMany({ where: { reservationId: { in: ids } } });
       for (const id of ids) {
         try {
           await prisma.folio.deleteMany({ where: { reservationId: id } });
@@ -85,14 +88,41 @@ test.describe("journey — search → book → check-in → check-out (T-32)", (
     const arrivals = page.getByTestId("section-arrivals");
     await expect(arrivals).toContainText("Ravi Kumar");
 
-    // 6 · Check in → it moves to in-house (AC-15). Target THIS guest's card, not
-    // `.first()`, so other guests' arrivals can't be picked by mistake.
+    // 6 · Check in via the guided wizard (T6, AC-15). The board's Check-in opens
+    // it. Target THIS guest's card, not `.first()`, so other arrivals can't be
+    // picked by mistake.
     const raviArrival = arrivals.locator('[data-testid^="reservation-"]').filter({ hasText: "Ravi Kumar" }).first();
-    await raviArrival.getByRole("button", { name: "Check in" }).click();
-    const inHouse = page.getByTestId("section-in-house");
-    await expect(inHouse).toContainText("Ravi Kumar");
+    await raviArrival.getByRole("link", { name: "Check in" }).click();
+    await expect(page).toHaveURL(/\/check-in$/);
 
-    // 7 · Check out — balance is settled, so it succeeds (AC-17)
+    // Verify → Identity (Ravi has a seeded Aadhaar, so Continue is enabled) → Register.
+    await page.getByTestId("wizard-continue").click();
+    await page.getByTestId("wizard-continue").click();
+
+    // Sign the registration card (a real pointer stroke), then save.
+    const pad = page.getByTestId("signature-pad");
+    const box = await pad.boundingBox();
+    if (box) {
+      await page.mouse.move(box.x + 24, box.y + 40);
+      await page.mouse.down();
+      await page.mouse.move(box.x + 90, box.y + 70);
+      await page.mouse.move(box.x + 170, box.y + 45);
+      await page.mouse.up();
+    }
+    await page.getByTestId("save-registration").click();
+    await expect(page.getByTestId("registration-saved")).toBeVisible();
+    await page.getByTestId("wizard-continue").click(); // → Payment
+
+    // Payment: the advance already covers the stay, so skip collection → Confirm.
+    await page.getByTestId("wizard-continue").click();
+    await page.getByTestId("complete-checkin").click();
+
+    // Lands on the booking detail, now IN_HOUSE.
+    await expect(page.getByTestId("booking-status")).toHaveText("IN_HOUSE");
+
+    // 7 · Check out from the board — the advance covers the balance (AC-17).
+    await page.goto("/bookings");
+    const inHouse = page.getByTestId("section-in-house");
     const raviInHouse = inHouse.locator('[data-testid^="reservation-"]').filter({ hasText: "Ravi Kumar" }).first();
     await raviInHouse.getByRole("button", { name: "Check out" }).click();
     await expect(page.getByTestId("section-in-house")).not.toContainText("Ravi Kumar");

@@ -73,7 +73,10 @@ export async function createReservationFormAction(
   });
 
   if (!result.ok) return { status: "error", message: result.error.message };
-  redirect("/bookings");
+  // "Book & check in now" (walk-in) jumps straight into the guided check-in;
+  // otherwise land on the board.
+  const checkInNow = formData.get("checkInNow") === "true";
+  redirect(checkInNow ? `/bookings/${result.data.id}/check-in` : "/bookings");
 }
 
 /**

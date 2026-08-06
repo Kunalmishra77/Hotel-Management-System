@@ -302,6 +302,17 @@ export function BookingForm({
         <Button type="submit" size="lg" className="sm:min-w-40" disabled={!room || !guest || pending} data-testid="confirm-booking">
           {pending ? "Confirming…" : "Confirm booking"}
         </Button>
+        <Button
+          type="submit"
+          name="checkInNow"
+          value="true"
+          variant="secondary"
+          size="lg"
+          disabled={!room || !guest || pending}
+          data-testid="confirm-checkin-now"
+        >
+          Book &amp; check in now
+        </Button>
         <Button asChild variant="outline" size="lg"><Link href="/bookings">Cancel</Link></Button>
       </div>
     </form>

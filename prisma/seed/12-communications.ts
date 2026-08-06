@@ -19,6 +19,7 @@ export async function seedCommunications(prisma: PrismaClient): Promise<void> {
     { key: "FESTIVAL_OFFER", channel: "WHATSAPP" as const, language: "en", body: "Hi {{guestName}}! Festive offer at {{propertyName}}: use code {{couponCode}}.", providerTemplateId: null },
     { key: "PAYMENT_REMINDER", channel: "WHATSAPP" as const, language: "en", body: "Hi {{guestName}}, a balance is pending on your stay at {{propertyName}}.", providerTemplateId: "hsm_payment_reminder_en" },
     { key: "PRE_ARRIVAL", channel: "WHATSAPP" as const, language: "en", body: "Hi {{guestName}}, we look forward to your arrival on {{checkInDate}}. Wi-Fi: {{wifiSsid}}.", providerTemplateId: "hsm_pre_arrival_en" },
+    { key: "WELCOME_CHECKIN", channel: "WHATSAPP" as const, language: "en", body: "Welcome to {{propertyName}}, {{guestName}}! You are checked in. Wi-Fi: {{wifiSsid}}. Enjoy your stay.", providerTemplateId: "hsm_welcome_checkin_en" },
     { key: "CHECKOUT_THANKYOU", channel: "WHATSAPP" as const, language: "en", body: "Thank you for staying at {{propertyName}}, {{guestName}}! How was your stay?", providerTemplateId: "hsm_checkout_thankyou_en" },
   ];
   for (const t of templates) {
@@ -33,6 +34,7 @@ export async function seedCommunications(prisma: PrismaClient): Promise<void> {
   const automations = [
     { id: "auto_booking_confirmation", category: "BEFORE_ARRIVAL" as const, triggerEvent: "ReservationCreated", scheduleOffsetMinutes: null, templateKey: "BOOKING_CONFIRMATION", channel: "WHATSAPP" as const },
     { id: "auto_pre_arrival", category: "BEFORE_ARRIVAL" as const, triggerEvent: null, scheduleOffsetMinutes: -1440, templateKey: "PRE_ARRIVAL", channel: "WHATSAPP" as const },
+    { id: "auto_welcome_checkin", category: "DURING_STAY" as const, triggerEvent: "GuestCheckedIn", scheduleOffsetMinutes: null, templateKey: "WELCOME_CHECKIN", channel: "WHATSAPP" as const },
     { id: "auto_checkout_thankyou", category: "AFTER_CHECKOUT" as const, triggerEvent: "GuestCheckedOut", scheduleOffsetMinutes: null, templateKey: "CHECKOUT_THANKYOU", channel: "WHATSAPP" as const },
     { id: "auto_festival_offer", category: "MARKETING" as const, triggerEvent: null, scheduleOffsetMinutes: null, templateKey: "FESTIVAL_OFFER", channel: "WHATSAPP" as const, isActive: false },
   ];

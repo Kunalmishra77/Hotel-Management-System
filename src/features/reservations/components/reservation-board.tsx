@@ -13,7 +13,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatDayMonth } from "@/lib/utils";
-import { checkIn, checkOut } from "../lifecycle-actions";
+import { checkOut } from "../lifecycle-actions";
 import type { ReservationListItem } from "../queries";
 
 export function ReservationBoard({
@@ -83,8 +83,9 @@ function ReservationCard({ r }: { r: ReservationListItem }) {
         <div className="flex shrink-0 items-center gap-2">
           <Button asChild variant="ghost" size="sm"><Link href={`/bookings/${r.id}`}>Open</Link></Button>
           {r.status === "CONFIRMED" && (
-            <Button size="sm" disabled={pending} onClick={() => act(() => checkIn({ reservationId: r.id }))}
-              data-testid={`checkin-${r.code}`}>Check in</Button>
+            <Button asChild size="sm">
+              <Link href={`/bookings/${r.id}/check-in`} data-testid={`checkin-${r.code}`}>Check in</Link>
+            </Button>
           )}
           {r.status === "IN_HOUSE" && (
             <Button size="sm" disabled={pending} onClick={() => act(() => checkOut({ reservationId: r.id }))}
