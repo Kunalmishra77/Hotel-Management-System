@@ -432,6 +432,15 @@ enum ReservationStatus {
   NO_SHOW
 }
 
+// MoM payment-state on a booking. PAY_AT_HOTEL = collect at desk (default);
+// ALREADY_PAID = a folio payment is posted for the amount; UNPAID_ONLINE = a
+// pending gateway link (HDFC/WhatsApp) — never auto-collected (MoM).
+enum SettlementIntent {
+  PAY_AT_HOTEL
+  ALREADY_PAID
+  UNPAID_ONLINE
+}
+
 // 03 FR-14 / AC-27 — an OTA push that couldn't be allocated (no free room, or the
 // room-type mapping is missing) is still ingested, flagged for reception to resolve.
 // A paid channel booking is never dropped; it lands unallocated with one of these.
@@ -449,6 +458,7 @@ model Reservation {
   guest            Guest             @relation(fields: [guestId], references: [id])
   status           ReservationStatus @default(CONFIRMED)
   source           BookingSource
+  settlementIntent SettlementIntent  @default(PAY_AT_HOTEL) // MoM payment state (3C)
   channelRef       String? // OTA reservation id if applicable
   channelAccountId String? // which ChannelAccount sourced it (13)
   corporateId      String?
