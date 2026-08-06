@@ -11,6 +11,7 @@ import { createFromChannel } from "@/features/reservations/channel-actions";
 import { checkIn, checkOut } from "@/features/reservations/lifecycle-actions";
 import { ensureDirectSaleFolio } from "@/features/billing/folio-actions";
 import { postFolioCharge } from "@/features/billing/charge-actions";
+import { roomChargeLineData } from "@/features/billing";
 import { ErrorCode } from "@/lib/errors";
 import type { NormalizedRow } from "./domain/validate";
 import type { MasterData } from "./lookups";
@@ -70,10 +71,20 @@ export async function commitReservationRow(
     1,
     Math.round((n.checkOutDate!.getTime() - n.checkInDate!.getTime()) / 86_400_000),
   );
-  // A completed stay carries no outstanding here (opening dues import separately):
-  // set advance = room charge so the check-out balance gate is satisfied cleanly.
+  // A completed stay carries no outstanding here (opening dues import separately).
+  // The folio-authoritative check-out (3C) posts GST-bearing room-nights, so the
+  // advance must cover room + GST — not just the ex-tax rate — for the balance
+  // gate to net cleanly to zero. Use the SAME room-charge GST the check-out posts.
   const ratePaise = n.amountPaise ? Math.round(n.amountPaise / nights) : 0;
-  const advancePaise = ratePaise * nights;
+  let advancePaise = ratePaise * nights;
+  if (ratePaise > 0) {
+    const property = await db.scoped(user).property.findFirst({ where: { id: propertyId }, select: { state: true } });
+    if (property) {
+      const line = roomChargeLineData({ folioId: "", propertyId, propertyState: property.state, ratePaise, businessDate: n.checkInDate! });
+      const perNightPaise = Number(line.amountPaise) + (line.cgstPaise ?? 0) + (line.sgstPaise ?? 0) + (line.igstPaise ?? 0);
+      advancePaise = perNightPaise * nights;
+    }
+  }
 
   let created;
   try {

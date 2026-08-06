@@ -71,4 +71,11 @@ export { getBalance } from "./queries";
  * Transaction-composable folio posting (3C, T1). 03's check-in/out compose these
  * into their own transaction so the folio becomes the single money truth.
  */
-export { postRoomChargeTx, postPaymentTx, roomChargeLineData, type BillingPostTx } from "./tx-post";
+export {
+  postRoomChargeTx,
+  postPaymentTx,
+  postBookingExtrasTx,
+  roomChargeLineData,
+  bookingExtraLineData,
+  type BillingPostTx,
+} from "./tx-post";

@@ -45,6 +45,9 @@ import { checkIn, checkOut, cancelReservation } from "@/features/reservations/li
 import { reallocateRoom } from "@/features/reservations/move-actions";
 import { releaseExpiredHolds, markNoShows } from "@/features/reservations/jobs";
 import { createFromChannel } from "@/features/reservations/channel-actions";
+import { postFolioCharge } from "@/features/billing/charge-actions";
+import { postRoomCharges } from "@/features/billing/night-audit";
+import { getFolio } from "@/features/billing/queries";
 
 const prisma = createPrismaClient();
 const createdIds: string[] = [];
@@ -89,9 +92,34 @@ beforeEach(async () => {
 
 afterEach(async () => {
   if (createdIds.length) {
-    await prisma.folio.deleteMany({ where: { reservationId: { in: createdIds } } });
+    // Allocations are freely deletable and MUST go so the rooms/date-ranges free
+    // up for the next test (the exclusion constraint is unforgiving).
     await prisma.roomAllocation.deleteMany({ where: { reservationId: { in: createdIds } } });
-    await prisma.reservation.deleteMany({ where: { id: { in: createdIds } } });
+
+    // A checked-in booking's folio carries append-only Payment/FolioLine rows
+    // (T4 advance, T5 room/extra lines) that can NEVER be deleted (billing_guards
+    // triggers). Delete only the empty folios (holds, confirmed-never-checked-in)
+    // + their reservations; leave the line-bearing folios in place and neutralize
+    // their reservation to CHECKED_OUT so night-audit / no-show sweeps in other
+    // suites ignore it (the billing.test.ts convention). Check-in-bearing tests
+    // use GUEST_MEHTA (never GUEST_RAVI), so the reservations e2e G-RAVI cleanup
+    // is never aborted by a leftover line-bearing folio.
+    const folios = await prisma.folio.findMany({
+      where: { reservationId: { in: createdIds } },
+      select: { id: true, reservationId: true, _count: { select: { lines: true, payments: true } } },
+    });
+    const blocked: string[] = [];
+    for (const f of folios) {
+      if (f._count.lines === 0 && f._count.payments === 0) {
+        await prisma.folio.delete({ where: { id: f.id } });
+      } else if (f.reservationId) {
+        blocked.push(f.reservationId);
+      }
+    }
+    if (blocked.length) {
+      await prisma.reservation.updateMany({ where: { id: { in: blocked } }, data: { status: "CHECKED_OUT" } });
+    }
+    await prisma.reservation.deleteMany({ where: { id: { in: createdIds.filter((id) => !blocked.includes(id)) } } });
     createdIds.length = 0;
   }
   if (createdBlockIds.length) {
@@ -304,9 +332,13 @@ describe("holds + confirm (T-14/T-14b, FR-16/23, AC-14/26)", () => {
 });
 
 describe("lifecycle: check-in / check-out / cancel / reallocate (T-17/18/19/20)", () => {
+  // GUEST_MEHTA (not GUEST_RAVI): these bookings get checked in, and check-in now
+  // posts append-only Payment/FolioLine rows the afterEach can't delete — the folio
+  // + reservation persist. Keeping them off G-RAVI protects the reservations e2e's
+  // blanket G-RAVI cleanup (billing.test.ts convention).
   async function makeConfirmed(roomId = ROOM_101_ID, extra: Record<string, unknown> = {}) {
     await actAs(USER_RECEPTION_A_ID);
-    const res = await createReservation(booking([roomId], extra));
+    const res = await createReservation(booking([roomId], { guestId: GUEST_MEHTA_ID, ...extra }));
     track(res);
     if (!res.ok) throw new Error("setup create failed");
     return res.data.id;
@@ -330,9 +362,11 @@ describe("lifecycle: check-in / check-out / cancel / reallocate (T-17/18/19/20)"
     if (!res.ok) expect(res.error.code).toBe("BALANCE_UNSETTLED");
   });
 
-  it("allows check-out when the balance is settled (AC-17)", async () => {
-    // advance ≥ total → balance 0.
-    const id = await makeConfirmed(ROOM_102_ID, { advancePaise: 1_341_000 });
+  it("allows check-out when the LIVE folio balance is settled (AC-17)", async () => {
+    // Folio-authoritative total (Option A), NOT the snapshot: room 3×(400,000 +
+    // 12% GST 48,000) = 1,344,000; + extra bed 80,000 + 12% (9,600); − discount
+    // 50,000 = 1,383,600. Advance = that exact amount → live folio balance 0.
+    const id = await makeConfirmed(ROOM_102_ID, { advancePaise: 1_383_600 });
     await checkIn({ reservationId: id });
     const res = await checkOut({ reservationId: id });
     expect(res.ok).toBe(true);
@@ -377,6 +411,97 @@ describe("lifecycle: check-in / check-out / cancel / reallocate (T-17/18/19/20)"
     expect((await prisma.roomAllocation.findFirstOrThrow({ where: { reservationId: id } })).roomId).toBe(ROOM_102_ID);
     expect((await prisma.room.findUniqueOrThrow({ where: { id: ROOM_101_ID } })).status).toBe("HOUSEKEEPING");
     expect((await prisma.room.findUniqueOrThrow({ where: { id: ROOM_102_ID } })).status).toBe("OCCUPIED");
+  });
+});
+
+describe("folio-authoritative check-out (3C T5 — money is always correct)", () => {
+  async function confirmMehta(roomId: string, extra: Record<string, unknown> = {}) {
+    await actAs(USER_RECEPTION_A_ID);
+    const res = await createReservation(booking([roomId], { guestId: GUEST_MEHTA_ID, ...extra }));
+    track(res);
+    if (!res.ok) throw new Error("setup create failed");
+    return res.data.id;
+  }
+  async function folioIdOf(reservationId: string): Promise<string> {
+    return (await prisma.folio.findFirstOrThrow({ where: { reservationId }, select: { id: true } })).id;
+  }
+
+  it("posts the agreed discount + extra bed + advance onto the folio at check-in (Option A)", async () => {
+    // Default booking carries extraBed 80,000, discount 50,000, advance 500,000.
+    const id = await confirmMehta(ROOM_101_ID);
+    await checkIn({ reservationId: id });
+    const folioId = await folioIdOf(id);
+
+    const lines = await prisma.folioLine.findMany({ where: { folioId }, select: { type: true, amountPaise: true } });
+    const bed = lines.find((l) => l.type === "EXTRA_BED");
+    const discount = lines.find((l) => l.type === "DISCOUNT");
+    expect(Number(bed?.amountPaise)).toBe(80_000); // taxed service line
+    expect(Number(discount?.amountPaise)).toBe(-50_000); // negative, reduces balance
+
+    // The booking advance is now a folio Payment (T4), idempotent by reference.
+    const payment = await prisma.payment.findFirst({ where: { folioId, reference: `ADVANCE:${id}` }, select: { amountPaise: true } });
+    expect(Number(payment?.amountPaise)).toBe(500_000);
+  });
+
+  it("gates on the LIVE folio, not the snapshot — a mid-stay POS charge blocks an otherwise-settled check-out", async () => {
+    // Prepay the exact agreed folio total → without any in-stay charge, balance 0.
+    const id = await confirmMehta(ROOM_104_ID, { advancePaise: 1_383_600 });
+    await checkIn({ reservationId: id });
+    const folioId = await folioIdOf(id);
+
+    // A mini-bar (POS) charge during the stay — invisible to the booking snapshot.
+    await actAs(USER_RECEPTION_A_ID);
+    const pos = await postFolioCharge({ folioId, type: "POS", description: "Mini-bar", unitPaise: 30_000 });
+    expect(pos.ok).toBe(true);
+
+    // Reception (no folio:defer) is now blocked BECAUSE the folio owes the POS
+    // charge + its GST — the snapshot alone would have let this check out.
+    await actAs(USER_RECEPTION_A_ID);
+    const res = await checkOut({ reservationId: id });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error.code).toBe("BALANCE_UNSETTLED");
+    expect((await prisma.reservation.findUniqueOrThrow({ where: { id } })).status).toBe("IN_HOUSE");
+  });
+
+  it("checks out with a zero balance when ALREADY_PAID covers the agreed bill", async () => {
+    const id = await confirmMehta(ROOM_201_ID, {
+      settlementIntent: "ALREADY_PAID",
+      ratePaise: 800_000, // Suite ₹8,000/night > ₹7,500 → 18% GST band
+      extraBedPaise: 0,
+      discountPaise: 0,
+      checkInDate: "2027-07-12",
+      checkOutDate: "2027-07-15",
+      // Room only: 3 × (800,000 + 18% = 144,000) = 2,832,000. Prepaid in full.
+      advancePaise: 2_832_000,
+    });
+    await checkIn({ reservationId: id });
+    const folioId = await folioIdOf(id);
+    // ALREADY_PAID posts the prepayment as an ONLINE tender.
+    expect(await prisma.payment.count({ where: { folioId, mode: "ONLINE" } })).toBe(1);
+
+    const res = await checkOut({ reservationId: id });
+    expect(res.ok).toBe(true);
+    const claims = await actAs(USER_RECEPTION_A_ID);
+    expect((await getFolio(claims, folioId))?.balancePaise).toBe(0);
+  });
+
+  it("posts each un-accrued room-night exactly once — no double-post vs night audit", async () => {
+    const id = await confirmMehta(ROOM_102_ID, { advancePaise: 1_383_600 });
+    await checkIn({ reservationId: id });
+    const folioId = await folioIdOf(id);
+
+    // Night audit accrues the FIRST stay night before check-out runs.
+    await postRoomCharges(PROP_A_ID, d("2027-07-12"));
+
+    const res = await checkOut({ reservationId: id });
+    expect(res.ok).toBe(true);
+
+    // Exactly 3 ROOM lines (nights = 3), one per distinct business date — the
+    // partial-unique key + pre-check mean the audited night is never re-posted.
+    const roomLines = await prisma.folioLine.findMany({ where: { folioId, type: "ROOM" }, select: { businessDate: true } });
+    expect(roomLines).toHaveLength(3);
+    const distinctDates = new Set(roomLines.map((l) => l.businessDate.toISOString().slice(0, 10)));
+    expect(distinctDates.size).toBe(3);
   });
 });
 

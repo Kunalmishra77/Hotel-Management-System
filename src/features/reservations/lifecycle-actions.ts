@@ -14,7 +14,14 @@ import { writeAudit } from "@/lib/audit";
 import { emitEvent, type EventCapableTx } from "@/lib/events";
 import { DomainError, ErrorCode, NotFoundError } from "@/lib/errors";
 import { toResult, type Result } from "@/lib/result";
-import { ensureFolio, postPaymentTx, type BillingPostTx } from "@/features/billing";
+import {
+  ensureFolio,
+  getBalance,
+  postBookingExtrasTx,
+  postPaymentTx,
+  postRoomChargeTx,
+  type BillingPostTx,
+} from "@/features/billing";
 import { canTransition } from "./domain/transitions";
 import { priceReservation } from "./domain/pricing";
 import { reservationDb, withReservationContext } from "./internal";
@@ -33,6 +40,8 @@ type LoadedReservation = {
   otherChargesPaise: number;
   advancePaise: number;
   settlementIntent: string;
+  checkInDate: Date;
+  checkOutDate: Date;
   allocations: { roomId: string }[];
 };
 
@@ -40,6 +49,7 @@ const LOAD_SELECT = {
   id: true, propertyId: true, code: true, status: true, nights: true,
   ratePaise: true, discountPaise: true, extraBedPaise: true, taxPaise: true,
   otherChargesPaise: true, advancePaise: true, settlementIntent: true,
+  checkInDate: true, checkOutDate: true,
   allocations: { select: { roomId: true } },
 } as const;
 
@@ -131,6 +141,33 @@ export async function checkIn(input: unknown): Promise<Result<LifecycleResult>> 
           }
         }
 
+        // T5 (Option A): the agreed booking's NON-room charges (extra bed, other,
+        // discount) become folio lines here, so the checkout gate reads the full
+        // bill — not the room-only folio (which would drop the discount and
+        // over-charge the guest). Room-nights are posted by night audit / checkout.
+        // Idempotent: only if these line types are absent (check-in runs once).
+        if (r.extraBedPaise > 0 || r.otherChargesPaise > 0 || r.discountPaise > 0) {
+          const already = await tx.folioLine.findFirst({
+            where: { folioId, type: { in: ["EXTRA_BED", "MISC", "DISCOUNT"] } },
+            select: { id: true },
+          });
+          if (!already) {
+            const property = await tx.property.findFirst({ where: { id: r.propertyId }, select: { state: true } });
+            if (property) {
+              await postBookingExtrasTx(tx as unknown as BillingPostTx, {
+                folioId,
+                propertyId: r.propertyId,
+                propertyState: property.state,
+                extraBedPaise: r.extraBedPaise,
+                otherChargesPaise: r.otherChargesPaise,
+                discountPaise: r.discountPaise,
+                businessDate: r.checkInDate,
+                postedById: user.userId,
+              });
+            }
+          }
+        }
+
         await freeRooms(tx as unknown as RoomStatusTx, r, "OCCUPIED", "check-in");
         await emitEvent(tx, {
           type: "GuestCheckedIn",
@@ -169,15 +206,50 @@ export async function checkOut(input: unknown): Promise<Result<LifecycleResult>>
       throw new DomainError(ErrorCode.ILLEGAL_TRANSITION);
     }
 
-    // Balance from the booking snapshot. Moving to the LIVE folio balance
-    // requires first posting outstanding room charges to the folio at check-out
-    // (the "final bill" step) so an empty pre-night-audit folio can't let a guest
-    // leave un-gated — tracked as a dedicated 3C billing task. (business-rules.md §6)
-    const { balancePaise } = priceReservation({
-      ratePaise: r.ratePaise, nights: r.nights, discountPaise: r.discountPaise,
-      extraBedPaise: r.extraBedPaise, otherChargesPaise: r.otherChargesPaise,
-      taxPaise: r.taxPaise, advancePaise: r.advancePaise,
+    // T5: the FOLIO is the money truth (business-rules.md §6). Post any room-nights
+    // not yet accrued by night audit — idempotent via the shared `(folioId,
+    // businessDate) WHERE type='ROOM'` key, and the pre-check here means a repeat
+    // never even attempts a duplicate insert — then gate on the LIVE folio balance.
+    const folio = await client.folio.findFirst({
+      where: { reservationId: r.id },
+      select: { id: true, lines: { where: { type: "ROOM" }, select: { businessDate: true } } },
     });
+
+    let balancePaise: number;
+    if (folio) {
+      const property = await client.property.findFirst({
+        where: { id: r.propertyId },
+        select: { state: true },
+      });
+      const posted = new Set(folio.lines.map((l) => dateKey(l.businessDate)));
+      const toPost = stayNightDates(r.checkInDate, r.checkOutDate).filter((d) => !posted.has(dateKey(d)));
+
+      if (toPost.length > 0 && property) {
+        await withReservationContext(user, () =>
+          client.$transaction(async (tx) => {
+            for (const businessDate of toPost) {
+              await postRoomChargeTx(tx as unknown as BillingPostTx, {
+                folioId: folio.id,
+                propertyId: r.propertyId,
+                propertyState: property.state,
+                ratePaise: r.ratePaise,
+                businessDate,
+                postedById: user.userId,
+              });
+            }
+          }),
+        );
+      }
+      balancePaise = (await getBalance(user, reservationId)) ?? 0;
+    } else {
+      // No folio — a booking that never checked in. Fall back to the snapshot.
+      balancePaise = priceReservation({
+        ratePaise: r.ratePaise, nights: r.nights, discountPaise: r.discountPaise,
+        extraBedPaise: r.extraBedPaise, otherChargesPaise: r.otherChargesPaise,
+        taxPaise: r.taxPaise, advancePaise: r.advancePaise,
+      }).balancePaise;
+    }
+
     if (balancePaise > 0) {
       // Deferring an unsettled balance is an elevated, permissioned act (AC-16/17).
       if (!defer || !hasPermission(user, "folio:defer")) {
@@ -242,4 +314,21 @@ async function freeRooms(
       payload: { to: status, reason },
     });
   }
+}
+
+/** UTC yyyy-mm-dd key for comparing `@db.Date` business dates. */
+function dateKey(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+/** Each night's business date for a stay: check-in (inclusive) → check-out (exclusive). */
+function stayNightDates(checkIn: Date, checkOut: Date): Date[] {
+  const dates: Date[] = [];
+  const d = new Date(Date.UTC(checkIn.getUTCFullYear(), checkIn.getUTCMonth(), checkIn.getUTCDate()));
+  const end = new Date(Date.UTC(checkOut.getUTCFullYear(), checkOut.getUTCMonth(), checkOut.getUTCDate()));
+  while (d < end) {
+    dates.push(new Date(d));
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return dates;
 }
