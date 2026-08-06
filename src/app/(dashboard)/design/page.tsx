@@ -19,7 +19,7 @@ import {
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   CommandDialog,
@@ -309,7 +309,7 @@ export default function DesignPage() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Void invoice INV/WMG/0007?</DialogTitle>
-                <DialogDescription>This creates an audited credit note. This action can't be undone.</DialogDescription>
+                <DialogDescription>This creates an audited credit note. This action cannot be undone.</DialogDescription>
               </DialogHeader>
               <DialogFooter>
                 <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
