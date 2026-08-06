@@ -38,6 +38,7 @@ const bookingFields = {
   taxPaise: paise.default(0),
   otherChargesPaise: paise.default(0),
   advancePaise: paise.default(0),
+  settlementIntent: z.enum(["PAY_AT_HOTEL", "ALREADY_PAID", "UNPAID_ONLINE"]).default("PAY_AT_HOTEL"),
   corporateId: z.string().min(1).optional(),
   travelAgentId: z.string().min(1).optional(),
   expectedArrival: z.string().max(40).optional(),

@@ -50,6 +50,7 @@ export function BookingForm({
   const [searching, startSearch] = useTransition();
 
   const [source, setSource] = useState("WALK_IN");
+  const [settlement, setSettlement] = useState("PAY_AT_HOTEL");
   const [guestQuery, setGuestQuery] = useState("");
   const [guests, setGuests] = useState<GuestPick[]>([]);
   const [guest, setGuest] = useState<GuestPick | null>(null);
@@ -261,6 +262,19 @@ export function BookingForm({
               <Labeled label="Extra bed (₹)"><Input type="number" inputMode="numeric" value={extraBed} onChange={(e) => setExtraBed(Number(e.target.value))} /></Labeled>
               <Labeled label="Advance (₹)"><Input type="number" inputMode="numeric" value={advance} onChange={(e) => setAdvance(Number(e.target.value))} data-testid="advance" /></Labeled>
             </div>
+            <Labeled label="Payment status">
+              <select
+                name="settlementIntent"
+                value={settlement}
+                onChange={(e) => setSettlement(e.target.value)}
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                data-testid="settlement-intent"
+              >
+                <option value="PAY_AT_HOTEL">Pay at hotel</option>
+                <option value="ALREADY_PAID">Already paid</option>
+                <option value="UNPAID_ONLINE">Unpaid (online link)</option>
+              </select>
+            </Labeled>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" name="extraBed" className="size-4" /> Extra bed override (exceeds category occupancy)
             </label>

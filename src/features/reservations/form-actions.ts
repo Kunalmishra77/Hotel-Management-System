@@ -16,6 +16,9 @@ import { searchGuests } from "@/features/guests/queries";
 const BOOKING_SOURCES = ["WALK_IN", "DIRECT", "PHONE", "CORPORATE", "WEBSITE"] as const;
 type BookingSourceValue = (typeof BOOKING_SOURCES)[number];
 
+const SETTLEMENT_INTENTS = ["PAY_AT_HOTEL", "ALREADY_PAID", "UNPAID_ONLINE"] as const;
+type SettlementIntentValue = (typeof SETTLEMENT_INTENTS)[number];
+
 export type BookingFormState = { status: "idle" } | { status: "error"; message: string };
 
 function num(formData: FormData, name: string): number {
@@ -45,6 +48,11 @@ export async function createReservationFormAction(
     : "WALK_IN";
   const notes = str(formData, "notes");
 
+  const settlementRaw = str(formData, "settlementIntent");
+  const settlementIntent: SettlementIntentValue = (SETTLEMENT_INTENTS as readonly string[]).includes(settlementRaw)
+    ? (settlementRaw as SettlementIntentValue)
+    : "PAY_AT_HOTEL";
+
   const result = await createReservation({
     propertyId,
     guestId,
@@ -60,6 +68,7 @@ export async function createReservationFormAction(
     extraBedPaise: num(formData, "extraBedPaise"),
     taxPaise: num(formData, "taxPaise"),
     advancePaise: num(formData, "advancePaise"),
+    settlementIntent,
     notes: notes || undefined,
   });
 

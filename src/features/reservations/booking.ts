@@ -147,6 +147,7 @@ export async function createBooking(
                 taxPaise: data.taxPaise,
                 otherChargesPaise: data.otherChargesPaise,
                 advancePaise: data.advancePaise,
+                settlementIntent: data.settlementIntent,
                 notes: data.notes ?? null,
               },
               select: { id: true, code: true, status: true, nights: true },

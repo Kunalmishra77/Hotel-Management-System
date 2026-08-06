@@ -14,7 +14,7 @@ import { writeAudit } from "@/lib/audit";
 import { emitEvent, type EventCapableTx } from "@/lib/events";
 import { DomainError, ErrorCode, NotFoundError } from "@/lib/errors";
 import { toResult, type Result } from "@/lib/result";
-import { ensureFolio } from "@/features/billing";
+import { ensureFolio, postPaymentTx, type BillingPostTx } from "@/features/billing";
 import { canTransition } from "./domain/transitions";
 import { priceReservation } from "./domain/pricing";
 import { reservationDb, withReservationContext } from "./internal";
@@ -32,13 +32,14 @@ type LoadedReservation = {
   taxPaise: number;
   otherChargesPaise: number;
   advancePaise: number;
+  settlementIntent: string;
   allocations: { roomId: string }[];
 };
 
 const LOAD_SELECT = {
   id: true, propertyId: true, code: true, status: true, nights: true,
   ratePaise: true, discountPaise: true, extraBedPaise: true, taxPaise: true,
-  otherChargesPaise: true, advancePaise: true,
+  otherChargesPaise: true, advancePaise: true, settlementIntent: true,
   allocations: { select: { roomId: true } },
 } as const;
 
@@ -110,7 +111,26 @@ export async function checkIn(input: unknown): Promise<Result<LifecycleResult>> 
           where: { id: r.id },
           data: { status: "IN_HOUSE", checkInAt: new Date() },
         });
-        await ensureFolio(tx, { reservationId: r.id, propertyId: r.propertyId });
+        const folioId = await ensureFolio(tx, { reservationId: r.id, propertyId: r.propertyId });
+
+        // T4: money received at booking becomes a folio PAYMENT, so the folio —
+        // not the reservation snapshot — reflects it. Idempotent by reference, so
+        // a re-check-in can never double-post the advance.
+        if (r.advancePaise > 0) {
+          const reference = `ADVANCE:${r.id}`;
+          const already = await tx.payment.findFirst({ where: { folioId, reference }, select: { id: true } });
+          if (!already) {
+            await postPaymentTx(tx as unknown as BillingPostTx, {
+              folioId,
+              propertyId: r.propertyId,
+              mode: r.settlementIntent === "ALREADY_PAID" ? "ONLINE" : "CASH",
+              amountPaise: r.advancePaise,
+              reference,
+              receivedById: user.userId,
+            });
+          }
+        }
+
         await freeRooms(tx as unknown as RoomStatusTx, r, "OCCUPIED", "check-in");
         await emitEvent(tx, {
           type: "GuestCheckedIn",
