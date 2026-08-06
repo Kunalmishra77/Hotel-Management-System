@@ -56,3 +56,13 @@ export async function ensureFolio(
   });
   return folio.id;
 }
+
+/**
+ * The live folio balance for a reservation (charges + tax − payments), or null
+ * if it has no folio. A READ-ONLY surface for reception (booking detail, dues).
+ * The check-out GATE still uses the booking snapshot until the folio becomes the
+ * authoritative money source — a dedicated billing workstream (post advance +
+ * room charges onto the folio consistently, reconciled with the MoM payment
+ * states). Displaying the balance is safe; gating on it is not, yet.
+ */
+export { getBalance } from "./queries";
