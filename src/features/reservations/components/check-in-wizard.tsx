@@ -11,7 +11,7 @@
 import { useMemo, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check, ChevronLeft, FileSignature, IdCard, ListChecks, UserCheck } from "lucide-react";
+import { Check, ChevronLeft, FileSignature, IdCard, ListChecks, UserCheck, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,12 +19,14 @@ import { formatDayMonth, formatINR } from "@/lib/utils";
 import { checkIn } from "../lifecycle-actions";
 import { IdentityStep } from "./check-in-identity-step";
 import { RegistrationStep } from "./check-in-registration-step";
+import { PaymentStep } from "./check-in-payment-step";
 import type { CheckInContext, CheckInIdSummary } from "../queries";
 
 const STEPS = [
   { key: "verify", label: "Verify", icon: ListChecks },
   { key: "identity", label: "Identity", icon: IdCard },
   { key: "registration", label: "Register", icon: FileSignature },
+  { key: "payment", label: "Payment", icon: Wallet },
   { key: "confirm", label: "Confirm", icon: UserCheck },
 ] as const;
 type StepKey = (typeof STEPS)[number]["key"];
@@ -46,6 +48,7 @@ export function CheckInWizard({
   const [step, setStep] = useState<StepKey>("verify");
   const [ids, setIds] = useState<CheckInIdSummary[]>(context.ids);
   const [registrationSaved, setRegistrationSaved] = useState(false);
+  const [collectedPaise, setCollectedPaise] = useState(0);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -87,8 +90,19 @@ export function CheckInWizard({
               saved={registrationSaved}
               onSaved={() => setRegistrationSaved(true)}
             />
+          ) : step === "payment" ? (
+            <PaymentStep
+              context={context}
+              collectedPaise={collectedPaise}
+              onCollected={(amt) => setCollectedPaise((prev) => prev + amt)}
+            />
           ) : (
-            <ConfirmStep context={context} idCount={ids.length} registrationSaved={registrationSaved} />
+            <ConfirmStep
+              context={context}
+              idCount={ids.length}
+              registrationSaved={registrationSaved}
+              collectedPaise={collectedPaise}
+            />
           )}
 
           {step === "identity" && !hasAadhaar ? (
@@ -206,10 +220,12 @@ function ConfirmStep({
   context,
   idCount,
   registrationSaved,
+  collectedPaise,
 }: {
   context: CheckInContext;
   idCount: number;
   registrationSaved: boolean;
+  collectedPaise: number;
 }) {
   return (
     <div className="space-y-1 divide-y divide-border/60">
@@ -229,11 +245,9 @@ function ConfirmStep({
         )}
       </Row>
       <Row label="Payment">{SETTLEMENT_LABEL[context.settlementIntent] ?? context.settlementIntent}</Row>
-      {context.balancePaise !== null ? (
-        <Row label="Balance due">
-          <span className={context.balancePaise > 0 ? "text-warning" : "text-success"}>
-            {formatINR(context.balancePaise)}
-          </span>
+      {collectedPaise > 0 ? (
+        <Row label="Collected">
+          <span className="text-success">{formatINR(collectedPaise)}</span>
         </Row>
       ) : null}
     </div>

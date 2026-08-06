@@ -6,6 +6,7 @@
 import { db } from "@/lib/db";
 import { getGuestProfile } from "@/features/guests/queries";
 import { getBalance } from "@/features/billing";
+import { priceReservation } from "./domain/pricing";
 import { utcEpochDay } from "./internal";
 import type { SessionClaims } from "@/lib/auth/claims";
 
@@ -164,7 +165,13 @@ export type CheckInContext = {
   adults: number;
   children: number;
   settlementIntent: string;
+  folioId: string | null;
   balancePaise: number | null;
+  /** Booking-estimate figures (paise) for the payment step — the folio is empty
+   *  until room-nights accrue, so collection at check-in works off the estimate. */
+  advancePaise: number;
+  estimatedTotalPaise: number;
+  estimatedBalancePaise: number;
   ids: CheckInIdSummary[];
 };
 
@@ -179,8 +186,15 @@ type CheckInRow = {
   adults: number;
   children: number;
   settlementIntent: string;
+  ratePaise: number;
+  discountPaise: number;
+  extraBedPaise: number;
+  otherChargesPaise: number;
+  taxPaise: number;
+  advancePaise: number;
   guest: { fullName: string };
   allocations: { room: { number: string } }[];
+  folio: { id: string } | null;
 };
 
 export async function getCheckInContext(user: SessionClaims, id: string): Promise<CheckInContext | null> {
@@ -197,8 +211,15 @@ export async function getCheckInContext(user: SessionClaims, id: string): Promis
       adults: true,
       children: true,
       settlementIntent: true,
+      ratePaise: true,
+      discountPaise: true,
+      extraBedPaise: true,
+      otherChargesPaise: true,
+      taxPaise: true,
+      advancePaise: true,
       guest: { select: { fullName: true } },
       allocations: { select: { room: { select: { number: true } } } },
+      folio: { select: { id: true } },
     },
   })) as CheckInRow | null;
   if (!r) return null;
@@ -207,6 +228,16 @@ export async function getCheckInContext(user: SessionClaims, id: string): Promis
     getGuestProfile(user, r.guestId),
     getBalance(user, id),
   ]);
+
+  const bill = priceReservation({
+    ratePaise: r.ratePaise,
+    nights: r.nights,
+    discountPaise: r.discountPaise,
+    extraBedPaise: r.extraBedPaise,
+    otherChargesPaise: r.otherChargesPaise,
+    taxPaise: r.taxPaise,
+    advancePaise: r.advancePaise,
+  });
 
   return {
     id: r.id,
@@ -222,7 +253,11 @@ export async function getCheckInContext(user: SessionClaims, id: string): Promis
     adults: r.adults,
     children: r.children,
     settlementIntent: r.settlementIntent,
+    folioId: r.folio?.id ?? null,
     balancePaise,
+    advancePaise: r.advancePaise,
+    estimatedTotalPaise: bill.totalPaise,
+    estimatedBalancePaise: bill.balancePaise,
     ids: profile?.ids ?? [],
   };
 }
