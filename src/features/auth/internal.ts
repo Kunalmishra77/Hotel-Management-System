@@ -6,6 +6,7 @@
  * exposed as endpoints. Keeping them here means the action files stay under the
  * ~300-line limit (coding-standards.md) without widening the attack surface.
  */
+import type { RoleName } from "@prisma/client";
 import { db } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
 import { emitEvent } from "@/lib/events";
@@ -31,6 +32,32 @@ export function safeNext(next: string | undefined): string {
   if (!next) return "/dashboard";
   if (!next.startsWith("/") || next.startsWith("//")) return "/dashboard";
   return next;
+}
+
+/**
+ * Role-based landing after sign-in (auth standard: role-based redirects). An
+ * explicit same-site `next` wins — a deep link or a session-expiry bounce-back
+ * should return the user where they were headed. Otherwise route to the role's
+ * home. Resolved from the DB by userId because the freshly-written session
+ * cookie is not readable in the same request that sets it.
+ */
+export async function landingRoute(userId: string, next: string | undefined): Promise<string> {
+  if (next && next.startsWith("/") && !next.startsWith("//")) return next;
+  const user = await authDb.user.findUnique({
+    where: { id: userId },
+    select: { roleAssignments: { select: { role: true } } },
+  });
+  const roles = new Set<RoleName>((user?.roleAssignments ?? []).map((r) => r.role));
+  if (roles.has("ADMINISTRATOR") || roles.has("MANAGER") || roles.has("ASSISTANT_MANAGER")) return "/dashboard";
+  if (roles.has("RECEPTION")) return "/bookings";
+  if (roles.has("ACCOUNTS")) return "/billing";
+  if (roles.has("HR")) return "/staff";
+  if (roles.has("POS_MANAGER")) return "/pos";
+  if (roles.has("INVENTORY_MANAGER") || roles.has("PURCHASE_MANAGER") || roles.has("LAUNDRY_SUPERVISOR"))
+    return "/inventory";
+  if (roles.has("HOUSEKEEPING")) return "/housekeeping";
+  if (roles.has("MAINTENANCE")) return "/maintenance";
+  return "/dashboard";
 }
 
 /**

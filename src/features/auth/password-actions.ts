@@ -7,14 +7,16 @@
  * coding-standards.md and to give the reset flow one clear home.
  */
 import { redirect } from "next/navigation";
+import { getCurrentSession } from "@/lib/auth";
 import {
   issuePasswordResetToken,
   redeemPasswordResetToken,
 } from "@/lib/auth/password-reset";
+import { hashPassword, passwordIssues, verifyPassword } from "@/lib/auth/password";
 import { writeAudit } from "@/lib/audit";
 import { emitEvent } from "@/lib/events";
 import { logger } from "@/lib/logger";
-import { requestPasswordResetSchema, resetPasswordSchema } from "./schema";
+import { changePasswordSchema, requestPasswordResetSchema, resetPasswordSchema } from "./schema";
 import { authDb, withUserContext } from "./internal";
 
 export type ResetRequestState =
@@ -103,4 +105,79 @@ export async function resetPasswordAction(
   );
 
   redirect("/sign-in?reset=1");
+}
+
+export type ChangePasswordState =
+  | { status: "idle" }
+  | { status: "success" }
+  | { status: "error"; message: string };
+
+/**
+ * Change password for a signed-in user (auth standard). Verifies the current
+ * password, applies the org's length policy, and — on success — signs out every
+ * OTHER device while keeping this one, so a leaked session elsewhere dies.
+ */
+export async function changePasswordAction(
+  _prev: ChangePasswordState,
+  formData: FormData,
+): Promise<ChangePasswordState> {
+  const session = await getCurrentSession();
+  if (!session) return { status: "error", message: "Your session has expired. Please sign in again." };
+
+  const parsed = changePasswordSchema.safeParse({
+    currentPassword: formData.get("currentPassword"),
+    password: formData.get("password"),
+    confirmPassword: formData.get("confirmPassword"),
+  });
+  if (!parsed.success) {
+    const first = Object.values(parsed.error.flatten().fieldErrors)[0]?.[0];
+    return { status: "error", message: first ?? "Please check the highlighted fields." };
+  }
+
+  const { claims, sessionId } = session;
+  const user = await authDb.user.findUnique({
+    where: { id: claims.userId },
+    select: { passwordHash: true },
+  });
+  if (!user) return { status: "error", message: "Your session has expired. Please sign in again." };
+
+  if (!(await verifyPassword(parsed.data.currentPassword, user.passwordHash))) {
+    return { status: "error", message: "Your current password is incorrect." };
+  }
+
+  const settings = await authDb.securitySettings.findUnique({
+    where: { orgId: claims.orgId },
+    select: { passwordMinLength: true },
+  });
+  const issues = passwordIssues(parsed.data.password, settings?.passwordMinLength ?? 10);
+  if (issues.length > 0) return { status: "error", message: issues[0]! };
+
+  if (await verifyPassword(parsed.data.password, user.passwordHash)) {
+    return { status: "error", message: "Choose a password different from your current one." };
+  }
+
+  const newHash = await hashPassword(parsed.data.password);
+
+  await withUserContext(claims.orgId, claims.userId, () =>
+    authDb.$transaction(async (tx) => {
+      await tx.user.update({ where: { id: claims.userId }, data: { passwordHash: newHash } });
+      const revoked = await tx.session.updateMany({
+        where: { userId: claims.userId, revokedAt: null, NOT: { id: sessionId } },
+        data: { revokedAt: new Date() },
+      });
+      await emitEvent(tx, {
+        type: "SessionForceLoggedOut",
+        aggregateId: claims.userId,
+        payload: { reason: "password-change", sessionsRevoked: revoked.count },
+      });
+      await writeAudit(tx, {
+        action: "auth:password-change",
+        entityType: "User",
+        entityId: claims.userId,
+        after: { sessionsRevoked: revoked.count },
+      });
+    }),
+  );
+
+  return { status: "success" };
 }

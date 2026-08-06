@@ -22,8 +22,8 @@ import { signInSchema, totpSchema } from "./schema";
 import {
   GENERIC_SIGN_IN_ERROR,
   authDb,
+  landingRoute,
   recordSignIn,
-  safeNext,
   withUserContext,
 } from "./internal";
 
@@ -49,6 +49,7 @@ export async function signInAction(
   const parsed = signInSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password"),
+    remember: formData.get("remember") ?? undefined,
     next: formData.get("next") ?? undefined,
   });
 
@@ -60,7 +61,7 @@ export async function signInAction(
     };
   }
 
-  const { email, password, next } = parsed.data;
+  const { email, password, remember, next } = parsed.data;
   const outcome = await verifyCredentials(authDb, email, password);
 
   if (outcome.kind === "INVALID") {
@@ -90,14 +91,19 @@ export async function signInAction(
   }
 
   try {
-    await authSignIn("credentials", { email, password, redirect: false });
+    await authSignIn("credentials", {
+      email,
+      password,
+      remember: remember ? "1" : "",
+      redirect: false,
+    });
   } catch (e) {
     if (e instanceof AuthError) return { status: "error", message: GENERIC_SIGN_IN_ERROR };
     throw e;
   }
 
   await recordSignIn(outcome.userId, outcome.orgId, false);
-  redirect(safeNext(next));
+  redirect(await landingRoute(outcome.userId, next));
 }
 
 /** Step two: the TOTP or backup code (AC-2/AC-3). */
@@ -150,7 +156,7 @@ export async function verifyTotpAction(
   });
   if (user) await recordSignIn(userId, user.orgId, true);
 
-  redirect(safeNext(next));
+  redirect(await landingRoute(userId, next));
 }
 
 export async function signOutAction(): Promise<never> {

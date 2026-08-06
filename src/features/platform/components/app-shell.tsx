@@ -8,8 +8,8 @@
  * server-resolved session, so a user's permissions never travel to the browser
  * and cannot be tampered with there.
  */
-import { signOutAction } from "@/features/auth/actions";
-import { Button } from "@/components/ui/button";
+import { UserMenu } from "@/components/layout/user-menu";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import type { SessionClaims } from "@/lib/auth/claims";
 import type { PropertyOption } from "../actions";
 import { bottomNavItems, visibleNavItems } from "../navigation";
@@ -36,13 +36,9 @@ export function AppShell({
       <header className="z-30 flex min-h-touch shrink-0 items-center justify-between gap-2 border-b bg-background px-2 pt-[env(safe-area-inset-top)]">
         <PropertySwitcher properties={properties} activePropertyId={claims.activePropertyId} />
 
-        <div className="flex items-center gap-2">
-          <span className="hidden text-sm text-muted-foreground sm:inline">{claims.name}</span>
-          <form action={signOutAction}>
-            <Button type="submit" variant="ghost" size="sm">
-              Sign out
-            </Button>
-          </form>
+        <div className="flex items-center gap-1">
+          <ThemeToggle />
+          <UserMenu name={claims.name} email={claims.email} />
         </div>
       </header>
 

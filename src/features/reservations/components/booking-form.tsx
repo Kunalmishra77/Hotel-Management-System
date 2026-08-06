@@ -12,11 +12,18 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { priceReservation } from "../domain/pricing";
 import { nights as computeNights } from "../domain/nights";
 import { searchAvailability } from "../availability-action";
-import { createReservationFormAction, searchGuestsForBooking, type BookingFormState, type GuestPick } from "../form-actions";
+import {
+  createGuestForBooking,
+  createReservationFormAction,
+  searchGuestsForBooking,
+  type BookingFormState,
+  type GuestPick,
+} from "../form-actions";
 import type { AvailableRoom } from "../availability";
 
 type Category = { id: string; name: string };
@@ -42,10 +49,35 @@ export function BookingForm({
   const [room, setRoom] = useState<AvailableRoom | null>(null);
   const [searching, startSearch] = useTransition();
 
+  const [source, setSource] = useState("WALK_IN");
   const [guestQuery, setGuestQuery] = useState("");
   const [guests, setGuests] = useState<GuestPick[]>([]);
   const [guest, setGuest] = useState<GuestPick | null>(null);
   const [, startGuestSearch] = useTransition();
+
+  // Inline "new guest" (walk-in) mode.
+  const [newGuest, setNewGuest] = useState(false);
+  const [ngName, setNgName] = useState("");
+  const [ngMobile, setNgMobile] = useState("");
+  const [ngCity, setNgCity] = useState("");
+  const [ngErr, setNgErr] = useState<string | null>(null);
+  const [creatingGuest, startCreateGuest] = useTransition();
+
+  const createNewGuest = () =>
+    startCreateGuest(async () => {
+      setNgErr(null);
+      const r = await createGuestForBooking({
+        fullName: ngName.trim(),
+        mobile: ngMobile.trim(),
+        city: ngCity.trim() || undefined,
+      });
+      if (r.ok) {
+        setGuest(r.guest);
+        setNewGuest(false);
+      } else {
+        setNgErr(r.message);
+      }
+    });
 
   const [rate, setRate] = useState(0);
   const [discount, setDiscount] = useState(0);
@@ -121,6 +153,19 @@ export function BookingForm({
               </select>
             </Labeled>
           </div>
+          <Labeled label="Booking source">
+            <select
+              name="source"
+              value={source}
+              onChange={(e) => setSource(e.target.value)}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="WALK_IN">Walk-in</option>
+              <option value="DIRECT">Direct</option>
+              <option value="PHONE">Phone / enquiry</option>
+              <option value="CORPORATE">Corporate</option>
+            </select>
+          </Labeled>
           <Button type="button" size="lg" block disabled={!checkInDate || !checkOutDate || searching} onClick={runSearch} data-testid="check-availability">
             {searching ? "Checking…" : "Check availability"}
           </Button>
@@ -159,6 +204,29 @@ export function BookingForm({
                 {guest.name} · {guest.maskedMobile ?? "—"}{" "}
                 <button type="button" className="text-primary underline" onClick={() => setGuest(null)}>change</button>
               </p>
+            ) : newGuest ? (
+              <div className="space-y-3">
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <Labeled label="Full name">
+                    <Input value={ngName} onChange={(e) => setNgName(e.target.value)} placeholder="Guest name" data-testid="new-guest-name" />
+                  </Labeled>
+                  <Labeled label="Mobile">
+                    <Input inputMode="tel" value={ngMobile} onChange={(e) => setNgMobile(e.target.value)} placeholder="98xxxxxxxx" data-testid="new-guest-mobile" />
+                  </Labeled>
+                  <Labeled label="City">
+                    <Input value={ngCity} onChange={(e) => setNgCity(e.target.value)} placeholder="City" />
+                  </Labeled>
+                </div>
+                {ngErr && <p role="alert" className="text-sm text-destructive">{ngErr}</p>}
+                <div className="flex gap-2">
+                  <Button type="button" disabled={!ngName.trim() || !ngMobile.trim() || creatingGuest} onClick={createNewGuest} data-testid="create-guest">
+                    {creatingGuest ? "Creating…" : "Create & select"}
+                  </Button>
+                  <Button type="button" variant="ghost" onClick={() => { setNewGuest(false); setNgErr(null); }}>
+                    Back to search
+                  </Button>
+                </div>
+              </div>
             ) : (
               <>
                 <Input value={guestQuery} onChange={(e) => runGuestSearch(e.target.value)}
@@ -174,6 +242,9 @@ export function BookingForm({
                     </li>
                   ))}
                 </ul>
+                <Button type="button" variant="outline" size="sm" onClick={() => setNewGuest(true)} data-testid="new-guest">
+                  + New guest (walk-in)
+                </Button>
               </>
             )}
           </CardContent>
@@ -193,6 +264,10 @@ export function BookingForm({
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" name="extraBed" className="size-4" /> Extra bed override (exceeds category occupancy)
             </label>
+
+            <Labeled label="Notes / special requests">
+              <Textarea name="notes" placeholder="ETA, preferences, ID pending, VIP…" data-testid="booking-notes" />
+            </Labeled>
 
             <dl className="space-y-1 rounded-md border bg-muted/40 p-3 text-sm" data-testid="bill-preview">
               <Row label={`Room (${nights} × ${rupees(toPaise(rate))})`} value={rupees(bill.breakdown.roomPaise)} />

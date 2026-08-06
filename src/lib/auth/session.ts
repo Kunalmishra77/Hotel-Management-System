@@ -28,6 +28,13 @@ export type SessionContext = {
    * dormant account.
    */
   stampLastLogin?: boolean;
+  /**
+   * Override the org's default session TTL — used by "remember me" to issue a
+   * long-lived session. The Session ROW expiry is the real authority (every
+   * request re-checks it), so a longer life here is honoured without touching
+   * the JWT cookie.
+   */
+  ttlMinutesOverride?: number;
 };
 
 export type CreatedSession = {
@@ -68,7 +75,7 @@ export async function createSession(
   const claims = await assembleClaims(db, userId);
   if (!claims) return null;
 
-  const ttlMinutes = await getSessionTtlMinutes(db, claims.orgId);
+  const ttlMinutes = ctx.ttlMinutesOverride ?? (await getSessionTtlMinutes(db, claims.orgId));
   const expiresAt = new Date(now.getTime() + ttlMinutes * 60_000);
 
   const token = generateSessionToken();

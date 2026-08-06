@@ -6,7 +6,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { resetPasswordAction, type ResetState } from "../password-actions";
@@ -37,10 +37,9 @@ export function ResetPasswordForm({
 
           <div className="space-y-1.5">
             <Label htmlFor="password">New password</Label>
-            <Input
+            <PasswordInput
               id="password"
               name="password"
-              type="password"
               autoComplete="new-password"
               minLength={minLength}
               required
@@ -50,10 +49,9 @@ export function ResetPasswordForm({
 
           <div className="space-y-1.5">
             <Label htmlFor="confirmPassword">Confirm new password</Label>
-            <Input
+            <PasswordInput
               id="confirmPassword"
               name="confirmPassword"
-              type="password"
               autoComplete="new-password"
               minLength={minLength}
               required

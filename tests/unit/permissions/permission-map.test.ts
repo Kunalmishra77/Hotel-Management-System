@@ -20,13 +20,21 @@ import {
 type Grant = "allow" | "audited";
 type ParsedRow = { permission: string; cells: Partial<Record<string, Grant>> };
 
+// Order MUST match the columns in docs/architecture/rbac-matrix.md.
 const COLUMN_ROLES = [
   "ADMINISTRATOR",
   "MANAGER",
+  "ASSISTANT_MANAGER",
   "RECEPTION",
   "ACCOUNTS",
+  "HR",
+  "INVENTORY_MANAGER",
+  "PURCHASE_MANAGER",
+  "POS_MANAGER",
   "HOUSEKEEPING",
   "MAINTENANCE",
+  "SECURITY_SUPERVISOR",
+  "LAUNDRY_SUPERVISOR",
 ] as const;
 
 function parseMatrixDoc(): ParsedRow[] {
@@ -39,7 +47,7 @@ function parseMatrixDoc(): ParsedRow[] {
   for (const line of md.split(/\r?\n/)) {
     if (!line.startsWith("|")) continue;
     const cells = line.split("|").slice(1, -1).map((c) => c.trim());
-    if (cells.length !== 7) continue;
+    if (cells.length !== COLUMN_ROLES.length + 1) continue;
     const permission = cells[0] ?? "";
     // Skip the header row and the |---|:--:| separator.
     if (!permission.includes(":")) continue;

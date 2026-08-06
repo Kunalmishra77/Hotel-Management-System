@@ -149,8 +149,10 @@ export async function checkOut(input: unknown): Promise<Result<LifecycleResult>>
       throw new DomainError(ErrorCode.ILLEGAL_TRANSITION);
     }
 
-    // Balance from the booking snapshot. When 06 lands, this reads the real
-    // folio balance instead — the gate logic is unchanged. (business-rules.md §6)
+    // Balance from the booking snapshot. Moving to the LIVE folio balance
+    // requires first posting outstanding room charges to the folio at check-out
+    // (the "final bill" step) so an empty pre-night-audit folio can't let a guest
+    // leave un-gated — tracked as a dedicated 3C billing task. (business-rules.md §6)
     const { balancePaise } = priceReservation({
       ratePaise: r.ratePaise, nights: r.nights, discountPaise: r.discountPaise,
       extraBedPaise: r.extraBedPaise, otherChargesPaise: r.otherChargesPaise,

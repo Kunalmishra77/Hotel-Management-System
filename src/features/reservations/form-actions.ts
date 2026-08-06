@@ -10,7 +10,11 @@
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { createReservation } from "./actions";
+import { createGuest } from "@/features/guests/actions";
 import { searchGuests } from "@/features/guests/queries";
+
+const BOOKING_SOURCES = ["WALK_IN", "DIRECT", "PHONE", "CORPORATE", "WEBSITE"] as const;
+type BookingSourceValue = (typeof BOOKING_SOURCES)[number];
 
 export type BookingFormState = { status: "idle" } | { status: "error"; message: string };
 
@@ -35,10 +39,16 @@ export async function createReservationFormAction(
     return { status: "error", message: "Pick a room and a guest before confirming." };
   }
 
+  const sourceRaw = str(formData, "source");
+  const source: BookingSourceValue = (BOOKING_SOURCES as readonly string[]).includes(sourceRaw)
+    ? (sourceRaw as BookingSourceValue)
+    : "WALK_IN";
+  const notes = str(formData, "notes");
+
   const result = await createReservation({
     propertyId,
     guestId,
-    source: "DIRECT",
+    source,
     roomIds: [roomId],
     checkInDate: str(formData, "checkInDate"),
     checkOutDate: str(formData, "checkOutDate"),
@@ -50,10 +60,31 @@ export async function createReservationFormAction(
     extraBedPaise: num(formData, "extraBedPaise"),
     taxPaise: num(formData, "taxPaise"),
     advancePaise: num(formData, "advancePaise"),
+    notes: notes || undefined,
   });
 
   if (!result.ok) return { status: "error", message: result.error.message };
   redirect("/bookings");
+}
+
+/**
+ * Create a guest inline from the booking stepper (walk-in). Creates even on a
+ * probable duplicate (`confirmDuplicate`) so the front desk is never blocked;
+ * full duplicate resolution lives on the Guests screen.
+ */
+export async function createGuestForBooking(input: {
+  fullName: string;
+  mobile: string;
+  city?: string;
+}): Promise<{ ok: true; guest: GuestPick } | { ok: false; message: string }> {
+  const r = await createGuest({
+    fullName: input.fullName,
+    mobile: input.mobile,
+    city: input.city?.trim() || undefined,
+    confirmDuplicate: true,
+  });
+  if (!r.ok) return { ok: false, message: r.error.message };
+  return { ok: true, guest: { id: r.data.id, name: r.data.fullName, maskedMobile: null } };
 }
 
 export type GuestPick = { id: string; name: string; maskedMobile: string | null };

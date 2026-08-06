@@ -13,6 +13,7 @@
  */
 import NextAuth, { type NextAuthResult } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import { headers } from "next/headers";
 import { z } from "zod";
 import { authConfig } from "./auth.config";
 import { verifyCredentials } from "./credentials";
@@ -27,7 +28,12 @@ import type { SessionClaims } from "./claims";
 export const signInInputSchema = z.object({
   email: z.string().trim().email(),
   password: z.string().min(1),
+  /** "Remember me" — issue a long-lived session instead of the org default. */
+  remember: z.coerce.boolean().optional(),
 });
+
+/** Long-lived "remember me" session: 30 days. */
+const REMEMBER_TTL_MINUTES = 30 * 24 * 60;
 
 /**
  * The second step of a 2FA sign-in. The challenge is an HMAC-signed token
@@ -78,7 +84,7 @@ const result: NextAuthResult = NextAuth({
           return null;
         }
 
-        return issue(outcome.userId);
+        return issue(outcome.userId, parsed.data.remember === true);
       },
     }),
   ],
@@ -105,10 +111,54 @@ async function authorizeTotpStep(
   return issue(userId);
 }
 
+/** Best-effort device + IP for the session row (shown in "active sessions"). */
+async function requestDeviceContext(): Promise<{ ip: string | null; device: string | null }> {
+  try {
+    const h = await headers();
+    const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || null;
+    const ua = h.get("user-agent") ?? "";
+    return { ip, device: describeDevice(ua) };
+  } catch {
+    return { ip: null, device: null };
+  }
+}
+
+function describeDevice(ua: string): string | null {
+  if (!ua) return null;
+  const os = /Windows/.test(ua)
+    ? "Windows"
+    : /Android/.test(ua)
+      ? "Android"
+      : /iPhone|iPad|iPod/.test(ua)
+        ? "iOS"
+        : /Mac OS X|Macintosh/.test(ua)
+          ? "macOS"
+          : /Linux/.test(ua)
+            ? "Linux"
+            : "Unknown OS";
+  const browser = /Edg\//.test(ua)
+    ? "Edge"
+    : /OPR\/|Opera/.test(ua)
+      ? "Opera"
+      : /Chrome\//.test(ua)
+        ? "Chrome"
+        : /Firefox\//.test(ua)
+          ? "Firefox"
+          : /Safari\//.test(ua)
+            ? "Safari"
+            : "Browser";
+  return `${browser} on ${os}`;
+}
+
 async function issue(
   userId: string,
+  remember = false,
 ): Promise<{ id: string; email: string; name: string; sessionToken: string } | null> {
-  const session = await createSession(prisma, userId);
+  const device = await requestDeviceContext();
+  const session = await createSession(prisma, userId, {
+    ...device,
+    ...(remember ? { ttlMinutesOverride: REMEMBER_TTL_MINUTES } : {}),
+  });
   if (!session) return null;
   await clearFailedAttempts(prisma, userId);
 

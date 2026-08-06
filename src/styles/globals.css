@@ -4,97 +4,135 @@
 
 /*
  * Design tokens — docs/architecture/ui-foundation.md.
- * Colours are HSL triplets so Tailwind can compose them with opacity modifiers.
- * Status colours are defined ONCE here and reused everywhere; feature UIs must
- * never invent an ad-hoc colour for a room/booking state.
+ * Visual language: "Operations" (light) + "Concierge" brand layer + "Nightshift
+ * Command" (dark). Colours are HSL triplets so Tailwind composes them with
+ * opacity modifiers. Status colours are defined ONCE here and reused everywhere;
+ * feature UIs must never invent an ad-hoc colour for a room/booking state.
  */
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222 47% 11%;
+    /* Neutrals — cool graphite (Operations) */
+    --background: 200 24% 98%;
+    --foreground: 200 30% 12%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 200 30% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover-foreground: 200 30% 12%;
 
-    /* Woodpecker brand primary — deep teal, AA on white and on white text. */
-    --primary: 187 92% 24%;
+    /* Woodpecker brand primary — deep teal (Operations), AA on white */
+    --primary: 188 84% 27%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
+    --secondary: 200 24% 94%;
+    --secondary-foreground: 200 30% 20%;
 
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 42%;
+    --muted: 200 20% 95%;
+    --muted-foreground: 200 12% 42%;
 
-    --accent: 210 40% 96%;
-    --accent-foreground: 222 47% 11%;
+    --accent: 186 42% 93%;
+    --accent-foreground: 188 84% 22%;
 
-    --destructive: 0 72% 42%;
+    --destructive: 0 72% 45%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 142 71% 29%;
+    --success: 152 58% 33%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 38 92% 40%;
+    --warning: 33 90% 42%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 187 92% 24%;
+    --border: 200 20% 89%;
+    --input: 200 20% 89%;
+    --ring: 188 84% 27%;
 
-    --radius: 0.5rem;
+    --radius: 0.625rem;
 
-    /* Room / booking status map (ui-foundation.md) */
-    --status-vacant: 142 71% 29%; /* green   */
-    --status-occupied: 0 72% 42%; /* red     */
-    --status-reserved: 38 92% 40%; /* amber   */
-    --status-housekeeping: 25 95% 45%; /* orange  */
-    --status-maintenance: 271 60% 48%; /* violet  */
+    /* Concierge brand layer — used on brand surfaces (login, owner, invoices) */
+    --brand-pine: 162 42% 20%;
+    --brand-pine-foreground: 40 30% 95%;
+    --brand-brass: 37 48% 47%;
+    --brand-brass-foreground: 0 0% 100%;
+
+    /* Room / booking status map — defined once, reused everywhere */
+    --status-vacant: 152 58% 33%; /* green  */
+    --status-occupied: 0 72% 45%; /* red    */
+    --status-reserved: 33 90% 42%; /* amber  */
+    --status-housekeeping: 22 88% 48%; /* orange */
+    --status-maintenance: 265 55% 52%; /* violet */
+
+    /* Categorical chart palette (dataviz) — distinct, brand-anchored hues */
+    --chart-1: 188 84% 34%;
+    --chart-2: 162 42% 32%;
+    --chart-3: 37 62% 52%;
+    --chart-4: 214 70% 52%;
+    --chart-5: 265 52% 58%;
+    --chart-6: 15 78% 55%;
+
+    /* Elevation */
+    --shadow-sm: 0 1px 2px 0 hsl(200 30% 12% / 0.06);
+    --shadow-md: 0 2px 4px -1px hsl(200 30% 12% / 0.06), 0 8px 24px -12px hsl(200 30% 12% / 0.18);
+    --shadow-lg: 0 12px 40px -16px hsl(200 30% 12% / 0.28);
   }
 
   .dark {
-    --background: 222 47% 8%;
-    --foreground: 210 40% 96%;
+    /* Nightshift Command — deep charcoal-teal cockpit + luminous cyan */
+    --background: 192 32% 7%;
+    --foreground: 168 24% 92%;
 
-    --card: 222 44% 11%;
-    --card-foreground: 210 40% 96%;
+    --card: 192 26% 10%;
+    --card-foreground: 168 24% 92%;
 
-    --popover: 222 44% 11%;
-    --popover-foreground: 210 40% 96%;
+    --popover: 192 26% 10%;
+    --popover-foreground: 168 24% 92%;
 
-    --primary: 187 78% 46%;
-    --primary-foreground: 222 47% 8%;
+    --primary: 176 58% 52%;
+    --primary-foreground: 192 40% 8%;
 
-    --secondary: 217 33% 18%;
-    --secondary-foreground: 210 40% 96%;
+    --secondary: 192 20% 16%;
+    --secondary-foreground: 168 24% 92%;
 
-    --muted: 217 33% 18%;
-    --muted-foreground: 215 20% 68%;
+    --muted: 192 18% 15%;
+    --muted-foreground: 185 12% 62%;
 
-    --accent: 217 33% 18%;
-    --accent-foreground: 210 40% 96%;
+    --accent: 188 30% 16%;
+    --accent-foreground: 176 58% 64%;
 
-    --destructive: 0 73% 58%;
-    --destructive-foreground: 222 47% 8%;
+    --destructive: 0 68% 60%;
+    --destructive-foreground: 192 40% 8%;
 
-    --success: 142 62% 46%;
-    --success-foreground: 222 47% 8%;
+    --success: 152 52% 48%;
+    --success-foreground: 192 40% 8%;
 
-    --warning: 38 92% 56%;
-    --warning-foreground: 222 47% 8%;
+    --warning: 37 88% 58%;
+    --warning-foreground: 192 40% 8%;
 
-    --border: 217 33% 22%;
-    --input: 217 33% 22%;
-    --ring: 187 78% 46%;
+    --border: 190 20% 18%;
+    --input: 190 20% 18%;
+    --ring: 176 58% 52%;
 
-    --status-vacant: 142 62% 46%;
-    --status-occupied: 0 73% 58%;
-    --status-reserved: 38 92% 56%;
-    --status-housekeeping: 25 92% 58%;
-    --status-maintenance: 271 70% 66%;
+    --brand-pine: 162 34% 46%;
+    --brand-pine-foreground: 40 30% 95%;
+    --brand-brass: 37 60% 58%;
+    --brand-brass-foreground: 192 40% 8%;
+
+    --status-vacant: 152 52% 48%;
+    --status-occupied: 0 68% 60%;
+    --status-reserved: 37 88% 58%;
+    --status-housekeeping: 22 84% 58%;
+    --status-maintenance: 265 62% 68%;
+
+    --chart-1: 176 58% 52%;
+    --chart-2: 162 44% 52%;
+    --chart-3: 37 70% 60%;
+    --chart-4: 214 72% 64%;
+    --chart-5: 265 60% 72%;
+    --chart-6: 15 80% 64%;
+
+    --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.4);
+    --shadow-md: 0 2px 4px -1px hsl(0 0% 0% / 0.4), 0 10px 30px -14px hsl(0 0% 0% / 0.6);
+    --shadow-lg: 0 16px 48px -18px hsl(0 0% 0% / 0.7);
   }
 
   * {
@@ -106,10 +144,30 @@
     /* Mobile-first: prevent iOS auto-zoom on focus by never going below 16px. */
     font-size: 16px;
     -webkit-tap-highlight-color: transparent;
+    font-feature-settings: "cv11", "ss01";
+    text-rendering: optimizeLegibility;
   }
 
   /* Accessibility: visible focus is never removed (mobile-first.md). */
   :focus-visible {
     @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+
+  /* Tabular numerals wherever digits align (money, counts, IDs). */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer utilities {
+  /* Respect reduced-motion globally for micro-interactions. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }

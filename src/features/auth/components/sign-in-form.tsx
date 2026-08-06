@@ -10,7 +10,9 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { signInAction, verifyTotpAction, type SignInState } from "../actions";
@@ -59,15 +61,29 @@ export function SignInForm({ next, justReset }: { next?: string; justReset?: boo
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="password">Password</Label>
-            <Input
+            <div className="flex items-center justify-between">
+              <Label htmlFor="password">Password</Label>
+              <Link
+                href="/forgot-password"
+                className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+              >
+                Forgot password?
+              </Link>
+            </div>
+            <PasswordInput
               id="password"
               name="password"
-              type="password"
               autoComplete="current-password"
               required
               aria-invalid={Boolean(state.status === "error" && state.fieldErrors?.password)}
             />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Checkbox id="remember" name="remember" />
+            <Label htmlFor="remember" className="cursor-pointer text-sm font-normal text-muted-foreground">
+              Keep me signed in on this device
+            </Label>
           </div>
 
           {state.status === "error" && (
@@ -79,15 +95,6 @@ export function SignInForm({ next, justReset }: { next?: string; justReset?: boo
           <Button type="submit" block size="lg" disabled={credentialsPending}>
             {credentialsPending ? "Signing in…" : "Sign in"}
           </Button>
-
-          <p className="text-center">
-            <Link
-              href="/forgot-password"
-              className="inline-flex min-h-touch items-center text-sm text-primary underline-offset-4 hover:underline"
-            >
-              Forgot password?
-            </Link>
-          </p>
         </form>
       </CardContent>
     </Card>

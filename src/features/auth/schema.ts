@@ -7,6 +7,8 @@ import { z } from "zod";
 export const signInSchema = z.object({
   email: z.string().trim().min(1, "Email is required.").email("Enter a valid email address."),
   password: z.string().min(1, "Password is required."),
+  /** "Remember me" — the checkbox submits "on"; absent when unchecked. */
+  remember: z.coerce.boolean().optional(),
   /** Where to return after a successful sign-in (middleware supplies it). */
   next: z.string().optional(),
 });
@@ -40,6 +42,17 @@ export const resetPasswordSchema = z
 export const confirmTwoFactorSchema = z.object({
   code: z.string().trim().length(6, "Enter the 6-digit code from your authenticator app."),
 });
+
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Enter your current password."),
+    password: z.string().min(1, "Choose a new password."),
+    confirmPassword: z.string().min(1, "Confirm your new password."),
+  })
+  .refine((v) => v.password === v.confirmPassword, {
+    message: "New passwords do not match.",
+    path: ["confirmPassword"],
+  });
 
 export type SignInInput = z.infer<typeof signInSchema>;
 export type TotpInput = z.infer<typeof totpSchema>;
