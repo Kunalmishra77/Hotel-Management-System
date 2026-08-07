@@ -68,10 +68,13 @@ describe("SecuritySettings (FR-1/4/5/7 source their limits here, not constants)"
     expect(s!.sessionTtlMinutes).toBeGreaterThan(0);
   });
 
-  it("mandates 2FA for the roles that handle money or administration", async () => {
+  it("does not org-mandate 2FA (relaxed for the demo; still available per user)", async () => {
+    // The client turned enforcement off so admin/accounts sign in without a TOTP
+    // code. 2FA remains AVAILABLE per user (see the U-ACC TOTP fixtures below);
+    // only org-wide enforcement is empty. Flip enforced2faRoles in the 00 seed to
+    // re-mandate it.
     const s = await prisma.securitySettings.findUnique({ where: { orgId: ORG_ID } });
-    expect(s!.enforced2faRoles).toContain(RoleName.ACCOUNTS);
-    expect(s!.enforced2faRoles).toContain(RoleName.ADMINISTRATOR);
+    expect(s!.enforced2faRoles).toHaveLength(0);
   });
 });
 

@@ -104,19 +104,22 @@ export async function seedPlatform(prisma: PrismaClient): Promise<void> {
   });
 
   // --- Security settings (FR-1/4/5/7 read their limits from here) ---------
+  // 2FA is AVAILABLE per user (Accounts ships a TOTP secret + backup codes) but
+  // NOT org-mandated: the client turned enforcement off for the demo so admin/
+  // accounts can sign in without a TOTP code. security.md's mandate is relaxed
+  // here via this config (not code). The `update` clause is authoritative so a
+  // re-seed always restores the intended state (never a no-op that lets drift win).
+  const securityConfig = {
+    passwordMinLength: 10,
+    lockoutThreshold: 5, // AC-4 default
+    sessionTtlMinutes: 480,
+    discountThresholdPaise: 100_000, // ₹1,000
+    enforced2faRoles: [] as RoleName[],
+  };
   await prisma.securitySettings.upsert({
     where: { orgId: ORG_ID },
-    create: {
-      orgId: ORG_ID,
-      passwordMinLength: 10,
-      lockoutThreshold: 5, // AC-4 default
-      sessionTtlMinutes: 480,
-      discountThresholdPaise: 100_000, // ₹1,000
-      // Accounts handles money; the matrix marks its actions 🔒, so 2FA is
-      // mandated for the role rather than left to the individual (FR-5).
-      enforced2faRoles: [RoleName.ADMINISTRATOR, RoleName.ACCOUNTS],
-    },
-    update: {},
+    create: { orgId: ORG_ID, ...securityConfig },
+    update: securityConfig,
   });
 
   // --- Properties (PROP-A / PROP-B) --------------------------------------
