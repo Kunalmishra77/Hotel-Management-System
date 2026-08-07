@@ -11,7 +11,7 @@ const RECEPTION = { email: "reception.mg@woodpecker.example", password: "woodpec
 async function signIn(page: Page, who: { email: string; password: string }) {
   await page.goto("/sign-in");
   await page.getByLabel("Email").fill(who.email);
-  await page.getByLabel("Password").fill(who.password);
+  await page.getByLabel("Password", { exact: true }).fill(who.password);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/dashboard/);
 }

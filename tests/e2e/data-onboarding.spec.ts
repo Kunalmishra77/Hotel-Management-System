@@ -17,7 +17,7 @@ const TOTP_SECRET = "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP";
 async function signInAdmin(page: import("@playwright/test").Page): Promise<void> {
   await page.goto("/sign-in");
   await page.getByLabel("Email").fill(ADMIN.email);
-  await page.getByLabel("Password").fill(ADMIN.password);
+  await page.getByLabel("Password", { exact: true }).fill(ADMIN.password);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByRole("heading", { name: "Two-factor code" })).toBeVisible();
   await page.getByLabel("Code").fill(authenticator.generate(TOTP_SECRET));
@@ -71,7 +71,7 @@ test.describe("data import (admin)", () => {
   test("a non-admin cannot reach /data-import (server-side)", async ({ page }) => {
     await page.goto("/sign-in");
     await page.getByLabel("Email").fill(RECEPTION.email);
-    await page.getByLabel("Password").fill(RECEPTION.password);
+    await page.getByLabel("Password", { exact: true }).fill(RECEPTION.password);
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page).toHaveURL(/\/dashboard/);
 

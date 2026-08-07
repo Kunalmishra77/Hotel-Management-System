@@ -73,7 +73,7 @@ test.describe("sandbox sync is idempotent (AC-1/3)", () => {
 async function signInAdmin(page: Page): Promise<void> {
   await page.goto("/sign-in");
   await page.getByLabel("Email").fill(ADMIN.email);
-  await page.getByLabel("Password").fill(ADMIN.password);
+  await page.getByLabel("Password", { exact: true }).fill(ADMIN.password);
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.getByLabel("Code").fill(authenticator.generate(USER_ACCOUNTS_TOTP_SECRET));
   await page.getByRole("button", { name: "Verify" }).click();
@@ -91,7 +91,7 @@ test.describe("reconciliation UI + RBAC (AC-7/12)", () => {
   test("reception is refused the accounting page server-side (403)", async ({ page }) => {
     await page.goto("/sign-in");
     await page.getByLabel("Email").fill(RECEPTION.email);
-    await page.getByLabel("Password").fill(RECEPTION.password);
+    await page.getByLabel("Password", { exact: true }).fill(RECEPTION.password);
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page).toHaveURL(/\/dashboard/);
 

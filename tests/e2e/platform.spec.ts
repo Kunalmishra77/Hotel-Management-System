@@ -22,7 +22,7 @@ async function fillCredentials(
   who: { email: string; password: string },
 ): Promise<void> {
   await page.getByLabel("Email").fill(who.email);
-  await page.getByLabel("Password").fill(who.password);
+  await page.getByLabel("Password", { exact: true }).fill(who.password);
   await page.getByRole("button", { name: "Sign in" }).click();
 }
 
@@ -62,7 +62,7 @@ test.describe("password sign-in (AC-1)", () => {
   }) => {
     await page.goto("/sign-in");
     await page.getByLabel("Email").fill(RECEPTION.email);
-    await page.getByLabel("Password").fill("definitely-not-the-password");
+    await page.getByLabel("Password", { exact: true }).fill("definitely-not-the-password");
     await page.getByRole("button", { name: "Sign in" }).click();
 
     const wrongPassword = await formAlert(page).innerText();
@@ -70,7 +70,7 @@ test.describe("password sign-in (AC-1)", () => {
     // An address with no account must produce the SAME text.
     await page.goto("/sign-in");
     await page.getByLabel("Email").fill("nobody-here@woodpecker.example");
-    await page.getByLabel("Password").fill("definitely-not-the-password");
+    await page.getByLabel("Password", { exact: true }).fill("definitely-not-the-password");
     await page.getByRole("button", { name: "Sign in" }).click();
 
     await expect(formAlert(page)).toHaveText(wrongPassword);

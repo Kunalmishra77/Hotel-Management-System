@@ -37,7 +37,7 @@ test.describe("Channels console (T-22)", () => {
   test("admin connects a sandbox channel and maps a room type", async ({ page }) => {
     await page.goto("/sign-in");
     await page.getByLabel("Email").fill(ADMIN.email);
-    await page.getByLabel("Password").fill(ADMIN.password);
+    await page.getByLabel("Password", { exact: true }).fill(ADMIN.password);
     await page.getByRole("button", { name: "Sign in" }).click();
     // ADMIN has enforced 2FA — complete the challenge with the shared dev secret.
     await expect(page.getByRole("heading", { name: "Two-factor code" })).toBeVisible();

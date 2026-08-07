@@ -34,7 +34,7 @@ test.afterAll(async () => {
 async function signIn(page: Page) {
   await page.goto("/sign-in");
   await page.getByLabel("Email").fill(HK.email);
-  await page.getByLabel("Password").fill(HK.password);
+  await page.getByLabel("Password", { exact: true }).fill(HK.password);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/dashboard/);
 }

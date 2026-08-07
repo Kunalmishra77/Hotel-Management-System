@@ -42,7 +42,7 @@ test.describe("Ask PMS (T-13)", () => {
   test("manager runs an NL search and sees masked result cards (AC-4)", async ({ page }) => {
     await page.goto("/sign-in");
     await page.getByLabel("Email").fill(MANAGER.email);
-    await page.getByLabel("Password").fill(MANAGER.password);
+    await page.getByLabel("Password", { exact: true }).fill(MANAGER.password);
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page).toHaveURL(/\/dashboard/);
 

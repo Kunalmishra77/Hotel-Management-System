@@ -47,7 +47,7 @@ test.describe("Communications console (T-24)", () => {
   test("manager views templates and the message log", async ({ page }) => {
     await page.goto("/sign-in");
     await page.getByLabel("Email").fill(MANAGER.email);
-    await page.getByLabel("Password").fill(MANAGER.password);
+    await page.getByLabel("Password", { exact: true }).fill(MANAGER.password);
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page).toHaveURL(/\/dashboard/);
 
