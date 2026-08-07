@@ -16,7 +16,7 @@ import { DomainError, ErrorCode, NotFoundError } from "@/lib/errors";
 import { toResult, type Result } from "@/lib/result";
 import {
   ensureFolio,
-  getBalance,
+  folioBalance,
   postBookingExtrasTx,
   postPaymentTx,
   postRoomChargeTx,
@@ -74,8 +74,14 @@ export async function cancelReservation(input: unknown): Promise<Result<Lifecycl
 
     return withReservationContext(user, () =>
       client.$transaction(async (tx) => {
+        const flipped = await tx.reservation.updateMany({
+          where: { id: r.id, status: r.status as never },
+          data: { status: "CANCELLED" },
+        });
+        if (flipped.count !== 1) {
+          throw new DomainError(ErrorCode.CONFLICT, "This booking is no longer available to cancel.");
+        }
         await tx.roomAllocation.deleteMany({ where: { reservationId: r.id } });
-        await tx.reservation.updateMany({ where: { id: r.id }, data: { status: "CANCELLED" } });
         await freeRooms(tx as unknown as RoomStatusTx, r, "VACANT", "cancelled");
         await emitEvent(tx, {
           type: "ReservationCancelled",
@@ -117,10 +123,16 @@ export async function checkIn(input: unknown): Promise<Result<LifecycleResult>> 
 
     return withReservationContext(user, () =>
       client.$transaction(async (tx) => {
-        await tx.reservation.updateMany({
-          where: { id: r.id },
+        // Compare-and-swap: win the transition before any money posts, so two
+        // concurrent check-ins can't both run the advance/extras postings (the
+        // loser's tx rolls back on the CONFLICT).
+        const flipped = await tx.reservation.updateMany({
+          where: { id: r.id, status: r.status as never },
           data: { status: "IN_HOUSE", checkInAt: new Date() },
         });
+        if (flipped.count !== 1) {
+          throw new DomainError(ErrorCode.CONFLICT, "This booking is no longer available to check in.");
+        }
         const folioId = await ensureFolio(tx, { reservationId: r.id, propertyId: r.propertyId });
 
         // T4: money received at booking becomes a folio PAYMENT, so the folio —
@@ -206,27 +218,36 @@ export async function checkOut(input: unknown): Promise<Result<LifecycleResult>>
       throw new DomainError(ErrorCode.ILLEGAL_TRANSITION);
     }
 
-    // T5: the FOLIO is the money truth (business-rules.md §6). Post any room-nights
-    // not yet accrued by night audit — idempotent via the shared `(folioId,
-    // businessDate) WHERE type='ROOM'` key, and the pre-check here means a repeat
-    // never even attempts a duplicate insert — then gate on the LIVE folio balance.
-    const folio = await client.folio.findFirst({
-      where: { reservationId: r.id },
-      select: { id: true, lines: { where: { type: "ROOM" }, select: { businessDate: true } } },
+    // Property state for GST on any un-accrued room-nights (immutable enough to read
+    // outside the tx). The FOLIO is the money truth (business-rules.md §6).
+    const property = await client.property.findFirst({
+      where: { id: r.propertyId },
+      select: { state: true },
     });
 
-    let balancePaise: number;
-    if (folio) {
-      const property = await client.property.findFirst({
-        where: { id: r.propertyId },
-        select: { state: true },
-      });
-      const posted = new Set(folio.lines.map((l) => dateKey(l.businessDate)));
-      const toPost = stayNightDates(r.checkInDate, r.checkOutDate).filter((d) => !posted.has(dateKey(d)));
+    // ONE transaction, so the balance we gate on and the status flip are atomic and
+    // consistent (no TOCTOU): lock the folio FOR UPDATE first, so a concurrent charge/
+    // payment OR a racing night-audit room-night insert serializes behind us. Then
+    // post any un-accrued room-nights, derive the LIVE balance under the lock, gate,
+    // and compare-and-swap the status.
+    return withReservationContext(user, () =>
+      client.$transaction(async (tx) => {
+        const folio = await tx.folio.findFirst({ where: { reservationId: r.id }, select: { id: true } });
 
-      if (toPost.length > 0 && property) {
-        await withReservationContext(user, () =>
-          client.$transaction(async (tx) => {
+        let balancePaise: number;
+        if (folio) {
+          // Row-lock the folio: a concurrent FolioLine insert (POS charge, night audit)
+          // takes a FOR KEY SHARE on this row for FK validation and blocks until we
+          // commit, so our pre-check + inserts can't race a duplicate room-night.
+          await tx.$executeRaw`SELECT id FROM "Folio" WHERE id = ${folio.id} FOR UPDATE`;
+
+          const roomLines = await tx.folioLine.findMany({
+            where: { folioId: folio.id, type: "ROOM" },
+            select: { businessDate: true },
+          });
+          const posted = new Set(roomLines.map((l) => dateKey(l.businessDate)));
+          const toPost = stayNightDates(r.checkInDate, r.checkOutDate).filter((d) => !posted.has(dateKey(d)));
+          if (property) {
             for (const businessDate of toPost) {
               await postRoomChargeTx(tx as unknown as BillingPostTx, {
                 folioId: folio.id,
@@ -237,34 +258,41 @@ export async function checkOut(input: unknown): Promise<Result<LifecycleResult>>
                 postedById: user.userId,
               });
             }
-          }),
-        );
-      }
-      balancePaise = (await getBalance(user, reservationId)) ?? 0;
-    } else {
-      // No folio — a booking that never checked in. Fall back to the snapshot.
-      balancePaise = priceReservation({
-        ratePaise: r.ratePaise, nights: r.nights, discountPaise: r.discountPaise,
-        extraBedPaise: r.extraBedPaise, otherChargesPaise: r.otherChargesPaise,
-        taxPaise: r.taxPaise, advancePaise: r.advancePaise,
-      }).balancePaise;
-    }
+          }
 
-    if (balancePaise > 0) {
-      // Deferring an unsettled balance is an elevated, permissioned act (AC-16/17).
-      if (!defer || !hasPermission(user, "folio:defer")) {
-        throw new DomainError(ErrorCode.BALANCE_UNSETTLED, undefined, {
-          details: { balancePaise },
-        });
-      }
-    }
+          const full = await tx.folio.findFirstOrThrow({
+            where: { id: folio.id },
+            select: {
+              lines: { select: { amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true } },
+              payments: { select: { amountPaise: true, isRefund: true } },
+            },
+          });
+          balancePaise = Number(folioBalance(full.lines, full.payments));
+        } else {
+          // No folio — a booking that never checked in. Fall back to the snapshot.
+          balancePaise = priceReservation({
+            ratePaise: r.ratePaise, nights: r.nights, discountPaise: r.discountPaise,
+            extraBedPaise: r.extraBedPaise, otherChargesPaise: r.otherChargesPaise,
+            taxPaise: r.taxPaise, advancePaise: r.advancePaise,
+          }).balancePaise;
+        }
 
-    return withReservationContext(user, () =>
-      client.$transaction(async (tx) => {
-        await tx.reservation.updateMany({
-          where: { id: r.id },
+        // Deferring an unsettled balance is an elevated, permissioned act (AC-16/17).
+        if (balancePaise > 0 && (!defer || !hasPermission(user, "folio:defer"))) {
+          throw new DomainError(ErrorCode.BALANCE_UNSETTLED, undefined, { details: { balancePaise } });
+        }
+
+        // Compare-and-swap: only flip if the status is still what we observed, so a
+        // concurrent check-out can't re-run the effects (duplicate GuestCheckedOut →
+        // duplicate receipts/invoices downstream).
+        const flipped = await tx.reservation.updateMany({
+          where: { id: r.id, status: r.status as never },
           data: { status: "CHECKED_OUT", checkOutAt: new Date() },
         });
+        if (flipped.count !== 1) {
+          throw new DomainError(ErrorCode.CONFLICT, "This booking is no longer available to check out.");
+        }
+
         await freeRooms(tx as unknown as RoomStatusTx, r, "HOUSEKEEPING", "check-out");
         await emitEvent(tx, {
           type: "GuestCheckedOut",

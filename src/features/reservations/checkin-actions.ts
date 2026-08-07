@@ -126,7 +126,11 @@ export async function saveRegistrationCard(input: unknown): Promise<Result<Regis
 
 const ymd = (d: Date | null | undefined): string | null => (d ? d.toISOString().slice(0, 10) : null);
 
-export type PassportExtractResult = PassportFields;
+/** Only the fields the Form C step actually consumes — see the narrowing below. */
+export type PassportExtractResult = Pick<
+  PassportFields,
+  "nationality" | "passportPlaceOfIssue" | "passportIssueDate" | "passportExpiryDate"
+>;
 
 /**
  * Document-AI passport pre-fill for the Form C step (03 T7). Reads the guest's
@@ -151,7 +155,16 @@ export async function extractPassportForCheckIn(input: unknown): Promise<Result<
     const context = passport?.hasScan
       ? `Passport document on file for ${profile?.fullName ?? "guest"}.`
       : "No passport scan on file.";
-    return extractPassportFields(context);
+    const fields = await extractPassportFields(context);
+    // PII minimization (ai-features.md / compliance.md): only the fields the Form C
+    // step uses cross back to the client. A full passport number / DOB / name never
+    // leaves the server, even if a live vision provider populates them.
+    return {
+      nationality: fields.nationality,
+      passportPlaceOfIssue: fields.passportPlaceOfIssue,
+      passportIssueDate: fields.passportIssueDate,
+      passportExpiryDate: fields.passportExpiryDate,
+    };
   });
 }
 

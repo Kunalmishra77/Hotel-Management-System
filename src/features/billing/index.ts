@@ -67,6 +67,11 @@ export async function ensureFolio(
  */
 export { getBalance } from "./queries";
 
+/** Pure balance derivation (Σ line+tax − payments). Public so 03's check-out can
+ *  derive the LIVE balance from folio rows it has read INSIDE its own locked
+ *  transaction — the gate must be atomic with the status flip (no TOCTOU). */
+export { folioBalance } from "./domain/balance";
+
 /**
  * Transaction-composable folio posting (3C, T1). 03's check-in/out compose these
  * into their own transaction so the folio becomes the single money truth.
