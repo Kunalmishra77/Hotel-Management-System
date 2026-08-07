@@ -158,6 +158,7 @@ export type CheckInContext = {
   guestId: string;
   guestName: string;
   guestMaskedMobile: string | null;
+  guestNationality: string | null;
   roomNumbers: string[];
   checkInDate: Date;
   checkOutDate: Date;
@@ -192,7 +193,7 @@ type CheckInRow = {
   otherChargesPaise: number;
   taxPaise: number;
   advancePaise: number;
-  guest: { fullName: string };
+  guest: { fullName: string; nationality: string | null };
   allocations: { room: { number: string } }[];
   folio: { id: string } | null;
 };
@@ -217,7 +218,7 @@ export async function getCheckInContext(user: SessionClaims, id: string): Promis
       otherChargesPaise: true,
       taxPaise: true,
       advancePaise: true,
-      guest: { select: { fullName: true } },
+      guest: { select: { fullName: true, nationality: true } },
       allocations: { select: { room: { select: { number: true } } } },
       folio: { select: { id: true } },
     },
@@ -246,6 +247,7 @@ export async function getCheckInContext(user: SessionClaims, id: string): Promis
     guestId: r.guestId,
     guestName: r.guest.fullName,
     guestMaskedMobile: profile?.maskedMobile ?? null,
+    guestNationality: r.guest.nationality,
     roomNumbers: r.allocations.map((a) => a.room.number),
     checkInDate: r.checkInDate,
     checkOutDate: r.checkOutDate,

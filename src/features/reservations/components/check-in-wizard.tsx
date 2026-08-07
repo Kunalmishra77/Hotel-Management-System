@@ -11,25 +11,29 @@
 import { useMemo, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check, ChevronLeft, FileSignature, IdCard, ListChecks, UserCheck, Wallet } from "lucide-react";
+import { Check, ChevronLeft, FileSignature, Globe, IdCard, ListChecks, UserCheck, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDayMonth, formatINR } from "@/lib/utils";
 import { checkIn } from "../lifecycle-actions";
 import { IdentityStep } from "./check-in-identity-step";
+import { CFormStep } from "./check-in-cform-step";
 import { RegistrationStep } from "./check-in-registration-step";
 import { PaymentStep } from "./check-in-payment-step";
 import type { CheckInContext, CheckInIdSummary } from "../queries";
 
-const STEPS = [
+// The Form C step is inserted after Identity only for FOREIGN guests (a passport
+// or visa was captured), so domestic check-ins never see it.
+const ALL_STEPS = [
   { key: "verify", label: "Verify", icon: ListChecks },
   { key: "identity", label: "Identity", icon: IdCard },
+  { key: "cform", label: "Form C", icon: Globe },
   { key: "registration", label: "Register", icon: FileSignature },
   { key: "payment", label: "Payment", icon: Wallet },
   { key: "confirm", label: "Confirm", icon: UserCheck },
 ] as const;
-type StepKey = (typeof STEPS)[number]["key"];
+type StepKey = (typeof ALL_STEPS)[number]["key"];
 
 const SETTLEMENT_LABEL: Record<string, string> = {
   PAY_AT_HOTEL: "Pay at hotel",
@@ -48,12 +52,15 @@ export function CheckInWizard({
   const [step, setStep] = useState<StepKey>("verify");
   const [ids, setIds] = useState<CheckInIdSummary[]>(context.ids);
   const [registrationSaved, setRegistrationSaved] = useState(false);
+  const [cformSaved, setCformSaved] = useState(false);
   const [collectedPaise, setCollectedPaise] = useState(0);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
   const hasAadhaar = useMemo(() => ids.some((i) => i.type === "AADHAAR"), [ids]);
-  const stepIndex = STEPS.findIndex((s) => s.key === step);
+  const isForeign = useMemo(() => ids.some((i) => i.type === "PASSPORT" || i.type === "VISA"), [ids]);
+  const steps = useMemo(() => ALL_STEPS.filter((s) => s.key !== "cform" || isForeign), [isForeign]);
+  const stepIndex = steps.findIndex((s) => s.key === step);
 
   const complete = () => {
     setError(null);
@@ -71,7 +78,7 @@ export function CheckInWizard({
 
   return (
     <div className="mx-auto w-full max-w-2xl">
-      <Stepper current={stepIndex} />
+      <Stepper steps={steps} current={stepIndex} />
 
       <Card className="mt-4">
         <CardContent className="p-4 sm:p-5">
@@ -84,6 +91,8 @@ export function CheckInWizard({
               onAdded={(id) => setIds((prev) => [...prev, id])}
               canStoreAadhaarScan={canStoreAadhaarScan}
             />
+          ) : step === "cform" ? (
+            <CFormStep context={context} saved={cformSaved} onSaved={() => setCformSaved(true)} />
           ) : step === "registration" ? (
             <RegistrationStep
               context={{ ...context, ids }}
@@ -102,12 +111,19 @@ export function CheckInWizard({
               idCount={ids.length}
               registrationSaved={registrationSaved}
               collectedPaise={collectedPaise}
+              cformStatus={isForeign ? cformSaved : null}
             />
           )}
 
-          {step === "identity" && !hasAadhaar ? (
+          {step === "identity" && !hasAadhaar && !isForeign ? (
             <p className="mt-4 text-sm text-warning" data-testid="aadhaar-required">
-              Capture the guest&apos;s Aadhaar to continue.
+              Capture the guest&apos;s Aadhaar (or a passport for a foreign national) to continue.
+            </p>
+          ) : null}
+
+          {step === "cform" && !cformSaved ? (
+            <p className="mt-4 text-sm text-warning" data-testid="cform-required">
+              Generate the Form C to continue (foreign guest).
             </p>
           ) : null}
 
@@ -122,7 +138,7 @@ export function CheckInWizard({
       <div className="mt-4 flex items-center justify-between gap-3">
         <Button
           variant="outline"
-          onClick={() => setStep(STEPS[Math.max(0, stepIndex - 1)]!.key)}
+          onClick={() => setStep(steps[Math.max(0, stepIndex - 1)]!.key)}
           disabled={stepIndex === 0 || pending}
         >
           <ChevronLeft /> Back
@@ -134,8 +150,12 @@ export function CheckInWizard({
           </Button>
         ) : (
           <Button
-            onClick={() => setStep(STEPS[stepIndex + 1]!.key)}
-            disabled={(step === "identity" && !hasAadhaar) || (step === "registration" && !registrationSaved)}
+            onClick={() => setStep(steps[stepIndex + 1]!.key)}
+            disabled={
+              (step === "identity" && !hasAadhaar && !isForeign) ||
+              (step === "cform" && !cformSaved) ||
+              (step === "registration" && !registrationSaved)
+            }
             data-testid="wizard-continue"
           >
             Continue
@@ -146,10 +166,16 @@ export function CheckInWizard({
   );
 }
 
-function Stepper({ current }: { current: number }) {
+function Stepper({
+  steps,
+  current,
+}: {
+  steps: readonly { key: string; label: string; icon: typeof ListChecks }[];
+  current: number;
+}) {
   return (
     <ol className="flex items-center gap-2" data-testid="wizard-steps">
-      {STEPS.map((s, i) => {
+      {steps.map((s, i) => {
         const done = i < current;
         const active = i === current;
         return (
@@ -168,7 +194,7 @@ function Stepper({ current }: { current: number }) {
             <span className={`text-sm font-medium ${active ? "text-foreground" : "text-muted-foreground"}`}>
               {s.label}
             </span>
-            {i < STEPS.length - 1 ? <span className="hidden h-px flex-1 bg-border sm:block" /> : null}
+            {i < steps.length - 1 ? <span className="hidden h-px flex-1 bg-border sm:block" /> : null}
           </li>
         );
       })}
@@ -221,11 +247,13 @@ function ConfirmStep({
   idCount,
   registrationSaved,
   collectedPaise,
+  cformStatus,
 }: {
   context: CheckInContext;
   idCount: number;
   registrationSaved: boolean;
   collectedPaise: number;
+  cformStatus: boolean | null;
 }) {
   return (
     <div className="space-y-1 divide-y divide-border/60">
@@ -237,6 +265,15 @@ function ConfirmStep({
       </div>
       <Row label="Room(s)">{context.roomNumbers.join(", ") || "Unallocated"}</Row>
       <Row label="Documents">{idCount} captured</Row>
+      {cformStatus !== null ? (
+        <Row label="Form C">
+          {cformStatus ? (
+            <span className="text-success">Generated</span>
+          ) : (
+            <span className="text-warning">Pending</span>
+          )}
+        </Row>
+      ) : null}
       <Row label="Registration">
         {registrationSaved ? (
           <span className="text-success">Signed</span>

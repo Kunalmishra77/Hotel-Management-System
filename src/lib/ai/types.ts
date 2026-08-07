@@ -12,7 +12,7 @@
  */
 import type { ZodTypeAny } from "zod";
 
-export const AI_FEATURES = ["nl-search", "sentiment", "forecast", "chatbot", "generic"] as const;
+export const AI_FEATURES = ["nl-search", "sentiment", "forecast", "chatbot", "passport-extract", "generic"] as const;
 export type AiFeature = (typeof AI_FEATURES)[number];
 
 export type MsgRole = "system" | "user" | "assistant" | "tool";

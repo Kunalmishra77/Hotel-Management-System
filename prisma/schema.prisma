@@ -79,6 +79,7 @@ model Property {
   staff             Staff[]
   invoiceSeries     InvoiceSeries[]
   registrationCards RegistrationCard[]
+  cforms            CForm[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -495,6 +496,7 @@ model Reservation {
   folio            Folio?
   posOrders        PosOrder[]
   registrationCard RegistrationCard?
+  cform            CForm?
 
   notes     String?
   createdAt DateTime @default(now())
@@ -526,6 +528,39 @@ model RegistrationCard {
   guestSnapshot      Json // frozen name/room/dates/IDs shown on the signed card
   capturedById       String? // reception user who ran check-in
   createdAt          DateTime    @default(now())
+
+  @@index([propertyId])
+}
+
+// FRRO / Form C for a FOREIGN guest at check-in (03 T7, MoM; India legal req).
+// One per stay. Holds the stay-specific FRRO fields + a masked snapshot (→ PDF).
+// Passport/visa NUMBERS are NOT duplicated here — they live encrypted on GuestId
+// (04) and are pulled only at PDF-render time; `details` masks them.
+model CForm {
+  id                   String      @id @default(cuid())
+  propertyId           String
+  property             Property    @relation(fields: [propertyId], references: [id])
+  reservationId        String      @unique
+  reservation          Reservation @relation(fields: [reservationId], references: [id])
+  guestId              String
+  nationality          String
+  passportPlaceOfIssue String?
+  passportIssueDate    DateTime?   @db.Date
+  passportExpiryDate   DateTime?   @db.Date
+  visaType             String?
+  visaIssueDate        DateTime?   @db.Date
+  visaExpiryDate       DateTime?   @db.Date
+  arrivalFromCity      String?
+  arrivalFromCountry   String?
+  arrivalInIndiaDate   DateTime?   @db.Date
+  nextDestination      String?
+  purposeOfVisit       String?
+  details              Json // masked snapshot — the PDF source
+  pdfObjectKey         String? // generated Form C PDF in object storage
+  status               String      @default("GENERATED") // GENERATED | SUBMITTED
+  submissionRef        String? // FRRO portal reference after manual submission
+  capturedById         String?
+  createdAt            DateTime    @default(now())
 
   @@index([propertyId])
 }

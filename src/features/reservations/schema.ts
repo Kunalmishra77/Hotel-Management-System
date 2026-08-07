@@ -94,6 +94,27 @@ export const saveRegistrationCardSchema = z.object({
 });
 export type SaveRegistrationCardInput = z.infer<typeof saveRegistrationCardSchema>;
 
+/** FRRO / Form C for a foreign guest (03 T7). Dates are property-local calendar
+ *  dates; passport/visa numbers are NOT sent here (they live on GuestId). */
+const optDate = z.coerce.date().optional();
+const optStr = z.string().max(120).optional();
+export const saveCFormSchema = z.object({
+  reservationId: z.string().min(1),
+  nationality: z.string().min(1).max(60),
+  passportPlaceOfIssue: optStr,
+  passportIssueDate: optDate,
+  passportExpiryDate: optDate,
+  visaType: optStr,
+  visaIssueDate: optDate,
+  visaExpiryDate: optDate,
+  arrivalFromCity: optStr,
+  arrivalFromCountry: optStr,
+  arrivalInIndiaDate: optDate,
+  nextDestination: optStr,
+  purposeOfVisit: optStr,
+});
+export type SaveCFormInput = z.infer<typeof saveCFormSchema>;
+
 export const markNoShowsSchema = z.object({
   propertyId: z.string().min(1),
   businessDate: dateInput,
