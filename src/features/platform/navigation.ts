@@ -42,6 +42,16 @@ export const NAV_ITEMS: readonly NavItem[] = [
     primary: true,
   },
   {
+    // Manager/Accounts analytics home — consolidated KPIs, revenue trend, and
+    // revenue segmentation across all accessible properties (financial-gated).
+    key: "overview",
+    label: "Overview",
+    href: "/overview",
+    icon: "Gauge",
+    permission: "report:view-financial",
+    primary: true,
+  },
+  {
     key: "properties",
     label: "Properties",
     href: "/properties",
