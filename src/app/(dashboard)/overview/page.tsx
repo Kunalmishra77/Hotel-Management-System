@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import { BedDouble, IndianRupee, LineChart, Percent, TrendingUp, Wallet } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
-import { liveTiles, trend } from "@/features/analytics/queries";
+import { liveTiles, perPropertyStats, trend } from "@/features/analytics/queries";
 import { profitReport, revenueSegments } from "@/features/reports/queries";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TrendChart } from "@/components/ui/charts/trend-chart";
 import { BreakdownList } from "@/components/ui/charts/breakdown-list";
 import { formatINR } from "@/lib/utils";
@@ -41,11 +42,14 @@ export default async function OverviewPage() {
   const monthStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
   const trendFrom = new Date(today.getTime() - 29 * 86_400_000);
 
-  const [tiles, profit, revTrend, segs] = await Promise.all([
+  const [tiles, profit, revTrend, segs, perProperty] = await Promise.all([
     liveTiles(user, propertyIds),
     profitReport(user, { propertyIds, from: monthStart, to: today }),
     trend(user, { metric: "revenue", from: trendFrom, to: today, propertyIds }),
     revenueSegments(user, { propertyIds, from: monthStart, to: today }),
+    propertyIds.length > 1
+      ? perPropertyStats(user, { propertyIds, from: monthStart, to: today })
+      : Promise.resolve([]),
   ]);
 
   const b = profit.breakdown;
@@ -86,6 +90,40 @@ export default async function OverviewPage() {
           <TrendChart data={trendData} format="inr" />
         </CardContent>
       </Card>
+
+      {perProperty.length > 0 ? (
+        <Card className="mt-4">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">By property (month to date)</CardTitle>
+          </CardHeader>
+          <CardContent className="px-0">
+            <div className="overflow-x-auto">
+              <Table data-testid="per-property">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Property</TableHead>
+                    <TableHead className="text-right">Occ.</TableHead>
+                    <TableHead className="text-right">ADR</TableHead>
+                    <TableHead className="text-right">RevPAR</TableHead>
+                    <TableHead className="text-right">Revenue</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {perProperty.map((p) => (
+                    <TableRow key={p.propertyId}>
+                      <TableCell className="font-medium">{p.name}</TableCell>
+                      <TableCell className="text-right tabular">{pct(p.occupancyBps)}</TableCell>
+                      <TableCell className="text-right tabular">{formatINR(p.adrPaise)}</TableCell>
+                      <TableCell className="text-right tabular">{formatINR(p.revparPaise)}</TableCell>
+                      <TableCell className="text-right font-medium tabular">{formatINR(p.revenuePaise)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <Card>

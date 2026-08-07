@@ -4,8 +4,8 @@
  * segments. Callers pass claims; consolidation is scoped to the caller's props.
  */
 import { db } from "@/lib/db";
-import { hasPermission } from "@/lib/permissions";
-import { occupancy } from "./domain/metrics";
+import { authorize, hasPermission } from "@/lib/permissions";
+import { adr, occupancy, revpar } from "./domain/metrics";
 import { dayBounds } from "./internal";
 import type { SessionClaims } from "@/lib/auth/claims";
 
@@ -101,4 +101,54 @@ export async function segments(
   }
   const corporates = [...byCorp.values()].sort((a, b) => b.revenuePaise - a.revenuePaise);
   return { corporates };
+}
+
+export type PropertyStat = {
+  propertyId: string;
+  name: string;
+  occupancyBps: number;
+  adrPaise: number;
+  revparPaise: number;
+  revenuePaise: number;
+};
+
+/**
+ * Per-property comparison over a range, from immutable snapshots (14 definitions).
+ * One row per property so a manager can compare across their portfolio — the
+ * consolidated queries collapse across properties, this keeps them separate. Same
+ * canonical metric library, so it reconciles to the paisa with `profitReport`.
+ */
+export async function perPropertyStats(
+  user: SessionClaims,
+  input: { propertyIds: string[]; from: Date; to: Date },
+): Promise<PropertyStat[]> {
+  // Exposes revenue/ADR/RevPAR — gate it directly (defence-in-depth), not only
+  // via the page, so a future caller can't leak financials.
+  authorize(user, "report:view-financial", input.propertyIds[0] ?? null);
+  const scoped = db.scoped(user);
+  const [rows, props] = await Promise.all([
+    scoped.dailyStatSnapshot.groupBy({
+      by: ["propertyId"],
+      where: { propertyId: { in: input.propertyIds }, businessDate: { gte: input.from, lte: input.to } },
+      _sum: { availableRoomNights: true, occupiedRoomNights: true, roomRevenuePaise: true, totalRevenuePaise: true },
+    }),
+    scoped.property.findMany({ where: { id: { in: input.propertyIds } }, select: { id: true, name: true } }),
+  ]);
+  const nameById = new Map(props.map((p) => [p.id, p.name]));
+
+  return rows
+    .map((r) => {
+      const avail = r._sum.availableRoomNights ?? 0;
+      const occ = r._sum.occupiedRoomNights ?? 0;
+      const roomRev = Number(r._sum.roomRevenuePaise ?? 0n);
+      return {
+        propertyId: r.propertyId,
+        name: nameById.get(r.propertyId) ?? r.propertyId,
+        occupancyBps: occupancy(avail, occ),
+        adrPaise: adr(roomRev, occ),
+        revparPaise: revpar(roomRev, avail),
+        revenuePaise: Number(r._sum.totalRevenuePaise ?? 0n),
+      };
+    })
+    .sort((a, b) => b.revenuePaise - a.revenuePaise);
 }
