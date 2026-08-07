@@ -6,6 +6,14 @@ import "dotenv/config";
 
 import { defineConfig, devices } from "@playwright/test";
 
+// The e2e builds + runs a PRODUCTION server (webServer below). If `.env` pins a
+// non-standard NODE_ENV, dotenv/config above propagates it to that build, and
+// `next build` then prerenders the default error pages via the legacy
+// pages-router path — failing with "<Html> should not be imported outside of
+// pages/_document". Force production so the e2e build matches a real deploy.
+// (Object.assign sidesteps the readonly NODE_ENV type from Next's env typings.)
+Object.assign(process.env, { NODE_ENV: "production" });
+
 const PORT = Number(process.env.E2E_PORT ?? 3100);
 const baseURL = process.env.E2E_BASE_URL ?? `http://127.0.0.1:${PORT}`;
 

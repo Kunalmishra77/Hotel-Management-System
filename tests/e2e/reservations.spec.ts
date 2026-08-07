@@ -43,6 +43,9 @@ test.afterAll(async () => {
         }
       }
     }
+    // The wizard captures an Aadhaar on G-RAVI each run — remove it so IDs don't
+    // accumulate and the next run starts from a walk-in with none on file.
+    await prisma.guestId.deleteMany({ where: { guestId: GUEST_RAVI_ID } });
     // Restore ROOMS-A statuses the journey moved.
     const { resetRoomsA } = await import("../../prisma/seed/01-property");
     await resetRoomsA(prisma);
@@ -54,13 +57,19 @@ test.afterAll(async () => {
 async function signIn(page: Page) {
   await page.goto("/sign-in");
   await page.getByLabel("Email").fill(RECEPTION.email);
-  await page.getByLabel("Password").fill(RECEPTION.password);
+  // exact: the "Show password" toggle button also contains "password", so a
+  // substring getByLabel would match two elements (strict-mode violation).
+  await page.getByLabel("Password", { exact: true }).fill(RECEPTION.password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(/\/dashboard/);
+  // Role-based landing: Reception lands on the booking board, not /dashboard.
+  await expect(page).toHaveURL(/\/(dashboard|bookings)/);
 }
 
 test.describe("journey — search → book → check-in → check-out (T-32)", () => {
   test("reception completes a full stay", async ({ page }) => {
+    // The T6 guided check-in adds several steps (verify → identity → register →
+    // payment → confirm); the full journey needs more than the 60s default.
+    test.setTimeout(150_000);
     await signIn(page);
 
     // 1 · New booking for today (AC-1/9)
@@ -95,8 +104,12 @@ test.describe("journey — search → book → check-in → check-out (T-32)", (
     await raviArrival.getByRole("link", { name: "Check in" }).click();
     await expect(page).toHaveURL(/\/check-in$/);
 
-    // Verify → Identity (Ravi has a seeded Aadhaar, so Continue is enabled) → Register.
+    // Verify → Identity: capture the MoM-mandatory Aadhaar (a walk-in guest has
+    // none on file, so Continue stays disabled until one is added) → Register.
     await page.getByTestId("wizard-continue").click();
+    await page.getByTestId("id-value").fill("123456789012");
+    await page.getByTestId("add-id").click();
+    await expect(page.getByTestId("captured-ids")).toBeVisible();
     await page.getByTestId("wizard-continue").click();
 
     // Sign the registration card (a real pointer stroke), then save.
@@ -120,12 +133,17 @@ test.describe("journey — search → book → check-in → check-out (T-32)", (
     // Lands on the booking detail, now IN_HOUSE.
     await expect(page.getByTestId("booking-status")).toHaveText("IN_HOUSE");
 
-    // 7 · Check out from the board — the advance covers the balance (AC-17).
+    // 7 · Check out from the board — the advance covers the balance (AC-17). The
+    // board refreshes client-side after the action; on a laptop -> remote-DB link
+    // that refresh can lag, so re-read fresh server state until the card leaves.
     await page.goto("/bookings");
     const inHouse = page.getByTestId("section-in-house");
     const raviInHouse = inHouse.locator('[data-testid^="reservation-"]').filter({ hasText: "Ravi Kumar" }).first();
     await raviInHouse.getByRole("button", { name: "Check out" }).click();
-    await expect(page.getByTestId("section-in-house")).not.toContainText("Ravi Kumar");
+    await expect(async () => {
+      await page.reload();
+      await expect(page.getByTestId("section-in-house")).not.toContainText("Ravi Kumar");
+    }).toPass({ timeout: 45_000 });
 
     // 8 · The stay is recorded CHECKED_OUT with a folio.
     const prisma = new PrismaClient();
