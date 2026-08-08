@@ -33,10 +33,12 @@ export function RoomBoard({
   board,
   propertyId,
   canBlock,
+  canManage,
 }: {
   board: RoomBoardData;
   propertyId: string;
   canBlock: boolean;
+  canManage: boolean;
 }) {
   const [filter, setFilter] = useState<Filter>("ALL");
   const [selected, setSelected] = useState<BoardRoom | null>(null);
@@ -124,6 +126,7 @@ export function RoomBoard({
       <RoomActionSheet
         room={selected}
         canBlock={canBlock}
+        canManage={canManage}
         onClose={() => setSelected(null)}
       />
     </div>

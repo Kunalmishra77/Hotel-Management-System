@@ -41,6 +41,7 @@ export default async function RoomsPage() {
         board={board}
         propertyId={propertyId}
         canBlock={can(user, "maintenance:manage", propertyId)}
+        canManage={can(user, "room:manage", propertyId)}
       />
     </div>
   );

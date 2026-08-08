@@ -15,26 +15,54 @@
  * thumb reach, and this is used one-handed while walking a corridor.
  */
 import { useState, useTransition } from "react";
-import { X } from "lucide-react";
+import { QrCode, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { changeRoomStatus } from "../status-actions";
+import { getRoomOrderQr } from "../order-qr-actions";
 import type { BoardRoom } from "../queries";
 import { STATUS_LABEL } from "./room-chip";
 
 export function RoomActionSheet({
   room,
   canBlock,
+  canManage,
   onClose,
 }: {
   room: BoardRoom | null;
   canBlock: boolean;
+  canManage: boolean;
   onClose: () => void;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [qr, setQr] = useState<{ url: string; qrDataUrl: string; number: string } | null>(null);
 
   if (!room) return null;
+
+  const showQr = () => {
+    setError(null);
+    startTransition(async () => {
+      const res = await getRoomOrderQr({ roomId: room.id });
+      if (res.ok) setQr(res.data);
+      else setError(res.error.message);
+    });
+  };
+
+  const printQr = () => {
+    if (!qr) return;
+    const w = window.open("", "_blank", "width=420,height=560");
+    if (!w) return;
+    w.document.write(
+      `<title>Room ${qr.number} · Order QR</title><body style="font-family:system-ui;text-align:center;padding:24px">` +
+        `<h2>Room ${qr.number}</h2><p>Scan to order to your room</p>` +
+        `<img src="${qr.qrDataUrl}" width="240" height="240" alt="Room ${qr.number} ordering QR"/>` +
+        `<p style="font-size:12px;color:#555;word-break:break-all">${qr.url}</p></body>`,
+    );
+    w.document.close();
+    w.focus();
+    w.print();
+  };
 
   const apply = (to: string) => {
     setError(null);
@@ -116,6 +144,30 @@ export function RoomActionSheet({
             Date-ranged maintenance blocks are raised from the maintenance job (module 11); a
             block removes the room from availability without changing its status.
           </p>
+        )}
+
+        {canManage && (
+          <div className="mt-4 border-t pt-3">
+            {qr ? (
+              <div className="flex flex-col items-center gap-2 text-center">
+                {/* eslint-disable-next-line @next/next/no-img-element -- data-URI QR, not a remote asset */}
+                <img src={qr.qrDataUrl} width={200} height={200} alt={`Room ${room.number} ordering QR`} data-testid="room-order-qr" />
+                <p className="break-all text-xs text-muted-foreground">{qr.url}</p>
+                <Button variant="outline" size="sm" onClick={printQr}>Print</Button>
+              </div>
+            ) : (
+              <Button
+                block
+                variant="ghost"
+                size="lg"
+                disabled={pending}
+                onClick={showQr}
+                data-testid="room-show-qr"
+              >
+                <QrCode className="size-4" /> In-room ordering QR
+              </Button>
+            )}
+          </div>
         )}
       </div>
     </div>
