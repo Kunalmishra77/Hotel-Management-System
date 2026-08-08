@@ -78,6 +78,7 @@ export const ErrorCode = {
   ILLEGAL_TICKET_TRANSITION: "ILLEGAL_TICKET_TRANSITION",
   ORDER_NOT_REQUESTED: "ORDER_NOT_REQUESTED",
   ROOM_NOT_AVAILABLE: "ROOM_NOT_AVAILABLE",
+  POS_ORDERS_PENDING: "POS_ORDERS_PENDING",
 
   // Inventory (20)
   NEGATIVE_STOCK: "NEGATIVE_STOCK",
@@ -154,6 +155,7 @@ const HTTP_STATUS: Record<ErrorCode, number> = {
   ILLEGAL_TICKET_TRANSITION: 409,
   ORDER_NOT_REQUESTED: 409,
   ROOM_NOT_AVAILABLE: 404,
+  POS_ORDERS_PENDING: 409,
   NEGATIVE_STOCK: 422,
   RUN_LOCKED: 409,
   GUEST_UNMATCHED: 422,
@@ -221,6 +223,7 @@ const USER_MESSAGE: Record<ErrorCode, string> = {
   ILLEGAL_TICKET_TRANSITION: "That kitchen step isn't allowed from the ticket's current status.",
   ORDER_NOT_REQUESTED: "This order isn't awaiting acceptance.",
   ROOM_NOT_AVAILABLE: "Ordering isn't available for this room right now.",
+  POS_ORDERS_PENDING: "Settle or reject the guest's pending room-service orders before check-out.",
   NEGATIVE_STOCK: "That movement would take stock below zero.",
   RUN_LOCKED: "This payroll run is finalized and can't be edited. Create an adjustment run.",
   GUEST_UNMATCHED: "This booking couldn't be matched to an existing guest. Import the guest first.",

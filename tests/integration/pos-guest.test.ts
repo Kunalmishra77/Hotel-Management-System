@@ -22,6 +22,8 @@ import { PROP_A_ID, GUEST_MEHTA_ID, USER_RECEPTION_A_ID } from "../../prisma/see
 import { assembleClaims } from "@/lib/auth/claims";
 import { db } from "@/lib/db";
 import { submitGuestOrder, acceptGuestOrder, rejectGuestOrder } from "@/features/pos/guest-actions";
+import { resetGuestRateLimits } from "@/features/pos/guest-internal";
+import { checkOut } from "@/features/reservations/lifecycle-actions";
 
 const prisma = createPrismaClient();
 const RUN = Date.now().toString(36);
@@ -63,7 +65,7 @@ beforeAll(async () => {
   await prisma.roomAllocation.create({ data: { propertyId: PROP_A_ID, reservationId: RES_ID, roomId: ROOM_ID, startDate: new Date("2036-01-10"), endDate: new Date("2036-01-12") } });
 });
 
-beforeEach(() => { authMock.current = null; });
+beforeEach(() => { authMock.current = null; resetGuestRateLimits(); });
 
 afterAll(async () => {
   await prisma.kitchenTicket.deleteMany({ where: { outletId: OUTLET_ID } });
@@ -149,5 +151,18 @@ describe("accept / reject (FR-22/23)", () => {
     const again = await acceptGuestOrder({ orderId });
     expect(again.ok).toBe(false);
     if (!again.ok) expect(again.error.code).toBe("ORDER_NOT_REQUESTED");
+  });
+});
+
+describe("check-out gate (FR-17, review fix)", () => {
+  it("blocks check-out while a guest order is still pending", async () => {
+    await submitTwoDosas(); // a REQUESTED order on RES_ID
+    await actAs(USER_RECEPTION_A_ID);
+    const res = await checkOut({ reservationId: RES_ID });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error.code).toBe("POS_ORDERS_PENDING");
+    // RES_ID stays IN_HOUSE (blocked), so other tests/runs are unaffected.
+    const r = await prisma.reservation.findUniqueOrThrow({ where: { id: RES_ID }, select: { status: true } });
+    expect(r.status).toBe("IN_HOUSE");
   });
 });

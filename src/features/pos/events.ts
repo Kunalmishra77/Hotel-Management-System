@@ -30,7 +30,10 @@ export type PosOrderVoidedPayload = {
   code: string;
   propertyId: string;
   reason: string;
-  settlement: "FOLIO" | "DIRECT";
+  /** How it had been settled — "NONE" for a REQUESTED order rejected before any
+   *  settlement (nothing to reverse), so a future consumer never mistakes it for
+   *  a real folio/direct reversal. */
+  settlement: "FOLIO" | "DIRECT" | "NONE";
 };
 
 export function posOrderSettledPayload(input: PosOrderSettledPayload): Record<string, unknown> {

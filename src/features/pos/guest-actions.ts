@@ -22,7 +22,7 @@ import { db } from "@/lib/db";
 import { billPreview } from "./domain/bill-preview";
 import { guestOrderRequestedPayload, posOrderVoidedPayload } from "./events";
 import { allocateOrderCode, posDb, withPosContext } from "./internal";
-import { resolveRoomToken, withGuestContext } from "./guest-internal";
+import { resolveRoomToken, withGuestContext, checkGuestSubmitRate } from "./guest-internal";
 import { sendToKitchen } from "./actions";
 import { settleToFolio } from "./settle-actions";
 import { submitGuestOrderSchema, acceptGuestOrderSchema, rejectGuestOrderSchema } from "./schema";
@@ -35,6 +35,9 @@ import { submitGuestOrderSchema, acceptGuestOrderSchema, rejectGuestOrderSchema 
 export async function submitGuestOrder(input: unknown): Promise<Result<{ orderId: string }>> {
   return toResult(async () => {
     const data = submitGuestOrderSchema.parse(input);
+    // Rate-limit BEFORE any DB work — the token is the only thing gating a public,
+    // unauthenticated flood (FR-26).
+    if (!checkGuestSubmitRate(data.token)) throw new DomainError(ErrorCode.RATE_LIMITED);
     const target = await resolveRoomToken(data.token);
     if (!target) throw new DomainError(ErrorCode.ROOM_NOT_AVAILABLE);
 
@@ -108,15 +111,33 @@ export async function submitGuestOrder(input: unknown): Promise<Result<{ orderId
 async function loadRequested(client: ReturnType<typeof posDb>, orderId: string) {
   const order = await client.posOrder.findFirst({
     where: { id: orderId },
-    select: { id: true, code: true, propertyId: true, status: true },
+    select: { id: true, code: true, propertyId: true, status: true, reservationId: true },
   });
   return order;
+}
+
+/**
+ * Compensate a failed accept: revert OPEN→REQUESTED and drop the kitchen ticket
+ * created for this attempt, so the order returns to the inbox cleanly re-actionable
+ * (never stranded OPEN — which the state machine can't void).
+ */
+async function compensateAccept(client: ReturnType<typeof posDb>, user: Awaited<ReturnType<typeof requireUser>>, orderId: string): Promise<void> {
+  await withPosContext(user, () =>
+    client.$transaction(async (tx) => {
+      await tx.kitchenTicket.deleteMany({ where: { orderId } });
+      await tx.posOrder.updateMany({ where: { id: orderId, status: "OPEN" as never }, data: { status: "REQUESTED" as never } });
+    }),
+  );
 }
 
 /**
  * Staff accept a REQUESTED guest order (FR-22): REQUESTED→OPEN under a row lock,
  * then send it to the kitchen and post it to the room folio via the EXISTING
  * settleToFolio. Returns the folio + line ids from that path.
+ *
+ * The guest is re-checked IN_HOUSE up front so a stale REQUESTED order (the guest
+ * already checked out) fails fast — no claim, no kitchen ticket. If a later step
+ * fails, `compensateAccept` reverts the order to REQUESTED so it is never stranded.
  */
 export async function acceptGuestOrder(input: unknown): Promise<Result<{ folioId: string; lineId: string }>> {
   return toResult(async () => {
@@ -127,6 +148,15 @@ export async function acceptGuestOrder(input: unknown): Promise<Result<{ folioId
     if (!order) throw new NotFoundError("Order not found.");
     authorize(user, "pos:order-create", order.propertyId);
     if (order.status !== "REQUESTED") throw new DomainError(ErrorCode.ORDER_NOT_REQUESTED);
+
+    // Fail fast if the guest is no longer in-house (checked out while REQUESTED):
+    // don't claim, don't send to the kitchen, don't strand an OPEN order.
+    if (!order.reservationId) throw new DomainError(ErrorCode.FOLIO_TARGET_INVALID);
+    const reservation = await client.reservation.findFirst({
+      where: { id: order.reservationId, propertyId: order.propertyId },
+      select: { status: true },
+    });
+    if (!reservation || reservation.status !== "IN_HOUSE") throw new DomainError(ErrorCode.FOLIO_TARGET_INVALID);
 
     // Claim REQUESTED→OPEN (CAS: exactly one accept wins).
     const claimed = await withPosContext(user, () =>
@@ -141,10 +171,17 @@ export async function acceptGuestOrder(input: unknown): Promise<Result<{ folioId
     if (!claimed) throw new DomainError(ErrorCode.ORDER_NOT_REQUESTED);
 
     // Now an OPEN order: send to kitchen + settle to the room folio (reused path).
+    // On any failure, compensate back to REQUESTED so it is never stranded OPEN.
     const kot = await sendToKitchen({ orderId });
-    if (!kot.ok) throw new DomainError(kot.error.code as ErrorCode, kot.error.message);
+    if (!kot.ok) {
+      await compensateAccept(client, user, orderId);
+      throw new DomainError(kot.error.code as ErrorCode, kot.error.message);
+    }
     const settled = await settleToFolio({ orderId });
-    if (!settled.ok) throw new DomainError(settled.error.code as ErrorCode, settled.error.message);
+    if (!settled.ok) {
+      await compensateAccept(client, user, orderId);
+      throw new DomainError(settled.error.code as ErrorCode, settled.error.message);
+    }
     return settled.data;
   });
 }
@@ -164,7 +201,7 @@ export async function rejectGuestOrder(input: unknown): Promise<Result<{ ok: tru
       client.$transaction(async (tx) => {
         const moved = await tx.posOrder.updateMany({ where: { id: orderId, status: "REQUESTED" as never }, data: { status: "VOID" as never } });
         if (moved.count !== 1) throw new DomainError(ErrorCode.ORDER_NOT_REQUESTED);
-        await emitEvent(tx, { type: "PosOrderVoided", aggregateId: orderId, propertyId: order.propertyId, payload: posOrderVoidedPayload({ orderId, code: order.code, propertyId: order.propertyId, reason, settlement: "FOLIO" }) });
+        await emitEvent(tx, { type: "PosOrderVoided", aggregateId: orderId, propertyId: order.propertyId, payload: posOrderVoidedPayload({ orderId, code: order.code, propertyId: order.propertyId, reason, settlement: "NONE" }) });
         await writeAudit(tx, { action: "pos:guest-reject", entityType: "PosOrder", entityId: orderId, propertyId: order.propertyId, reason, before: { status: "REQUESTED" }, after: { status: "VOID" } });
       }),
     );

@@ -232,6 +232,19 @@ export async function checkOut(input: unknown): Promise<Result<LifecycleResult>>
     // and compare-and-swap the status.
     return withReservationContext(user, () =>
       client.$transaction(async (tx) => {
+        // 19 addendum (FR-17): un-accepted/un-settled POS orders (incl. guest QR
+        // REQUESTED ones) are pending charges that can't be deferred — a REQUESTED
+        // order posts NO folio line, so it would be invisible to the balance gate
+        // below. Checked FIRST so staff resolve (accept→settle / reject) them
+        // before check-out, never orphaning a charge on a checked-out reservation
+        // (from which settleToFolio would be impossible).
+        const pendingPos = await tx.posOrder.count({
+          where: { reservationId: r.id, status: { in: ["REQUESTED", "OPEN"] } },
+        });
+        if (pendingPos > 0) {
+          throw new DomainError(ErrorCode.POS_ORDERS_PENDING, undefined, { details: { pendingPos } });
+        }
+
         const folio = await tx.folio.findFirst({ where: { reservationId: r.id }, select: { id: true } });
 
         let balancePaise: number;

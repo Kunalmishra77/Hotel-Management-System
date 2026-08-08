@@ -12,6 +12,33 @@
 import { db } from "@/lib/db";
 import { newRequestId, runWithContext, SYSTEM_USER_ID } from "@/lib/context";
 
+// Rate limit (FR-21/26) — per-token fixed window, in-process (booking-engine
+// pattern; tech-stack.md forbids Redis without an ADR, and a single app instance
+// suffices at this scale). Guards the public submit against a flood from anyone
+// holding a room's QR.
+type Bucket = { count: number; resetAt: number };
+const submitBuckets = new Map<string, Bucket>();
+const SUBMIT_LIMIT = 8;
+const SUBMIT_WINDOW_MS = 60_000;
+
+/** Consume one guest-submit token for a room token. False ⇒ rate-limited. */
+export function checkGuestSubmitRate(token: string, now: number = Date.now()): boolean {
+  const key = `submit:${token}`;
+  const b = submitBuckets.get(key);
+  if (!b || b.resetAt <= now) {
+    submitBuckets.set(key, { count: 1, resetAt: now + SUBMIT_WINDOW_MS });
+    return true;
+  }
+  if (b.count >= SUBMIT_LIMIT) return false;
+  b.count += 1;
+  return true;
+}
+
+/** Test seam — clear the guest rate-limit buckets. */
+export function resetGuestRateLimits(): void {
+  submitBuckets.clear();
+}
+
 export type ResolvedRoomToken = {
   orgId: string;
   propertyId: string;
