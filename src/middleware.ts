@@ -76,5 +76,7 @@ export const config = {
    * Skip static assets and image optimisation — running auth on every icon
    * request wastes latency on the mobile networks the NFRs budget for.
    */
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|icons/|.*\\.png$).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|offline.html|icons/|.*\\.png$).*)",
+  ],
 };
