@@ -33,6 +33,7 @@ const PUBLIC_PREFIXES = [
   "/api/webhooks", // provider webhooks — signature-verified, not session-authed
   "/api/booking-engine", // public booking engine (23)
   "/book", // public booking website UI (23) — unauthenticated by design
+  "/order", // public in-room QR ordering (19 addendum) — token-gated, no session
 ];
 
 function isPublic(pathname: string): boolean {

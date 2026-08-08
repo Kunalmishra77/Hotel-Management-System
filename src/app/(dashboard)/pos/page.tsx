@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { requirePermission } from "@/lib/auth/guard";
-import { listOutlets, listMenu, listOpenOrders, getOrder } from "@/features/pos/queries";
+import { listOutlets, listMenu, listOpenOrders, getOrder, roomOrderInbox } from "@/features/pos/queries";
 import { PosScreen } from "@/features/pos/components/pos-screen";
+import { RoomOrdersInbox } from "@/features/pos/components/room-orders-inbox";
 
 export const metadata: Metadata = { title: "POS" };
 
@@ -24,20 +25,24 @@ export default async function PosPage({
   }
 
   const outletId = sp.outletId && outlets.some((o) => o.id === sp.outletId) ? sp.outletId : outlets[0]!.id;
-  const [menu, openOrders, activeOrder] = await Promise.all([
+  const [menu, openOrders, activeOrder, inbox] = await Promise.all([
     listMenu(user, outletId),
     listOpenOrders(user, { propertyId, outletId }),
     sp.orderId ? getOrder(user, sp.orderId) : Promise.resolve(null),
+    roomOrderInbox(user, propertyId),
   ]);
 
   return (
-    <PosScreen
-      outlets={outlets}
-      outletId={outletId}
-      menu={menu}
-      openOrders={openOrders}
-      activeOrder={activeOrder}
-      defaultReservationId={sp.reservationId ?? ""}
-    />
+    <div className="space-y-4">
+      <RoomOrdersInbox orders={inbox} />
+      <PosScreen
+        outlets={outlets}
+        outletId={outletId}
+        menu={menu}
+        openOrders={openOrders}
+        activeOrder={activeOrder}
+        defaultReservationId={sp.reservationId ?? ""}
+      />
+    </div>
   );
 }

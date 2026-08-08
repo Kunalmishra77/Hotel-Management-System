@@ -109,6 +109,40 @@ export async function kitchenPrep(user: SessionClaims, propertyId: string): Prom
   return aggregatePrep(orders.flatMap((o) => o.items));
 }
 
+export type RoomOrderInboxItem = {
+  id: string;
+  code: string;
+  roomNumber: string | null;
+  guestNote: string | null;
+  totalPaise: number;
+  items: { name: string; quantity: number }[];
+};
+
+/** Pending guest QR orders awaiting staff accept/reject (FR-22). Property-scoped. */
+export async function roomOrderInbox(user: SessionClaims, propertyId: string): Promise<RoomOrderInboxItem[]> {
+  const rows = await db.scoped(user).posOrder.findMany({
+    where: { propertyId, status: "REQUESTED" },
+    orderBy: { createdAt: "asc" },
+    take: 100,
+    select: {
+      id: true,
+      code: true,
+      guestNote: true,
+      totalPaise: true,
+      items: { select: { name: true, quantity: true } },
+      reservation: { select: { allocations: { select: { room: { select: { number: true } } }, take: 1 } } },
+    },
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    code: r.code,
+    guestNote: r.guestNote,
+    totalPaise: r.totalPaise,
+    items: r.items,
+    roomNumber: r.reservation?.allocations[0]?.room.number ?? null,
+  }));
+}
+
 export type KitchenTicketView = {
   id: string;
   orderCode: string;
