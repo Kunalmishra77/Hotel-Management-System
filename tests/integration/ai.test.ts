@@ -20,6 +20,7 @@ import {
   CAT_DLX_ID,
   USER_MANAGER_ID,
   USER_HOUSEKEEPING_ID,
+  USER_RECEPTION_A_ID,
   GUEST_RAVI_ID,
 } from "../../prisma/seed/fixtures";
 import { assembleClaims } from "@/lib/auth/claims";
@@ -153,6 +154,30 @@ describe("Segmentation (AC-9)", () => {
     const event = await prisma.domainEvent.findFirst({ where: { type: "SegmentUpdated" } });
     expect(event).not.toBeNull();
   });
+
+  it("adds deterministic look-alike groups from embeddings and prunes on rerun (FR-8)", async () => {
+    const user = await claims(USER_MANAGER_ID);
+    // The seed + test guests are well over the clustering threshold, so the mock
+    // provider's stable embeddings must produce at least one look-alike group.
+    await updateSegments(user);
+    const lookalike = await prisma.guestSegment.findMany({
+      where: { orgId: ORG_ID, name: { startsWith: "Look-alike Group " } },
+      orderBy: { name: "asc" },
+    });
+    expect(lookalike.length).toBeGreaterThan(0);
+    expect(lookalike[0]!.guestIds.length).toBeGreaterThan(0);
+    // Every look-alike segment carries its cluster rule (traceable WHY).
+    expect(lookalike.every((s) => (s.ruleJson as { kind?: string } | null)?.kind === "lookalike")).toBe(true);
+
+    // Deterministic: a second run yields the SAME group names + membership.
+    const before = lookalike.map((s) => ({ name: s.name, ids: [...s.guestIds].sort() }));
+    await updateSegments(user);
+    const after = await prisma.guestSegment.findMany({
+      where: { orgId: ORG_ID, name: { startsWith: "Look-alike Group " } },
+      orderBy: { name: "asc" },
+    });
+    expect(after.map((s) => ({ name: s.name, ids: [...s.guestIds].sort() }))).toEqual(before);
+  });
 });
 
 describe("Rate suggestions — 18 suggests, never writes DynamicRate (AC-8)", () => {
@@ -180,6 +205,34 @@ describe("Forecast — grounded numbers, LLM phrases (AC-7)", () => {
     expect(res.metric).toBe("revenue");
     expect(typeof res.narrative).toBe("string");
     expect(res.forecast).toHaveLength(7);
+  });
+
+  it("forecasts expense and profit off the same snapshots (FR-6)", async () => {
+    const user = await claims(USER_MANAGER_ID);
+    const expense = await forecast(user, { propertyId: PROP_A_ID, metric: "expense", horizonDays: 7 });
+    expect(expense.metric).toBe("expense");
+    expect(expense.forecast).toHaveLength(7);
+    expect(expense.forecast.every((p) => p.value >= 0)).toBe(true);
+
+    const profit = await forecast(user, { propertyId: PROP_A_ID, metric: "profit", horizonDays: 7 });
+    expect(profit.metric).toBe("profit");
+    expect(profit.forecast).toHaveLength(7);
+    expect(typeof profit.narrative).toBe("string");
+  });
+
+  it("gates financial metrics on report:view-financial — reception (ai:use) is denied profit (AC-12)", async () => {
+    // Reception HAS ai:use but NOT report:view-financial, so it passes the first
+    // gate and is stopped by the money-path gate specifically.
+    const user = await claims(USER_RECEPTION_A_ID);
+    await expect(forecast(user, { propertyId: PROP_A_ID, metric: "profit", horizonDays: 7 })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    await expect(forecast(user, { propertyId: PROP_A_ID, metric: "expense", horizonDays: 7 })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    // But occupancy (operational) is allowed for reception.
+    const occ = await forecast(user, { propertyId: PROP_A_ID, metric: "occupancy", horizonDays: 3 });
+    expect(occ.metric).toBe("occupancy");
   });
 });
 

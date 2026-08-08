@@ -12,31 +12,35 @@ import { authorize } from "@/lib/permissions";
 import { getLLMProvider } from "@/lib/ai";
 import { isDomainError } from "@/lib/errors";
 import type { SessionClaims } from "@/lib/auth/claims";
-import { forecastSeries, type ForecastResult, type SeriesPoint } from "./domain/forecast";
+import { forecastSeries, pickMetric, type ForecastMetric, type ForecastResult, type SeriesPoint } from "./domain/forecast";
 import { logInteraction } from "./internal";
 
-const SYSTEM = "You are a hotel revenue analyst. Phrase a one-paragraph narrative for the figures given. Do not invent or change any number.";
+const SYSTEM = "You are a hotel financial analyst. Phrase a one-paragraph narrative for the figures given. Do not invent or change any number.";
 
-export type ForecastOutput = ForecastResult & { narrative: string; metric: "revenue" | "occupancy" };
+export type ForecastOutput = ForecastResult & { narrative: string; metric: ForecastMetric };
 
 export async function forecast(
   user: SessionClaims,
-  input: { propertyId: string; metric: "revenue" | "occupancy"; horizonDays: number },
+  input: { propertyId: string; metric: ForecastMetric; horizonDays: number },
 ): Promise<ForecastOutput> {
   authorize(user, "ai:use", input.propertyId);
-  // Revenue is a money path — require the financial-report permission too (FR-9/10).
-  if (input.metric === "revenue") authorize(user, "report:view-financial", input.propertyId);
+  // Revenue/expense/profit are money paths — require the financial-report permission
+  // too (FR-9/10). Occupancy is operational and needs only ai:use.
+  if (input.metric !== "occupancy") authorize(user, "report:view-financial", input.propertyId);
 
   const rows = await db.scoped(user).dailyStatSnapshot.findMany({
     where: { propertyId: input.propertyId },
-    select: { businessDate: true, totalRevenuePaise: true, occupancyBps: true },
+    select: { businessDate: true, totalRevenuePaise: true, occupancyBps: true, expensePaise: true },
     orderBy: { businessDate: "asc" },
     take: 180,
   });
 
   const history: SeriesPoint[] = rows.map((r) => ({
     date: r.businessDate.toISOString().slice(0, 10),
-    value: input.metric === "revenue" ? Number(r.totalRevenuePaise) : r.occupancyBps,
+    value: pickMetric(
+      { revenuePaise: Number(r.totalRevenuePaise), occupancyBps: r.occupancyBps, expensePaise: Number(r.expensePaise) },
+      input.metric,
+    ),
   }));
 
   const result = forecastSeries(history, input.horizonDays);

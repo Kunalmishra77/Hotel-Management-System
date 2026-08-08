@@ -47,7 +47,7 @@ export const sentimentOutputSchema = z.object({
 
 export const forecastSchema = z.object({
   propertyId: z.string().min(1),
-  metric: z.enum(["revenue", "occupancy"]).default("revenue"),
+  metric: z.enum(["revenue", "occupancy", "expense", "profit"]).default("revenue"),
   horizonDays: z.number().int().min(1).max(90).default(14),
 });
 

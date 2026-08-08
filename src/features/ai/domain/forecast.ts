@@ -10,6 +10,36 @@
 export type SeriesPoint = { date: string; value: number };
 export type ForecastPoint = { date: string; value: number };
 
+/** The metrics 18 can forecast off the immutable daily snapshots (FR-6). */
+export type ForecastMetric = "revenue" | "occupancy" | "expense" | "profit";
+
+/** One day's forecastable figures, money already widened from BigInt to number-of-paise. */
+export type SnapshotMetrics = { revenuePaise: number; occupancyBps: number; expensePaise: number };
+
+/**
+ * Select one forecastable series value from a day's snapshot. Pure so the metric
+ * mapping is unit-testable without a DB.
+ *
+ * NOTE on `profit`: this is OPERATING profit = total revenue − direct (07-approved)
+ * expenses as captured on the immutable `DailyStatSnapshot`. It deliberately
+ * EXCLUDES the month-apportioned payroll cost that 08-profit-reports layers on at
+ * report time (see reporting.md) — this is a directional forecast grounded on the
+ * snapshot, not the canonical 08 profit figure. `expense` mirrors the snapshot's
+ * `expensePaise` (07 approved), the same base 08 uses for its 07 portion.
+ */
+export function pickMetric(row: SnapshotMetrics, metric: ForecastMetric): number {
+  switch (metric) {
+    case "revenue":
+      return row.revenuePaise;
+    case "occupancy":
+      return row.occupancyBps;
+    case "expense":
+      return row.expensePaise;
+    case "profit":
+      return row.revenuePaise - row.expensePaise;
+  }
+}
+
 export type ForecastResult = {
   history: SeriesPoint[];
   forecast: ForecastPoint[];
