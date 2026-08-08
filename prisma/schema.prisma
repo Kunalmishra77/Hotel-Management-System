@@ -384,6 +384,9 @@ model Room {
   number     String // "101"
   status     RoomStatus   @default(VACANT)
   isActive   Boolean      @default(true)
+  // 19 addendum: stable per-room secret encoded in the in-room ordering QR
+  // (…/order/<orderToken>). 02 owns this column; 19 reads it. Stamped once.
+  orderToken String?      @unique
 
   allocations RoomAllocation[]
   blocks      RoomBlock[]
@@ -1334,6 +1337,9 @@ model PosOutlet {
   propertyId    String
   name          String // "Restaurant", "Room Service", "Bar"
   defaultGstBps Int        @default(500)
+  // 19 addendum: the outlet a room's QR orders from. Resolution: the property's
+  // isRoomDining outlet; else the sole outlet; else ordering is unavailable.
+  isRoomDining  Boolean    @default(false)
   menuItems     MenuItem[]
   orders        PosOrder[]
 
@@ -1355,9 +1361,15 @@ model MenuItem {
 }
 
 enum PosOrderStatus {
+  REQUESTED // 19 addendum: guest-submitted via QR, pending staff accept
   OPEN
   SETTLED
   VOID
+}
+
+enum PosOrderSource {
+  STAFF
+  GUEST_QR
 }
 
 model PosOrder {
@@ -1369,7 +1381,10 @@ model PosOrder {
   reservationId       String? // post to folio if in-house
   reservation         Reservation?   @relation(fields: [reservationId], references: [id])
   status              PosOrderStatus @default(OPEN)
+  source              PosOrderSource @default(STAFF) // 19 addendum: guest QR vs staff
+  guestNote           String? // 19 addendum: optional note from a guest QR order
   items               PosOrderItem[]
+  kitchenTicket       KitchenTicket?
   subtotalPaise       Int            @default(0)
   discountPaise       Int            @default(0)
   cgstPaise           Int            @default(0)
@@ -1384,6 +1399,32 @@ model PosOrder {
   createdAt           DateTime       @default(now())
 
   @@unique([propertyId, code])
+  @@index([propertyId, status])
+}
+
+enum KitchenTicketStatus {
+  QUEUED
+  PREPARING
+  READY
+  SERVED
+}
+
+// 19 addendum: one prep ticket per order sent to the kitchen. Forward-only
+// lifecycle (QUEUED→PREPARING→READY→SERVED); the kitchen screen advances it live.
+model KitchenTicket {
+  id         String              @id @default(cuid())
+  orderId    String              @unique
+  order      PosOrder            @relation(fields: [orderId], references: [id])
+  propertyId String
+  outletId   String
+  status     KitchenTicketStatus @default(QUEUED)
+  queuedAt   DateTime            @default(now())
+  startedAt  DateTime?
+  readyAt    DateTime?
+  servedAt   DateTime?
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
   @@index([propertyId, status])
 }
 
