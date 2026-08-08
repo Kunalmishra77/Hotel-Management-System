@@ -40,6 +40,12 @@ const BROADCASTABLE = new Set<string>([
   "PropertyCreated",
   "PropertyUpdated",
   "PropertyDeactivated",
+  // 17 T-6: live housekeeping + maintenance boards. All three carry propertyId
+  // and are payload-stripped below, so property-scope filtering holds and no PII
+  // crosses the wire (the client re-fetches through its own authorized query).
+  "HousekeepingTaskDone",
+  "MaintenanceJobCreated",
+  "MaintenanceJobClosed",
 ]);
 
 export async function GET(request: Request): Promise<Response> {

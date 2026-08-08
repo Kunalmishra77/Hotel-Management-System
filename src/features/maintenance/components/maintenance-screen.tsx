@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useRealtime } from "@/hooks/use-realtime";
 import { createJob, startJob, closeJob } from "../actions";
 import type { MaintenanceJobItem } from "../queries";
 
@@ -24,6 +25,10 @@ export function MaintenanceScreen({ propertyId, jobs }: { propertyId: string; jo
   const [error, setError] = useState<string | null>(null);
   const [category, setCategory] = useState("AC");
   const [description, setDescription] = useState("");
+
+  // Live board: a job raised (e.g. from a housekeeping complaint) or closed on
+  // another device refreshes this list without a manual reload.
+  useRealtime({ types: ["MaintenanceJobCreated", "MaintenanceJobClosed"], propertyId });
 
   const run = (fn: () => Promise<{ ok: boolean; error?: { message: string } }>, onOk?: () => void) => {
     setError(null);

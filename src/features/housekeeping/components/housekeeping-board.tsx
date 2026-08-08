@@ -12,7 +12,10 @@ import { useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { ConnectivityBadge } from "@/components/mobile/connectivity-badge";
+import { SyncStatus } from "@/components/mobile/sync-status";
 import { enqueue, flush, pending, type Resolver } from "@/lib/offline";
+import { useRealtime } from "@/hooks/use-realtime";
 import { updateTaskStatus } from "../actions";
 import type { HousekeepingTaskItem } from "../queries";
 
@@ -30,9 +33,12 @@ const hkResolver: Resolver = async (payload) => {
 export function HousekeepingBoard({ tasks }: { tasks: HousekeepingTaskItem[] }) {
   const router = useRouter();
   const [pendingAction, start] = useTransition();
-  const [online, setOnline] = useState(true);
   const [queuedIds, setQueuedIds] = useState<string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
+
+  // Live board across devices: a room going to/from HOUSEKEEPING (checkout,
+  // another cleaner finishing) refreshes the task list without a manual reload.
+  useRealtime({ types: ["RoomStatusChanged", "HousekeepingTaskDone"] });
 
   const refreshQueued = useCallback(async () => {
     const items = await pending(HK_KIND);
@@ -40,7 +46,6 @@ export function HousekeepingBoard({ tasks }: { tasks: HousekeepingTaskItem[] }) 
   }, []);
 
   const runFlush = useCallback(async () => {
-    setOnline(true);
     const r = await flush({ [HK_KIND]: hkResolver });
     await refreshQueued();
     if (r.conflicts > 0) setMessage(`${r.conflicts} update(s) were out of date and need a re-check.`);
@@ -48,22 +53,18 @@ export function HousekeepingBoard({ tasks }: { tasks: HousekeepingTaskItem[] }) 
   }, [refreshQueued, router]);
 
   useEffect(() => {
-    setOnline(navigator.onLine);
     void refreshQueued();
     // Drain anything left from a previous (possibly killed) session.
     if (navigator.onLine) void runFlush();
 
     const onOnline = () => void runFlush();
-    const onOffline = () => setOnline(false);
     const onVisible = () => {
       if (document.visibilityState === "visible" && navigator.onLine) void runFlush();
     };
     window.addEventListener("online", onOnline);
-    window.addEventListener("offline", onOffline);
     document.addEventListener("visibilitychange", onVisible);
     return () => {
       window.removeEventListener("online", onOnline);
-      window.removeEventListener("offline", onOffline);
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [refreshQueued, runFlush]);
@@ -87,16 +88,12 @@ export function HousekeepingBoard({ tasks }: { tasks: HousekeepingTaskItem[] }) 
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-4 p-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <h1 className="text-xl font-semibold">Housekeeping</h1>
-        {!online && (
-          <span
-            className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800"
-            data-testid="offline-banner"
-          >
-            Offline — changes will sync
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          <SyncStatus pending={queuedIds.length} />
+          <ConnectivityBadge />
+        </div>
       </div>
       {message && (
         <p role="alert" className="text-sm text-destructive" data-testid="hk-message">
