@@ -109,6 +109,36 @@ export async function kitchenPrep(user: SessionClaims, propertyId: string): Prom
   return aggregatePrep(orders.flatMap((o) => o.items));
 }
 
+export type KitchenTicketView = {
+  id: string;
+  orderCode: string;
+  status: "QUEUED" | "PREPARING" | "READY" | "SERVED";
+  queuedAt: Date;
+  items: { name: string; quantity: number }[];
+};
+
+/** Active kitchen tickets (not yet SERVED) at a property — the live prep board (FR-24/25). */
+export async function kitchenTickets(user: SessionClaims, propertyId: string): Promise<KitchenTicketView[]> {
+  const rows = await db.scoped(user).kitchenTicket.findMany({
+    where: { propertyId, status: { not: "SERVED" } },
+    orderBy: { queuedAt: "asc" },
+    take: 100,
+    select: {
+      id: true,
+      status: true,
+      queuedAt: true,
+      order: { select: { code: true, items: { select: { name: true, quantity: true } } } },
+    },
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    orderCode: r.order.code,
+    status: r.status as KitchenTicketView["status"],
+    queuedAt: r.queuedAt,
+    items: r.order.items,
+  }));
+}
+
 export type OutletView = { id: string; name: string; defaultGstBps: number };
 export type MenuItemView = { id: string; name: string; ratePaise: number; hsnSac: string | null; gstBps: number };
 

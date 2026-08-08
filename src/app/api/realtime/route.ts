@@ -46,6 +46,10 @@ const BROADCASTABLE = new Set<string>([
   "HousekeepingTaskDone",
   "MaintenanceJobCreated",
   "MaintenanceJobClosed",
+  // 19 addendum: live kitchen board + room-orders inbox. Both carry propertyId
+  // and are payload-stripped below (no PII); the client re-fetches via its query.
+  "KitchenTicketMoved",
+  "GuestOrderRequested",
 ]);
 
 export async function GET(request: Request): Promise<Response> {
