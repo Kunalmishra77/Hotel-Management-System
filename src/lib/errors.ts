@@ -74,6 +74,10 @@ export const ErrorCode = {
   // POS (19)
   FOLIO_TARGET_INVALID: "FOLIO_TARGET_INVALID",
   ORDER_NOT_OPEN: "ORDER_NOT_OPEN",
+  // POS (19 addendum: guest QR + kitchen lifecycle)
+  ILLEGAL_TICKET_TRANSITION: "ILLEGAL_TICKET_TRANSITION",
+  ORDER_NOT_REQUESTED: "ORDER_NOT_REQUESTED",
+  ROOM_NOT_AVAILABLE: "ROOM_NOT_AVAILABLE",
 
   // Inventory (20)
   NEGATIVE_STOCK: "NEGATIVE_STOCK",
@@ -147,6 +151,9 @@ const HTTP_STATUS: Record<ErrorCode, number> = {
   RATE_OUT_OF_BOUNDS: 422,
   FOLIO_TARGET_INVALID: 422,
   ORDER_NOT_OPEN: 409,
+  ILLEGAL_TICKET_TRANSITION: 409,
+  ORDER_NOT_REQUESTED: 409,
+  ROOM_NOT_AVAILABLE: 404,
   NEGATIVE_STOCK: 422,
   RUN_LOCKED: 409,
   GUEST_UNMATCHED: 422,
@@ -211,6 +218,9 @@ const USER_MESSAGE: Record<ErrorCode, string> = {
   RATE_OUT_OF_BOUNDS: "That rate is outside the approved floor/ceiling for this category.",
   FOLIO_TARGET_INVALID: "That booking can't take this charge. Settle the order directly instead.",
   ORDER_NOT_OPEN: "This order has already been settled or voided.",
+  ILLEGAL_TICKET_TRANSITION: "That kitchen step isn't allowed from the ticket's current status.",
+  ORDER_NOT_REQUESTED: "This order isn't awaiting acceptance.",
+  ROOM_NOT_AVAILABLE: "Ordering isn't available for this room right now.",
   NEGATIVE_STOCK: "That movement would take stock below zero.",
   RUN_LOCKED: "This payroll run is finalized and can't be edited. Create an adjustment run.",
   GUEST_UNMATCHED: "This booking couldn't be matched to an existing guest. Import the guest first.",

@@ -99,6 +99,9 @@ export const DOMAIN_EVENT_TYPES = [
   // 19 POS
   "PosOrderSettled",
   "PosOrderVoided",
+  // 19 addendum: guest QR ordering + kitchen lifecycle
+  "GuestOrderRequested",
+  "KitchenTicketMoved",
 
   // 20 inventory
   "StockMovementRecorded",

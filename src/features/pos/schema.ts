@@ -60,3 +60,21 @@ export const voidOrderSchema = z.object({
   orderId: z.string().min(1),
   reason: z.string().min(1).max(300),
 });
+
+// 19 addendum — kitchen lifecycle + guest QR ordering.
+export const ticketActionSchema = z.object({ ticketId: z.string().min(1) });
+
+export const submitGuestOrderSchema = z.object({
+  token: z.string().min(1),
+  lines: z
+    .array(z.object({ menuItemId: z.string().min(1), quantity: z.number().int().positive() }))
+    .min(1, "Add at least one item."),
+  note: z.string().max(300).optional(),
+});
+export type SubmitGuestOrderInput = z.infer<typeof submitGuestOrderSchema>;
+
+export const acceptGuestOrderSchema = z.object({ orderId: z.string().min(1) });
+export const rejectGuestOrderSchema = z.object({
+  orderId: z.string().min(1),
+  reason: z.string().min(1).max(300),
+});

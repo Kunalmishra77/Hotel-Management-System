@@ -12,10 +12,12 @@ import type { Prisma } from "@prisma/client";
 import { requireUser } from "@/lib/auth";
 import { authorize, hasPermission } from "@/lib/permissions";
 import { writeAudit } from "@/lib/audit";
+import { emitEvent } from "@/lib/events";
 import { DomainError, ErrorCode, NotFoundError } from "@/lib/errors";
 import { toResult, type Result } from "@/lib/result";
 import { billPreview, type BillLine } from "./domain/bill-preview";
 import { aggregatePrep } from "./domain/kot";
+import { kitchenTicketMovedPayload } from "./events";
 import { isEditable } from "./domain/state";
 import { posDb, withPosContext, allocateOrderCode } from "./internal";
 import {
@@ -242,13 +244,29 @@ export async function sendToKitchen(input: unknown): Promise<Result<{ prep: { na
 
     const order = await client.posOrder.findFirstOrThrow({
       where: { id: data.orderId },
-      select: { items: { select: { name: true, menuItemId: true, quantity: true } } },
+      select: { outletId: true, items: { select: { name: true, menuItemId: true, quantity: true } } },
     });
     const prep = aggregatePrep(order.items).map((p) => ({ name: p.name, quantity: p.quantity }));
 
     await withPosContext(user, () =>
       client.$transaction(async (tx) => {
-        await writeAudit(tx, { action: "pos:kot", entityType: "PosOrder", entityId: data.orderId, propertyId: ctx.propertyId, after: { items: prep.length } });
+        // 19 addendum: create the kitchen ticket (idempotent — one per order).
+        const ticket = await tx.kitchenTicket.upsert({
+          where: { orderId: data.orderId },
+          create: { orderId: data.orderId, propertyId: ctx.propertyId, outletId: order.outletId, status: "QUEUED", queuedAt: new Date() },
+          update: {},
+          select: { id: true, status: true },
+        });
+        // Only announce a freshly-queued ticket (a repeat KOT is a no-op for the board).
+        if (ticket.status === "QUEUED") {
+          await emitEvent(tx, {
+            type: "KitchenTicketMoved",
+            aggregateId: ticket.id,
+            propertyId: ctx.propertyId,
+            payload: kitchenTicketMovedPayload({ ticketId: ticket.id, orderId: data.orderId, propertyId: ctx.propertyId, status: "QUEUED" }),
+          });
+        }
+        await writeAudit(tx, { action: "pos:kot", entityType: "PosOrder", entityId: data.orderId, propertyId: ctx.propertyId, after: { items: prep.length, ticketId: ticket.id } });
       }),
     );
     return { prep };

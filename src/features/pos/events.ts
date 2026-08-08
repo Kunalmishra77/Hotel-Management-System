@@ -40,3 +40,29 @@ export function posOrderSettledPayload(input: PosOrderSettledPayload): Record<st
 export function posOrderVoidedPayload(input: PosOrderVoidedPayload): Record<string, unknown> {
   return { ...input };
 }
+
+// 19 addendum: guest QR ordering + kitchen lifecycle. Payloads are PII-free — the
+// realtime layer strips them to {type, propertyId, aggregateId} anyway, and the
+// client re-fetches through its authorized query.
+
+export type GuestOrderRequestedPayload = {
+  orderId: string;
+  code: string;
+  propertyId: string;
+  roomNumber: string;
+};
+
+export type KitchenTicketMovedPayload = {
+  ticketId: string;
+  orderId: string;
+  propertyId: string;
+  status: "QUEUED" | "PREPARING" | "READY" | "SERVED";
+};
+
+export function guestOrderRequestedPayload(input: GuestOrderRequestedPayload): Record<string, unknown> {
+  return { ...input };
+}
+
+export function kitchenTicketMovedPayload(input: KitchenTicketMovedPayload): Record<string, unknown> {
+  return { ...input };
+}
