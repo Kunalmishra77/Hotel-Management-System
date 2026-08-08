@@ -23,8 +23,9 @@ import { roomDb, withRoomContext } from "./internal";
 const schema = z.object({ roomId: z.string().min(1) });
 
 /** Absolute URL a room's QR encodes. NEXT_PUBLIC_APP_URL must be set in prod for
- *  a scannable code; falls back to localhost for dev. */
-export function roomOrderUrl(token: string): string {
+ *  a scannable code; falls back to localhost for dev. Local — a "use server" file
+ *  may only EXPORT async functions, so this helper stays unexported. */
+function roomOrderUrl(token: string): string {
   const base = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
   return `${base}/order/${token}`;
 }

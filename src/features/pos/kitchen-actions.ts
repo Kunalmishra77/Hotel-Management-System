@@ -62,6 +62,14 @@ async function advance(input: unknown, to: TicketStatus, stamp: StampField): Pro
   });
 }
 
-export const startTicket = (input: unknown) => advance(input, "PREPARING", "startedAt");
-export const readyTicket = (input: unknown) => advance(input, "READY", "readyAt");
-export const serveTicket = (input: unknown) => advance(input, "SERVED", "servedAt");
+// A "use server" file may only export async function declarations (not arrow
+// consts), so these wrap the shared `advance` helper.
+export async function startTicket(input: unknown): Promise<Result<{ status: TicketStatus }>> {
+  return advance(input, "PREPARING", "startedAt");
+}
+export async function readyTicket(input: unknown): Promise<Result<{ status: TicketStatus }>> {
+  return advance(input, "READY", "readyAt");
+}
+export async function serveTicket(input: unknown): Promise<Result<{ status: TicketStatus }>> {
+  return advance(input, "SERVED", "servedAt");
+}
