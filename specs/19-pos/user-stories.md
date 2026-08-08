@@ -42,3 +42,19 @@ Roles per `rules/user-roles.md`. All money stays in 06; POS never writes folio/p
 ## Concurrency / permission
 - **AC-14:** Given two operators settle the same OPEN order concurrently, then exactly one succeeds; the other gets `ORDER_NOT_OPEN` — no double post. (FR-18)
 - **AC-15:** Given a user without `pos:order-settle`, when settling, then `FORBIDDEN`. (FR-14)
+
+## Addendum 2026-08-08 — guest QR ordering + kitchen lifecycle
+Added fixtures: **ROOM-101** (a `Room` at PROP-A with a stamped `orderToken`), **G-QR** (an anonymous guest device — no login).
+
+### US-7 — Guest self-orders from the in-room QR
+- **AC-16:** Given ROOM-101, when its detail page is opened by staff, then a scannable per-room QR encoding `…/order/<orderToken>` is shown/printable; the token is distinct per room. (FR-19)
+- **AC-17:** Given ROOM-101 has **no** IN_HOUSE reservation, when the QR page is opened, then a generic "ordering unavailable" is shown and no order can be placed; the page returns menu data only, never PII. (FR-20/26)
+- **AC-18:** Given ROOM-101 is IN_HOUSE, when G-QR submits 2× Masala Dosa (+ note), then a `PosOrder(status=REQUESTED, source=GUEST_QR)` linked to the room's in-house reservation persists, **server-priced** (client prices ignored), `GuestOrderRequested` emitted; **nothing is charged and no kitchen ticket exists yet**. (FR-21)
+
+### US-8 — Staff accept / reject (money gate)
+- **AC-19:** Given a `KitchenTicket`, when advanced, then only `QUEUED→PREPARING→READY→SERVED` (forward, no skip) is allowed; an illegal move → `ILLEGAL_TICKET_TRANSITION`. (FR-24)
+- **AC-20:** Given a REQUESTED guest order, when U-POS **accepts** it, then order → OPEN, a `KitchenTicket(QUEUED)` is created, and the charge posts via the existing `settleToFolio` (`FolioLine(type=FOOD)`, CGST+SGST, place-of-supply = property state); when U-MGR **rejects** it, then order → VOID and **nothing is charged**. A guest can never accept/settle their own order. (FR-22/23)
+
+### US-9 — Live boards
+- **AC-21:** Given the Room-orders inbox and the kitchen screen open on a second device, when a guest submits / a ticket is advanced, then both update **live** via SSE within the realtime budget, no manual refresh; payloads carry no PII (type + ids only). (FR-25)
+- **AC-22:** Given an unknown/tampered `orderToken` or a flood of requests, when hitting the public endpoint, then a generic unavailable response + rate-limiting; no room/guest enumeration, no authenticated surface reachable. (FR-26)

@@ -33,3 +33,21 @@ Test-first for bill/tax + state machine. Money only via 06. Each ends at `rules/
 
 ## Done
 - [x] T-20 `/review-module` clean; every AC → green test; DoD satisfied.
+
+## Guest QR ordering + kitchen lifecycle (addendum 2026-08-08) — test-first, money only via 06
+
+### Phase 1 — kitchen ticket lifecycle + live KDS
+- [ ] T-21 Migration: `PosOrderStatus`+=`REQUESTED`; `PosOrder`+=`source`,`guestNote?`; new `KitchenTicket`; coordinated `Room.orderToken @unique`. Reversible. (FR-19/21/24)
+- [ ] T-22 Domain (test first): `KitchenTicket` state machine `QUEUED→PREPARING→READY→SERVED` — validated, no skip/backward. (FR-24, AC-19)
+- [ ] T-23 `sendToKitchen` creates `KitchenTicket(QUEUED)`; `startTicket/readyTicket/serveTicket` (authorized, audited, `KitchenTicket*` events). Integration. (FR-24)
+- [ ] T-24 Kitchen screen Start/Ready/Served + live via 17 SSE (add `KitchenTicket*` + `GuestOrderRequested` to the allow-list; subscribe boards). (FR-25, AC-21)
+
+### Phase 2 — guest in-room QR ordering
+- [ ] T-25 `Room.orderToken` generation + per-room QR image on the room detail page (qrcode lib — ADR written first). (FR-19, AC-16)
+- [ ] T-26 Public route `(public)/order/[token]`: resolve token→room→configured outlet, occupied-gate, menu-only (no PII), rate-limited. Unit/integration for the gate + token failure. (FR-20/26, AC-17/22)
+- [ ] T-27 `submitGuestOrder` (public, token-verified): create `PosOrder(REQUESTED, source=GUEST_QR)` server-priced + optional note + `GuestOrderRequested`; nothing charged/kitchened. Integration. (FR-21, AC-18)
+- [ ] T-28 Staff "Room orders" inbox: `acceptGuestOrder` (REQUESTED→OPEN → sendToKitchen → **existing settleToFolio**) / `rejectGuestOrder` (→VOID). Integration incl. FolioLine(FOOD) money assertion + reject-charges-nothing + RBAC. (FR-22/23, AC-20)
+- [ ] T-29 E2E: guest scans → orders → staff accepts → kitchen QUEUED→SERVED → FolioLine(FOOD) posted; occupied-gate + reject paths; two-device live update. (FR-19–25)
+
+## Done (addendum)
+- [ ] T-30 `/review-module` clean for the addendum; every new FR/AC → green test; DoD satisfied; `scope.md` note + qrcode ADR committed.

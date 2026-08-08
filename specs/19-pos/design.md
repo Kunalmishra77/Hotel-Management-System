@@ -48,3 +48,44 @@ Emits: `PosOrderSettled` (`{propertyId, outlet, items}`), `PosOrderVoided`. Cons
 - In-house guest checks out with an open POS order → surfaced by `unsettledOrders`; 06 balance gate blocks checkout (FR-17).
 - Discount + GST interplay → discount is a negative line before tax per the shared bill fn.
 - Out of scope (open questions): table management, KDS hardware, thermal-printer drivers, offline capture, dynamic menu pricing.
+
+---
+
+## Addendum 2026-08-08 — guest in-room QR ordering + kitchen ticket lifecycle
+
+**Principle:** reuse everything money. Guest **accept** posts through the existing tested `settleToFolio` (FR-5). The only new money-adjacent construct is a `REQUESTED` staff-gate *in front of* it. The public QR surface touches no money and no PII.
+
+### Schema slice (migration)
+- `PosOrderStatus` += `REQUESTED` (guest-submitted, pending staff accept). Lifecycle: `REQUESTED → OPEN → SETTLED` (accept path) or `REQUESTED → VOID` (reject).
+- `PosOrder` += `source (STAFF|GUEST_QR)`, `guestNote String?`.
+- `PosOutlet.isRoomDining Boolean @default(false)` — designates the outlet a room QR orders from. Resolution: the property's `isRoomDining` outlet; else the sole outlet if only one exists; else ordering is unavailable until staff flag one.
+- `Room.orderToken String? @unique` — 02 owns the column (coordinated migration); 19 reads it via 02's query layer. A stable, unguessable per-room secret (e.g. `cuid()`), stamped once, printed as the room's QR.
+- `KitchenTicket(id, orderId @unique, propertyId, outletId, status KitchenTicketStatus, queuedAt, startedAt?, readyAt?, servedAt?)`; `enum KitchenTicketStatus { QUEUED, PREPARING, READY, SERVED }`.
+
+### Domain
+- `canAdvanceTicket(from, to)` — `QUEUED→PREPARING→READY→SERVED`, forward-only, no skips. Pure, unit-tested.
+- Guest submission reuses `orderTotal`/`billPreview` (server-priced from `MenuItem`; client prices are ignored — FR-2/21).
+
+### Public surface (unauthenticated) — `src/app/(public)/order/[token]/`
+Mirrors the booking-engine's public-route + rate-limit posture. `page.tsx` resolves `token → room → property → configured room-dining outlet`, applies the **occupied-gate** (in-house reservation required), renders **menu only** (prices + "added to your room bill"), and posts via a token-verified public action `submitGuestOrder(token, lines[], note?)`. No session, no PII, rate-limited; unknown token / unoccupied room → one generic unavailable response.
+
+### Application (staff, authorized) — `features/pos/`
+- `acceptGuestOrder(orderId)` (`pos:order-create`): `REQUESTED→OPEN` → `sendToKitchen` (creates `KitchenTicket`) → `settleToFolio` (existing) → audit. Row-locked like settle (FR-18-style), so two accepts can't double-post.
+- `rejectGuestOrder(orderId, reason)` (`pos:order-void`): `REQUESTED→VOID`, nothing charged, `PosOrderVoided` + audit.
+- `startTicket/readyTicket/serveTicket(ticketId)` (`pos:order-create`): advance the ticket, audit, emit `KitchenTicketMoved`.
+- Queries: `roomOrderInbox(propertyId)` (REQUESTED orders) and the existing `kitchenPrep`, now backed by `KitchenTicket` status.
+
+### UI
+- **Guest page** (public): single-outlet menu grid, cart, submit + note. Deliberately minimal, no auth chrome.
+- **Room-orders inbox** (staff, on the POS screen): live list of REQUESTED orders with Accept/Reject; subscribes via `useRealtime`.
+- **Kitchen screen**: per-ticket Start / Ready / Served; live via `useRealtime`.
+- **Room detail page** (02): renders + prints the room's QR (qrcode lib — see ADR `docs/architecture/adr/`).
+
+### Events & realtime
+Emits `GuestOrderRequested` (propertyId, aggregateId=orderId), `KitchenTicketMoved` (propertyId, aggregateId=ticketId), plus the existing `PosOrderSettled`/`PosOrderVoided` on accept/reject. `GuestOrderRequested` + `KitchenTicketMoved` are added to the SSE broadcast allow-list (property-scoped, payload-stripped) so the inbox + kitchen update live (17 FR-5).
+
+### Error catalog (additions)
+`ROOM_NOT_AVAILABLE` (occupied-gate / bad token — generic), `ORDER_NOT_REQUESTED` (accept/reject on a non-REQUESTED order), `ILLEGAL_TICKET_TRANSITION`, plus rate-limit rejection.
+
+### Security
+Public endpoint: token-verified, occupied-gated, rate-limited, menu-only, audit actor = a `guest-qr` system context. Accept/reject/kitchen are ordinary authorized+audited staff actions. A guest can never settle, void, discount, see another room's data, or reach an authenticated route.

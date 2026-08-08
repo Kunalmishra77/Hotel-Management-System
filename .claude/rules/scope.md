@@ -27,7 +27,7 @@ Source of truth: the client's *PMS Requirement Document* (§1–§19). Decision:
 | 16 | access-control-security | 15,18 | RBAC, 2FA, encryption, audit trail, backup |
 | 17 | mobile-experience | 16 | PWA, offline, responsive, cross-device sync |
 | 18 | ai-features | 17 | Chatbot, NL search, sentiment, forecast, rate suggest, segmentation |
-| 19 | pos | 19 | Restaurant / point of sale → posts to folio |
+| 19 | pos | 19 | Restaurant / point of sale → posts to folio. **Addendum 2026-08-08:** now also guest **in-room QR self-ordering** (per-room QR → staff-accept gate → existing settle-to-folio; no guest payment) + a software **kitchen ticket lifecycle** with live display. Still out: KDS hardware, thermal printers, table management, dynamic pricing. See `specs/19-pos` FR-19–FR-26. |
 | 20 | inventory-stock | 19 | Store/stock inventory (distinct from room inventory) |
 | 21 | payroll | 19 | Salary runs from staff + attendance |
 | 22 | accounting-sync | 19 | Tally / Zoho Books export/sync |
