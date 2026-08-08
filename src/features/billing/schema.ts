@@ -21,6 +21,12 @@ export const postChargeSchema = z.object({
   quantity: z.number().int().positive().default(1),
   unitPaise: positivePaise,
   hsnSac: z.string().max(12).optional(),
+  /**
+   * Explicit GST rate override (bps). Omit for the type-derived rate (the norm);
+   * POS passes the menu item's own rate so a mixed-slab order posts one line per
+   * rate at its true rate (19 R-35). Bounded like other rate inputs.
+   */
+  taxRateBps: z.number().int().min(0).max(5000).optional(),
   placeOfSupplyState: z.string().max(60).optional(),
   businessDate: z.coerce.date().optional(),
 });

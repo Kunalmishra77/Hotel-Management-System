@@ -33,6 +33,7 @@ import { postFolioCharge, reverseFolioLine } from "@/features/billing/charge-act
 import { settlePosSaleDirect } from "@/features/billing/pos-actions";
 import { voidInvoice } from "@/features/billing/invoice-actions";
 import { canTransition } from "./domain/state";
+import { groupPosChargeLines } from "./domain/charge-lines";
 import { posOrderSettledPayload, posOrderVoidedPayload, type SettledItem } from "./events";
 import { posDb, withPosContext, lockOrder, POS_FOLIO_CHARGE_TYPE } from "./internal";
 import { settleToFolioSchema, settleDirectSchema, voidOrderSchema } from "./schema";
@@ -48,7 +49,7 @@ type FullOrder = {
   discountPaise: number;
   totalPaise: number;
   settlementInvoiceId: string | null;
-  items: { menuItemId: string | null; quantity: number; hsnSac: string | null }[];
+  items: { menuItemId: string | null; quantity: number; unitPaise: number; gstBps: number; hsnSac: string | null }[];
 };
 
 async function loadFull(client: ReturnType<typeof posDb>, orderId: string): Promise<FullOrder | null> {
@@ -57,7 +58,7 @@ async function loadFull(client: ReturnType<typeof posDb>, orderId: string): Prom
     select: {
       id: true, code: true, propertyId: true, outletId: true, status: true, reservationId: true,
       subtotalPaise: true, discountPaise: true, totalPaise: true, settlementInvoiceId: true,
-      items: { select: { menuItemId: true, quantity: true, hsnSac: true } },
+      items: { select: { menuItemId: true, quantity: true, unitPaise: true, gstBps: true, hsnSac: true } },
     },
   });
 }
@@ -65,7 +66,7 @@ async function loadFull(client: ReturnType<typeof posDb>, orderId: string): Prom
 /** The consumption payload 20 deducts stock from — menu lines only (FR-9). */
 function settledItems(order: FullOrder): SettledItem[] {
   return order.items
-    .filter((i): i is { menuItemId: string; quantity: number; hsnSac: string | null } => i.menuItemId != null)
+    .filter((i): i is FullOrder["items"][number] & { menuItemId: string } => i.menuItemId != null)
     .map((i) => ({ menuItemId: i.menuItemId, quantity: i.quantity }));
 }
 
@@ -135,26 +136,36 @@ export async function settleToFolio(input: unknown): Promise<Result<{ folioId: s
     const folio = await client.folio.findFirst({ where: { id: folioId }, select: { isClosed: true } });
     if (!folio || folio.isClosed) throw new DomainError(ErrorCode.FOLIO_TARGET_INVALID);
 
-    const taxable = netTaxable(order);
-    const hsnSac = order.items.find((i) => i.hsnSac)?.hsnSac ?? undefined;
+    netTaxable(order); // guard: must have a positive taxable value to settle
+    // R-35: one folio line PER GST rate-group (the order may mix 5%/18%), each at
+    // its true rate — never one lump line at a single rate. Same grouping the
+    // guest's bill preview used, so the folio matches it exactly.
+    const groups = groupPosChargeLines(order.items, order.discountPaise);
 
     // 1 · CLAIM OPEN→SETTLED (exactly one concurrent settler wins).
     const claimed = await claimTransition(client, user, orderId, order.propertyId, "OPEN", "SETTLED", { settledAt: new Date(), settledById: user.userId });
     if (!claimed) throw new DomainError(ErrorCode.ORDER_NOT_OPEN);
 
-    // 2 · Post the FolioLine via 06 (its own tx). Description carries the order
-    // code so a later void can locate this exact line. Compensate on failure.
-    const charge = await postFolioCharge({
-      folioId,
-      type: POS_FOLIO_CHARGE_TYPE,
-      description: `POS ${order.code}`,
-      unitPaise: taxable,
-      quantity: 1,
-      ...(hsnSac ? { hsnSac } : {}),
-    });
-    if (!charge.ok) {
-      await revertStatus(client, orderId, "OPEN", { settledAt: null, settledById: null });
-      throw new DomainError(charge.error.code as ErrorCode, charge.error.message);
+    // 2 · Post one FolioLine per rate-group via 06 (each its own tx). All share
+    // the `POS <code>` description so void can find them. On a partial failure,
+    // reverse what posted and revert the claim, so the order is cleanly re-settleable.
+    const postedLineIds: string[] = [];
+    for (const g of groups) {
+      const charge = await postFolioCharge({
+        folioId,
+        type: POS_FOLIO_CHARGE_TYPE,
+        description: `POS ${order.code}`,
+        unitPaise: g.taxablePaise,
+        quantity: 1,
+        taxRateBps: g.gstBps,
+        ...(g.hsnSac ? { hsnSac: g.hsnSac } : {}),
+      });
+      if (!charge.ok) {
+        for (const lineId of postedLineIds) await reverseFolioLine({ lineId, reason: `POS ${order.code} settle rollback` });
+        await revertStatus(client, orderId, "OPEN", { settledAt: null, settledById: null });
+        throw new DomainError(charge.error.code as ErrorCode, charge.error.message);
+      }
+      postedLineIds.push(charge.data.lineId);
     }
 
     // 3 · FINALIZE: emit the settlement event (drives 20 stock) + audit.
@@ -166,10 +177,10 @@ export async function settleToFolio(input: unknown): Promise<Result<{ folioId: s
           propertyId: order.propertyId,
           payload: posOrderSettledPayload({ orderId, code: order.code, propertyId: order.propertyId, outletId: order.outletId, reservationId: order.reservationId, settlement: "FOLIO", totalPaise: order.totalPaise, items: settledItems(order) }),
         });
-        await writeAudit(tx, { action: "pos:order-settle", entityType: "PosOrder", entityId: orderId, propertyId: order.propertyId, after: { settlement: "FOLIO", folioId, lineId: charge.data.lineId } });
+        await writeAudit(tx, { action: "pos:order-settle", entityType: "PosOrder", entityId: orderId, propertyId: order.propertyId, after: { settlement: "FOLIO", folioId, lines: postedLineIds.length } });
       }),
     );
-    return { folioId, lineId: charge.data.lineId };
+    return { folioId, lineId: postedLineIds[0]! };
   });
 }
 
@@ -240,15 +251,19 @@ export async function voidOrder(input: unknown): Promise<Result<{ ok: true }>> {
 
     const isDirect = order.settlementInvoiceId != null;
 
-    // Resolve the folio REVERSAL target (folio path) — located by the order code.
-    let reversalLineId: string | null = null;
+    // Resolve the folio REVERSAL targets (folio path) — ALL lines for this order
+    // (R-35: a mixed-rate settle posts one line per rate, so there may be several).
+    let reversalLineIds: string[] = [];
     if (!isDirect) {
       if (!order.reservationId) throw new DomainError(ErrorCode.ILLEGAL_TRANSITION, "No settlement to reverse.");
       const folio = await client.folio.findFirst({ where: { reservationId: order.reservationId }, select: { id: true } });
       if (!folio) throw new NotFoundError("Settlement folio not found.");
-      const line = await client.folioLine.findFirst({ where: { folioId: folio.id, type: POS_FOLIO_CHARGE_TYPE, description: `POS ${order.code}`, reversalOfId: null }, select: { id: true } });
-      if (!line) throw new NotFoundError("Settlement line not found.");
-      reversalLineId = line.id;
+      const lines = await client.folioLine.findMany({
+        where: { folioId: folio.id, type: POS_FOLIO_CHARGE_TYPE, description: `POS ${order.code}`, reversalOfId: null },
+        select: { id: true },
+      });
+      if (lines.length === 0) throw new NotFoundError("Settlement line not found.");
+      reversalLineIds = lines.map((l) => l.id);
     }
 
     // 1 · CLAIM SETTLED→VOID.
@@ -256,12 +271,20 @@ export async function voidOrder(input: unknown): Promise<Result<{ ok: true }>> {
     if (!claimed) throw new DomainError(ErrorCode.ILLEGAL_TRANSITION);
 
     // 2 · Reverse via 06. Compensate (back to SETTLED) on failure.
-    const reversal = isDirect
-      ? await voidInvoice({ invoiceId: order.settlementInvoiceId!, reason: data.reason })
-      : await reverseFolioLine({ lineId: reversalLineId!, reason: data.reason });
-    if (!reversal.ok) {
-      await revertStatus(client, data.orderId, "SETTLED");
-      throw new DomainError(reversal.error.code as ErrorCode, reversal.error.message);
+    if (isDirect) {
+      const reversal = await voidInvoice({ invoiceId: order.settlementInvoiceId!, reason: data.reason });
+      if (!reversal.ok) {
+        await revertStatus(client, data.orderId, "SETTLED");
+        throw new DomainError(reversal.error.code as ErrorCode, reversal.error.message);
+      }
+    } else {
+      for (const lineId of reversalLineIds) {
+        const reversal = await reverseFolioLine({ lineId, reason: data.reason });
+        if (!reversal.ok) {
+          await revertStatus(client, data.orderId, "SETTLED");
+          throw new DomainError(reversal.error.code as ErrorCode, reversal.error.message);
+        }
+      }
     }
 
     // 3 · FINALIZE: emit + audit.

@@ -44,7 +44,9 @@ export async function postFolioCharge(input: unknown): Promise<Result<ChargeResu
 
     const amountPaise = data.unitPaise * data.quantity;
     const pos = placeOfSupply(data.type, ctx.propertyState, data.placeOfSupplyState ?? ctx.billToState);
-    const rateBps = gstBpsForCharge(data.type, data.type === "ROOM" ? data.unitPaise : undefined);
+    // An explicit override (POS passes the menu item's own rate — 19 R-35) wins;
+    // otherwise the rate is derived from the charge type as before.
+    const rateBps = data.taxRateBps ?? gstBpsForCharge(data.type, data.type === "ROOM" ? data.unitPaise : undefined);
     const gst = computeGst(amountPaise, rateBps, ctx.propertyState, pos);
 
     return withBillingContext(user, () =>

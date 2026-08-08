@@ -12,8 +12,8 @@
  * always 0 (business-rules.md §10). The `igstPaise` key stays in the shape only so
  * POS and 06 can share one bill type.
  */
-import Decimal from "decimal.js";
 import { splitPosGst, roundOffToRupee } from "@/lib/tax";
+import { groupPosChargeLines } from "./charge-lines";
 
 export type BillLine = {
   quantity: number;
@@ -48,35 +48,17 @@ export function billPreview(
   const subtotalPaise = lines.reduce((s, l) => s + l.quantity * l.unitPaise, 0);
   const discount = Math.min(Math.max(discountPaise, 0), subtotalPaise);
 
-  // Group taxable value by GST rate so each rate is split independently.
-  const byRate = new Map<number, number>();
-  for (const l of lines) {
-    const amount = l.quantity * l.unitPaise;
-    byRate.set(l.gstBps, (byRate.get(l.gstBps) ?? 0) + amount);
-  }
-
+  // Group taxable value by GST rate (discount apportioned, last group absorbs the
+  // remainder) via the SAME fn the folio posting uses — so preview == folio.
   let cgst = 0;
   let sgst = 0;
   let igst = 0;
-  let apportioned = 0;
-  const groups = [...byRate.entries()];
-  groups.forEach(([gstBps, groupSubtotal], idx) => {
-    // Apportion the discount by subtotal share; the LAST group absorbs the
-    // rounding remainder so Σ apportioned == discount exactly.
-    let groupDiscount: number;
-    if (idx === groups.length - 1) {
-      // The last group absorbs the remainder (subtotal is > 0 whenever a group exists).
-      groupDiscount = discount - apportioned;
-    } else {
-      groupDiscount = new Decimal(discount).times(groupSubtotal).div(subtotalPaise).toDecimalPlaces(0, Decimal.ROUND_HALF_UP).toNumber();
-      apportioned += groupDiscount;
-    }
-    const taxable = groupSubtotal - groupDiscount;
-    const gst = splitPosGst(taxable, gstBps, propertyState);
+  for (const g of groupPosChargeLines(lines, discountPaise)) {
+    const gst = splitPosGst(g.taxablePaise, g.gstBps, propertyState);
     cgst += gst.cgstPaise;
     sgst += gst.sgstPaise;
     igst += gst.igstPaise;
-  });
+  }
 
   const grand = subtotalPaise - discount + cgst + sgst + igst;
   const { roundOffPaise, totalPaise } = roundOffToRupee(grand);

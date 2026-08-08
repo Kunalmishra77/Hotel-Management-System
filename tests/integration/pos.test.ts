@@ -32,6 +32,7 @@ const RUN = Date.now().toString(36);
 const OUTLET_ID = `outlet_pos_${RUN}`;
 const DOSA_ID = `menu_dosa_${RUN}`;
 const COFFEE_ID = `menu_coffee_${RUN}`;
+const BEER_ID = `menu_beer_${RUN}`; // 18% slab — for the mixed-rate (R-35) case
 
 let resCounter = 0;
 
@@ -79,6 +80,7 @@ beforeAll(async () => {
     data: [
       { id: DOSA_ID, propertyId: PROP_A_ID, outletId: OUTLET_ID, name: "Masala Dosa", ratePaise: 12_000, hsnSac: "996331", gstBps: 500 },
       { id: COFFEE_ID, propertyId: PROP_A_ID, outletId: OUTLET_ID, name: "Coffee", ratePaise: 6_000, hsnSac: "996331", gstBps: 500 },
+      { id: BEER_ID, propertyId: PROP_A_ID, outletId: OUTLET_ID, name: "Beer", ratePaise: 20_000, hsnSac: "996311", gstBps: 1800 },
     ],
   });
 });
@@ -86,6 +88,7 @@ beforeAll(async () => {
 beforeEach(() => { authMock.current = null; });
 
 afterAll(async () => {
+  await prisma.kitchenTicket.deleteMany({ where: { outletId: OUTLET_ID } });
   await prisma.posOrderItem.deleteMany({ where: { order: { outletId: OUTLET_ID } } });
   await prisma.posOrder.deleteMany({ where: { outletId: OUTLET_ID } });
   await prisma.menuItem.deleteMany({ where: { outletId: OUTLET_ID } });
@@ -195,6 +198,44 @@ describe("settle to folio — in-house (T-7/T-8/T-10, FR-5/7/8/9, AC-5/6/8)", ()
     const res = await settleToFolio({ orderId });
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.error.code).toBe("FOLIO_TARGET_INVALID");
+  });
+
+  it("posts ONE folio line PER GST rate for a mixed-slab order, and voids all of them (R-35)", async () => {
+    await actAs(USER_RECEPTION_A_ID);
+    const reservationId = await makeReservation("IN_HOUSE");
+    // 2× Dosa @5% (24000) + 1× Beer @18% (20000).
+    const orderId = await openOrderWith(reservationId, [{ menuItemId: DOSA_ID, quantity: 2 }, { menuItemId: BEER_ID, quantity: 1 }]);
+
+    await actAs(USER_RECEPTION_A_ID);
+    const res = await settleToFolio({ orderId });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+
+    const folio = await prisma.folio.findFirstOrThrow({ where: { reservationId } });
+    const lines = await prisma.folioLine.findMany({
+      where: { folioId: folio.id, description: `POS ${(await prisma.posOrder.findUniqueOrThrow({ where: { id: orderId } })).code}`, reversalOfId: null },
+      orderBy: { taxRateBps: "asc" },
+      select: { taxRateBps: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true },
+    });
+    expect(lines).toHaveLength(2);
+    // 5% line: 24000 → CGST 600 + SGST 600.
+    expect(lines[0]!.taxRateBps).toBe(500);
+    expect(Number(lines[0]!.amountPaise)).toBe(24_000);
+    expect(lines[0]!.cgstPaise).toBe(600);
+    expect(lines[0]!.sgstPaise).toBe(600);
+    // 18% line: 20000 → CGST 1800 + SGST 1800.
+    expect(lines[1]!.taxRateBps).toBe(1800);
+    expect(Number(lines[1]!.amountPaise)).toBe(20_000);
+    expect(lines[1]!.cgstPaise).toBe(1800);
+    expect(lines[1]!.sgstPaise).toBe(1800);
+    expect(lines.every((l) => l.igstPaise === 0)).toBe(true);
+
+    // Void reverses BOTH lines (two REVERSAL rows netting the charges to zero).
+    await actAs(USER_ACCOUNTS_ID); // has pos:order-void
+    const voided = await voidOrder({ orderId, reason: "mixed-rate void" });
+    expect(voided.ok).toBe(true);
+    const reversals = await prisma.folioLine.count({ where: { folioId: folio.id, type: "REVERSAL" } });
+    expect(reversals).toBe(2);
   });
 });
 
