@@ -39,4 +39,10 @@ export const adminResetPasswordSchema = z.object({
   password: z.string().min(10, "Password must be at least 10 characters."),
 });
 
+/** Revoke a target user's sessions — one (`sessionId`) or all (omitted). */
+export const revokeUserSessionsSchema = z.object({
+  userId: z.string().min(1),
+  sessionId: z.string().min(1).optional(),
+});
+
 export type CreateUserInput = z.infer<typeof createUserSchema>;

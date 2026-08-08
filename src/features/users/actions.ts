@@ -15,10 +15,12 @@ import { toResult, type Result } from "@/lib/result";
 import {
   adminResetPasswordSchema,
   createUserSchema,
+  revokeUserSessionsSchema,
   setUserActiveSchema,
   updateUserRolesSchema,
 } from "./schema";
 import { isUniqueViolation, usersDb, withUsersContext } from "./internal";
+import { listUserSessions, type AdminSessionView } from "./queries";
 
 export type CreatedUser = { id: string; name: string; email: string };
 
@@ -143,6 +145,61 @@ export async function setUserActive(input: unknown): Promise<Result<{ ok: true }
 
     revalidatePath("/settings/users");
     return { ok: true as const };
+  });
+}
+
+/** Read a target user's live sessions for the admin oversight sheet. */
+export async function getUserSessions(userId: string): Promise<Result<AdminSessionView[]>> {
+  return toResult(() => listUserSessions(userId));
+}
+
+/**
+ * Force sign-out of a target user — one session (`sessionId`) or all (omitted).
+ * FR-13/FR-6: revocation takes effect on the target's next request via
+ * `resolveSession`'s `revokedAt` check. Mirrors the revoke side-effect that
+ * deactivate/reset already perform, wrapped as its own audited action.
+ *
+ * Self-targeting is refused: an admin manages their own devices from the
+ * Security page (self-service), which correctly preserves the current session.
+ */
+export async function revokeUserSessions(input: unknown): Promise<Result<{ ok: true; count: number }>> {
+  return toResult(async () => {
+    const data = revokeUserSessionsSchema.parse(input);
+    const admin = await requireUser();
+    authorize(admin, "user:manage");
+
+    if (data.userId === admin.userId) {
+      throw new ForbiddenError("Manage your own devices from Security settings.", { userId: admin.userId });
+    }
+    await assertTargetInOrg(admin.orgId, data.userId);
+
+    const count = await withUsersContext(admin, () =>
+      usersDb.$transaction(async (tx) => {
+        const revoked = await tx.session.updateMany({
+          where: {
+            userId: data.userId,
+            revokedAt: null,
+            ...(data.sessionId ? { id: data.sessionId } : {}),
+          },
+          data: { revokedAt: new Date() },
+        });
+        await emitEvent(tx, {
+          type: "SessionForceLoggedOut",
+          aggregateId: data.userId,
+          payload: { reason: "admin-revoke", sessionsRevoked: revoked.count },
+        });
+        await writeAudit(tx, {
+          action: "user:revoke-sessions",
+          entityType: data.sessionId ? "Session" : "User",
+          entityId: data.sessionId ?? data.userId,
+          after: { userId: data.userId, sessionsRevoked: revoked.count },
+        });
+        return revoked.count;
+      }),
+    );
+
+    revalidatePath("/settings/users");
+    return { ok: true as const, count };
   });
 }
 

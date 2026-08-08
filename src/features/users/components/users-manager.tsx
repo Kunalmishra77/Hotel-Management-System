@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { KeyRound, MoreHorizontal, Plus, ShieldOff, UserCheck, UserCog } from "lucide-react";
+import { KeyRound, MonitorSmartphone, MoreHorizontal, Plus, ShieldOff, UserCheck, UserCog } from "lucide-react";
 import { toast } from "sonner";
 import type { RoleName } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +33,7 @@ import { formatIstDateTime } from "@/lib/utils";
 import { adminResetPassword, createUser, setUserActive, updateUserRoles } from "../actions";
 import type { UserRow } from "../internal";
 import { ORG_WIDE_ROLES, ROLE_LABELS, ROLE_ORDER } from "../roles";
+import { UserSessionsSheet } from "./user-sessions-sheet";
 
 type Prop = { id: string; name: string };
 
@@ -105,6 +106,7 @@ export function UsersManager({ users, properties }: { users: UserRow[]; properti
   const [editUser, setEditUser] = useState<UserRow | null>(null);
   const [resetUser, setResetUser] = useState<UserRow | null>(null);
   const [confirmUser, setConfirmUser] = useState<UserRow | null>(null);
+  const [sessionsUser, setSessionsUser] = useState<UserRow | null>(null);
 
   const refresh = () => router.refresh();
 
@@ -181,6 +183,9 @@ export function UsersManager({ users, properties }: { users: UserRow[]; properti
                         <DropdownMenuItem onSelect={() => setResetUser(u)}>
                           <KeyRound /> Reset password
                         </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setSessionsUser(u)}>
+                          <MonitorSmartphone /> Active sessions
+                        </DropdownMenuItem>
                         <DropdownMenuItem
                           className={u.isActive ? "text-destructive focus:text-destructive" : ""}
                           onSelect={() => setConfirmUser(u)}
@@ -256,6 +261,14 @@ export function UsersManager({ users, properties }: { users: UserRow[]; properti
               }
             })
           }
+        />
+      ) : null}
+
+      {sessionsUser ? (
+        <UserSessionsSheet
+          user={{ id: sessionsUser.id, name: sessionsUser.name }}
+          onClose={() => setSessionsUser(null)}
+          onChanged={refresh}
         />
       ) : null}
 
