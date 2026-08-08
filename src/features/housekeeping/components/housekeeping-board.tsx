@@ -22,12 +22,30 @@ import type { HousekeepingTaskItem } from "../queries";
 const HK_KIND = "housekeeping:status";
 type HkPayload = { taskId: string; status: "DONE" | "IN_PROGRESS"; clientUpdatedAt: string };
 
-/** Any domain rejection is permanent for a queued write (the room's state moved
- *  on); only a thrown network error becomes a retry, handled inside `flush`. */
+/**
+ * Error codes that are a DEFINITIVE rejection of this specific queued write —
+ * retrying can never succeed (the room moved on, the task is gone, the input is
+ * invalid, or the user isn't allowed). These drop + surface as a conflict.
+ * Everything else (INTERNAL / unknown, and a thrown network error handled inside
+ * `flush`) is transient and must RETRY — dropping it would silently lose the
+ * housekeeper's offline write, the exact guarantee this queue exists to keep.
+ */
+const PERMANENT_CODES = new Set<string>([
+  "SYNC_CONFLICT",
+  "ILLEGAL_TRANSITION",
+  "CONFLICT",
+  "ROOM_UNAVAILABLE",
+  "NOT_FOUND",
+  "FORBIDDEN",
+  "OUT_OF_SCOPE",
+  "VALIDATION_FAILED",
+]);
+
 const hkResolver: Resolver = async (payload) => {
   const p = payload as HkPayload;
   const res = await updateTaskStatus({ taskId: p.taskId, status: p.status, clientUpdatedAt: p.clientUpdatedAt });
-  return res.ok ? "applied" : "conflict";
+  if (res.ok) return "applied";
+  return PERMANENT_CODES.has(res.error.code) ? "conflict" : "retry";
 };
 
 export function HousekeepingBoard({ tasks }: { tasks: HousekeepingTaskItem[] }) {
