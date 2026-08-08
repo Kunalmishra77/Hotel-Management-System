@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { Building2, ScrollText, ShieldCheck, Users } from "lucide-react";
+import { Building2, Plug, ScrollText, ShieldCheck, Users } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
 import { hasPermission } from "@/lib/permissions";
 import { getOrgSecuritySettings } from "@/features/settings/queries";
@@ -16,6 +16,7 @@ export const metadata: Metadata = { title: "Settings" };
 export default async function SettingsPage() {
   const user = await requirePermission("settings:manage");
   const canUsers = hasPermission(user, "user:manage");
+  const canIntegrations = hasPermission(user, "integration:manage");
   // Org-wide auth policy is Administrator-only (org-wide scope), even though a
   // property Manager also holds `settings:manage` for the hub links below.
   const isOrgAdmin = user.propertyScope.kind === "ALL_IN_ORG";
@@ -33,6 +34,14 @@ export default async function SettingsPage() {
           <LinkCard href="/settings/audit" icon={<ScrollText />} title="Audit log" desc="Every business action" />
         ) : null}
         <LinkCard href="/properties" icon={<Building2 />} title="Properties" desc="Add and edit properties" />
+        {canIntegrations ? (
+          <LinkCard
+            href="/settings/integrations"
+            icon={<Plug />}
+            title="Integrations"
+            desc="Providers, sandbox and live"
+          />
+        ) : null}
       </div>
 
       {settings ? (
