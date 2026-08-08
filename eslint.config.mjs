@@ -49,6 +49,29 @@ const config = [
       ],
     },
   },
+  {
+    // 17 T-9 / mobile-first.md: base styles target the SMALLEST viewport and
+    // enhance upward with min-width variants (sm:, md:, …). A `max-*:` breakpoint
+    // variant is desktop-first — a layout fixed downward instead of built up.
+    // (This flags the max-WIDTH BREAKPOINT variant `max-md:`; the `max-w-*` sizing
+    // utility is unaffected — the breakpoint name + colon is what matches.)
+    files: ["src/**/*.tsx"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "Literal[value=/max-(sm|md|lg|xl|2xl):/]",
+          message:
+            "Desktop-first breakpoint (max-*:). Style the base (smallest) viewport by default and enhance upward with min-width variants (sm:, md:). See mobile-first.md.",
+        },
+        {
+          selector: "TemplateElement[value.cooked=/max-(sm|md|lg|xl|2xl):/]",
+          message:
+            "Desktop-first breakpoint (max-*:). Style the base (smallest) viewport by default and enhance upward with min-width variants (sm:, md:). See mobile-first.md.",
+        },
+      ],
+    },
+  },
 ];
 
 export default config;
