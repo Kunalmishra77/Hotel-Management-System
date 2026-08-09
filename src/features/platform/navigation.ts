@@ -251,7 +251,9 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: "Staff",
     href: "/staff",
     icon: "IdCard",
-    permission: "staff:manage",
+    // MoM: reception logs attendance/salary, so the screen is reachable with the
+    // narrow attendance permission; full staff CRUD inside stays staff:manage-gated.
+    permission: "attendance:record",
   },
   {
     key: "settings",

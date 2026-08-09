@@ -31,6 +31,8 @@ Columns are the 14 login roles (staff without a login — housekeeping/room-serv
 | report:view-operational | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |  |  | ✔ | ✔ |  |
 | report:view-financial | ✔ | ✔ | ✔ |  | ✔ |  |  |  |  |  |  |  |  |  |
 | staff:manage | ✔ | ✔ | ✔ |  |  | ✔ |  |  |  |  |  |  |  |  |
+| attendance:record | ✔ | ✔ | ✔ | ✔ |  | ✔ |  |  |  |  |  |  |  |  |
+| staff:salary-update | 🔒 | 🔒 | 🔒 | 🔒 |  | 🔒 |  |  |  |  |  |  |  |  |
 | payroll:run | 🔒 | 🔒 |  |  | 🔒 | 🔒 |  |  |  |  |  |  |  |  |
 | housekeeping:update | ✔ | ✔ | ✔ | ✔ |  |  |  |  |  | ✔ |  |  |  |  |
 | maintenance:manage | ✔ | ✔ | ✔ |  |  |  |  |  |  |  | ✔ |  |  |  |

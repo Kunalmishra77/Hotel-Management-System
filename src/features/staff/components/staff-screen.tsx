@@ -11,14 +11,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { createStaff, recordAttendance } from "../actions";
+import { createStaff, recordAttendance, updateStaffSalary } from "../actions";
 import type { StaffListItem } from "../queries";
 
 const rupees = (p: number) => `₹${(p / 100).toLocaleString("en-IN")}`;
 const toPaise = (r: number) => Math.round(r * 100);
 const today = () => new Date().toISOString().slice(0, 10);
 
-export function StaffScreen({ propertyId, staff }: { propertyId: string; staff: StaffListItem[] }) {
+export function StaffScreen({
+  propertyId,
+  staff,
+  canManage,
+  canUpdateSalary,
+}: {
+  propertyId: string;
+  staff: StaffListItem[];
+  canManage: boolean;
+  canUpdateSalary: boolean;
+}) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +53,7 @@ export function StaffScreen({ propertyId, staff }: { propertyId: string; staff: 
     <div className="mx-auto w-full max-w-2xl space-y-4 p-4">
       <h1 className="text-xl font-semibold">Staff</h1>
 
+      {canManage ? (
       <Card>
         <CardHeader className="pb-3"><CardTitle className="text-base">Add staff</CardTitle></CardHeader>
         <CardContent className="space-y-3">
@@ -60,6 +71,7 @@ export function StaffScreen({ propertyId, staff }: { propertyId: string; staff: 
             data-testid="staff-save">Add</Button>
         </CardContent>
       </Card>
+      ) : null}
 
       <Card>
         <CardHeader className="pb-3"><CardTitle className="text-base">Team</CardTitle></CardHeader>
@@ -75,11 +87,24 @@ export function StaffScreen({ propertyId, staff }: { propertyId: string; staff: 
                     <p className="font-medium">{s.name} · {s.department}{s.isActive ? "" : " (inactive)"}</p>
                     <p className="text-xs text-muted-foreground">{s.maskedMobile} · {rupees(s.monthlySalaryPaise)} · {s.aadhaarMasked ?? "no ID"}</p>
                   </div>
-                  {s.isActive && (
-                    <Button size="sm" variant="outline" disabled={pending}
-                      onClick={() => run(() => recordAttendance({ staffId: s.id, day: today(), checkInAt: `${today()}T09:00:00+05:30`, checkOutAt: `${today()}T17:30:00+05:30` }), () => setNote(`Marked ${s.name} present today.`))}
-                      data-testid={`present-${s.id}`}>Mark present</Button>
-                  )}
+                  <div className="flex shrink-0 items-center gap-2">
+                    {s.isActive && (
+                      <Button size="sm" variant="outline" disabled={pending}
+                        onClick={() => run(() => recordAttendance({ staffId: s.id, day: today(), checkInAt: `${today()}T09:00:00+05:30`, checkOutAt: `${today()}T17:30:00+05:30` }), () => setNote(`Marked ${s.name} present today.`))}
+                        data-testid={`present-${s.id}`}>Mark present</Button>
+                    )}
+                    {canUpdateSalary && s.isActive && (
+                      <Button size="sm" variant="ghost" disabled={pending}
+                        onClick={() => {
+                          const raw = window.prompt(`New monthly salary for ${s.name} (₹):`, String(Math.round(s.monthlySalaryPaise / 100)));
+                          if (raw === null) return;
+                          const rupeesNum = Number(raw);
+                          if (!Number.isFinite(rupeesNum) || rupeesNum <= 0) { setError("Enter a valid salary."); return; }
+                          run(() => updateStaffSalary({ staffId: s.id, monthlySalaryPaise: toPaise(rupeesNum) }), () => setNote(`Updated ${s.name}'s salary.`));
+                        }}
+                        data-testid={`salary-${s.id}`}>Salary</Button>
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>

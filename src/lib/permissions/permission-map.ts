@@ -39,6 +39,8 @@ export const PERMISSIONS = [
   "report:view-operational",
   "report:view-financial",
   "staff:manage",
+  "attendance:record",
+  "staff:salary-update",
   "payroll:run",
   "housekeeping:update",
   "maintenance:manage",
@@ -141,6 +143,11 @@ const MATRIX: Record<Permission, MatrixRow> = {
   },
   "report:view-financial": { ADMINISTRATOR: A, MANAGER: A, ASSISTANT_MANAGER: A, ACCOUNTS: A },
   "staff:manage": { ADMINISTRATOR: A, MANAGER: A, ASSISTANT_MANAGER: A, HR: A },
+  // MoM 2026-08-03: Reception logs manual attendance + salary. Granular perms (not
+  // full staff:manage) — reception logs attendance + salary but cannot create/edit
+  // staff PII or deactivate. Salary is money → audited.
+  "attendance:record": { ADMINISTRATOR: A, MANAGER: A, ASSISTANT_MANAGER: A, RECEPTION: A, HR: A },
+  "staff:salary-update": { ADMINISTRATOR: L, MANAGER: L, ASSISTANT_MANAGER: L, RECEPTION: L, HR: L },
   "payroll:run": { ADMINISTRATOR: L, MANAGER: L, ACCOUNTS: L, HR: L },
   "housekeeping:update": { ADMINISTRATOR: A, MANAGER: A, ASSISTANT_MANAGER: A, RECEPTION: A, HOUSEKEEPING: A },
   "maintenance:manage": { ADMINISTRATOR: A, MANAGER: A, ASSISTANT_MANAGER: A, MAINTENANCE: A },

@@ -44,3 +44,9 @@ export const deactivateStaffSchema = z.object({
   staffId: z.string().min(1),
   leftOn: z.coerce.date().optional(),
 });
+
+// MoM: reception logs salary updates — only the salary field (not full staff edit).
+export const updateStaffSalarySchema = z.object({
+  staffId: z.string().min(1),
+  monthlySalaryPaise: z.number().int().positive(),
+});

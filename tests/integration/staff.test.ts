@@ -13,7 +13,7 @@ vi.mock("next/cache", () => ({ revalidatePath: () => {}, revalidateTag: () => {}
 
 import { PROP_A_ID, USER_MANAGER_ID, USER_RECEPTION_A_ID } from "../../prisma/seed/fixtures";
 import { assembleClaims } from "@/lib/auth/claims";
-import { createStaff, recordAttendance, deactivateStaff } from "@/features/staff/actions";
+import { createStaff, recordAttendance, deactivateStaff, updateStaff, updateStaffSalary } from "@/features/staff/actions";
 import { listStaff, getStaffForPayroll, attendanceSummary } from "@/features/staff/queries";
 
 const prisma = createPrismaClient();
@@ -83,6 +83,45 @@ describe("createStaff (T-6, FR-1/2/8, AC-1/2/3/4)", () => {
     expect(row?.aadhaarMasked).toBe("XXXX XXXX 9012");
     expect(row?.maskedMobile).toBe("XXXXXX0009");
     expect(JSON.stringify(list)).not.toContain("111122223333"); // bank never surfaced
+  });
+});
+
+describe("MoM 2026-08-03 — reception logs attendance + salary (expanded role)", () => {
+  async function seedStaff(): Promise<string> {
+    await actAs(USER_MANAGER_ID);
+    const res = await createStaff(anu({ mobile: "9800000010" }));
+    track(res);
+    if (!res.ok) throw new Error("seed staff failed");
+    return res.data.id;
+  }
+
+  it("reception CAN record attendance (narrow attendance:record, not staff:manage)", async () => {
+    const staffId = await seedStaff();
+    await actAs(USER_RECEPTION_A_ID);
+    const res = await recordAttendance({ staffId, day: "2026-09-01", checkInAt: "2026-09-01T09:00:00+05:30", checkOutAt: "2026-09-01T17:30:00+05:30" });
+    expect(res.ok).toBe(true);
+  });
+
+  it("reception CAN update salary (narrow, audited) — only the salary field changes", async () => {
+    const staffId = await seedStaff();
+    await actAs(USER_RECEPTION_A_ID);
+    const res = await updateStaffSalary({ staffId, monthlySalaryPaise: 4_200_000 });
+    expect(res.ok).toBe(true);
+    const s = await prisma.staff.findUniqueOrThrow({ where: { id: staffId }, select: { monthlySalaryPaise: true, aadhaarMasked: true } });
+    expect(Number(s.monthlySalaryPaise)).toBe(4_200_000);
+    expect(s.aadhaarMasked).toBe("XXXX XXXX 9012"); // PII untouched
+    expect(await prisma.auditLog.findFirst({ where: { action: "staff:salary-update", entityId: staffId } })).not.toBeNull();
+  });
+
+  it("reception still CANNOT edit the full staff record or deactivate (staff:manage)", async () => {
+    const staffId = await seedStaff();
+    await actAs(USER_RECEPTION_A_ID);
+    const upd = await updateStaff({ staffId, name: "Hacked", bankAccount: "999988887777" });
+    expect(upd.ok).toBe(false);
+    if (!upd.ok) expect(upd.error.code).toBe("FORBIDDEN");
+    const deact = await deactivateStaff({ staffId });
+    expect(deact.ok).toBe(false);
+    if (!deact.ok) expect(deact.error.code).toBe("FORBIDDEN");
   });
 });
 

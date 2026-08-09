@@ -15,7 +15,7 @@ import { encryptOptional } from "@/lib/crypto/encryption";
 import { workedMinutes } from "./domain/attendance";
 import { maskId } from "./domain/mask";
 import { staffDb, withStaffContext, isUniqueViolation } from "./internal";
-import { createStaffSchema, updateStaffSchema, recordAttendanceSchema, deactivateStaffSchema } from "./schema";
+import { createStaffSchema, updateStaffSchema, recordAttendanceSchema, deactivateStaffSchema, updateStaffSalarySchema } from "./schema";
 
 export type StaffResult = { id: string };
 
@@ -94,7 +94,8 @@ export async function recordAttendance(input: unknown): Promise<Result<{ id: str
     const client = staffDb(user);
     const staff = await client.staff.findFirst({ where: { id: data.staffId }, select: { id: true, propertyId: true, isActive: true } });
     if (!staff) throw new NotFoundError("Staff not found.");
-    authorize(user, "staff:manage", staff.propertyId);
+    // MoM: Reception logs attendance — a narrow permission, not full staff:manage.
+    authorize(user, "attendance:record", staff.propertyId);
     if (!staff.isActive) throw new DomainError(ErrorCode.VALIDATION_FAILED, "Cannot record attendance for a deactivated staff member.");
 
     // Validate + compute. A check-out at/before check-in is invalid (AC-6).
@@ -128,6 +129,38 @@ export async function recordAttendance(input: unknown): Promise<Result<{ id: str
         await emitEvent(tx, { type: "AttendanceRecorded", aggregateId: data.staffId, propertyId: staff.propertyId, payload: { day: data.day.toISOString().slice(0, 10), workedMinutes: minutes, isLeave: data.isLeave } });
         await writeAudit(tx, { action: "attendance:record", entityType: "Attendance", entityId: row.id, propertyId: staff.propertyId, after: { day: data.day.toISOString().slice(0, 10), workedMinutes: minutes, isLeave: data.isLeave } });
         return { id: row.id, workedMinutes: minutes };
+      }),
+    );
+  });
+}
+
+/**
+ * Update ONLY a staff member's monthly salary (MoM 2026-08-03 — reception logs
+ * salary updates). A narrow, audited money action: `staff:salary-update`, NOT full
+ * `staff:manage` — so reception can adjust salary without touching PII/bank/CRUD.
+ */
+export async function updateStaffSalary(input: unknown): Promise<Result<StaffResult>> {
+  return toResult(async () => {
+    const data = updateStaffSalarySchema.parse(input);
+    const user = await requireUser();
+    const client = staffDb(user);
+    const staff = await client.staff.findFirst({ where: { id: data.staffId }, select: { id: true, propertyId: true, monthlySalaryPaise: true } });
+    if (!staff) throw new NotFoundError("Staff not found.");
+    authorize(user, "staff:salary-update", staff.propertyId);
+
+    return withStaffContext(user, () =>
+      client.$transaction(async (tx) => {
+        await tx.staff.updateMany({ where: { id: data.staffId }, data: { monthlySalaryPaise: data.monthlySalaryPaise } });
+        await emitEvent(tx, { type: "StaffUpdated", aggregateId: data.staffId, propertyId: staff.propertyId, payload: { salaryUpdated: true } });
+        await writeAudit(tx, {
+          action: "staff:salary-update",
+          entityType: "Staff",
+          entityId: data.staffId,
+          propertyId: staff.propertyId,
+          before: { monthlySalaryPaise: staff.monthlySalaryPaise },
+          after: { monthlySalaryPaise: data.monthlySalaryPaise },
+        });
+        return { id: data.staffId };
       }),
     );
   });
