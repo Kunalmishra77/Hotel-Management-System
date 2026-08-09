@@ -21,6 +21,8 @@ vi.mock("next/cache", () => ({ revalidatePath: () => {}, revalidateTag: () => {}
 import { PROP_A_ID, ORG_ID, USER_MANAGER_ID, USER_HOUSEKEEPING_ID } from "../../prisma/seed/fixtures";
 import { assembleClaims } from "@/lib/auth/claims";
 import { createItem, recordMovement, adjustStock } from "@/features/inventory/actions";
+import { createLaundryBatch, recordLaundryReturns } from "@/features/inventory/laundry-actions";
+import { listLaundryBatches } from "@/features/inventory/queries";
 import { inventoryConsumer } from "@/features/inventory/consumer";
 
 const prisma = createPrismaClient();
@@ -29,6 +31,7 @@ const N = (base: string) => `ZZ_${base}_${RUN}`; // ZZ_ prefix keeps demo lists 
 
 const createdItemIds = new Set<string>();
 const menuIds = new Set<string>();
+const laundryBatchIds = new Set<string>();
 
 async function actAs(userId: string): Promise<SessionClaims> {
   const c = await assembleClaims(prisma, userId);
@@ -54,7 +57,63 @@ afterAll(async () => {
   await prisma.inventoryMovement.deleteMany({ where: { itemId: { in: ids } } });
   await prisma.recipeComponent.deleteMany({ where: { itemId: { in: ids } } });
   await prisma.inventoryItem.deleteMany({ where: { id: { in: ids } } });
+  const bids = [...laundryBatchIds];
+  await prisma.laundryBatchItem.deleteMany({ where: { batchId: { in: bids } } });
+  await prisma.laundryBatch.deleteMany({ where: { id: { in: bids } } });
   await prisma.$disconnect();
+});
+
+describe("6 domains + laundry reconciliation (MoM line 28)", () => {
+  it("persists the inventory domain on an item (FR-7)", async () => {
+    await actAs(USER_MANAGER_ID);
+    const res = await createItem({ propertyId: PROP_A_ID, name: N("Bath towel"), unit: "pc", domain: "LAUNDRY", category: "Linen", reorderLevel: 10 });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    createdItemIds.add(res.data.id);
+    const row = await prisma.inventoryItem.findUniqueOrThrow({ where: { id: res.data.id }, select: { domain: true } });
+    expect(row.domain).toBe("LAUNDRY");
+  });
+
+  it("creates a batch, records returns → balance/SHORT + RECONCILED, events (FR-8/9)", async () => {
+    await actAs(USER_MANAGER_ID);
+    const created = await createLaundryBatch({
+      propertyId: PROP_A_ID, sentOn: "2026-08-01", vendor: "CleanCo",
+      items: [{ itemName: "Bedsheet", sentQty: 250, toleranceQty: 0 }, { itemName: "Pillow cover", sentQty: 50, toleranceQty: 2 }],
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    laundryBatchIds.add(created.data.id);
+    expect(await prisma.domainEvent.findFirst({ where: { type: "LaundryBatchCreated", aggregateId: created.data.id } })).not.toBeNull();
+    expect(await prisma.auditLog.findFirst({ where: { action: "inventory:laundry-batch-create", entityId: created.data.id } })).not.toBeNull();
+
+    // OPEN batch: lines are PENDING (no returns yet).
+    let view = (await listLaundryBatches(await actAs(USER_MANAGER_ID), { propertyId: PROP_A_ID })).find((b) => b.id === created.data.id)!;
+    expect(view.status).toBe("OPEN");
+    expect(view.items.every((l) => l.status === "PENDING")).toBe(true);
+
+    const sheet = view.items.find((l) => l.itemName === "Bedsheet")!;
+    const pillow = view.items.find((l) => l.itemName === "Pillow cover")!;
+    const rec = await recordLaundryReturns({ batchId: created.data.id, returns: [{ itemId: sheet.id, returnedQty: 149 }, { itemId: pillow.id, returnedQty: 49 }] });
+    expect(rec.ok).toBe(true);
+    expect(await prisma.domainEvent.findFirst({ where: { type: "LaundryBatchReconciled", aggregateId: created.data.id } })).not.toBeNull();
+
+    view = (await listLaundryBatches(await actAs(USER_MANAGER_ID), { propertyId: PROP_A_ID })).find((b) => b.id === created.data.id)!;
+    expect(view.status).toBe("RECONCILED");
+    const sheet2 = view.items.find((l) => l.itemName === "Bedsheet")!;
+    expect(sheet2.balance).toBe(101); // 250 − 149 (MoM example)
+    expect(sheet2.status).toBe("SHORT"); // tolerance 0
+    const pillow2 = view.items.find((l) => l.itemName === "Pillow cover")!;
+    expect(pillow2.balance).toBe(1);
+    expect(pillow2.status).toBe("OK"); // 1 ≤ tolerance 2
+    expect(view.totals).toMatchObject({ sent: 300, returned: 198, balance: 102, anyShort: true });
+  });
+
+  it("denies a role without inventory:manage (housekeeping)", async () => {
+    await actAs(USER_HOUSEKEEPING_ID);
+    const res = await createLaundryBatch({ propertyId: PROP_A_ID, sentOn: "2026-08-01", items: [{ itemName: "X", sentQty: 1, toleranceQty: 0 }] });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error.code).toBe("FORBIDDEN");
+  });
 });
 
 describe("createItem (T-6, FR-1, AC-1/3)", () => {

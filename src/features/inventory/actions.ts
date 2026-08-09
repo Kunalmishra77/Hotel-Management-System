@@ -49,6 +49,7 @@ export async function createItem(input: unknown): Promise<Result<ItemResult>> {
               propertyId: data.propertyId,
               name: data.name,
               unit: data.unit,
+              domain: data.domain,
               category: data.category,
               reorderLevel: data.reorderLevel,
               lastCostPaise: data.lastCostPaise ?? null,
@@ -101,6 +102,7 @@ export async function updateItem(input: unknown): Promise<Result<ItemResult>> {
           data: {
             ...(data.name !== undefined ? { name: data.name } : {}),
             ...(data.unit !== undefined ? { unit: data.unit } : {}),
+            ...(data.domain !== undefined ? { domain: data.domain } : {}),
             ...(data.category !== undefined ? { category: data.category } : {}),
             ...(data.reorderLevel !== undefined ? { reorderLevel: data.reorderLevel } : {}),
             ...(data.lastCostPaise !== undefined ? { lastCostPaise: data.lastCostPaise } : {}),

@@ -107,6 +107,8 @@ export const DOMAIN_EVENT_TYPES = [
   // 20 inventory
   "StockMovementRecorded",
   "LowStockDetected",
+  "LaundryBatchCreated",
+  "LaundryBatchReconciled",
 
   // 21 payroll
   "PayrollRunGenerated",

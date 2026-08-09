@@ -1513,12 +1513,23 @@ model PosOrderItem {
 
 // ==================== 20 INVENTORY (STOCK) ==================================
 
+// MoM 2026-08-03: inventory is split into 6 separate domains.
+enum InventoryDomain {
+  GENERAL
+  HOUSEKEEPING
+  LAUNDRY
+  KITCHEN
+  MAINTENANCE
+  STORE
+}
+
 model InventoryItem {
   id               String              @id @default(cuid())
   propertyId       String
   name             String
   unit             String
-  category         String
+  domain           InventoryDomain     @default(GENERAL) // MoM 6-domain split
+  category         String // optional free-text sub-label within a domain
   onHand           Float               @default(0) // cached; reconciled from movements
   reorderLevel     Float               @default(0)
   lastCostPaise    Int?
@@ -1526,6 +1537,36 @@ model InventoryItem {
   recipeComponents RecipeComponent[]
 
   @@unique([propertyId, name])
+  @@index([propertyId, domain])
+}
+
+// MoM: laundry reconciles linen sent vs returned (e.g. 250 out / 149 back = 101
+// balance) with a per-line tolerance. Quantities are integer counts, never money.
+model LaundryBatch {
+  id           String             @id @default(cuid())
+  propertyId   String
+  sentOn       DateTime           @db.Date
+  vendor       String?
+  note         String?
+  status       String             @default("OPEN") // OPEN | RECONCILED
+  createdById  String?
+  createdAt    DateTime           @default(now())
+  reconciledAt DateTime?
+  items        LaundryBatchItem[]
+
+  @@index([propertyId, sentOn])
+}
+
+model LaundryBatchItem {
+  id           String       @id @default(cuid())
+  batchId      String
+  batch        LaundryBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  itemName     String
+  sentQty      Int
+  returnedQty  Int          @default(0)
+  toleranceQty Int          @default(0)
+
+  @@index([batchId])
 }
 
 model InventoryMovement {

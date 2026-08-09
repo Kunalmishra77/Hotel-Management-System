@@ -8,14 +8,23 @@
  */
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Shirt } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { createItem, recordMovement, adjustStock } from "../actions";
+import { INVENTORY_DOMAINS } from "../schema";
 import type { StockLevel } from "../queries";
 
 type ActionResult = { ok: boolean; error?: { message: string } };
+
+const DOMAIN_LABEL: Record<string, string> = {
+  GENERAL: "General", HOUSEKEEPING: "Housekeeping", LAUNDRY: "Laundry",
+  KITCHEN: "Kitchen", MAINTENANCE: "Maintenance", STORE: "Store",
+};
 
 export function InventoryScreen({ propertyId, items }: { propertyId: string; items: StockLevel[] }) {
   const router = useRouter();
@@ -25,8 +34,13 @@ export function InventoryScreen({ propertyId, items }: { propertyId: string; ite
   // New-item form
   const [name, setName] = useState("");
   const [unit, setUnit] = useState("kg");
+  const [domain, setDomain] = useState<string>("GENERAL");
   const [category, setCategory] = useState("Provisions");
   const [reorder, setReorder] = useState(0);
+
+  // Domain filter for the list
+  const [filter, setFilter] = useState<string>("ALL");
+  const shown = filter === "ALL" ? items : items.filter((i) => i.domain === filter);
 
   // Per-item stock-in quantity
   const [qty, setQty] = useState<Record<string, number>>({});
@@ -42,7 +56,10 @@ export function InventoryScreen({ propertyId, items }: { propertyId: string; ite
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-4 p-4">
-      <h1 className="text-xl font-semibold">Stock</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold">Stock</h1>
+        <Button asChild variant="outline" size="sm"><Link href="/inventory/laundry" data-testid="laundry-link"><Shirt className="size-4" /> Laundry</Link></Button>
+      </div>
 
       <Card>
         <CardHeader className="pb-3"><CardTitle className="text-base">Add an item</CardTitle></CardHeader>
@@ -50,31 +67,52 @@ export function InventoryScreen({ propertyId, items }: { propertyId: string; ite
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5"><Label htmlFor="inv-name">Name</Label><Input id="inv-name" value={name} onChange={(e) => setName(e.target.value)} data-testid="item-name" /></div>
             <div className="space-y-1.5"><Label htmlFor="inv-unit">Unit</Label><Input id="inv-unit" value={unit} onChange={(e) => setUnit(e.target.value)} data-testid="item-unit" /></div>
+            <div className="space-y-1.5">
+              <Label htmlFor="inv-domain">Domain</Label>
+              <Select value={domain} onValueChange={setDomain}>
+                <SelectTrigger id="inv-domain" data-testid="item-domain"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {INVENTORY_DOMAINS.map((dm) => <SelectItem key={dm} value={dm}>{DOMAIN_LABEL[dm] ?? dm}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-1.5"><Label htmlFor="inv-cat">Category</Label><Input id="inv-cat" value={category} onChange={(e) => setCategory(e.target.value)} data-testid="item-category" /></div>
             <div className="space-y-1.5"><Label htmlFor="inv-reorder">Reorder level</Label><Input id="inv-reorder" type="number" inputMode="decimal" value={reorder} onChange={(e) => setReorder(Number(e.target.value))} data-testid="item-reorder" /></div>
           </div>
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
           <Button size="lg" disabled={pending || name.trim() === "" || unit.trim() === ""}
-            onClick={() => run(() => createItem({ propertyId, name, unit, category, reorderLevel: reorder }), () => { setName(""); setReorder(0); })}
+            onClick={() => run(() => createItem({ propertyId, name, unit, domain, category, reorderLevel: reorder }), () => { setName(""); setReorder(0); })}
             data-testid="item-save">Add item</Button>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader className="pb-3"><CardTitle className="text-base">On hand</CardTitle></CardHeader>
-        <CardContent>
-          {items.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No stock items yet.</p>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap gap-1" data-testid="domain-filter">
+            {["ALL", ...INVENTORY_DOMAINS].map((dm) => (
+              <button
+                key={dm}
+                type="button"
+                onClick={() => setFilter(dm)}
+                className={`rounded-full px-2.5 py-1 text-xs font-medium ${filter === dm ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
+              >
+                {dm === "ALL" ? "All" : DOMAIN_LABEL[dm] ?? dm}
+              </button>
+            ))}
+          </div>
+          {shown.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No stock items{filter !== "ALL" ? " in this domain" : ""} yet.</p>
           ) : (
             <ul className="divide-y rounded-md border" data-testid="stock-list">
-              {items.map((it) => (
+              {shown.map((it) => (
                 <li key={it.id} className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm" data-testid={`stock-${it.id}`}>
                   <div className="min-w-[8rem]">
                     <p className="font-medium">
                       {it.name}
                       {it.low && <span className="ml-2 rounded bg-destructive/10 px-1.5 py-0.5 text-xs font-medium text-destructive" data-testid={`low-${it.id}`}>⚠ low</span>}
                     </p>
-                    <p className="text-xs text-muted-foreground" data-testid={`onhand-${it.id}`}>{it.onHand} {it.unit} · reorder {it.reorderLevel}</p>
+                    <p className="text-xs text-muted-foreground" data-testid={`onhand-${it.id}`}>{DOMAIN_LABEL[it.domain] ?? it.domain} · {it.onHand} {it.unit} · reorder {it.reorderLevel}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <Input

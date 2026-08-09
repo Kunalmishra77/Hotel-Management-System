@@ -28,7 +28,7 @@ Source of truth: the client's *PMS Requirement Document* (§1–§19). Decision:
 | 17 | mobile-experience | 16 | PWA, offline, responsive, cross-device sync |
 | 18 | ai-features | 17 | Chatbot, NL search, sentiment, forecast, rate suggest, segmentation |
 | 19 | pos | 19 | Restaurant / point of sale → posts to folio. **Addendum 2026-08-08:** now also guest **in-room QR self-ordering** (per-room QR → staff-accept gate → existing settle-to-folio; no guest payment) + a software **kitchen ticket lifecycle** with live display. Still out: KDS hardware, thermal printers, table management, dynamic pricing. See `specs/19-pos` FR-19–FR-26. |
-| 20 | inventory-stock | 19 | Store/stock inventory (distinct from room inventory) |
+| 20 | inventory-stock | 19 | Store/stock inventory (distinct from room inventory). **Addendum 2026-08-09 (MoM):** 6 domains (General/Housekeeping/Laundry/Kitchen/Maintenance/Store) + laundry linen reconciliation (sent vs returned + tolerance). See `specs/20-inventory-stock` FR-7–10. |
 | 21 | payroll | 19 | Salary runs from staff + attendance |
 | 22 | accounting-sync | 19 | Tally / Zoho Books export/sync |
 | 23 | booking-engine | 19 | Public direct online booking website |

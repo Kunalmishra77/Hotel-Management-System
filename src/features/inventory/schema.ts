@@ -4,10 +4,14 @@ import { z } from "zod";
 /** Movement reasons persisted on `InventoryMovement.reason`. */
 export const MOVEMENT_REASONS = ["PURCHASE", "CONSUMPTION", "ADJUST"] as const;
 
+/** The 6 MoM inventory domains. */
+export const INVENTORY_DOMAINS = ["GENERAL", "HOUSEKEEPING", "LAUNDRY", "KITCHEN", "MAINTENANCE", "STORE"] as const;
+
 export const createItemSchema = z.object({
   propertyId: z.string().min(1),
   name: z.string().min(1).max(120),
   unit: z.string().min(1).max(24),
+  domain: z.enum(INVENTORY_DOMAINS).default("GENERAL"),
   category: z.string().min(1).max(60),
   reorderLevel: z.number().nonnegative().default(0),
   lastCostPaise: z.number().int().nonnegative().optional(),
@@ -18,11 +22,38 @@ export const updateItemSchema = z.object({
   itemId: z.string().min(1),
   name: z.string().min(1).max(120).optional(),
   unit: z.string().min(1).max(24).optional(),
+  domain: z.enum(INVENTORY_DOMAINS).optional(),
   category: z.string().min(1).max(60).optional(),
   reorderLevel: z.number().nonnegative().optional(),
   lastCostPaise: z.number().int().nonnegative().optional(),
 });
 export type UpdateItemInput = z.infer<typeof updateItemSchema>;
+
+// --- Laundry reconciliation (FR-8/9) ---
+export const createLaundryBatchSchema = z.object({
+  propertyId: z.string().min(1),
+  sentOn: z.coerce.date(),
+  vendor: z.string().trim().max(120).optional(),
+  note: z.string().trim().max(500).optional(),
+  items: z
+    .array(
+      z.object({
+        itemName: z.string().trim().min(1).max(120),
+        sentQty: z.number().int().positive(),
+        toleranceQty: z.number().int().nonnegative().default(0),
+      }),
+    )
+    .min(1),
+});
+export type CreateLaundryBatchInput = z.infer<typeof createLaundryBatchSchema>;
+
+export const recordLaundryReturnsSchema = z.object({
+  batchId: z.string().min(1),
+  returns: z
+    .array(z.object({ itemId: z.string().min(1), returnedQty: z.number().int().nonnegative() }))
+    .min(1),
+});
+export type RecordLaundryReturnsInput = z.infer<typeof recordLaundryReturnsSchema>;
 
 export const recordMovementSchema = z.object({
   itemId: z.string().min(1),

@@ -29,20 +29,21 @@ export const RECIPE_COFFEE_ID = "recipe_wmg_coffee";
 export const COFFEE_QTY_PER_CUP = 0.02;
 
 const ITEMS = [
-  { id: I_RICE_ID, name: "Rice", unit: "kg", category: "Provisions", onHand: 25, reorderLevel: 20 },
-  { id: I_COFFEE_ID, name: "Coffee beans", unit: "kg", category: "Provisions", onHand: 5.5, reorderLevel: 5 },
+  { id: I_RICE_ID, name: "Rice", unit: "kg", domain: "KITCHEN", category: "Provisions", onHand: 25, reorderLevel: 20 },
+  { id: I_COFFEE_ID, name: "Coffee beans", unit: "kg", domain: "KITCHEN", category: "Provisions", onHand: 5.5, reorderLevel: 5 },
 ];
 
 export async function seedInventory(prisma: PrismaClient): Promise<void> {
   for (const it of ITEMS) {
     await prisma.inventoryItem.upsert({
       where: { propertyId_name: { propertyId: PROP_A_ID, name: it.name } },
-      update: { unit: it.unit, category: it.category, onHand: it.onHand, reorderLevel: it.reorderLevel },
+      update: { unit: it.unit, domain: it.domain as never, category: it.category, onHand: it.onHand, reorderLevel: it.reorderLevel },
       create: {
         id: it.id,
         propertyId: PROP_A_ID,
         name: it.name,
         unit: it.unit,
+        domain: it.domain as never,
         category: it.category,
         onHand: it.onHand,
         reorderLevel: it.reorderLevel,

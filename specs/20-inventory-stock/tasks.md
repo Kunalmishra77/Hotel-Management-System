@@ -24,5 +24,14 @@ Test-first for on-hand/consumption. Decoupled from POS via events. Each ends at 
 ## E2E
 - [x] T-12 Journey: stock in → POS order settles → stock deducts → low-stock alert fires. (AC-2/4/5)
 
+## 6 domains + laundry reconciliation (addendum 2026-08-09)
+- [x] T-14 Schema + migration: `InventoryDomain` enum + `InventoryItem.domain` (default GENERAL, backfill); `LaundryBatch` + `LaundryBatchItem` models + indexes. (FR-7/8)
+- [x] T-15 Domain `laundryLineStatus(sent,returned,tolerance)` → `{balance, status: OK|SHORT|PENDING}` — unit tests incl. 250/149=101 SHORT + tolerance edges. (FR-8)
+- [x] T-16 `createStockItem`/`updateStockItem` schemas gain `domain`; listing gains a domain filter. (FR-7)
+- [x] T-17 `createLaundryBatch` (inventory:manage) → OPEN batch + lines + `LaundryBatchCreated` + audit. (FR-8/10)
+- [x] T-18 `recordLaundryReturns` → set returnedQty per line; all recorded → RECONCILED + `reconciledAt` + `LaundryBatchReconciled` + audit. (FR-9/10)
+- [x] T-19 Queries `listLaundryBatches` (per-line balance/status + batch totals); `/inventory` domain filter + Laundry sub-view UI (create batch + record returns + OK/SHORT badges), mobile-first.
+- [x] T-20 Integration: create→record→balance/SHORT/RECONCILED, RBAC (LAUNDRY_SUPERVISOR can, non-inventory role denied), item domain persists. Events in catalog.
+
 ## Done
 - [x] T-13 `/review-module` clean; every AC → green test; DoD satisfied.
