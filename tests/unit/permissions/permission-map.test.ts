@@ -35,6 +35,7 @@ const COLUMN_ROLES = [
   "MAINTENANCE",
   "SECURITY_SUPERVISOR",
   "LAUNDRY_SUPERVISOR",
+  "OWNER",
 ] as const;
 
 function parseMatrixDoc(): ParsedRow[] {

@@ -13,7 +13,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
   // Runtime connection. On a pooled host (Supabase/PgBouncer transaction mode)
   // this is the pooler port; on plain Postgres it is the same as directUrl.
   url       = env("DATABASE_URL")
@@ -52,6 +52,11 @@ model Property {
   ownerContact String?
   isActive     Boolean      @default(true)
 
+  // 27 owner-portal: the operator's management fee for this property, in basis
+  // points of revenue (1500 = 15%). Drives the owner payout (Net = Revenue −
+  // Expenses − fee×Revenue). Set by owner:manage.
+  managementFeeBps Int @default(0)
+
   // 14 night-audit: property-local operating day + scheduled audit time
   currentBusinessDate DateTime? @db.Date
   nightAuditTime      String? // "03:00" property-local
@@ -80,6 +85,9 @@ model Property {
   invoiceSeries     InvoiceSeries[]
   registrationCards RegistrationCard[]
   cforms            CForm[]
+  documents         PropertyDocument[]
+  importantDates    PropertyImportantDate[]
+  ownerPayouts      OwnerPayout[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -87,6 +95,67 @@ model Property {
 
   @@unique([orgId, code])
   @@index([orgId])
+}
+
+// -------- 27 owner-portal --------
+
+// A document in a property's owner-visible vault. Bytes live in ENCRYPTED object
+// storage (reuse lib/storage); the row holds only the key + checksum + metadata.
+// Uploaded by staff (owner:manage) or the owner (owner:upload-docs); soft-deleted.
+model PropertyDocument {
+  id             String    @id @default(cuid())
+  propertyId     String
+  property       Property  @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  category       String // AGREEMENT | LICENCE | TAX | STATEMENT | OTHER
+  title          String
+  objectKey      String
+  checksum       String
+  sizeBytes      Int
+  contentType    String
+  uploadedById   String
+  uploadedByRole String // OWNER | STAFF
+  createdAt      DateTime  @default(now())
+  deletedAt      DateTime?
+
+  @@index([propertyId, deletedAt])
+}
+
+// An owner-relevant renewal/compliance date (licence, GST, AMC, insurance…).
+model PropertyImportantDate {
+  id         String    @id @default(cuid())
+  propertyId String
+  property   Property  @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  kind       String // LICENCE | GST | AMC | INSURANCE | OTHER
+  label      String
+  dueDate    DateTime  @db.Date
+  notes      String?
+  createdAt  DateTime  @default(now())
+  deletedAt  DateTime?
+
+  @@index([propertyId, dueDate])
+}
+
+// Owner payout for a (property, month) — management-fee model. Append-only
+// financial record: figures snapshotted at record time; a paid row is never
+// edited. Money in paise / BigInt (data-model.md).
+model OwnerPayout {
+  id                 String    @id @default(cuid())
+  propertyId         String
+  property           Property  @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  periodMonth        DateTime  @db.Date // first day of the month
+  grossRevenuePaise  BigInt
+  expensePaise       BigInt
+  managementFeeBps   Int
+  managementFeePaise BigInt
+  netPayablePaise    BigInt // may be negative (loss month)
+  status             String    @default("COMPUTED") // COMPUTED | PAID
+  paidAt             DateTime?
+  paymentRef         String?
+  recordedById       String
+  createdAt          DateTime  @default(now())
+
+  @@unique([propertyId, periodMonth]) // idempotent record (FR-12)
+  @@index([propertyId, periodMonth])
 }
 
 // -------- Access control & security (15/16/18) --------
@@ -105,6 +174,7 @@ enum RoleName {
   MAINTENANCE
   SECURITY_SUPERVISOR
   LAUNDRY_SUPERVISOR
+  OWNER
 }
 
 model User {

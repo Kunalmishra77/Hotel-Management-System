@@ -26,6 +26,8 @@ import {
   USER_HOUSEKEEPING_ID,
   USER_MAINTENANCE_ID,
   USER_MANAGER_ID,
+  USER_OWNER_A_ID,
+  USER_OWNER_AB_ID,
   USER_RECEPTION_A_ID,
 } from "./fixtures";
 
@@ -93,6 +95,22 @@ const USERS: SeededUser[] = [
     role: RoleName.MAINTENANCE,
     propertyIds: [PROP_A_ID],
   },
+  {
+    // 27 owner-portal — OWNER @ PROP-A only (read-only portal)
+    id: USER_OWNER_A_ID,
+    email: "owner.mg@woodpecker.example",
+    name: "Vikram Rao",
+    role: RoleName.OWNER,
+    propertyIds: [PROP_A_ID],
+  },
+  {
+    // OWNER of both PROP-A + PROP-B (multi-property owner)
+    id: USER_OWNER_AB_ID,
+    email: "owner.group@woodpecker.example",
+    name: "Meera Kapoor",
+    role: RoleName.OWNER,
+    propertyIds: [PROP_A_ID, PROP_B_ID],
+  },
 ];
 
 export async function seedPlatform(prisma: PrismaClient): Promise<void> {
@@ -143,8 +161,9 @@ export async function seedPlatform(prisma: PrismaClient): Promise<void> {
       wifiPassword: "stay-well-2026",
       emergencyContact: "+91 80 4000 1000",
       checkInInstructions: "Reception is on the ground floor, open 24x7.",
+      managementFeeBps: 1500, // 27 owner-portal: 15% management fee (payout AC-13)
     },
-    update: {},
+    update: { managementFeeBps: 1500 },
   });
 
   await prisma.property.upsert({

@@ -1,6 +1,6 @@
 import { RoleName } from "@prisma/client";
 
-/** Human labels for the 13 login roles — used in the user-admin UI and menus. */
+/** Human labels for the 14 login roles — used in the user-admin UI and menus. */
 export const ROLE_LABELS: Record<RoleName, string> = {
   ADMINISTRATOR: "Administrator",
   MANAGER: "Hotel Manager",
@@ -15,6 +15,7 @@ export const ROLE_LABELS: Record<RoleName, string> = {
   MAINTENANCE: "Maintenance Supervisor",
   SECURITY_SUPERVISOR: "Security Supervisor",
   LAUNDRY_SUPERVISOR: "Laundry Supervisor",
+  OWNER: "Property Owner",
 };
 
 /** Display order (governance → ops), matching rbac-matrix.md. */
@@ -32,6 +33,7 @@ export const ROLE_ORDER: RoleName[] = [
   "MAINTENANCE",
   "SECURITY_SUPERVISOR",
   "LAUNDRY_SUPERVISOR",
+  "OWNER",
 ];
 
 /** Org-wide roles have no property scope (empty propertyIds = all properties). */

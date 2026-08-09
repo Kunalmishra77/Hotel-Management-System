@@ -21,6 +21,8 @@ export const USER_RECEPTION_A_ID = "user_reception_a"; // U-REC-A  — RECEPTION
 export const USER_ACCOUNTS_ID = "user_accounts"; // U-ACC    — ACCOUNTS @ PROP-A+B, 2FA on
 export const USER_HOUSEKEEPING_ID = "user_housekeeping"; // Housekeeping@WMG
 export const USER_MAINTENANCE_ID = "user_maintenance"; // Maintenance@WMG
+export const USER_OWNER_A_ID = "user_owner_a"; // OWNER @ PROP-A (27 owner-portal)
+export const USER_OWNER_AB_ID = "user_owner_ab"; // OWNER @ PROP-A + PROP-B
 
 /**
  * Dev-only credentials. seed-data.md: "Known passwords (dev only)" and

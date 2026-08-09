@@ -62,6 +62,13 @@ export const PERMISSIONS = [
   "bookingengine:manage",
   "coupon:manage",
   "data:import",
+  "owner:view-financials",
+  "owner:view-payout",
+  "owner:view-schedule",
+  "owner:view-docs",
+  "owner:upload-docs",
+  "owner:manage",
+  "owner:payout-manage",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -186,6 +193,15 @@ const MATRIX: Record<Permission, MatrixRow> = {
   "bookingengine:manage": { ADMINISTRATOR: L, MANAGER: L },
   "coupon:manage": { ADMINISTRATOR: A, MANAGER: A, ASSISTANT_MANAGER: A, ACCOUNTS: A },
   "data:import": { ADMINISTRATOR: L, MANAGER: L },
+  // 27 owner-portal. Owner is read-only in their own scope except uploading own
+  // docs; management + payout are staff-only (payout audited — money path).
+  "owner:view-financials": { ADMINISTRATOR: A, OWNER: A },
+  "owner:view-payout": { ADMINISTRATOR: A, OWNER: A },
+  "owner:view-schedule": { ADMINISTRATOR: A, OWNER: A },
+  "owner:view-docs": { ADMINISTRATOR: A, OWNER: A },
+  "owner:upload-docs": { ADMINISTRATOR: A, OWNER: A },
+  "owner:manage": { ADMINISTRATOR: A, MANAGER: A },
+  "owner:payout-manage": { ADMINISTRATOR: L },
 };
 
 export const PERMISSION_MATRIX: Readonly<Record<Permission, MatrixRow>> = MATRIX;
