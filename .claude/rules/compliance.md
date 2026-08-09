@@ -13,6 +13,11 @@ Decision pending client sign-off: **build with the strict/masked defaults below*
 - Aadhaar scans (if stored) live in access-controlled object storage, encrypted, never in the DB row, never in logs, never returned to low-privilege roles.
 - Prefer alternative ID (passport/DL/voter) where the guest offers one; Aadhaar is not mandatory to create a guest.
 
+## FRRO / Form C (foreign nationals)
+- Every foreign guest's arrival is reportable to the FRRO/FRO via **Form C**. Captured at check-in when a PASSPORT/VISA id is on file (module 03 FR-24–26): a **masked** snapshot + a PDF in encrypted object storage — full passport/visa numbers stay encrypted on `GuestId`, never on `CForm`, never in the PDF, never in logs.
+- Submission is **tracked, not auto-filed**: staff submit on the e-FRRO portal and record the reference (`GENERATED → SUBMITTED`). Auto-submission needs certified Bureau of Immigration access (a live blocker per `integrations.md`) — build the adapter behind an interface, never imply we can bypass certification.
+- The Form C register is `reservation:view`; it never exposes ID numbers (nationality only).
+
 ## GST / financial records
 - GST invoices comply with `business-rules.md` §10–13. Retain invoices/folios for the statutory period; never hard-delete.
 - Support GST return-friendly exports (GSTR-relevant fields) from `22-accounting-sync` / `15-search-export`.

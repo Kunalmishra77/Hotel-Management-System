@@ -45,5 +45,13 @@ Ordered, small, test-first for domain. Each ends at `rules/definition-of-done.md
 ## E2E (Playwright, mobile viewport)
 - [x] T-32 Journey: login → search → book → check-in → settle → check-out. (AC-1/9/15/17)
 
+## Form C / FRRO register (addendum 2026-08-09)
+- [x] T7 (retro-documented) Foreign-guest Form C capture at check-in: AI passport extract (proposes only) → `saveCForm` masked snapshot + PDF to encrypted storage + `CFormGenerated` + audit. (FR-24)
+- [ ] T-34 `CFormSubmitted` domain event in the catalog (not broadcastable — no SSE). (FR-26)
+- [ ] T-35 `markCFormSubmitted(cformId, submissionRef)` — `checkin:perform`, `GENERATED→SUBMITTED` + ref, event + audit, idempotent, never touches the PDF. (FR-26, AC-29/30)
+- [ ] T-36 Queries `listCForms()` (scoped, cursor-paginated, masked — nationality only) + `getCFormBytes()` (authorized PDF re-download, non-public like payslips). (FR-25, AC-28)
+- [ ] T-37 Form C register UI at `/bookings/form-c` (cards on phone) + record-submission dialog + PDF download route + nav item (`reservation:view`). (FR-25/26)
+- [ ] T-38 Integration tests: submission lifecycle + idempotency, RBAC (HK denied, ACC view-only), register scoping + no-PII-in-payload. (AC-28/29/30)
+
 ## Done
 - [x] T-33 `/review-module` clean; every AC mapped to a green test; DoD satisfied.

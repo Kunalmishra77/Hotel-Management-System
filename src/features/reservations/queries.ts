@@ -4,6 +4,9 @@
  * front desk must see to run the board).
  */
 import { db } from "@/lib/db";
+import { authorize } from "@/lib/permissions";
+import { resolveStorageAdapter } from "@/lib/storage";
+import { NotFoundError } from "@/lib/errors";
 import { getGuestProfile } from "@/features/guests/queries";
 import { getBalance } from "@/features/billing";
 import { priceReservation } from "./domain/pricing";
@@ -129,6 +132,85 @@ export async function searchReservations(
     reservations: page.map(toItem),
     nextCursor: hasMore ? (page[page.length - 1]?.id ?? null) : null,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Form C / FRRO register (03 T-36, FR-25). Property-scoped, cursor-paginated.
+// Exposes NO passport/visa numbers — only nationality (compliance.md). Full ID
+// numbers never live on CForm; they stay encrypted on GuestId.
+// ---------------------------------------------------------------------------
+
+export type CFormListItem = {
+  id: string;
+  reservationCode: string;
+  guestName: string;
+  nationality: string;
+  status: string;
+  submissionRef: string | null;
+  checkInDate: Date;
+  checkOutDate: Date;
+  hasPdf: boolean;
+  createdAt: Date;
+};
+
+export async function listCForms(
+  user: SessionClaims,
+  input: { propertyId: string; status?: "GENERATED" | "SUBMITTED"; cursor?: string; limit?: number },
+): Promise<{ cforms: CFormListItem[]; nextCursor: string | null }> {
+  authorize(user, "reservation:view", input.propertyId);
+  const limit = input.limit ?? 25;
+  const rows = await db.scoped(user).cForm.findMany({
+    where: {
+      propertyId: input.propertyId,
+      ...(input.status ? { status: input.status } : {}),
+    },
+    select: {
+      id: true,
+      nationality: true,
+      status: true,
+      submissionRef: true,
+      pdfObjectKey: true,
+      createdAt: true,
+      reservation: { select: { code: true, checkInDate: true, checkOutDate: true, guest: { select: { fullName: true } } } },
+    },
+    orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+    take: limit + 1,
+    ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
+  });
+
+  const hasMore = rows.length > limit;
+  const page = hasMore ? rows.slice(0, limit) : rows;
+  return {
+    cforms: page.map((r) => ({
+      id: r.id,
+      reservationCode: r.reservation.code,
+      guestName: r.reservation.guest.fullName,
+      nationality: r.nationality,
+      status: r.status,
+      submissionRef: r.submissionRef,
+      checkInDate: r.reservation.checkInDate,
+      checkOutDate: r.reservation.checkOutDate,
+      hasPdf: Boolean(r.pdfObjectKey),
+      createdAt: r.createdAt,
+    })),
+    nextCursor: hasMore ? (page[page.length - 1]?.id ?? null) : null,
+  };
+}
+
+/** Fetch a Form C PDF's bytes (authorized, non-public — like a payslip). */
+export async function getCFormBytes(
+  user: SessionClaims,
+  cformId: string,
+): Promise<{ filename: string; contentType: string; bytes: Buffer }> {
+  const cform = await db.scoped(user).cForm.findFirst({
+    where: { id: cformId },
+    select: { id: true, propertyId: true, pdfObjectKey: true, reservation: { select: { code: true } } },
+  });
+  if (!cform) throw new NotFoundError("Form C not found.");
+  authorize(user, "reservation:view", cform.propertyId);
+  if (!cform.pdfObjectKey) throw new NotFoundError("Form C PDF not generated.");
+  const bytes = await resolveStorageAdapter().get(cform.pdfObjectKey);
+  return { filename: `form-c-${cform.reservation.code}.pdf`, contentType: "application/pdf", bytes };
 }
 
 export async function getReservation(

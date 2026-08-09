@@ -86,6 +86,15 @@ export const NAV_ITEMS: readonly NavItem[] = [
     primary: true,
   },
   {
+    // FRRO Form C register for foreign-guest arrivals (03 FR-25/26). Same
+    // permission as the bookings board; the register itself never exposes ID numbers.
+    key: "form-c",
+    label: "Form C",
+    href: "/bookings/form-c",
+    icon: "FileCheck2",
+    permission: "reservation:view",
+  },
+  {
     key: "search",
     label: "Search",
     href: "/search",

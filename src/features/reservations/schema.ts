@@ -115,6 +115,14 @@ export const saveCFormSchema = z.object({
 });
 export type SaveCFormInput = z.infer<typeof saveCFormSchema>;
 
+// FRRO submission tracking (03 FR-26). The reference is the e-FRRO portal ack the
+// staff paste back after submitting there — a short opaque string, not PII.
+export const markCFormSubmittedSchema = z.object({
+  cformId: z.string().min(1),
+  submissionRef: z.string().trim().min(1).max(64),
+});
+export type MarkCFormSubmittedInput = z.infer<typeof markCFormSubmittedSchema>;
+
 export const markNoShowsSchema = z.object({
   propertyId: z.string().min(1),
   businessDate: dateInput,

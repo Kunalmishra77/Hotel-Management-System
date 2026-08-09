@@ -58,6 +58,11 @@ Roles per `rules/user-roles.md`. Each AC is testable and maps to tests (`rules/t
 - **AC-21:** Given a corporate booking for ACME, when attached, then it appears in source/corporate revenue reports (§7).
 - **AC-22 (no-show):** Given a CONFIRMED booking for 11 Jul not checked in, when night audit runs `markNoShows(PROP-A, 11 Jul)`, then it becomes NO_SHOW, allocation released, the room reset RESERVED→VACANT (bookable again), and the no-show policy `Property.noShowRetainAdvance` applied (advance retained per config).
 
+## US-7 — Form C / FRRO register (foreign-guest reporting)
+- **AC-28 (register scoped + masked):** Given foreign-guest C-Forms across PROP-A and PROP-B, when USER-REC (PROP-A) opens the Form C register, then only PROP-A C-Forms are listed, each showing guest name, nationality, status, and submission reference — and **no** passport/visa number appears anywhere in the payload (FR-25).
+- **AC-29 (record submission):** Given a `GENERATED` C-Form, when a user with `checkin:perform` calls `markCFormSubmitted(cformId, "FRRO-2026-001")`, then it becomes `SUBMITTED`, stores the reference, and emits `CFormSubmitted` + audit; a second call with the same reference is a no-op (FR-26).
+- **AC-30 (submission RBAC):** Given USER-ACC (has `reservation:view` but not `checkin:perform`), when they open the register they can view/download, but `markCFormSubmitted` is denied 403; USER-HK is denied both (FR-25/26).
+
 ## Permission / negative
 - **AC-23:** Given USER-HK, when calling any reservation create/modify/cancel action, then denied server-side (403) regardless of UI (FR-21).
 - **AC-24:** Given check-out date ≤ check-in date, when submitted, then validation rejects with a field message; nothing persists (FR-22).

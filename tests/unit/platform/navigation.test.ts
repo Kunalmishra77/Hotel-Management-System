@@ -70,15 +70,15 @@ describe("bottomNavItems (mobile-first.md — thumb-reachable)", () => {
   });
 
   it("orders primary items first, then fills any remaining slot", () => {
-    // There are 4 primaries and 5 slots, so the last slot is legitimately a
-    // non-primary — a half-empty bar would waste thumb space.
+    // Primaries fill the bar first. When there are more primaries than slots the
+    // bar is entirely primary; when fewer, the remaining slots are filled by
+    // non-primaries (a half-empty bar would waste thumb space).
     const bar = bottomNavItems(admin);
     const firstNonPrimary = bar.findIndex((i) => !i.primary);
     const lastPrimary = bar.map((i) => Boolean(i.primary)).lastIndexOf(true);
     if (firstNonPrimary !== -1) expect(firstNonPrimary).toBeGreaterThan(lastPrimary);
-    expect(bar.filter((i) => i.primary)).toHaveLength(
-      NAV_ITEMS.filter((i) => i.primary).length,
-    );
+    const primaryCount = NAV_ITEMS.filter((i) => i.primary).length;
+    expect(bar.filter((i) => i.primary)).toHaveLength(Math.min(primaryCount, BOTTOM_NAV_LIMIT));
   });
 
   it("fills the bar with usable items for a low-privilege role", () => {
