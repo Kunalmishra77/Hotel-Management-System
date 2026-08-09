@@ -34,7 +34,20 @@ export async function profitReport(
   input: { propertyIds: string[]; from: Date; to: Date },
 ): Promise<ProfitReport> {
   authorize(user, "report:view-financial", input.propertyIds[0] ?? null); // FR-7/8
+  return computeProfitReport(user, input);
+}
 
+/**
+ * Unguarded profit computation — the SAME canonical numbers as `profitReport`,
+ * without the `report:view-financial` gate. Callers MUST authorize first with an
+ * appropriate permission: `profitReport` uses `report:view-financial`; the owner
+ * portal (27) uses `owner:view-financials` scoped to the owner's property. Reads
+ * are still property-scoped via `db.scoped(user)`, so this cannot widen access.
+ */
+export async function computeProfitReport(
+  user: SessionClaims,
+  input: { propertyIds: string[]; from: Date; to: Date },
+): Promise<ProfitReport> {
   // Revenue by category (06), merged across the scoped properties.
   const revenueByCategory: Record<string, number> = {};
   for (const propertyId of input.propertyIds) {
