@@ -15,6 +15,7 @@ import { trend } from "@/features/analytics/queries";
 import { preventiveSchedule } from "@/features/maintenance/queries";
 import type { SessionClaims } from "@/lib/auth/claims";
 import { ownerDb, withOwnerContext } from "./internal";
+import { renderStatement } from "./statement";
 
 export type OwnerFinancials = ProfitReport & {
   trend: { businessDate: string; value: number }[];
@@ -156,4 +157,80 @@ export async function ownerSchedule(
       .map((j) => ({ id: j.id, roomNumber: j.roomNumber, description: j.description, scheduledFor: j.scheduledFor })),
     occupancy: occ.map((o) => ({ businessDate: o.businessDate, occupancyBps: o.value })),
   };
+}
+
+// --- Payout (FR-14) --------------------------------------------------------
+
+/** Owner (owner:view-payout) OR staff (owner:payout-manage), property-scoped. */
+function authorizePayoutRead(user: SessionClaims, propertyId: string): void {
+  if (can(user, "owner:payout-manage", propertyId)) return;
+  authorize(user, "owner:view-payout", propertyId);
+}
+
+export type OwnerPayoutItem = {
+  id: string;
+  period: string; // yyyy-MM
+  grossRevenuePaise: number;
+  expensePaise: number;
+  managementFeeBps: number;
+  managementFeePaise: number;
+  netPayablePaise: number;
+  status: string;
+  paidAt: Date | null;
+  paymentRef: string | null;
+};
+
+export async function listOwnerPayouts(
+  user: SessionClaims,
+  input: { propertyId: string },
+): Promise<OwnerPayoutItem[]> {
+  authorizePayoutRead(user, input.propertyId);
+  const rows = await ownerDb(user).ownerPayout.findMany({
+    where: { propertyId: input.propertyId },
+    orderBy: { periodMonth: "desc" },
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    period: r.periodMonth.toISOString().slice(0, 7),
+    grossRevenuePaise: Number(r.grossRevenuePaise),
+    expensePaise: Number(r.expensePaise),
+    managementFeeBps: r.managementFeeBps,
+    managementFeePaise: Number(r.managementFeePaise),
+    netPayablePaise: Number(r.netPayablePaise),
+    status: r.status,
+    paidAt: r.paidAt,
+    paymentRef: r.paymentRef,
+  }));
+}
+
+/** Render a payout statement PDF from its immutable snapshot (authorized). */
+export async function getPayoutStatementBytes(
+  user: SessionClaims,
+  payoutId: string,
+): Promise<{ filename: string; contentType: string; bytes: Buffer }> {
+  const p = await ownerDb(user).ownerPayout.findFirst({
+    where: { id: payoutId },
+    select: {
+      id: true, propertyId: true, periodMonth: true, grossRevenuePaise: true, expensePaise: true,
+      managementFeeBps: true, managementFeePaise: true, netPayablePaise: true, status: true, paymentRef: true,
+      property: { select: { name: true } },
+    },
+  });
+  if (!p) throw new NotFoundError("Payout not found.");
+  authorizePayoutRead(user, p.propertyId);
+
+  const period = p.periodMonth.toISOString().slice(0, 7);
+  const bytes = await renderStatement({
+    propertyName: p.property.name,
+    period,
+    grossRevenuePaise: Number(p.grossRevenuePaise),
+    expensePaise: Number(p.expensePaise),
+    managementFeeBps: p.managementFeeBps,
+    managementFeePaise: Number(p.managementFeePaise),
+    netPayablePaise: Number(p.netPayablePaise),
+    status: p.status,
+    paymentRef: p.paymentRef,
+    generatedAt: new Date().toISOString().slice(0, 10),
+  });
+  return { filename: `payout-${period}.pdf`, contentType: "application/pdf", bytes };
 }

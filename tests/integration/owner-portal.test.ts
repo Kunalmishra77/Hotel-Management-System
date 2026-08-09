@@ -20,14 +20,16 @@ vi.mock("next/cache", () => ({ revalidatePath: () => {}, revalidateTag: () => {}
 import {
   PROP_A_ID,
   PROP_B_ID,
+  USER_ADMIN_ID,
   USER_MANAGER_ID,
   USER_OWNER_A_ID,
   USER_RECEPTION_A_ID,
 } from "../../prisma/seed/fixtures";
 import { assembleClaims } from "@/lib/auth/claims";
-import { ownerFinancials, listOwnerDocuments, getOwnerDocumentBytes, ownerSchedule } from "@/features/owner-portal/queries";
+import { ownerFinancials, listOwnerDocuments, getOwnerDocumentBytes, ownerSchedule, listOwnerPayouts, getPayoutStatementBytes } from "@/features/owner-portal/queries";
 import { uploadOwnerDocument, deleteOwnerDocument } from "@/features/owner-portal/document-actions";
 import { createImportantDate, deleteImportantDate } from "@/features/owner-portal/schedule-actions";
+import { recordOwnerPayout, markPayoutPaid } from "@/features/owner-portal/payout-actions";
 
 const prisma = createPrismaClient();
 const d = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
@@ -42,9 +44,15 @@ async function actAs(userId: string): Promise<SessionClaims> {
 beforeAll(async () => {
   await prisma.$queryRawUnsafe("SELECT 1");
 });
+const PAYOUT_MONTH = "2024-02";
 afterAll(async () => {
   await prisma.propertyDocument.deleteMany({ where: { title: { startsWith: "OP-TEST" } } });
   await prisma.propertyImportantDate.deleteMany({ where: { label: { startsWith: "OP-TEST" } } });
+  try {
+    await prisma.ownerPayout.deleteMany({ where: { propertyId: PROP_A_ID, periodMonth: d(`${PAYOUT_MONTH}-01`) } });
+  } catch {
+    /* if the payout ledger is DB-append-only, leave the test row */
+  }
   await prisma.$disconnect();
 });
 
@@ -181,5 +189,69 @@ describe("Schedule (AC-10/11/12)", () => {
     expect(del.ok).toBe(true);
     const row = await prisma.propertyImportantDate.findUnique({ where: { id: created.data.id }, select: { deletedAt: true } });
     expect(row?.deletedAt).not.toBeNull();
+  });
+});
+
+describe("Payout — management-fee model (AC-13/15/16/17)", () => {
+  it("records a payout: snapshot + net = revenue − expense − fee, idempotent, event + audit", async () => {
+    await prisma.ownerPayout.deleteMany({ where: { propertyId: PROP_A_ID, periodMonth: d(`${PAYOUT_MONTH}-01`) } }).catch(() => {});
+    const admin = await actAs(USER_ADMIN_ID); // owner:payout-manage
+    const rec = await recordOwnerPayout({ propertyId: PROP_A_ID, periodMonth: `${PAYOUT_MONTH}-15` });
+    expect(rec.ok).toBe(true);
+    if (!rec.ok) return;
+    expect(rec.data.idempotent).toBe(false);
+
+    const row = await prisma.ownerPayout.findUnique({ where: { id: rec.data.id } });
+    expect(row).not.toBeNull();
+    expect(row!.managementFeeBps).toBe(1500); // PROP-A seed = 15%
+    // Net is exactly revenue − expense − fee, and fee = 15% of revenue (paise/BigInt).
+    expect(row!.managementFeePaise).toBe((row!.grossRevenuePaise * 1500n) / 10000n);
+    expect(row!.netPayablePaise).toBe(row!.grossRevenuePaise - row!.expensePaise - row!.managementFeePaise);
+    expect(row!.status).toBe("COMPUTED");
+
+    expect(await prisma.domainEvent.findFirst({ where: { type: "OwnerPayoutRecorded", aggregateId: rec.data.id } })).not.toBeNull();
+    expect(await prisma.auditLog.findFirst({ where: { action: "owner:payout-record", entityId: rec.data.id } })).not.toBeNull();
+
+    // Idempotent per (property, month).
+    const again = await recordOwnerPayout({ propertyId: PROP_A_ID, periodMonth: `${PAYOUT_MONTH}-01` });
+    expect(again.ok && again.data.idempotent).toBe(true);
+    const count = await prisma.ownerPayout.count({ where: { propertyId: PROP_A_ID, periodMonth: d(`${PAYOUT_MONTH}-01`) } });
+    expect(count).toBe(1);
+  });
+
+  it("marks a payout paid (COMPUTED → PAID) with ref, event + audit; re-mark is a no-op", async () => {
+    const admin = await actAs(USER_ADMIN_ID);
+    const list = await listOwnerPayouts(admin, { propertyId: PROP_A_ID });
+    const payout = list.find((p) => p.period === PAYOUT_MONTH)!;
+    const paid = await markPayoutPaid({ payoutId: payout.id, paymentRef: "UTR-OP-TEST-1" });
+    expect(paid.ok).toBe(true);
+    if (!paid.ok) return;
+    expect(paid.data.status).toBe("PAID");
+    const row = await prisma.ownerPayout.findUnique({ where: { id: payout.id }, select: { status: true, paymentRef: true, paidAt: true } });
+    expect(row).toMatchObject({ status: "PAID", paymentRef: "UTR-OP-TEST-1" });
+    expect(row!.paidAt).not.toBeNull();
+    expect(await prisma.domainEvent.findFirst({ where: { type: "OwnerPayoutPaid", aggregateId: payout.id } })).not.toBeNull();
+
+    const again = await markPayoutPaid({ payoutId: payout.id, paymentRef: "UTR-DIFFERENT" });
+    expect(again.ok && again.data.status).toBe("PAID"); // no-op, ref unchanged
+    const after = await prisma.ownerPayout.findUnique({ where: { id: payout.id }, select: { paymentRef: true } });
+    expect(after?.paymentRef).toBe("UTR-OP-TEST-1");
+  });
+
+  it("owner can view + download a statement, but cannot record or mark paid (AC-17/19)", async () => {
+    const owner = await actAs(USER_OWNER_A_ID);
+    const list = await listOwnerPayouts(owner, { propertyId: PROP_A_ID });
+    const payout = list.find((p) => p.period === PAYOUT_MONTH)!;
+    expect(payout).toBeDefined();
+
+    const pdf = await getPayoutStatementBytes(owner, payout.id);
+    expect(pdf.bytes.subarray(0, 4).toString()).toBe("%PDF");
+
+    const rec = await recordOwnerPayout({ propertyId: PROP_A_ID, periodMonth: `${PAYOUT_MONTH}-01` });
+    expect(rec.ok).toBe(false);
+    if (!rec.ok) expect(rec.error.code).toBe("FORBIDDEN");
+    const pay = await markPayoutPaid({ payoutId: payout.id, paymentRef: "X" });
+    expect(pay.ok).toBe(false);
+    if (!pay.ok) expect(pay.error.code).toBe("FORBIDDEN");
   });
 });
