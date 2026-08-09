@@ -25,8 +25,9 @@ import {
   USER_RECEPTION_A_ID,
 } from "../../prisma/seed/fixtures";
 import { assembleClaims } from "@/lib/auth/claims";
-import { ownerFinancials, listOwnerDocuments, getOwnerDocumentBytes } from "@/features/owner-portal/queries";
+import { ownerFinancials, listOwnerDocuments, getOwnerDocumentBytes, ownerSchedule } from "@/features/owner-portal/queries";
 import { uploadOwnerDocument, deleteOwnerDocument } from "@/features/owner-portal/document-actions";
+import { createImportantDate, deleteImportantDate } from "@/features/owner-portal/schedule-actions";
 
 const prisma = createPrismaClient();
 const d = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
@@ -43,6 +44,7 @@ beforeAll(async () => {
 });
 afterAll(async () => {
   await prisma.propertyDocument.deleteMany({ where: { title: { startsWith: "OP-TEST" } } });
+  await prisma.propertyImportantDate.deleteMany({ where: { label: { startsWith: "OP-TEST" } } });
   await prisma.$disconnect();
 });
 
@@ -140,5 +142,44 @@ describe("Document vault (AC-6/7/8/9)", () => {
     });
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.error.code).toBe("FORBIDDEN");
+  });
+});
+
+describe("Schedule (AC-10/11/12)", () => {
+  it("manager adds an important date; it appears in the owner's schedule with overdue flag", async () => {
+    const mgr = await actAs(USER_MANAGER_ID); // owner:manage
+    const past = await createImportantDate({ propertyId: PROP_A_ID, kind: "GST", label: "OP-TEST overdue GST", dueDate: "2020-01-01" });
+    const future = await createImportantDate({ propertyId: PROP_A_ID, kind: "INSURANCE", label: "OP-TEST future insurance", dueDate: "2099-01-01" });
+    expect(past.ok && future.ok).toBe(true);
+    if (!past.ok) return;
+    expect(await prisma.domainEvent.findFirst({ where: { type: "ImportantDateChanged", aggregateId: past.data.id } })).not.toBeNull();
+    expect(await prisma.auditLog.findFirst({ where: { action: "owner:important-date-create", entityId: past.data.id } })).not.toBeNull();
+
+    const owner = await actAs(USER_OWNER_A_ID);
+    const view = await ownerSchedule(owner, { propertyId: PROP_A_ID, from: d("2026-07-01"), to: d("2026-08-01") });
+    const overdue = view.importantDates.find((x) => x.label === "OP-TEST overdue GST");
+    const future2 = view.importantDates.find((x) => x.label === "OP-TEST future insurance");
+    expect(overdue?.overdue).toBe(true);
+    expect(future2?.overdue).toBe(false);
+    expect(Array.isArray(view.maintenance)).toBe(true);
+    expect(Array.isArray(view.occupancy)).toBe(true); // counts-only, no PII
+  });
+
+  it("denies an owner (no owner:manage) from adding a date (AC-12)", async () => {
+    await actAs(USER_OWNER_A_ID);
+    const res = await createImportantDate({ propertyId: PROP_A_ID, kind: "OTHER", label: "OP-TEST nope", dueDate: "2030-01-01" });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error.code).toBe("FORBIDDEN");
+  });
+
+  it("manager can delete an important date (soft-delete)", async () => {
+    const mgr = await actAs(USER_MANAGER_ID);
+    const created = await createImportantDate({ propertyId: PROP_A_ID, kind: "AMC", label: "OP-TEST amc", dueDate: "2027-06-01" });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const del = await deleteImportantDate({ dateId: created.data.id });
+    expect(del.ok).toBe(true);
+    const row = await prisma.propertyImportantDate.findUnique({ where: { id: created.data.id }, select: { deletedAt: true } });
+    expect(row?.deletedAt).not.toBeNull();
   });
 });

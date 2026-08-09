@@ -58,6 +58,13 @@ export const NAV_ITEMS: readonly NavItem[] = [
     permission: "owner:view-docs",
   },
   {
+    key: "owner-schedule",
+    label: "Schedule",
+    href: "/owner/schedule",
+    icon: "CalendarClock",
+    permission: "owner:view-schedule",
+  },
+  {
     // Manager/Accounts analytics home — consolidated KPIs, revenue trend, and
     // revenue segmentation across all accessible properties (financial-gated).
     key: "overview",

@@ -12,6 +12,7 @@ import { resolveStorageAdapter } from "@/lib/storage";
 import { NotFoundError } from "@/lib/errors";
 import { computeProfitReport, type ProfitReport } from "@/features/reports/queries";
 import { trend } from "@/features/analytics/queries";
+import { preventiveSchedule } from "@/features/maintenance/queries";
 import type { SessionClaims } from "@/lib/auth/claims";
 import { ownerDb, withOwnerContext } from "./internal";
 
@@ -102,4 +103,57 @@ export async function getOwnerDocumentBytes(
     }),
   );
   return { filename: `${doc.title}`, contentType: doc.contentType, bytes };
+}
+
+// --- Schedule (FR-9/10) ----------------------------------------------------
+
+export type ImportantDateItem = {
+  id: string;
+  kind: string;
+  label: string;
+  dueDate: Date;
+  notes: string | null;
+  overdue: boolean;
+};
+
+export type OwnerScheduleView = {
+  importantDates: ImportantDateItem[];
+  maintenance: { id: string; roomNumber: string | null; description: string; scheduledFor: Date | null }[];
+  occupancy: { businessDate: string; occupancyBps: number }[];
+};
+
+export async function ownerSchedule(
+  user: SessionClaims,
+  input: { propertyId: string; from: Date; to: Date },
+): Promise<OwnerScheduleView> {
+  authorize(user, "owner:view-schedule", input.propertyId);
+  const todayIso = new Date().toISOString().slice(0, 10);
+
+  const [dateRows, maint, occ] = await Promise.all([
+    ownerDb(user).propertyImportantDate.findMany({
+      where: { propertyId: input.propertyId, deletedAt: null },
+      select: { id: true, kind: true, label: true, dueDate: true, notes: true },
+      orderBy: { dueDate: "asc" },
+    }),
+    // Reuse module 11 (scope-only, no guest PII) — upcoming preventive jobs.
+    preventiveSchedule(user, input.propertyId),
+    // Occupancy as counts-equivalent %/day (no guest PII) via the unguarded trend.
+    trend(user, { metric: "occupancy", from: input.from, to: input.to, propertyIds: [input.propertyId] }),
+  ]);
+
+  return {
+    importantDates: dateRows.map((r) => ({
+      id: r.id,
+      kind: r.kind,
+      label: r.label,
+      dueDate: r.dueDate,
+      notes: r.notes,
+      overdue: r.dueDate.toISOString().slice(0, 10) < todayIso,
+    })),
+    maintenance: maint
+      .filter((j) => j.status !== "CLOSED")
+      .slice(0, 20)
+      .map((j) => ({ id: j.id, roomNumber: j.roomNumber, description: j.description, scheduledFor: j.scheduledFor })),
+    occupancy: occ.map((o) => ({ businessDate: o.businessDate, occupancyBps: o.value })),
+  };
 }
