@@ -14,20 +14,35 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatINR } from "@/lib/utils";
-import { recordOwnerPayout, markPayoutPaid } from "../payout-actions";
+import { recordOwnerPayout, markPayoutPaid, setManagementFee } from "../payout-actions";
 import type { OwnerPayoutItem } from "../queries";
 
 export function PayoutList({
   propertyId,
   payouts,
   canManage,
+  canManageFee,
+  feeBps,
 }: {
   propertyId: string;
   payouts: OwnerPayoutItem[];
   canManage: boolean;
+  canManageFee: boolean;
+  feeBps: number;
 }) {
   const [month, setMonth] = useState("");
+  const [feePct, setFeePct] = useState((feeBps / 100).toString());
   const [pending, start] = useTransition();
+
+  function saveFee() {
+    const pct = Number(feePct);
+    if (!Number.isFinite(pct) || pct < 0 || pct > 100) return toast.error("Enter a fee between 0 and 100%.");
+    start(async () => {
+      const res = await setManagementFee({ propertyId, feeBps: Math.round(pct * 100) });
+      if (res.ok) toast.success("Management fee updated.");
+      else toast.error(res.error.message);
+    });
+  }
 
   function record() {
     if (!month) return toast.error("Pick a month to record.");
@@ -54,6 +69,16 @@ export function PayoutList({
 
   return (
     <div className="space-y-4">
+      {canManageFee ? (
+        <div className="flex flex-wrap items-end gap-2 rounded-lg border p-4" data-testid="set-fee">
+          <div className="space-y-1">
+            <label htmlFor="fee-pct" className="text-xs text-muted-foreground">Management fee (% of revenue)</label>
+            <Input id="fee-pct" inputMode="decimal" value={feePct} onChange={(e) => setFeePct(e.target.value)} className="w-40" />
+          </div>
+          <Button size="sm" variant="outline" onClick={saveFee} disabled={pending}>Save fee</Button>
+        </div>
+      ) : null}
+
       {canManage ? (
         <div className="flex flex-wrap items-end gap-2 rounded-lg border p-4" data-testid="record-payout">
           <div className="space-y-1">

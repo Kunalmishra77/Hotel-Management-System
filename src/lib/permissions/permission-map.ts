@@ -195,10 +195,10 @@ const MATRIX: Record<Permission, MatrixRow> = {
   "data:import": { ADMINISTRATOR: L, MANAGER: L },
   // 27 owner-portal. Owner is read-only in their own scope except uploading own
   // docs; management + payout are staff-only (payout audited — money path).
-  "owner:view-financials": { ADMINISTRATOR: A, OWNER: A },
-  "owner:view-payout": { ADMINISTRATOR: A, OWNER: A },
-  "owner:view-schedule": { ADMINISTRATOR: A, OWNER: A },
-  "owner:view-docs": { ADMINISTRATOR: A, OWNER: A },
+  "owner:view-financials": { ADMINISTRATOR: A, MANAGER: A, OWNER: A },
+  "owner:view-payout": { ADMINISTRATOR: A, MANAGER: A, OWNER: A },
+  "owner:view-schedule": { ADMINISTRATOR: A, MANAGER: A, OWNER: A },
+  "owner:view-docs": { ADMINISTRATOR: A, MANAGER: A, OWNER: A },
   "owner:upload-docs": { ADMINISTRATOR: A, OWNER: A },
   "owner:manage": { ADMINISTRATOR: A, MANAGER: A },
   "owner:payout-manage": { ADMINISTRATOR: L },

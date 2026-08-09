@@ -54,10 +54,10 @@ Columns are the 14 login roles (staff without a login — housekeeping/room-serv
 | bookingengine:manage | 🔒 | 🔒 |  |  |  |  |  |  |  |  |  |  |  |  |
 | coupon:manage | ✔ | ✔ | ✔ |  | ✔ |  |  |  |  |  |  |  |  |  |
 | data:import | 🔒 | 🔒 |  |  |  |  |  |  |  |  |  |  |  |  |
-| owner:view-financials | ✔ |  |  |  |  |  |  |  |  |  |  |  |  | ✔ |
-| owner:view-payout | ✔ |  |  |  |  |  |  |  |  |  |  |  |  | ✔ |
-| owner:view-schedule | ✔ |  |  |  |  |  |  |  |  |  |  |  |  | ✔ |
-| owner:view-docs | ✔ |  |  |  |  |  |  |  |  |  |  |  |  | ✔ |
+| owner:view-financials | ✔ | ✔ |  |  |  |  |  |  |  |  |  |  |  | ✔ |
+| owner:view-payout | ✔ | ✔ |  |  |  |  |  |  |  |  |  |  |  | ✔ |
+| owner:view-schedule | ✔ | ✔ |  |  |  |  |  |  |  |  |  |  |  | ✔ |
+| owner:view-docs | ✔ | ✔ |  |  |  |  |  |  |  |  |  |  |  | ✔ |
 | owner:upload-docs | ✔ |  |  |  |  |  |  |  |  |  |  |  |  | ✔ |
 | owner:manage | ✔ | ✔ |  |  |  |  |  |  |  |  |  |  |  |  |
 | owner:payout-manage | 🔒 |  |  |  |  |  |  |  |  |  |  |  |  |  |

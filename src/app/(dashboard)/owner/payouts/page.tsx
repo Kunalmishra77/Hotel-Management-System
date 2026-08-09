@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { requirePermission } from "@/lib/auth/guard";
 import { can } from "@/lib/permissions";
-import { listOwnerPayouts } from "@/features/owner-portal/queries";
+import { listOwnerPayouts, getManagementFeeBps } from "@/features/owner-portal/queries";
 import { PayoutList } from "@/features/owner-portal/components/payout-list";
 
 export const metadata: Metadata = { title: "Payouts" };
@@ -19,8 +19,12 @@ export default async function OwnerPayoutsPage() {
     );
   }
 
-  const payouts = await listOwnerPayouts(user, { propertyId });
+  const [payouts, feeBps] = await Promise.all([
+    listOwnerPayouts(user, { propertyId }),
+    getManagementFeeBps(user, propertyId),
+  ]);
   const canManage = can(user, "owner:payout-manage", propertyId);
+  const canManageFee = can(user, "owner:manage", propertyId);
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-4 p-4">
@@ -30,7 +34,13 @@ export default async function OwnerPayoutsPage() {
           Monthly owner payout = revenue − operating expenses − management fee.
         </p>
       </div>
-      <PayoutList propertyId={propertyId} payouts={payouts} canManage={canManage} />
+      <PayoutList
+        propertyId={propertyId}
+        payouts={payouts}
+        canManage={canManage}
+        canManageFee={canManageFee}
+        feeBps={feeBps}
+      />
     </div>
   );
 }

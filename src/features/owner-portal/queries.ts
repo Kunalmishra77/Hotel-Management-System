@@ -203,6 +203,13 @@ export async function listOwnerPayouts(
   }));
 }
 
+/** The property's current management-fee (bps) — shown on the payout screen. */
+export async function getManagementFeeBps(user: SessionClaims, propertyId: string): Promise<number> {
+  authorizePayoutRead(user, propertyId);
+  const p = await ownerDb(user).property.findFirst({ where: { id: propertyId }, select: { managementFeeBps: true } });
+  return p?.managementFeeBps ?? 0;
+}
+
 /** Render a payout statement PDF from its immutable snapshot (authorized). */
 export async function getPayoutStatementBytes(
   user: SessionClaims,
