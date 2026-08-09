@@ -2,9 +2,9 @@
 
 Source of truth: the client's *PMS Requirement Document* (§1–§19). Decision: **all 19 sections are in scope and built now** — nothing deferred to a "phase 2". §19 "Future Expansion" items are full modules in this build.
 
-## The 27 modules (each is a `specs/NN-*/` bundle)
+## The 28 modules (each is a `specs/NN-*/` bundle)
 
-*(Modules 00–25 map to client §1–19; module 26 is the go-live data-onboarding tool derived from the Objective's "complete guest database".)*
+*(Modules 00–25 map to client §1–19; module 26 is the go-live data-onboarding tool derived from the Objective's "complete guest database"; module 27 is the owner portal — a MoM-2026-08-03 binding addition for property owners.)*
 
 | # | Module | Scope § | Notes |
 |---|---|---|---|
@@ -35,6 +35,7 @@ Source of truth: the client's *PMS Requirement Document* (§1–§19). Decision:
 | 24 | dynamic-pricing | 19 | Occupancy/season-based rate automation |
 | 25 | corporate-crm | 19 | Corporate/travel-agent sales relationships |
 | 26 | data-onboarding | Objective | Go-live import of existing guests / bookings / opening balances (CSV/Excel), validate → commit → rollback |
+| 27 | owner-portal | MoM 2026-08-03 | Property-owner login (read-mostly): financials, document vault (two-way), schedule tracker (compliance dates + maintenance + occupancy), owner payout statement + disbursement ledger (management-fee model) |
 
 ## Out of scope (explicit)
 - Native iOS/Android apps — the **PWA** covers all devices (§16). Native shells can wrap the PWA later without re-architecture.
