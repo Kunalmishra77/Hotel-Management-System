@@ -6,10 +6,10 @@
  * tracker link to share with the driver; others can be switched on. Manager-only
  * (the page is staff:manage-gated). Location is never shown to other staff.
  */
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Copy, MapPin } from "lucide-react";
+import { Copy, Map as MapIcon, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -25,9 +25,14 @@ const ago = (d: Date) => {
   return `${Math.round(mins / 60)} h ago`;
 };
 
+// Key-gated (ADR-0008): with a Maps key, an inline embedded map is available;
+// without it, the "Open in Google Maps" deep-link is the only map surface.
+const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
 export function FieldStaffScreen({ tracked, others }: { tracked: FieldStaffLocation[]; others: Other[] }) {
   const router = useRouter();
   const [pending, start] = useTransition();
+  const [openMap, setOpenMap] = useState<string | null>(null);
 
   const run = (fn: () => Promise<{ ok: boolean; error?: { message: string } }>, okMsg: string) =>
     start(async () => {
@@ -74,8 +79,24 @@ export function FieldStaffScreen({ tracked, others }: { tracked: FieldStaffLocat
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <Button variant="ghost" size="sm" onClick={() => copyLink(t.trackingToken)} data-testid={`copy-${t.staffId}`}><Copy className="size-4" /> Copy tracker link</Button>
+                    {MAPS_KEY && t.lastPing ? (
+                      <Button variant="ghost" size="sm" onClick={() => setOpenMap((cur) => (cur === t.staffId ? null : t.staffId))} data-testid={`showmap-${t.staffId}`}>
+                        <MapIcon className="size-4" /> {openMap === t.staffId ? "Hide map" : "Show map"}
+                      </Button>
+                    ) : null}
                     <Button variant="ghost" size="sm" disabled={pending} onClick={() => run(() => disableFieldTracking({ staffId: t.staffId }), "Tracking disabled.")} data-testid={`disable-${t.staffId}`}>Disable</Button>
                   </div>
+
+                  {MAPS_KEY && t.lastPing && openMap === t.staffId ? (
+                    <iframe
+                      title={`Map — ${t.name}`}
+                      data-testid={`mapembed-${t.staffId}`}
+                      className="mt-2 h-56 w-full rounded-md border"
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                      src={`https://www.google.com/maps/embed/v1/place?key=${MAPS_KEY}&q=${t.lastPing.lat},${t.lastPing.lng}&zoom=15`}
+                    />
+                  ) : null}
                 </li>
               ))}
             </ul>
