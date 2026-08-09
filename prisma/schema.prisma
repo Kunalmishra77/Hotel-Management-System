@@ -985,14 +985,36 @@ model Staff {
   bankIfsc           String?
   isActive           Boolean   @default(true)
 
+  // 09 addendum (MoM line 32) — field staff (drivers/agents) on-duty tracking.
+  isFieldStaff  Boolean @default(false)
+  trackingToken String? @unique // stamped when tracking enabled; the driver's link credential
+
   attendance   Attendance[]
   payrollLines PayrollLine[]
   advances     StaffAdvance[]
   documents    StaffDocument[]
-  createdAt    DateTime        @default(now())
+  fieldPings   FieldStaffPing[]
+  createdAt    DateTime         @default(now())
   deletedAt    DateTime?
 
   @@index([propertyId])
+}
+
+// On-duty location ping from a field-staff device (FR-18). High-volume insert-only;
+// lat/lng are floats (map coordinates, not money). Manager-only visibility.
+model FieldStaffPing {
+  id         String   @id @default(cuid())
+  staffId    String
+  staff      Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  propertyId String
+  lat        Float
+  lng        Float
+  accuracyM  Float?
+  capturedAt DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([staffId, capturedAt])
+  @@index([propertyId, capturedAt])
 }
 
 model StaffDocument {

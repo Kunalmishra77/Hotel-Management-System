@@ -7,6 +7,8 @@
  */
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -51,7 +53,12 @@ export function StaffScreen({
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-4 p-4">
-      <h1 className="text-xl font-semibold">Staff</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold">Staff</h1>
+        {canManage ? (
+          <Button asChild variant="outline" size="sm"><Link href="/staff/field" data-testid="field-staff-link"><MapPin className="size-4" /> Field staff</Link></Button>
+        ) : null}
+      </div>
 
       {canManage ? (
       <Card>

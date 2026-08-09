@@ -14,6 +14,9 @@ vi.mock("next/cache", () => ({ revalidatePath: () => {}, revalidateTag: () => {}
 import { PROP_A_ID, USER_MANAGER_ID, USER_RECEPTION_A_ID } from "../../prisma/seed/fixtures";
 import { assembleClaims } from "@/lib/auth/claims";
 import { createStaff, recordAttendance, deactivateStaff, updateStaff, updateStaffSalary } from "@/features/staff/actions";
+import { enableFieldTracking, disableFieldTracking } from "@/features/staff/field-actions";
+import { recordFieldPing, resolveTrackingToken, resetFieldRateLimits } from "@/features/staff/field-internal";
+import { listFieldStaffLocations } from "@/features/staff/field-queries";
 import { listStaff, getStaffForPayroll, attendanceSummary } from "@/features/staff/queries";
 
 const prisma = createPrismaClient();
@@ -204,5 +207,86 @@ describe("payroll feed + lifecycle (T-8/T-9, FR-6/9/10, AC-9/10/11)", () => {
 
     const june = await getStaffForPayroll(claims, PROP_A_ID, "2026-06");
     expect(june.find((s) => s.id === res.data.id)).toBeDefined(); // worked in June — history kept
+  });
+});
+
+describe("Field-staff location tracking (MoM line 32)", () => {
+  beforeEach(() => resetFieldRateLimits());
+
+  async function seedFieldStaff(): Promise<string> {
+    await actAs(USER_MANAGER_ID);
+    const res = await createStaff(anu({ mobile: `98${Math.floor(Math.random() * 1e8)}`, name: "Driver Raju", department: "Drivers" }));
+    track(res);
+    if (!res.ok) throw new Error("seed field staff failed");
+    return res.data.id;
+  }
+
+  it("enable stamps a token + flag, event + audit; resolveTrackingToken works", async () => {
+    const staffId = await seedFieldStaff();
+    await actAs(USER_MANAGER_ID);
+    const en = await enableFieldTracking({ staffId });
+    expect(en.ok).toBe(true);
+    if (!en.ok) return;
+    expect(en.data.trackingToken).toBeTruthy();
+    const row = await prisma.staff.findUniqueOrThrow({ where: { id: staffId }, select: { isFieldStaff: true, trackingToken: true } });
+    expect(row.isFieldStaff).toBe(true);
+    expect(row.trackingToken).toBe(en.data.trackingToken);
+    expect(await prisma.domainEvent.findFirst({ where: { type: "FieldTrackingEnabled", aggregateId: staffId } })).not.toBeNull();
+    expect(await prisma.auditLog.findFirst({ where: { action: "staff:field-tracking-enable", entityId: staffId } })).not.toBeNull();
+
+    const resolved = await resolveTrackingToken(en.data.trackingToken!);
+    expect(resolved?.staffId).toBe(staffId);
+  });
+
+  it("records a ping via the token, and the manager sees a fresh (not stale) location", async () => {
+    const staffId = await seedFieldStaff();
+    await actAs(USER_MANAGER_ID);
+    const en = await enableFieldTracking({ staffId });
+    if (!en.ok) return;
+    await recordFieldPing({ token: en.data.trackingToken, lat: 12.9716, lng: 77.5946, accuracyM: 12 });
+
+    const ping = await prisma.fieldStaffPing.findFirst({ where: { staffId }, orderBy: { capturedAt: "desc" } });
+    expect(ping).not.toBeNull();
+    expect(ping!.lat).toBeCloseTo(12.9716, 4);
+
+    const locs = await listFieldStaffLocations(await actAs(USER_MANAGER_ID), PROP_A_ID);
+    const me = locs.find((l) => l.staffId === staffId)!;
+    expect(me.lastPing).not.toBeNull();
+    expect(me.stale).toBe(false);
+    expect(me.mapsUrl).toContain("12.9716,77.5946");
+  });
+
+  it("rejects a ping on an unknown/disabled token, and rate-limits a flood", async () => {
+    const staffId = await seedFieldStaff();
+    await actAs(USER_MANAGER_ID);
+    const en = await enableFieldTracking({ staffId });
+    if (!en.ok) return;
+    const token = en.data.trackingToken!;
+
+    await expect(recordFieldPing({ token: "nope", lat: 1, lng: 1 })).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+    // Flood past the per-token limit (12/min) → RATE_LIMITED.
+    let limited = false;
+    for (let i = 0; i < 15; i++) {
+      try { await recordFieldPing({ token, lat: 12.9, lng: 77.5 }); }
+      catch (e) { if ((e as { code?: string }).code === "RATE_LIMITED") { limited = true; break; } }
+    }
+    expect(limited).toBe(true);
+
+    // Disable → the link stops resolving, pings are rejected.
+    await actAs(USER_MANAGER_ID);
+    resetFieldRateLimits();
+    const dis = await disableFieldTracking({ staffId });
+    expect(dis.ok).toBe(true);
+    expect(await resolveTrackingToken(token)).toBeNull();
+    await expect(recordFieldPing({ token, lat: 1, lng: 1 })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("denies a role without staff:manage (reception)", async () => {
+    const staffId = await seedFieldStaff();
+    await actAs(USER_RECEPTION_A_ID);
+    const res = await enableFieldTracking({ staffId });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error.code).toBe("FORBIDDEN");
   });
 });

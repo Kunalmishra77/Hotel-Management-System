@@ -69,6 +69,8 @@ export const DOMAIN_EVENT_TYPES = [
   "StaffCreated",
   "StaffUpdated",
   "AttendanceRecorded",
+  "FieldTrackingEnabled",
+  "FieldTrackingDisabled",
 
   // 10 housekeeping / 11 maintenance
   "HousekeepingTaskDone",

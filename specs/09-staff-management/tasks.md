@@ -26,5 +26,13 @@ Test-first for domain. Each ends at `rules/definition-of-done.md`. `(AC-n)/(FR-n
 ## E2E
 - [x] T-14 Journey: add staff → record attendance across a month → summary feeds payroll. (AC-1/5/9)
 
+## Field-staff location tracking (addendum 2026-08-09)
+- [x] T-16 Schema + migration: `Staff.isFieldStaff` + `Staff.trackingToken @unique`; `FieldStaffPing` model + indexes. Events in catalog. (FR-16/18)
+- [x] T-17 `enableFieldTracking`/`disableFieldTracking` (staff:manage) — stamp/clear token + flag, audited, events. (FR-16)
+- [x] T-18 `recordFieldPing(token,lat,lng,accuracy)` — token-authed, rate-limited, rejects non-field/disabled tokens, inserts ping. Public route `POST /api/field-staff/ping`. (FR-17/18)
+- [x] T-19 `resolveTrackingToken` + `listFieldStaffLocations` (staff:manage — last ping + stale flag + Maps deep link). (FR-19)
+- [x] T-20 UI: `/track/[token]` consent + watchPosition pinger; `/staff/field` manager map-list (stale badges + Maps links + copy-tracker-link) + enable/disable toggle; a "Field staff" link on the staff screen. (FR-17/19)
+- [x] T-21 Tests: token resolve + rate-limit + non-field-staff rejected; ping insert; listFieldStaffLocations last+stale; enable/disable RBAC. compliance.md field-staff clause.
+
 ## Done
 - [x] T-15 `/review-module` clean; every AC → green test; DoD satisfied.

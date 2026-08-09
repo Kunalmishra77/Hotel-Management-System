@@ -18,6 +18,11 @@ Decision pending client sign-off: **build with the strict/masked defaults below*
 - Submission is **tracked, not auto-filed**: staff submit on the e-FRRO portal and record the reference (`GENERATED → SUBMITTED`). Auto-submission needs certified Bureau of Immigration access (a live blocker per `integrations.md`) — build the adapter behind an interface, never imply we can bypass certification.
 - The Form C register is `reservation:view`; it never exposes ID numbers (nationality only).
 
+## Field-staff location (employee PII)
+- Drivers / field agents are tracked only **on-duty** (while they keep the tracking link open) and only after an explicit **consent** notice on that page. Location is operational PII for dispatch/ops — purpose-limited.
+- Manager-only: last-known location is visible to `staff:manage` holders, never to other staff or guests. Pings are retained for a bounded operational window, not indefinitely.
+- Disabling tracking clears the token so the link stops working. No third-party map key is stored; display is Google Maps deep-links only.
+
 ## GST / financial records
 - GST invoices comply with `business-rules.md` §10–13. Retain invoices/folios for the statutory period; never hard-delete.
 - Support GST return-friendly exports (GSTR-relevant fields) from `22-accounting-sync` / `15-search-export`.

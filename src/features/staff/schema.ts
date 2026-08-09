@@ -50,3 +50,14 @@ export const updateStaffSalarySchema = z.object({
   staffId: z.string().min(1),
   monthlySalaryPaise: z.number().int().positive(),
 });
+
+// MoM line 32 — field-staff location tracking.
+export const fieldTrackingSchema = z.object({ staffId: z.string().min(1) });
+
+export const fieldPingSchema = z.object({
+  token: z.string().min(1),
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+  accuracyM: z.number().nonnegative().optional(),
+});
+export type FieldPingInput = z.infer<typeof fieldPingSchema>;

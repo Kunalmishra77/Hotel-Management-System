@@ -27,6 +27,14 @@ Own staff records and daily attendance per property, and expose the derived mont
 - **FR-9 (state):** While a staff member is inactive/deleted, exclude them from new attendance and from payroll eligibility, but retain history.
 - **FR-10 (ubiquitous):** Expose `getStaffForPayroll(propertyId, month): StaffWithAttendance[]` (per `contracts.md`) — for each staff member employed in the month, their `monthlySalaryPaise`, `joinedOn`, `leftOn`, `isActive`, **plus the raw per-day `Attendance` rows** (`day`, `isLeave`, `leaveType`, `workedMinutes`, `overtimeMinutes`) — so **21 derives `lopDays`/`paidDays` and the pay basis itself** (21 owns `employedDays`; 09 supplies inputs, never the pay basis). This is the read 21 consumes on its write path (not `attendanceSummary`); bank/PII fields are not returned by this action.
 
+## Field-staff location tracking (addendum 2026-08-09, MoM line 32)
+Drivers / field agents are tracked while on-duty. Location is operational PII — manager-only, on-duty-only, consent-gated (`compliance.md`).
+- **FR-16 (field flag):** A staff member can be marked `isFieldStaff`. Enabling tracking stamps a unique `trackingToken` (cleared on disable). Only field staff appear on the map / accept pings. `enableFieldTracking`/`disableFieldTracking` require `staff:manage`, are audited, and emit `FieldTrackingEnabled`/`FieldTrackingDisabled`.
+- **FR-17 (capture, no login):** The driver opens a private tokened link `/track/[token]` on their phone. After an explicit **consent** notice, the browser Geolocation API POSTs a location ping every few minutes to a **public, rate-limited** endpoint (`recordFieldPing`) while the page stays open — closing it ends the on-duty session. The token is the credential; a token whose staff is not `isFieldStaff` (or was disabled) is rejected. No Google API key: capture is the browser, display is deep-links.
+- **FR-18 (ping record):** Each ping stores `lat, lng, accuracyM?, capturedAt` against the staff + property. Pings are high-volume insert-only — no per-ping event/audit. Rate-limited per token (≈1 / 10s).
+- **FR-19 (manager view):** `listFieldStaffLocations` (`staff:manage`) returns each field-staff's last-known ping with a **stale** flag (no ping within the freshness window, default 10 min) and an **"Open in Google Maps"** deep link (`maps.google.com/?q=lat,lng`). Manager-only; never exposed to other staff or guests.
+- **FR-20 (retention/privacy):** Pings are retained for a bounded window (operational need) and are never shown outside the manager map. Disabling tracking clears the token so the link stops working.
+
 ## Non-functional (cited)
 Staff list + attendance capture usable on a phone; common mutations p95 < 800ms; PII encrypted at rest; masked by default. (`non-functional-requirements.md`, `compliance.md`)
 
