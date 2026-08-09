@@ -505,6 +505,68 @@ describe("folio-authoritative check-out (3C T5 — money is always correct)", ()
   });
 });
 
+describe("payment states — MoM 2026-08-03 (settlement intent)", () => {
+  async function folioIdOf(reservationId: string): Promise<string> {
+    return (await prisma.folio.findFirstOrThrow({ where: { reservationId }, select: { id: true } })).id;
+  }
+
+  it("PAY_AT_HOTEL: the advance posts as a CASH tender at check-in", async () => {
+    await actAs(USER_RECEPTION_A_ID);
+    const res = await createReservation(
+      booking([ROOM_101_ID], { guestId: GUEST_MEHTA_ID, settlementIntent: "PAY_AT_HOTEL", checkInDate: "2028-06-01", checkOutDate: "2028-06-04", advancePaise: 500_000 }),
+    );
+    track(res);
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    await checkIn({ reservationId: res.data.id });
+    const folioId = await folioIdOf(res.data.id);
+    const pay = await prisma.payment.findFirst({ where: { folioId, reference: `ADVANCE:${res.data.id}` }, select: { mode: true, amountPaise: true } });
+    expect(pay?.mode).toBe("CASH");
+    expect(Number(pay?.amountPaise)).toBe(500_000);
+  });
+
+  it("ALREADY_PAID: the advance posts as an ONLINE tender at check-in", async () => {
+    await actAs(USER_RECEPTION_A_ID);
+    const res = await createReservation(
+      booking([ROOM_101_ID], { guestId: GUEST_MEHTA_ID, settlementIntent: "ALREADY_PAID", checkInDate: "2028-06-05", checkOutDate: "2028-06-08", advancePaise: 400_000 }),
+    );
+    track(res);
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    await checkIn({ reservationId: res.data.id });
+    const folioId = await folioIdOf(res.data.id);
+    const pay = await prisma.payment.findFirst({ where: { folioId, reference: `ADVANCE:${res.data.id}` }, select: { mode: true } });
+    expect(pay?.mode).toBe("ONLINE");
+  });
+
+  it("UNPAID_ONLINE: nothing is collected at the desk (no auto payment)", async () => {
+    await actAs(USER_RECEPTION_A_ID);
+    const res = await createReservation(
+      booking([ROOM_101_ID], { guestId: GUEST_MEHTA_ID, settlementIntent: "UNPAID_ONLINE", checkInDate: "2028-06-10", checkOutDate: "2028-06-13", advancePaise: 0 }),
+    );
+    track(res);
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    await checkIn({ reservationId: res.data.id });
+    const folioId = await folioIdOf(res.data.id);
+    // No tender is auto-posted; the folio still owes the agreed bill (settles when
+    // the online payment lands, recorded on the folio later).
+    expect(await prisma.payment.count({ where: { folioId } })).toBe(0);
+    expect((await getFolio(await actAs(USER_RECEPTION_A_ID), folioId))!.balancePaise).toBeGreaterThan(0);
+  });
+
+  it("OTA ingest never auto-accepts online payment — defaults to PAY_AT_HOTEL (MoM)", async () => {
+    const res = await createFromChannel({
+      propertyId: PROP_A_ID, guestId: GUEST_RAVI_ID, source: "GOIBIBO",
+      channelRef: `OTA-PS-${Date.now()}`, categoryId: CAT_DLX_ID,
+      checkInDate: "2028-07-01", checkOutDate: "2028-07-03", ratePaise: 400_000, taxPaise: 0,
+    });
+    createdIds.push(res.id);
+    const r = await prisma.reservation.findUniqueOrThrow({ where: { id: res.id }, select: { settlementIntent: true } });
+    expect(r.settlementIntent).toBe("PAY_AT_HOTEL");
+  });
+});
+
 describe("no-show sweep (T-21, FR-18, AC-22)", () => {
   it("marks a past CONFIRMED booking NO_SHOW, releases its room, applies advance policy", async () => {
     await actAs(USER_RECEPTION_A_ID);
