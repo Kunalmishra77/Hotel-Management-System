@@ -51,6 +51,13 @@ export const NAV_ITEMS: readonly NavItem[] = [
     primary: true,
   },
   {
+    key: "owner-documents",
+    label: "Documents",
+    href: "/owner/documents",
+    icon: "FolderLock",
+    permission: "owner:view-docs",
+  },
+  {
     // Manager/Accounts analytics home — consolidated KPIs, revenue trend, and
     // revenue segmentation across all accessible properties (financial-gated).
     key: "overview",

@@ -135,6 +135,13 @@ export const DOMAIN_EVENT_TYPES = [
   // 26 data onboarding
   "ImportCommitted",
   "ImportRolledBack",
+
+  // 27 owner portal
+  "PropertyDocumentUploaded",
+  "PropertyDocumentDeleted",
+  "ImportantDateChanged",
+  "OwnerPayoutRecorded",
+  "OwnerPayoutPaid",
 ] as const;
 
 export type DomainEventType = (typeof DOMAIN_EVENT_TYPES)[number];
