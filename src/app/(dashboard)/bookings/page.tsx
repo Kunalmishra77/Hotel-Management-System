@@ -1,13 +1,49 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AlertTriangle, CalendarPlus, FileCheck2, LogIn, LogOut, BedDouble, CalendarClock, Search } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
-import { arrivalsDepartures, listReservations } from "@/features/reservations/queries";
+import { arrivalsDepartures, listReservations, bookingsOverview } from "@/features/reservations/queries";
 import { ReservationBoard } from "@/features/reservations/components/reservation-board";
+import { KpiCard } from "@/components/ui/kpi-card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
+import { BreakdownList } from "@/components/ui/charts/breakdown-list";
 import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = { title: "Bookings" };
 
-/** 03 T-29 — the reservation board for the active property (FR-9/10). */
+const SOURCE_LABEL: Record<string, string> = {
+  WALK_IN: "Walk-in",
+  DIRECT: "Direct",
+  WEBSITE: "Website",
+  PHONE: "Phone",
+  CORPORATE: "Corporate",
+  TRAVEL_AGENT: "Travel agent",
+  BOOKING_COM: "Booking.com",
+  MAKEMYTRIP: "MakeMyTrip",
+  GOIBIBO: "Goibibo",
+  AGODA: "Agoda",
+  AIRBNB: "Airbnb",
+};
+const sourceLabel = (s: string) => SOURCE_LABEL[s] ?? s.replace(/_/g, " ").toLowerCase();
+
+// The reservation lifecycle, in order, with a status-chip tone.
+const STATUS_STEPS: { key: string; label: string; tone: string }[] = [
+  { key: "ENQUIRY", label: "Enquiry / hold", tone: "bg-muted text-muted-foreground" },
+  { key: "CONFIRMED", label: "Confirmed", tone: "bg-warning/12 text-warning" },
+  { key: "IN_HOUSE", label: "In-house", tone: "bg-success/12 text-success" },
+  { key: "CHECKED_OUT", label: "Checked out", tone: "bg-primary/10 text-primary" },
+  { key: "CANCELLED", label: "Cancelled", tone: "bg-destructive/10 text-destructive" },
+  { key: "NO_SHOW", label: "No-show", tone: "bg-destructive/10 text-destructive" },
+];
+
+/**
+ * 03 — the bookings command surface for the active property. Front desk opens here
+ * and sees the whole day at a glance: today's arrivals/departures/in-house, the
+ * lifecycle status mix, OTA bookings needing attention, month volume, and where the
+ * business comes from (booking-source mix) — then the live arrivals/in-house/
+ * departures board underneath. `reservation:view`; property-scoped.
+ */
 export default async function BookingsPage() {
   const user = await requirePermission("reservation:view");
   const propertyId = user.activePropertyId;
@@ -16,18 +52,74 @@ export default async function BookingsPage() {
     return <div className="p-4"><p className="text-sm text-muted-foreground">Select a property to see its bookings.</p></div>;
   }
 
-  const [{ arrivals, departures }, inHouse] = await Promise.all([
-    arrivalsDepartures(user, { propertyId, date: new Date() }),
+  const today = new Date();
+  const [overview, { arrivals, departures }, inHouse] = await Promise.all([
+    bookingsOverview(user, { propertyId, date: today }),
+    arrivalsDepartures(user, { propertyId, date: today }),
     listReservations(user, { propertyId, status: "IN_HOUSE", limit: 50 }),
   ]);
 
+  const dateLabel = today.toLocaleDateString("en-IN", { weekday: "short", day: "2-digit", month: "short" });
+
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-4 p-4">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold">Bookings</h1>
-        <Button asChild size="sm"><Link href="/bookings/new" data-testid="new-booking-link">New booking</Link></Button>
+    <div className="mx-auto w-full max-w-6xl">
+      <PageHeader
+        title="Bookings"
+        description={`Front desk · ${dateLabel}`}
+        actions={
+          <div className="flex items-center gap-2">
+            <Button asChild variant="outline" size="sm"><Link href="/bookings/form-c"><FileCheck2 className="mr-1.5 size-4" />Form C</Link></Button>
+            <Button asChild variant="outline" size="sm"><Link href="/search"><Search className="mr-1.5 size-4" />Search</Link></Button>
+            <Button asChild size="sm"><Link href="/bookings/new" data-testid="new-booking-link"><CalendarPlus className="mr-1.5 size-4" />New booking</Link></Button>
+          </div>
+        }
+      />
+
+      {/* Today at a glance */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6" data-testid="bookings-kpis">
+        <KpiCard label="Arrivals today" value={overview.arrivalsToday} icon={<LogIn />} hint="Due to check in" />
+        <KpiCard label="Departures today" value={overview.departuresToday} icon={<LogOut />} hint="Due to check out" />
+        <KpiCard label="In-house" value={overview.inHouse} icon={<BedDouble />} hint="Currently staying" />
+        <KpiCard label="Enquiries / holds" value={overview.statusCounts["ENQUIRY"] ?? 0} icon={<CalendarClock />} hint="Tentative" />
+        <KpiCard
+          label="Needs attention"
+          value={overview.needsAttention}
+          icon={<AlertTriangle />}
+          trend={overview.needsAttention > 0 ? "down" : undefined}
+          delta={overview.needsAttention > 0 ? "OTA oversell" : undefined}
+          hint="OTA sync flags"
+        />
+        <KpiCard label="Booked this month" value={overview.monthBookings} icon={<CalendarPlus />} hint="New reservations" />
       </div>
-      <ReservationBoard arrivals={arrivals} inHouse={inHouse.reservations} departures={departures} />
+
+      {/* Lifecycle status strip */}
+      <div className="mt-4 flex flex-wrap gap-2" data-testid="status-strip">
+        {STATUS_STEPS.map((s) => (
+          <span key={s.key} className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${s.tone}`}>
+            {s.label}
+            <span className="tabular font-semibold">{overview.statusCounts[s.key] ?? 0}</span>
+          </span>
+        ))}
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-3">
+        {/* Booking sources — always visible (client requirement) */}
+        <Card className="lg:col-span-1">
+          <CardHeader className="pb-2"><CardTitle className="text-base">Booking sources</CardTitle></CardHeader>
+          <CardContent>
+            <BreakdownList
+              items={overview.sourceMix.map((s) => ({ label: sourceLabel(s.source), value: s.count }))}
+              format="number"
+              emptyLabel="No bookings yet."
+            />
+          </CardContent>
+        </Card>
+
+        {/* Live board */}
+        <div className="lg:col-span-2">
+          <ReservationBoard arrivals={arrivals} inHouse={inHouse.reservations} departures={departures} />
+        </div>
+      </div>
     </div>
   );
 }

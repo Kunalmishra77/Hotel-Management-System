@@ -379,6 +379,67 @@ export async function arrivalsDepartures(
   return { arrivals: arrivals.map(toItem), departures: departures.map(toItem) };
 }
 
+/**
+ * Bookings command-surface aggregates — the counts the front-desk dashboard needs
+ * without pulling full lists: status mix, today's arrivals/departures, in-house,
+ * OTA needs-attention (oversell), bookings booked this month, and the booking-source
+ * mix (where the property's business comes from). Property-scoped; one round-trip
+ * of cheap grouped counts, not N list fetches.
+ */
+export type BookingsOverview = {
+  statusCounts: Record<string, number>;
+  arrivalsToday: number;
+  departuresToday: number;
+  inHouse: number;
+  needsAttention: number;
+  monthBookings: number;
+  sourceMix: { source: string; count: number }[];
+};
+
+export async function bookingsOverview(
+  user: SessionClaims,
+  input: { propertyId: string; date: Date },
+): Promise<BookingsOverview> {
+  authorize(user, "reservation:view", input.propertyId);
+  const scoped = db.scoped(user);
+  const day = utcEpochDay(input.date);
+  const dayStart = new Date(day * 86_400_000);
+  const dayEnd = new Date((day + 1) * 86_400_000);
+  const monthStart = new Date(Date.UTC(input.date.getUTCFullYear(), input.date.getUTCMonth(), 1));
+  const where = { propertyId: input.propertyId };
+
+  const [statusGroups, arrivalsToday, departuresToday, needsAttention, monthBookings, sourceGroups] = await Promise.all([
+    scoped.reservation.groupBy({ by: ["status"], where, _count: { _all: true } }),
+    scoped.reservation.count({ where: { ...where, status: "CONFIRMED", checkInDate: { gte: dayStart, lt: dayEnd } } }),
+    scoped.reservation.count({ where: { ...where, status: "IN_HOUSE", checkOutDate: { gte: dayStart, lt: dayEnd } } }),
+    scoped.reservation.count({ where: { ...where, needsAttention: { not: null } } }),
+    scoped.reservation.count({ where: { ...where, createdAt: { gte: monthStart } } }),
+    // Realised business only — cancelled/no-show don't represent a real source mix.
+    scoped.reservation.groupBy({
+      by: ["source"],
+      where: { ...where, status: { in: ["CONFIRMED", "IN_HOUSE", "CHECKED_OUT"] } },
+      _count: { _all: true },
+    }),
+  ]);
+
+  const statusCounts: Record<string, number> = {};
+  for (const g of statusGroups) statusCounts[g.status as string] = g._count._all;
+
+  const sourceMix = sourceGroups
+    .map((g) => ({ source: g.source as string, count: g._count._all }))
+    .sort((a, b) => b.count - a.count);
+
+  return {
+    statusCounts,
+    arrivalsToday,
+    departuresToday,
+    inHouse: statusCounts["IN_HOUSE"] ?? 0,
+    needsAttention,
+    monthBookings,
+    sourceMix,
+  };
+}
+
 /** Allocations overlapping a range — the reservation calendar/board feed. */
 export async function reservationCalendar(
   user: SessionClaims,

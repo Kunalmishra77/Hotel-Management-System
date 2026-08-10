@@ -48,6 +48,7 @@ import { createFromChannel } from "@/features/reservations/channel-actions";
 import { postFolioCharge } from "@/features/billing/charge-actions";
 import { postRoomCharges } from "@/features/billing/night-audit";
 import { getFolio } from "@/features/billing/queries";
+import { bookingsOverview } from "@/features/reservations/queries";
 
 const prisma = createPrismaClient();
 const createdIds: string[] = [];
@@ -641,6 +642,29 @@ describe("attribution (T-23, FR-13, AC-21)", () => {
     if (!res.ok) return;
     const r = await prisma.reservation.findUniqueOrThrow({ where: { id: res.data.id } });
     expect(r.corporateId).toBe(CORPORATE_ACME_ID);
+  });
+});
+
+describe("bookingsOverview (command surface aggregates)", () => {
+  it("counts status mix, today's arrivals, and the booking-source mix", async () => {
+    const claims = await actAs(USER_RECEPTION_A_ID);
+    const res = await createReservation(booking([ROOM_101_ID], { source: "DIRECT" }));
+    track(res);
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+
+    const overview = await bookingsOverview(claims, { propertyId: PROP_A_ID, date: d("2027-07-12") });
+    // The new CONFIRMED booking checks in on 2027-07-12 → counts as an arrival that day.
+    expect(overview.arrivalsToday).toBeGreaterThanOrEqual(1);
+    expect(overview.statusCounts["CONFIRMED"] ?? 0).toBeGreaterThanOrEqual(1);
+    const direct = overview.sourceMix.find((s) => s.source === "DIRECT");
+    expect(direct?.count ?? 0).toBeGreaterThanOrEqual(1);
+    expect(typeof overview.needsAttention).toBe("number");
+  });
+
+  it("denies a role without reservation:view", async () => {
+    const claims = await actAs(USER_HOUSEKEEPING_ID);
+    await expect(bookingsOverview(claims, { propertyId: PROP_A_ID, date: d("2027-07-12") })).rejects.toThrow();
   });
 });
 
