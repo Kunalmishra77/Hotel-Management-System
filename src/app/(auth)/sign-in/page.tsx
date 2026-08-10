@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: "Sign in" };
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string; reset?: string }>;
+  searchParams: Promise<{ next?: string; reset?: string; role?: string }>;
 }) {
   const params = await searchParams;
 
@@ -22,5 +22,5 @@ export default async function SignInPage({
    */
   if (await getCurrentSession()) redirect("/dashboard");
 
-  return <SignInForm next={params.next} justReset={params.reset === "1"} />;
+  return <SignInForm next={params.next} justReset={params.reset === "1"} role={params.role} />;
 }

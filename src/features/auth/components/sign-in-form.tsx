@@ -19,8 +19,24 @@ import { signInAction, verifyTotpAction, type SignInState } from "../actions";
 
 const INITIAL: SignInState = { status: "idle" };
 
-export function SignInForm({ next, justReset }: { next?: string; justReset?: boolean }) {
+/**
+ * Portal → its demo login. Clicking a portal on the landing opens THIS form with
+ * the role's context + email prefilled (the email still editable — anyone can sign
+ * in). Password is always typed; real RBAC decides the portal after login.
+ */
+const PORTAL_LOGINS: Record<string, { label: string; email: string }> = {
+  administrator: { label: "Administrator", email: "admin@woodpecker.example" },
+  manager: { label: "Manager", email: "manager.mg@woodpecker.example" },
+  reception: { label: "Reception", email: "reception.mg@woodpecker.example" },
+  accounts: { label: "Accounts", email: "accounts@woodpecker.example" },
+  housekeeping: { label: "Housekeeping", email: "housekeeping.mg@woodpecker.example" },
+  maintenance: { label: "Maintenance", email: "maintenance.mg@woodpecker.example" },
+  owner: { label: "Property Owner", email: "owner.mg@woodpecker.example" },
+};
+
+export function SignInForm({ next, justReset, role }: { next?: string; justReset?: boolean; role?: string }) {
   const [state, submitCredentials, credentialsPending] = useActionState(signInAction, INITIAL);
+  const portal = role ? PORTAL_LOGINS[role] : undefined;
 
   if (state.status === "totp_required" || state.status === "totp_error") {
     return <TotpStep challenge={state.challenge} next={next} state={state} />;
@@ -29,8 +45,10 @@ export function SignInForm({ next, justReset }: { next?: string; justReset?: boo
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Sign in</CardTitle>
-        <CardDescription>Use your work email address.</CardDescription>
+        <CardTitle>{portal ? `Sign in — ${portal.label}` : "Sign in"}</CardTitle>
+        <CardDescription>
+          {portal ? `You're entering the ${portal.label} portal. Use your work email.` : "Use your work email address."}
+        </CardDescription>
       </CardHeader>
       <CardContent>
         {justReset && (
@@ -56,6 +74,7 @@ export function SignInForm({ next, justReset }: { next?: string; justReset?: boo
               autoCapitalize="none"
               autoCorrect="off"
               required
+              defaultValue={portal?.email}
               aria-invalid={Boolean(state.status === "error" && state.fieldErrors?.email)}
             />
           </div>

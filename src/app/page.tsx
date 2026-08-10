@@ -22,27 +22,27 @@ export const metadata: Metadata = {
  * sign-in; the portal adapts to their permissions (server-side RBAC). This is an
  * informational showcase — no credentials are exposed on the public landing.
  */
-const PORTAL_GROUPS: { group: string; roles: { icon: LucideIcon; name: string; desc: string }[] }[] = [
+const PORTAL_GROUPS: { group: string; roles: { icon: LucideIcon; name: string; desc: string; role: string }[] }[] = [
   {
     group: "Management & ownership",
     roles: [
-      { icon: ShieldCheck, name: "Administrator", desc: "Users, roles, properties, integrations, security & audit — full control." },
-      { icon: Gauge, name: "Manager", desc: "Occupancy, revenue, profit and full daily operations across properties." },
-      { icon: House, name: "Property Owner", desc: "Your property's financials, document vault, schedule & payout statements." },
+      { icon: ShieldCheck, name: "Administrator", role: "administrator", desc: "Users, roles, properties, integrations, security & audit — full control." },
+      { icon: Gauge, name: "Manager", role: "manager", desc: "Occupancy, revenue, profit and full daily operations across properties." },
+      { icon: House, name: "Property Owner", role: "owner", desc: "Your property's financials, document vault, schedule & payout statements." },
     ],
   },
   {
     group: "Front desk & finance",
     roles: [
-      { icon: CalendarCheck, name: "Reception", desc: "Reservations, check-in/out, folio, guest CRM, Form C & attendance." },
-      { icon: Wallet, name: "Accounts", desc: "GST invoices, payments, expenses, reports & accounting sync." },
+      { icon: CalendarCheck, name: "Reception", role: "reception", desc: "Reservations, check-in/out, folio, guest CRM, Form C & attendance." },
+      { icon: Wallet, name: "Accounts", role: "accounts", desc: "GST invoices, payments, expenses, reports & accounting sync." },
     ],
   },
   {
     group: "Operations",
     roles: [
-      { icon: BedDouble, name: "Housekeeping", desc: "Room status, linen & complaints — mobile-first, works offline." },
-      { icon: Wrench, name: "Maintenance", desc: "Log & close jobs with a preventive-maintenance schedule." },
+      { icon: BedDouble, name: "Housekeeping", role: "housekeeping", desc: "Room status, linen & complaints — mobile-first, works offline." },
+      { icon: Wrench, name: "Maintenance", role: "maintenance", desc: "Log & close jobs with a preventive-maintenance schedule." },
     ],
   },
 ];
@@ -148,14 +148,22 @@ export default async function Home() {
               <div key={group}>
                 <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">{group}</h3>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {roles.map(({ icon: Icon, name, desc }) => (
-                    <div key={name} className="rounded-xl border bg-card p-5 shadow-sm">
-                      <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                        <Icon className="size-5" aria-hidden="true" />
+                  {roles.map(({ icon: Icon, name, desc, role }) => (
+                    <Link
+                      key={name}
+                      href={`/sign-in?role=${role}`}
+                      className="group rounded-xl border bg-card p-5 shadow-sm transition hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                          <Icon className="size-5" aria-hidden="true" />
+                        </div>
+                        <ArrowRight className="size-4 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-primary" aria-hidden="true" />
                       </div>
                       <h4 className="mt-3 text-base font-semibold">{name}</h4>
                       <p className="mt-1 text-sm text-muted-foreground">{desc}</p>
-                    </div>
+                      <span className="mt-3 inline-block text-xs font-medium text-primary">Open {name} login →</span>
+                    </Link>
                   ))}
                 </div>
               </div>
