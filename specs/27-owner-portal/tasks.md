@@ -34,5 +34,5 @@ Ordered, small, test-first for domain. Each ends at `rules/definition-of-done.md
 ## Phase 6 — Hardening
 - [x] T-20 RBAC negatives: owner cross-property 403 (AC-2), owner no-PII (AC-3), owner cannot manage/payout (AC-19), reception denied (AC-18), owner cannot delete staff docs (AC-9).
 - [x] T-21 Events in `lib/events/catalog.ts`; confirm none on the SSE broadcast allow-list (owner/financial data).
-- [ ] T-22 E2E (mobile): owner sign-in → home → download document → view payout statement.
+- [x] T-22 E2E (mobile): owner sign-in → home → download document → view payout statement.
 - [x] T-23 `/review-module` clean; every AC mapped to a green test; DoD satisfied; scope.md + rbac-matrix updated.
