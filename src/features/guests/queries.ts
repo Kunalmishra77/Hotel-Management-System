@@ -142,6 +142,53 @@ function buildWhere(orgId: string, query: string): Prisma.GuestWhereInput {
 }
 
 // ---------------------------------------------------------------------------
+// CRM overview (guest landing depth) — cheap indexed counts + a recent list so
+// the guests page is useful before anyone types a search. Org-scoped (guests are
+// an org-level CRM record). Deliberately avoids unindexed segment scans to keep
+// the page fast at 100k+ guests (non-functional-requirements.md).
+// ---------------------------------------------------------------------------
+
+export type GuestsOverview = {
+  total: number;
+  newThisMonth: number;
+  withCompany: number;
+  recent: GuestListItem[];
+};
+
+export async function guestsOverview(user: SessionClaims): Promise<GuestsOverview> {
+  const prisma = db.unscoped();
+  const base = { orgId: user.orgId, deletedAt: null };
+  const now = new Date();
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+
+  const [total, newThisMonth, withCompany, recentRows] = await Promise.all([
+    prisma.guest.count({ where: base }),
+    prisma.guest.count({ where: { ...base, createdAt: { gte: monthStart } } }),
+    prisma.guest.count({ where: { ...base, companyName: { not: null } } }),
+    prisma.guest.findMany({
+      where: base,
+      select: { id: true, fullName: true, mobile: true, email: true, city: true, companyName: true },
+      orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+      take: 8,
+    }),
+  ]);
+
+  return {
+    total,
+    newThisMonth,
+    withCompany,
+    recent: recentRows.map((row) => ({
+      id: row.id,
+      fullName: row.fullName,
+      maskedMobile: maskContact(decryptOptional(row.mobile), "mobile"),
+      maskedEmail: maskContact(decryptOptional(row.email), "email"),
+      city: row.city,
+      companyName: row.companyName,
+    })),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Profile (T-17)
 // ---------------------------------------------------------------------------
 
