@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CalendarCheck, Cable, ChartColumn, Receipt, Sparkles, ArrowRight } from "lucide-react";
+import {
+  CalendarCheck, Cable, ChartColumn, Receipt, Sparkles, ArrowRight,
+  ShieldCheck, Gauge, House, BedDouble, Wallet, Wrench, type LucideIcon,
+} from "lucide-react";
 import { getCurrentSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { Button } from "@/components/ui/button";
@@ -13,6 +16,36 @@ export const metadata: Metadata = {
   description:
     "Mobile-first property management for Woodpecker Apartments & Suites: reservations, GST billing, housekeeping, channels, analytics and AI — across every property.",
 };
+
+/**
+ * Role-based portals, grouped by function. Each role signs in at the SAME secure
+ * sign-in; the portal adapts to their permissions (server-side RBAC). This is an
+ * informational showcase — no credentials are exposed on the public landing.
+ */
+const PORTAL_GROUPS: { group: string; roles: { icon: LucideIcon; name: string; desc: string }[] }[] = [
+  {
+    group: "Management & ownership",
+    roles: [
+      { icon: ShieldCheck, name: "Administrator", desc: "Users, roles, properties, integrations, security & audit — full control." },
+      { icon: Gauge, name: "Manager", desc: "Occupancy, revenue, profit and full daily operations across properties." },
+      { icon: House, name: "Property Owner", desc: "Your property's financials, document vault, schedule & payout statements." },
+    ],
+  },
+  {
+    group: "Front desk & finance",
+    roles: [
+      { icon: CalendarCheck, name: "Reception", desc: "Reservations, check-in/out, folio, guest CRM, Form C & attendance." },
+      { icon: Wallet, name: "Accounts", desc: "GST invoices, payments, expenses, reports & accounting sync." },
+    ],
+  },
+  {
+    group: "Operations",
+    roles: [
+      { icon: BedDouble, name: "Housekeeping", desc: "Room status, linen & complaints — mobile-first, works offline." },
+      { icon: Wrench, name: "Maintenance", desc: "Log & close jobs with a preventive-maintenance schedule." },
+    ],
+  },
+];
 
 const CAPABILITIES = [
   { icon: CalendarCheck, title: "Reservations & front desk", desc: "Booking to check-out in a few taps — no overbooking, ever." },
@@ -90,6 +123,53 @@ export default async function Home() {
               Guest CRM, expenses, maintenance, dynamic pricing, corporate credit, accounting sync,
               and go-live data import — all in one place.
             </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Role-based portals — one secure sign-in, a portal per role */}
+      <section className="border-t bg-muted/20">
+        <div className="mx-auto w-full max-w-6xl px-5 py-14">
+          <div className="mx-auto max-w-2xl text-center">
+            <p className="mb-3 inline-block rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-medium uppercase tracking-wider text-primary">
+              One sign-in · a portal per role
+            </p>
+            <h2 className="text-balance text-2xl font-semibold tracking-tight sm:text-3xl">
+              Every role gets its own portal
+            </h2>
+            <p className="mx-auto mt-3 text-pretty text-sm text-muted-foreground sm:text-base">
+              Staff sign in once; the platform shows only what their role can do — enforced server-side,
+              not just hidden. Pick a role to see what its portal covers.
+            </p>
+          </div>
+
+          <div className="mt-10 space-y-8">
+            {PORTAL_GROUPS.map(({ group, roles }) => (
+              <div key={group}>
+                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">{group}</h3>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {roles.map(({ icon: Icon, name, desc }) => (
+                    <div key={name} className="rounded-xl border bg-card p-5 shadow-sm">
+                      <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <Icon className="size-5" aria-hidden="true" />
+                      </div>
+                      <h4 className="mt-3 text-base font-semibold">{name}</h4>
+                      <p className="mt-1 text-sm text-muted-foreground">{desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-10 flex flex-col items-center gap-3">
+            <Button asChild size="lg">
+              <Link href="/sign-in">
+                Staff sign-in
+                <ArrowRight className="ml-1.5 size-4" aria-hidden="true" />
+              </Link>
+            </Button>
+            <p className="text-xs text-muted-foreground">Your role decides your portal — no separate URLs to remember.</p>
           </div>
         </div>
       </section>
