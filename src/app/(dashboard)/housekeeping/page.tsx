@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { requirePermission } from "@/lib/auth/guard";
-import { listTasks } from "@/features/housekeeping/queries";
+import { listTasks, housekeepingOverview } from "@/features/housekeeping/queries";
 import { HousekeepingBoard } from "@/features/housekeeping/components/housekeeping-board";
 
 export const metadata: Metadata = { title: "Housekeeping" };
@@ -12,6 +12,9 @@ export default async function HousekeepingPage() {
   if (!propertyId) {
     return <div className="p-4"><p className="text-sm text-muted-foreground">Select a property to see housekeeping tasks.</p></div>;
   }
-  const tasks = await listTasks(user, propertyId);
-  return <HousekeepingBoard tasks={tasks} />;
+  const [tasks, overview] = await Promise.all([
+    listTasks(user, propertyId),
+    housekeepingOverview(user, propertyId),
+  ]);
+  return <HousekeepingBoard tasks={tasks} overview={overview} />;
 }

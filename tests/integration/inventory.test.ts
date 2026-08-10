@@ -22,7 +22,7 @@ import { PROP_A_ID, ORG_ID, USER_MANAGER_ID, USER_HOUSEKEEPING_ID } from "../../
 import { assembleClaims } from "@/lib/auth/claims";
 import { createItem, recordMovement, adjustStock } from "@/features/inventory/actions";
 import { createLaundryBatch, recordLaundryReturns } from "@/features/inventory/laundry-actions";
-import { listLaundryBatches } from "@/features/inventory/queries";
+import { listLaundryBatches, inventoryOverview } from "@/features/inventory/queries";
 import { inventoryConsumer } from "@/features/inventory/consumer";
 
 const prisma = createPrismaClient();
@@ -244,6 +244,20 @@ describe("PosOrderSettled consumer (T-8/T-9, FR-3/4, AC-4/5/8/10)", () => {
     });
     // Coffee still deducts (5.5 - 10*0.02 = 5.3); the un-mapped item is skipped, no crash.
     expect((await prisma.inventoryItem.findUniqueOrThrow({ where: { id: itemId } })).onHand).toBe(5.3);
+  });
+});
+
+describe("inventoryOverview (store summary)", () => {
+  it("returns totals + byDomain and denies without inventory:manage", async () => {
+    const mgr = await actAs(USER_MANAGER_ID);
+    const o = await inventoryOverview(mgr, PROP_A_ID);
+    expect(typeof o.totalItems).toBe("number");
+    expect(o.lowStock).toBeLessThanOrEqual(o.totalItems);
+    expect(o.outOfStock).toBeLessThanOrEqual(o.totalItems);
+    expect(Array.isArray(o.byDomain)).toBe(true);
+
+    const hk = await actAs(USER_HOUSEKEEPING_ID);
+    await expect(inventoryOverview(hk, PROP_A_ID)).rejects.toThrow();
   });
 });
 

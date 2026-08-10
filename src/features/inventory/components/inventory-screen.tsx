@@ -15,9 +15,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { StatStrip } from "@/components/ui/stat-strip";
 import { createItem, recordMovement, adjustStock } from "../actions";
 import { INVENTORY_DOMAINS } from "../schema";
-import type { StockLevel } from "../queries";
+import type { StockLevel, InventoryOverview } from "../queries";
 
 type ActionResult = { ok: boolean; error?: { message: string } };
 
@@ -26,7 +27,7 @@ const DOMAIN_LABEL: Record<string, string> = {
   KITCHEN: "Kitchen", MAINTENANCE: "Maintenance", STORE: "Store",
 };
 
-export function InventoryScreen({ propertyId, items }: { propertyId: string; items: StockLevel[] }) {
+export function InventoryScreen({ propertyId, items, overview }: { propertyId: string; items: StockLevel[]; overview: InventoryOverview }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +61,16 @@ export function InventoryScreen({ propertyId, items }: { propertyId: string; ite
         <h1 className="text-xl font-semibold">Stock</h1>
         <Button asChild variant="outline" size="sm"><Link href="/inventory/laundry" data-testid="laundry-link"><Shirt className="size-4" /> Laundry</Link></Button>
       </div>
+
+      <StatStrip
+        className="grid-cols-2 sm:grid-cols-4"
+        items={[
+          { label: "Items", value: overview.totalItems },
+          { label: "Low stock", value: overview.lowStock, tone: overview.lowStock > 0 ? "warning" : "default" },
+          { label: "Out of stock", value: overview.outOfStock, tone: overview.outOfStock > 0 ? "danger" : "default" },
+          { label: "Open laundry", value: overview.openLaundryBatches },
+        ]}
+      />
 
       <Card>
         <CardHeader className="pb-3"><CardTitle className="text-base">Add an item</CardTitle></CardHeader>

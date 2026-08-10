@@ -4,10 +4,49 @@
  * history is scoped through the item relation.
  */
 import { db } from "@/lib/db";
+import { authorize } from "@/lib/permissions";
 import type { SessionClaims } from "@/lib/auth/claims";
 import { belowReorder } from "./domain/reorder";
 import { round6 } from "./domain/on-hand";
 import { laundryLineStatus, laundryBatchTotals, type LaundryLineStatus } from "./domain/laundry";
+
+/**
+ * Store summary — total items, how many are low / out of stock, open laundry
+ * batches awaiting reconciliation, and the item count per InventoryDomain (the 6
+ * domains). Low/out-of-stock compare on-hand vs reorder per item (no groupBy can
+ * compare two columns), so items are read once and reduced in memory — cheap at
+ * property scale. Property-scoped; `inventory:manage`.
+ */
+export type InventoryOverview = {
+  totalItems: number;
+  lowStock: number;
+  outOfStock: number;
+  openLaundryBatches: number;
+  byDomain: { domain: string; count: number }[];
+};
+
+export async function inventoryOverview(user: SessionClaims, propertyId: string): Promise<InventoryOverview> {
+  authorize(user, "inventory:manage", propertyId);
+  const scoped = db.scoped(user);
+  const [rows, openLaundryBatches] = await Promise.all([
+    scoped.inventoryItem.findMany({ where: { propertyId }, select: { onHand: true, reorderLevel: true, domain: true } }),
+    scoped.laundryBatch.count({ where: { propertyId, status: "OPEN" } }),
+  ]);
+
+  let lowStock = 0;
+  let outOfStock = 0;
+  const domainCounts = new Map<string, number>();
+  for (const r of rows) {
+    if (belowReorder(r.onHand, r.reorderLevel)) lowStock++;
+    if (round6(r.onHand) <= 0) outOfStock++;
+    domainCounts.set(r.domain, (domainCounts.get(r.domain) ?? 0) + 1);
+  }
+  const byDomain = [...domainCounts.entries()]
+    .map(([domain, count]) => ({ domain, count }))
+    .sort((a, b) => b.count - a.count);
+
+  return { totalItems: rows.length, lowStock, outOfStock, openLaundryBatches, byDomain };
+}
 
 export type StockLevel = {
   id: string;

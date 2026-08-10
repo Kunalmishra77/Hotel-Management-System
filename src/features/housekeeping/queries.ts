@@ -3,7 +3,35 @@
  * No financials/PII here — housekeeping is an operational role (FR-8).
  */
 import { db } from "@/lib/db";
+import { authorize } from "@/lib/permissions";
 import type { SessionClaims } from "@/lib/auth/claims";
+
+/**
+ * Housekeeping board summary — the counts the landing needs at a glance: rooms to
+ * clean, in-progress, done, open complaints, and how many tasks raised a
+ * maintenance job (the housekeeping↔maintenance link, made visible). Grouped
+ * counts, property-scoped, one round-trip.
+ */
+export type HousekeepingOverview = {
+  toClean: number;
+  inProgress: number;
+  done: number;
+  complaints: number;
+  maintenanceRaised: number;
+};
+
+export async function housekeepingOverview(user: SessionClaims, propertyId: string): Promise<HousekeepingOverview> {
+  authorize(user, "housekeeping:update", propertyId);
+  const scoped = db.scoped(user);
+  const where = { propertyId };
+  const [statusGroups, complaints, maintenanceRaised] = await Promise.all([
+    scoped.housekeepingTask.groupBy({ by: ["status"], where, _count: { _all: true } }),
+    scoped.housekeepingTask.count({ where: { ...where, complaintText: { not: null } } }),
+    scoped.housekeepingTask.count({ where: { ...where, raisedMaintenanceJobId: { not: null } } }),
+  ]);
+  const c = (s: string) => statusGroups.find((g) => (g.status as string) === s)?._count._all ?? 0;
+  return { toClean: c("PENDING"), inProgress: c("IN_PROGRESS"), done: c("DONE"), complaints, maintenanceRaised };
+}
 
 export type HousekeepingTaskItem = {
   id: string;

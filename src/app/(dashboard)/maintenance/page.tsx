@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { requirePermission } from "@/lib/auth/guard";
-import { listJobs } from "@/features/maintenance/queries";
+import { listJobs, maintenanceOverview } from "@/features/maintenance/queries";
 import { MaintenanceScreen } from "@/features/maintenance/components/maintenance-screen";
 
 export const metadata: Metadata = { title: "Maintenance" };
@@ -12,6 +12,9 @@ export default async function MaintenancePage() {
   if (!propertyId) {
     return <div className="p-4"><p className="text-sm text-muted-foreground">Select a property to manage maintenance.</p></div>;
   }
-  const jobs = await listJobs(user, { propertyId });
-  return <MaintenanceScreen propertyId={propertyId} jobs={jobs} />;
+  const [jobs, overview] = await Promise.all([
+    listJobs(user, { propertyId }),
+    maintenanceOverview(user, propertyId),
+  ]);
+  return <MaintenanceScreen propertyId={propertyId} jobs={jobs} overview={overview} />;
 }

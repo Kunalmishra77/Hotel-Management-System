@@ -16,6 +16,7 @@ import { resetRoomsA } from "../../prisma/seed/01-property";
 import { assembleClaims } from "@/lib/auth/claims";
 import { updateTaskStatus, recordHousekeepingDetails, syncOfflineUpdates } from "@/features/housekeeping/actions";
 import { housekeepingConsumer } from "@/features/housekeeping/consumer";
+import { housekeepingOverview } from "@/features/housekeeping/queries";
 
 const prisma = createPrismaClient();
 
@@ -109,6 +110,19 @@ describe("offline sync + conflict (T-7, AC-5/6)", () => {
     expect(res.data.conflicts[0]).toMatchObject({ taskId, reason: "SYNC_CONFLICT" });
     // Server state untouched — still PENDING, room not freed.
     expect((await prisma.housekeepingTask.findUniqueOrThrow({ where: { id: taskId } })).status).toBe("PENDING");
+  });
+});
+
+describe("housekeepingOverview (board summary)", () => {
+  it("returns numeric status counts and denies without housekeeping:update", async () => {
+    const hk = await actAs(USER_HOUSEKEEPING_ID);
+    const o = await housekeepingOverview(hk, PROP_A_ID);
+    expect(typeof o.toClean).toBe("number");
+    expect(typeof o.complaints).toBe("number");
+    expect(o.toClean + o.inProgress + o.done).toBeGreaterThanOrEqual(0);
+
+    const mnt = await actAs(USER_MAINTENANCE_ID);
+    await expect(housekeepingOverview(mnt, PROP_A_ID)).rejects.toThrow();
   });
 });
 

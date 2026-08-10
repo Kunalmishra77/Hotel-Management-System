@@ -15,6 +15,7 @@ import { PROP_A_ID, ROOM_103_ID, GUEST_RAVI_ID, USER_MAINTENANCE_ID, USER_RECEPT
 import { assembleClaims } from "@/lib/auth/claims";
 import { createJob, startJob, closeJob, blockRoomForJob } from "@/features/maintenance/actions";
 import { runPreventiveReminders } from "@/features/maintenance/jobs";
+import { maintenanceOverview } from "@/features/maintenance/queries";
 
 const prisma = createPrismaClient();
 const jobIds: string[] = [];
@@ -123,6 +124,19 @@ describe("lifecycle (T-7, AC-4/5)", () => {
     const res = await startJob({ jobId: job.data.jobId }); // CLOSED → IN_PROGRESS illegal
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.error.code).toBe("ILLEGAL_TRANSITION");
+  });
+});
+
+describe("maintenanceOverview (board summary)", () => {
+  it("returns numeric status counts and denies without maintenance:manage", async () => {
+    const m = await actAs(USER_MAINTENANCE_ID);
+    const o = await maintenanceOverview(m, PROP_A_ID);
+    expect(typeof o.open).toBe("number");
+    expect(typeof o.preventiveDue).toBe("number");
+    expect(o.open + o.inProgress + o.closed).toBeGreaterThanOrEqual(0);
+
+    const r = await actAs(USER_RECEPTION_A_ID);
+    await expect(maintenanceOverview(r, PROP_A_ID)).rejects.toThrow();
   });
 });
 

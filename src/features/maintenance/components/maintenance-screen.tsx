@@ -12,8 +12,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useRealtime } from "@/hooks/use-realtime";
+import { StatStrip } from "@/components/ui/stat-strip";
 import { createJob, startJob, closeJob, blockRoomForJob } from "../actions";
-import type { MaintenanceJobItem } from "../queries";
+import type { MaintenanceJobItem, MaintenanceOverview } from "../queries";
 
 const CATEGORIES = ["AC", "ELECTRICAL", "PLUMBING", "FURNITURE", "PAINTING", "PEST_CONTROL", "OTHER"];
 const rupees = (p: number) => `₹${(p / 100).toLocaleString("en-IN")}`;
@@ -21,7 +22,7 @@ const toPaise = (r: number) => Math.round(r * 100);
 const fmtDate = (d: Date | null) =>
   d ? d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
-export function MaintenanceScreen({ propertyId, jobs }: { propertyId: string; jobs: MaintenanceJobItem[] }) {
+export function MaintenanceScreen({ propertyId, jobs, overview }: { propertyId: string; jobs: MaintenanceJobItem[]; overview: MaintenanceOverview }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +51,16 @@ export function MaintenanceScreen({ propertyId, jobs }: { propertyId: string; jo
   return (
     <div className="mx-auto w-full max-w-2xl space-y-4 p-4">
       <h1 className="text-xl font-semibold">Maintenance</h1>
+
+      <StatStrip
+        items={[
+          { label: "Open", value: overview.open, tone: overview.open > 0 ? "warning" : "default" },
+          { label: "In progress", value: overview.inProgress },
+          { label: "Urgent / high", value: overview.urgent, tone: overview.urgent > 0 ? "danger" : "default" },
+          { label: "Preventive due", value: overview.preventiveDue, tone: overview.preventiveDue > 0 ? "warning" : "default" },
+          { label: "Rooms blocked", value: overview.roomsBlocked },
+        ]}
+      />
 
       <Card>
         <CardHeader className="pb-3"><CardTitle className="text-base">New job</CardTitle></CardHeader>

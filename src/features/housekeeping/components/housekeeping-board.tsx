@@ -16,8 +16,9 @@ import { ConnectivityBadge } from "@/components/mobile/connectivity-badge";
 import { SyncStatus } from "@/components/mobile/sync-status";
 import { enqueue, flush, pending, type Resolver } from "@/lib/offline";
 import { useRealtime } from "@/hooks/use-realtime";
+import { StatStrip } from "@/components/ui/stat-strip";
 import { updateTaskStatus } from "../actions";
-import type { HousekeepingTaskItem } from "../queries";
+import type { HousekeepingTaskItem, HousekeepingOverview } from "../queries";
 
 const HK_KIND = "housekeeping:status";
 type HkPayload = { taskId: string; status: "DONE" | "IN_PROGRESS"; clientUpdatedAt: string };
@@ -48,7 +49,7 @@ const hkResolver: Resolver = async (payload) => {
   return PERMANENT_CODES.has(res.error.code) ? "conflict" : "retry";
 };
 
-export function HousekeepingBoard({ tasks }: { tasks: HousekeepingTaskItem[] }) {
+export function HousekeepingBoard({ tasks, overview }: { tasks: HousekeepingTaskItem[]; overview: HousekeepingOverview }) {
   const router = useRouter();
   const [pendingAction, start] = useTransition();
   const [queuedIds, setQueuedIds] = useState<string[]>([]);
@@ -113,6 +114,16 @@ export function HousekeepingBoard({ tasks }: { tasks: HousekeepingTaskItem[] }) 
           <ConnectivityBadge />
         </div>
       </div>
+
+      <StatStrip
+        items={[
+          { label: "To clean", value: overview.toClean, tone: overview.toClean > 0 ? "warning" : "default" },
+          { label: "In progress", value: overview.inProgress },
+          { label: "Done", value: overview.done, tone: "success" },
+          { label: "Complaints", value: overview.complaints, tone: overview.complaints > 0 ? "danger" : "default" },
+          { label: "Jobs raised", value: overview.maintenanceRaised },
+        ]}
+      />
       {message && (
         <p role="alert" className="text-sm text-destructive" data-testid="hk-message">
           {message}

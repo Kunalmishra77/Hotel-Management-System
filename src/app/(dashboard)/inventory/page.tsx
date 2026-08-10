@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { requirePermission } from "@/lib/auth/guard";
-import { stockLevels } from "@/features/inventory/queries";
+import { stockLevels, inventoryOverview } from "@/features/inventory/queries";
 import { InventoryScreen } from "@/features/inventory/components/inventory-screen";
 
 export const metadata: Metadata = { title: "Inventory" };
@@ -16,6 +16,9 @@ export default async function InventoryPage() {
       </div>
     );
   }
-  const items = await stockLevels(user, { propertyId });
-  return <InventoryScreen propertyId={propertyId} items={items} />;
+  const [items, overview] = await Promise.all([
+    stockLevels(user, { propertyId }),
+    inventoryOverview(user, propertyId),
+  ]);
+  return <InventoryScreen propertyId={propertyId} items={items} overview={overview} />;
 }
