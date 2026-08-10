@@ -30,6 +30,7 @@ export function CommunicationsScreen(props: {
   campaigns: Campaign[];
   log: LogRow[];
   templateKeys: string[];
+  segments: { id: string; name: string; size: number }[];
   canManage: boolean;
   propertyId: string | null;
 }) {
@@ -97,7 +98,7 @@ export function CommunicationsScreen(props: {
 
       {tab === "campaigns" && (
         <div className="space-y-4">
-          {props.canManage && <CampaignBuilder templateKeys={props.templateKeys} propertyId={props.propertyId} />}
+          {props.canManage && <CampaignBuilder templateKeys={props.templateKeys} segments={props.segments} propertyId={props.propertyId} />}
           <Card>
             <CardHeader><CardTitle className="text-base">Recent campaigns</CardTitle></CardHeader>
             <CardContent className="space-y-2">

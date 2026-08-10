@@ -107,6 +107,7 @@ afterAll(async () => {
   await prisma.messageAutomation.deleteMany({ where: { id: { in: AUTOS } } });
   await prisma.messagingAccount.deleteMany({ where: { orgId: ORG_ID, provider: { in: ["twilio", "resend", "secure_mock"] } } });
   await prisma.integrationInbox.deleteMany({ where: { provider: { in: ["messaging:mock", "messaging:optout", "messaging:secure_mock", "comms:payment-reminder"] } } });
+  await prisma.guestSegment.deleteMany({ where: { orgId: ORG_ID, name: "c12-test-seg" } });
   await prisma.guest.deleteMany({ where: { id: { in: [GUEST, GUEST_OPT] } } });
   await prisma.$disconnect();
 });
@@ -161,6 +162,24 @@ describe("US-3 consent, marketing, purpose-limitation (AC-8)", () => {
     }
     expect(await prisma.messageLog.count({ where: { guestId: GUEST, templateKey: KEYS.offer } })).toBe(1);
     expect(await prisma.messageLog.count({ where: { guestId: GUEST_OPT, templateKey: KEYS.offer } })).toBe(0);
+  });
+
+  it("targets an AI segment — resolves membership server-side, still honours consent (MoM bulk marketing)", async () => {
+    const seg = await prisma.guestSegment.create({
+      data: { orgId: ORG_ID, name: "c12-test-seg", ruleJson: { kind: "test" }, guestIds: [GUEST, GUEST_OPT] },
+      select: { id: true },
+    });
+    h.user = await claims(USER_MANAGER_ID);
+    const res = await launchCampaign({ templateKey: KEYS.offer, channel: "WHATSAPP", segmentId: seg.id, propertyId: PROP_A_ID });
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      // Segment membership resolved to 2; consent still skips the opted-out guest.
+      expect(res.data.enqueued).toBe(1);
+      expect(res.data.skipped).toBe(1);
+    }
+    // The campaign records which segment it targeted.
+    const campaign = await prisma.campaign.findFirst({ where: { segmentRef: seg.id }, select: { id: true } });
+    expect(campaign).not.toBeNull();
   });
 
   it("a transactional message to the opted-out guest IS allowed (purpose-limitation, AC-8)", async () => {

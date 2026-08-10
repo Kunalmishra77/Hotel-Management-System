@@ -25,7 +25,9 @@ import {
   LayoutDashboard,
   MessageSquare,
   MoreHorizontal,
+  Navigation,
   Package,
+  Shirt,
   Receipt,
   Search,
   Settings,
@@ -72,6 +74,8 @@ const ICONS: Record<string, LucideIcon> = {
   Landmark,
   Briefcase,
   Upload,
+  Navigation,
+  Shirt,
   MoreHorizontal,
 };
 

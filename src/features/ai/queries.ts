@@ -36,3 +36,12 @@ export async function listSegments(user: SessionClaims): Promise<SegmentCard[]> 
   });
   return rows.map((s) => ({ id: s.id, name: s.name, size: s.guestIds.length }));
 }
+
+/** A segment's cached guest-id membership — the recipient set for a 12 campaign. */
+export async function segmentGuestIds(user: SessionClaims, segmentId: string): Promise<string[]> {
+  const seg = await db.unscoped().guestSegment.findFirst({
+    where: { id: segmentId, orgId: user.orgId },
+    select: { guestIds: true },
+  });
+  return seg?.guestIds ?? [];
+}

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { hasPermission } from "@/lib/permissions";
 import { requirePermission } from "@/lib/auth/guard";
 import { listAutomations, listCampaigns, listMessageLog, listTemplates } from "@/features/communications/queries";
+import { listSegments } from "@/features/ai/queries";
 import { CommunicationsScreen } from "@/features/communications/components/communications-screen";
 
 export const metadata: Metadata = { title: "Communications" };
@@ -12,11 +13,14 @@ export default async function CommunicationsPage() {
   const user = await requirePermission("communication:send");
   const propertyId = user.activePropertyId;
 
-  const [templates, automations, campaigns, log] = await Promise.all([
+  const canManage = hasPermission(user, "communication:template-manage");
+  const [templates, automations, campaigns, log, segments] = await Promise.all([
     listTemplates(user),
     listAutomations(user),
     listCampaigns(user),
     propertyId ? listMessageLog(user, { propertyId, limit: 50 }) : Promise.resolve([]),
+    // Segments target campaigns; only fetch for managers who can launch them.
+    canManage ? listSegments(user) : Promise.resolve([]),
   ]);
 
   const templateKeys = [...new Set(templates.map((t) => t.key))];
@@ -28,7 +32,8 @@ export default async function CommunicationsPage() {
       campaigns={campaigns}
       log={log}
       templateKeys={templateKeys}
-      canManage={hasPermission(user, "communication:template-manage")}
+      segments={segments}
+      canManage={canManage}
       propertyId={propertyId}
     />
   );

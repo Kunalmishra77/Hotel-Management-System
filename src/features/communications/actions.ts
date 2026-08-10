@@ -18,6 +18,7 @@ import { emitEvent } from "@/lib/events";
 import { DomainError, ErrorCode, NotFoundError } from "@/lib/errors";
 import { toResult, type Result } from "@/lib/result";
 import type { Prisma } from "@prisma/client";
+import { segmentGuestIds } from "@/features/ai/queries";
 import { isMarketingAllowed } from "./domain/consent";
 import { nextAllowedSendTime } from "./domain/quiet-hours";
 import { buildRenderContext, renderAndEnqueue } from "./outbox";
@@ -118,15 +119,21 @@ export async function launchCampaign(input: unknown): Promise<Result<{ campaignI
     if (!template) throw new NotFoundError("No active template for that key/channel.");
     const property = data.propertyId ? await loadProperty(data.propertyId) : null;
 
+    // Resolve the recipient set: an AI segment's cached membership (12 marketing
+    // targets a segment), or the explicit list. Consent is still evaluated per
+    // recipient below — a segment never bypasses opt-out.
+    const recipients = data.segmentId ? await segmentGuestIds(user, data.segmentId) : data.recipientGuestIds;
+    if (recipients.length === 0) throw new NotFoundError("The segment has no members to send to.");
+
     let enqueued = 0;
     let skipped = 0;
     const campaignId = await withCommsContext(user, async () => {
       const campaign = await commsDb().campaign.create({
-        data: { orgId: user.orgId, templateKey: data.templateKey, channel: data.channel, segmentRef: data.segmentRef ?? null, couponId: data.couponId ?? null, status: "SENT", approvedById: user.userId, scheduledAt: new Date() },
+        data: { orgId: user.orgId, templateKey: data.templateKey, channel: data.channel, segmentRef: data.segmentRef ?? data.segmentId ?? null, couponId: data.couponId ?? null, status: "SENT", approvedById: user.userId, scheduledAt: new Date() },
         select: { id: true },
       });
 
-      for (const guestId of data.recipientGuestIds) {
+      for (const guestId of recipients) {
         const guest = await loadGuest(user.orgId, guestId);
         if (!guest) { skipped += 1; continue; }
         const status = await loadConsentStatus(guestId, data.channel);

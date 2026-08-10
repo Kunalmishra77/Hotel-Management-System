@@ -177,6 +177,14 @@ export const NAV_ITEMS: readonly NavItem[] = [
     permission: "inventory:manage",
   },
   {
+    // 20 addendum — laundry linen reconciliation (LAUNDRY_SUPERVISOR + managers).
+    key: "laundry",
+    label: "Laundry",
+    href: "/inventory/laundry",
+    icon: "Shirt",
+    permission: "inventory:manage",
+  },
+  {
     key: "payroll",
     label: "Payroll",
     href: "/payroll",
@@ -254,6 +262,14 @@ export const NAV_ITEMS: readonly NavItem[] = [
     // MoM: reception logs attendance/salary, so the screen is reachable with the
     // narrow attendance permission; full staff CRUD inside stays staff:manage-gated.
     permission: "attendance:record",
+  },
+  {
+    // 09 addendum — field-staff live locations (MoM line 32). staff:manage.
+    key: "field-staff",
+    label: "Field staff",
+    href: "/staff/field",
+    icon: "Navigation",
+    permission: "staff:manage",
   },
   {
     key: "settings",

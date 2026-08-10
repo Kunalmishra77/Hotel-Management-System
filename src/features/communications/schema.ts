@@ -36,16 +36,24 @@ export const manageAutomationSchema = z
   });
 export type ManageAutomationInput = z.infer<typeof manageAutomationSchema>;
 
-export const launchCampaignSchema = z.object({
-  templateKey: z.string().min(1).max(80),
-  channel,
-  segmentRef: z.string().max(120).nullish(),
-  couponId: z.string().min(1).nullish(),
-  language: z.string().min(2).max(10).default("en"),
-  /** Explicit recipient set (segment membership resolves to this in the UI). */
-  recipientGuestIds: z.array(z.string().min(1)).min(1).max(10_000),
-  propertyId: z.string().min(1).nullish(),
-});
+export const launchCampaignSchema = z
+  .object({
+    templateKey: z.string().min(1).max(80),
+    channel,
+    segmentRef: z.string().max(120).nullish(),
+    /** Target an AI guest segment — the server resolves its cached membership. */
+    segmentId: z.string().min(1).nullish(),
+    couponId: z.string().min(1).nullish(),
+    language: z.string().min(2).max(10).default("en"),
+    /** Explicit recipient set (used when no segmentId is given). */
+    recipientGuestIds: z.array(z.string().min(1)).max(10_000).default([]),
+    propertyId: z.string().min(1).nullish(),
+  })
+  // Either a segment or an explicit recipient list must target the campaign.
+  .refine((d) => Boolean(d.segmentId) || d.recipientGuestIds.length > 0, {
+    message: "Pick a segment or at least one recipient.",
+    path: ["recipientGuestIds"],
+  });
 export type LaunchCampaignInput = z.infer<typeof launchCampaignSchema>;
 
 export const sendManualSchema = z.object({
