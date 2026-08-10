@@ -202,10 +202,12 @@ describe("seed determinism", () => {
     for (const g of grouped) expect(g._count._all).toBe(1);
   });
 
-  it("seeds six users — one per role — for RBAC coverage", async () => {
+  it("seeds users covering the core roles + both owners for RBAC coverage", async () => {
+    // 6 core-ops roles (admin/manager/reception/accounts/housekeeping/maintenance)
+    // + 2 property owners (27 owner-portal) = 8 users across 7 distinct roles.
     const users = await prisma.user.findMany({ where: { orgId: ORG_ID } });
-    expect(users).toHaveLength(6);
+    expect(users).toHaveLength(8);
     const roles = await prisma.roleAssignment.findMany();
-    expect(new Set(roles.map((r) => r.role)).size).toBe(6);
+    expect(new Set(roles.map((r) => r.role)).size).toBe(7);
   });
 });
