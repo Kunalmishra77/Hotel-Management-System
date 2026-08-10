@@ -19,3 +19,8 @@ Test-first for domain logic. A `tasks.md` item isn't done without the tests its 
 - Deterministic: no real network, clock injected, seeded data. Providers mocked via the interfaces in `lib/*`.
 - Coverage gate: domain layer ≥ 90% lines/branches; overall meaningful coverage on actions. Coverage is a floor, not the goal — assert behavior, not lines.
 - Each spec's `user-stories.md` acceptance criteria map to named tests (traceability).
+
+## Running the integration suite (shared-DB caveat)
+The integration suite talks to the DB over **`DIRECT_URL`** (session mode) because interactive `$transaction`s need a session-pinned connection (see `tests/setup.ts`). Each test file opens its own `PrismaClient`.
+- **Against the shared remote Supabase DB**, running **all ~38 files in one process** (`npx vitest run tests/integration`) intermittently exhausts session connections over the long run → non-deterministic `"Can't reach database server:5432"` / hook timeouts on a *different* random subset each run. This is a **connection-budget artefact, not a product bug** (the failing set changes run-to-run; every suite passes in isolation).
+- **Reliable ways to run:** (a) per-suite — `npx vitest run tests/integration/<file>.test.ts` (re-seed first); or (b) provision a **dedicated `.env.test` Postgres** (local Docker or a Supabase test branch) — `tests/setup.ts` already prefers `.env.test`, giving the suite its own connection budget so the full run is green. The unit suite (621 tests, no DB) is the deterministic gate and always runs clean.
