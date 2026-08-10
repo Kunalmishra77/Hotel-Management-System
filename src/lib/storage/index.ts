@@ -110,11 +110,26 @@ export function s3StorageAdapter(options: {
   bucket: string;
   region: string;
   endpoint?: string;
+  accessKeyId?: string;
+  secretAccessKey?: string;
   encryptionKey: string;
   prefix?: string;
 }): StorageAdapter {
   const prefix = options.prefix ?? "scans";
   const objectKey = (key: string) => `${prefix}/${key}`;
+
+  // One client config for all ops. Credentials come from STORAGE_* (falling back
+  // to the AWS default chain if unset). `forcePathStyle` is required for
+  // S3-COMPATIBLE endpoints (Supabase Storage, MinIO) which don't do virtual-host
+  // addressing; native AWS S3 (no custom endpoint) uses virtual-host style.
+  const clientConfig = () => ({
+    region: options.region,
+    endpoint: options.endpoint,
+    forcePathStyle: Boolean(options.endpoint),
+    ...(options.accessKeyId && options.secretAccessKey
+      ? { credentials: { accessKeyId: options.accessKeyId, secretAccessKey: options.secretAccessKey } }
+      : {}),
+  });
 
   return {
     name: `s3://${options.bucket}/${prefix}`,
@@ -122,7 +137,7 @@ export function s3StorageAdapter(options: {
 
     async put(key, bytes) {
       const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3");
-      const client = new S3Client({ region: options.region, endpoint: options.endpoint });
+      const client = new S3Client(clientConfig());
       const encrypted = encryptBackup(bytes, options.encryptionKey);
       await client.send(
         new PutObjectCommand({
@@ -137,7 +152,7 @@ export function s3StorageAdapter(options: {
 
     async get(key) {
       const { S3Client, GetObjectCommand } = await import("@aws-sdk/client-s3");
-      const client = new S3Client({ region: options.region, endpoint: options.endpoint });
+      const client = new S3Client(clientConfig());
       const res = await client.send(
         new GetObjectCommand({ Bucket: options.bucket, Key: objectKey(key) }),
       );
@@ -147,7 +162,7 @@ export function s3StorageAdapter(options: {
 
     async delete(key) {
       const { S3Client, DeleteObjectCommand } = await import("@aws-sdk/client-s3");
-      const client = new S3Client({ region: options.region, endpoint: options.endpoint });
+      const client = new S3Client(clientConfig());
       await client.send(
         new DeleteObjectCommand({ Bucket: options.bucket, Key: objectKey(key) }),
       );
@@ -185,6 +200,8 @@ export function resolveStorageAdapter(env: NodeJS.ProcessEnv = process.env): Sto
     bucket: env.STORAGE_BUCKET!,
     region,
     endpoint: env.STORAGE_ENDPOINT || undefined,
+    accessKeyId: env.STORAGE_ACCESS_KEY,
+    secretAccessKey: env.STORAGE_SECRET_KEY,
     encryptionKey: key,
   });
 }
