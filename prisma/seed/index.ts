@@ -28,6 +28,7 @@ import { seedPayroll } from "./21-payroll";
 import { seedAccounting } from "./22-accounting";
 import { seedCorporate } from "./25-corporate";
 import { seedDataOnboarding } from "./26-data-onboarding";
+import { seedDemoExtras } from "./27-demo-extras";
 import { seedScale } from "./scale";
 
 const prisma = new PrismaClient();
@@ -99,6 +100,9 @@ async function main(): Promise<void> {
 
   await seedDataOnboarding(prisma);
   console.log("  ✔ 26-data-onboarding (sample import files)");
+
+  await seedDemoExtras(prisma);
+  console.log("  ✔ 27-demo-extras (owner payouts, renewal dates, laundry batches, field-staff)");
 
   // Later modules register here as they are implemented.
 
