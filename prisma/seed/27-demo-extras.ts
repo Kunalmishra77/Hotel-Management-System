@@ -5,7 +5,8 @@
  * Supabase DB via `npm run db:seed`, so the content appears on the live site.
  */
 import type { PrismaClient } from "@prisma/client";
-import { PROP_A_ID, USER_ADMIN_ID } from "./fixtures";
+import { resolveStorageAdapter } from "../../src/lib/storage";
+import { ORG_ID, PROP_A_ID, USER_ADMIN_ID } from "./fixtures";
 
 const d = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
 const DEMO_DRIVER_ID = "staff_demo_driver_wmg";
@@ -97,5 +98,30 @@ export async function seedDemoExtras(prisma: PrismaClient): Promise<void> {
   for (const p of pings) {
     const data = { staffId: DEMO_DRIVER_ID, propertyId: PROP_A_ID, lat: p.lat, lng: p.lng, accuracyM: 14, capturedAt: new Date(now - p.ago) };
     await prisma.fieldStaffPing.upsert({ where: { id: p.id }, create: { id: p.id, ...data }, update: { lat: p.lat, lng: p.lng, capturedAt: data.capturedAt } });
+  }
+
+  // --- Owner document vault (real, downloadable objects in encrypted storage) --
+  // Only when object storage is configured (STORAGE_* env). Without it the seed
+  // skips docs rather than creating rows whose download would 404.
+  const docs = [
+    { id: "doc_wmg_lease", category: "AGREEMENT", title: "Lease agreement — Woodpecker MG Road", body: "WOODPECKER APARTMENTS & SUITES\nLEASE AGREEMENT (sample demo document)\nProperty: Woodpecker MG Road (WMG)\nTerm: 9 years · Lock-in: 3 years\nThis is a sample document seeded for the demo owner vault." },
+    { id: "doc_wmg_licence", category: "LICENCE", title: "Trade licence 2026-27", body: "BBMP TRADE LICENCE (sample demo document)\nProperty: Woodpecker MG Road\nValidity: FY 2026-27\nSeeded for the demo owner vault." },
+    { id: "doc_wmg_statement", category: "STATEMENT", title: "Owner statement — May 2026", body: "OWNER STATEMENT — MAY 2026 (sample)\nRevenue ₹4,80,000 · Expenses ₹1,90,000 · Fee 15% ₹72,000\nNet payable to owner: ₹2,18,000" },
+  ];
+  try {
+    const storage = resolveStorageAdapter();
+    for (const doc of docs) {
+      const bytes = Buffer.from(doc.body, "utf8");
+      const key = `owner-docs/${ORG_ID}/${PROP_A_ID}/${doc.id}.txt`;
+      const stored = await storage.put(key, bytes, { contentType: "text/plain" });
+      const data = {
+        propertyId: PROP_A_ID, category: doc.category, title: doc.title,
+        objectKey: stored.key, checksum: stored.checksum, sizeBytes: bytes.length,
+        contentType: "text/plain", uploadedById: USER_ADMIN_ID, uploadedByRole: "STAFF", deletedAt: null,
+      };
+      await prisma.propertyDocument.upsert({ where: { id: doc.id }, create: { id: doc.id, ...data }, update: data });
+    }
+  } catch (e) {
+    console.log(`    · owner documents skipped (${(e as Error).message.split("\n")[0]})`);
   }
 }
