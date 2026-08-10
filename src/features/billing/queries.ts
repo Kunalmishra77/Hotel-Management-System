@@ -4,6 +4,7 @@
  * so 08/14/05/25 reconcile to the paisa. Callers pass claims explicitly.
  */
 import { db } from "@/lib/db";
+import { authorize } from "@/lib/permissions";
 import { folioBalance } from "./domain/balance";
 import type { SessionClaims } from "@/lib/auth/claims";
 
@@ -111,6 +112,77 @@ export async function revenueByCategory(
   const out: Record<string, number> = {};
   for (const g of grouped) out[g.type] = Number(g._sum.amountPaise ?? 0n);
   return out;
+}
+
+/**
+ * Billing home summary — outstanding dues + how many folios carry them, cash
+ * collected today, and GST invoices issued this month. `folio:view`, property-scoped.
+ *
+ * Outstanding is computed from grouped aggregates (one row per folio) rather than
+ * loading every folio's lines/payments — and because `folioBalance` is a linear
+ * sum (Σ charges − Σ signed payments), the grouped form is IDENTICAL to it, not a
+ * divergent re-derivation. `billingOverview.outstandingPaise === outstanding()`.
+ */
+export type BillingOverview = {
+  outstandingPaise: number;
+  unsettledFolios: number;
+  collectedTodayPaise: number;
+  invoicesThisMonth: number;
+};
+
+export async function billingOverview(user: SessionClaims, propertyId: string): Promise<BillingOverview> {
+  authorize(user, "folio:view", propertyId);
+  const scoped = db.scoped(user);
+  const now = Date.now();
+  const dayIdx = Math.floor(now / 86_400_000);
+  const dayStart = new Date(dayIdx * 86_400_000);
+  const dayEnd = new Date((dayIdx + 1) * 86_400_000);
+  const nowDate = new Date(now);
+  const monthStart = new Date(Date.UTC(nowDate.getUTCFullYear(), nowDate.getUTCMonth(), 1));
+
+  const [lineGroups, payGroups, todayColl, invoicesThisMonth] = await Promise.all([
+    scoped.folioLine.groupBy({
+      by: ["folioId"],
+      where: { folio: { propertyId } },
+      _sum: { amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true },
+    }),
+    scoped.payment.groupBy({ by: ["folioId", "isRefund"], where: { propertyId }, _sum: { amountPaise: true } }),
+    scoped.payment.aggregate({
+      where: { propertyId, isRefund: false, receivedAt: { gte: dayStart, lt: dayEnd } },
+      _sum: { amountPaise: true },
+    }),
+    scoped.invoice.count({ where: { propertyId, issuedAt: { gte: monthStart } } }),
+  ]);
+
+  const charges = new Map<string, bigint>();
+  for (const g of lineGroups) {
+    charges.set(
+      g.folioId,
+      BigInt(g._sum.amountPaise ?? 0n) + BigInt(g._sum.cgstPaise ?? 0) + BigInt(g._sum.sgstPaise ?? 0) + BigInt(g._sum.igstPaise ?? 0),
+    );
+  }
+  const paid = new Map<string, bigint>();
+  for (const g of payGroups) {
+    const amt = BigInt(g._sum.amountPaise ?? 0n);
+    paid.set(g.folioId, (paid.get(g.folioId) ?? 0n) + (g.isRefund ? -amt : amt));
+  }
+
+  let outstandingPaise = 0n;
+  let unsettledFolios = 0;
+  for (const id of new Set([...charges.keys(), ...paid.keys()])) {
+    const bal = (charges.get(id) ?? 0n) - (paid.get(id) ?? 0n);
+    if (bal > 0n) {
+      outstandingPaise += bal;
+      unsettledFolios += 1;
+    }
+  }
+
+  return {
+    outstandingPaise: Number(outstandingPaise),
+    unsettledFolios,
+    collectedTodayPaise: Number(todayColl._sum.amountPaise ?? 0n),
+    invoicesThisMonth,
+  };
 }
 
 /** Total outstanding (Σ folio balances due) for a property (FR-24). */

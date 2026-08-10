@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { ReceiptText, Wallet } from "lucide-react";
+import { ReceiptText, Wallet, HandCoins, FileText } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
-import { outstanding, searchInvoices } from "@/features/billing/queries";
+import { billingOverview, searchInvoices } from "@/features/billing/queries";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
@@ -32,24 +32,26 @@ export default async function BillingPage() {
     );
   }
 
-  const [duePaise, { invoices }] = await Promise.all([
-    outstanding(user, propertyId),
+  const [overview, { invoices }] = await Promise.all([
+    billingOverview(user, propertyId),
     searchInvoices(user, { propertyId, limit: 25 }),
   ]);
 
   return (
     <div className="mx-auto w-full max-w-4xl">
-      <PageHeader title="Billing" description="Outstanding dues and GST tax invoices for this property." />
+      <PageHeader title="Billing" description="Outstanding dues, collections and GST tax invoices for this property." />
 
-      <div className="grid grid-cols-2 gap-3" data-testid="billing-kpis">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" data-testid="billing-kpis">
         <KpiCard
           label="Outstanding dues"
-          value={formatINR(duePaise)}
+          value={formatINR(overview.outstandingPaise)}
           icon={<Wallet />}
-          hint="Unsettled folio balances"
-          trend={duePaise > 0 ? "down" : "up"}
+          hint="Balance to collect"
+          trend={overview.outstandingPaise > 0 ? "down" : "up"}
         />
-        <KpiCard label="Recent invoices" value={String(invoices.length)} icon={<ReceiptText />} hint="Latest issued" />
+        <KpiCard label="Unsettled folios" value={String(overview.unsettledFolios)} icon={<ReceiptText />} hint="With a balance" />
+        <KpiCard label="Collected today" value={formatINR(overview.collectedTodayPaise)} icon={<HandCoins />} hint="Payments received" />
+        <KpiCard label="Invoices this month" value={String(overview.invoicesThisMonth)} icon={<FileText />} hint="GST invoices issued" />
       </div>
 
       <Card className="mt-4">

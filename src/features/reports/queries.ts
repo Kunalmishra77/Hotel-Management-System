@@ -48,10 +48,14 @@ export async function computeProfitReport(
   user: SessionClaims,
   input: { propertyIds: string[]; from: Date; to: Date },
 ): Promise<ProfitReport> {
-  // Revenue by category (06), merged across the scoped properties.
+  // Revenue by category (06), merged across the scoped properties. Fan the
+  // per-property reads out concurrently — a portfolio (command centre/owner) has
+  // several properties and serial awaits made this an N-round-trip bottleneck.
+  const perProperty = await Promise.all(
+    input.propertyIds.map((propertyId) => revenue06(user, { propertyId, from: input.from, to: input.to })),
+  );
   const revenueByCategory: Record<string, number> = {};
-  for (const propertyId of input.propertyIds) {
-    const r = await revenue06(user, { propertyId, from: input.from, to: input.to });
+  for (const r of perProperty) {
     for (const [cat, paise] of Object.entries(r)) revenueByCategory[cat] = (revenueByCategory[cat] ?? 0) + paise;
   }
 

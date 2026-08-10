@@ -22,7 +22,7 @@ vi.mock("next/cache", () => ({ revalidatePath: () => {}, revalidateTag: () => {}
 
 import {
   PROP_A_ID, CAT_DLX_ID, GUEST_RAVI_ID, GUEST_MEHTA_ID, CORPORATE_ACME_ID,
-  USER_ACCOUNTS_ID, USER_RECEPTION_A_ID,
+  USER_ACCOUNTS_ID, USER_RECEPTION_A_ID, USER_HOUSEKEEPING_ID,
 } from "../../prisma/seed/fixtures";
 import { assembleClaims } from "@/lib/auth/claims";
 import { postFolioCharge, applyDiscount, reverseFolioLine } from "@/features/billing/charge-actions";
@@ -30,7 +30,7 @@ import { recordPayment, refund } from "@/features/billing/payment-actions";
 import { generateInvoice, voidInvoice } from "@/features/billing/invoice-actions";
 import { settleCorporate } from "@/features/billing/corporate-actions";
 import { postRoomCharges } from "@/features/billing/night-audit";
-import { getFolio, revenueByCategory, corporateReceivable } from "@/features/billing/queries";
+import { getFolio, revenueByCategory, corporateReceivable, outstanding, billingOverview } from "@/features/billing/queries";
 import { createCoupon, validateCoupon, applyCoupon } from "@/features/billing/coupon-actions";
 import { settlePosSaleDirect } from "@/features/billing/pos-actions";
 import { startOnlinePayment, handlePaymentWebhook } from "@/features/billing/online-payment";
@@ -138,6 +138,30 @@ describe("balance, discount, reversal (T-5/10/11, FR-3/6/7, AC-2/6/7)", () => {
     expect(reversal.reversalOfId).toBe(charge.data.lineId);
     // Original still there, unchanged.
     expect(Number((await prisma.folioLine.findUniqueOrThrow({ where: { id: charge.data.lineId } })).amountPaise)).toBe(80_000);
+  });
+});
+
+describe("billingOverview (finance summary)", () => {
+  it("aggregate outstanding equals the canonical outstanding() sum (money-correct)", async () => {
+    const claims = await actAs(USER_RECEPTION_A_ID);
+    const folioId = await freshFolio();
+    await postFolioCharge({ folioId, type: "FOOD", description: "Dinner", unitPaise: 100_000 });
+
+    const [ov, canonical] = await Promise.all([
+      billingOverview(claims, PROP_A_ID),
+      outstanding(claims, PROP_A_ID),
+    ]);
+    // The grouped aggregate is the SAME linear folioBalance sum, in SQL.
+    expect(ov.outstandingPaise).toBe(canonical);
+    expect(ov.outstandingPaise).toBeGreaterThan(0);
+    expect(ov.unsettledFolios).toBeGreaterThanOrEqual(1);
+    expect(typeof ov.collectedTodayPaise).toBe("number");
+    expect(typeof ov.invoicesThisMonth).toBe("number");
+  });
+
+  it("denies without folio:view", async () => {
+    const claims = await actAs(USER_HOUSEKEEPING_ID);
+    await expect(billingOverview(claims, PROP_A_ID)).rejects.toThrow();
   });
 });
 
