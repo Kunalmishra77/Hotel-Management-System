@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Users, UserPlus, Building2 } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
 import { searchGuests, guestsOverview } from "@/features/guests/queries";
+import { guestTiers } from "@/features/guest-history/queries";
 import { GuestSearchBox } from "@/features/guests/components/guest-search-box";
 import { GuestList } from "@/features/guests/components/guest-list";
 import { KpiCard } from "@/components/ui/kpi-card";
@@ -34,6 +35,10 @@ export default async function GuestsPage({
     guestsOverview(user),
   ]);
 
+  // One batched tier read for whichever set is on screen (search results or recent).
+  const displayed = query ? results.guests : overview.recent;
+  const tiers = await guestTiers(user, displayed.map((g) => g.id));
+
   return (
     <div className="mx-auto w-full max-w-4xl">
       <PageHeader
@@ -58,11 +63,11 @@ export default async function GuestsPage({
 
       <div className="mt-3">
         {query ? (
-          <GuestList guests={results.guests} query={query} />
+          <GuestList guests={results.guests} query={query} tiers={tiers} />
         ) : (
           <>
             <h2 className="mb-2 text-sm font-semibold text-muted-foreground">Recently added</h2>
-            <GuestList guests={overview.recent} query="" />
+            <GuestList guests={overview.recent} query="" tiers={tiers} />
           </>
         )}
       </div>

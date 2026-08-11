@@ -9,9 +9,21 @@
  * a phone and read as a table row on wider screens.
  */
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 import type { GuestListItem } from "../queries";
+import type { GuestTierInfo } from "@/features/guest-history/domain/tier";
 
-export function GuestList({ guests, query }: { guests: GuestListItem[]; query: string }) {
+const TIER_VARIANT: Record<string, "brass" | "secondary"> = { VIP: "brass", REPEAT: "secondary" };
+
+export function GuestList({
+  guests,
+  query,
+  tiers = {},
+}: {
+  guests: GuestListItem[];
+  query: string;
+  tiers?: Record<string, GuestTierInfo>;
+}) {
   if (guests.length === 0) {
     return (
       <p className="rounded-md border bg-muted/40 p-6 text-center text-sm text-muted-foreground">
@@ -31,7 +43,14 @@ export function GuestList({ guests, query }: { guests: GuestListItem[]; query: s
             className="flex min-h-11 flex-col gap-0.5 p-3 hover:bg-muted/50 focus:bg-muted/50 focus:outline-none sm:flex-row sm:items-center sm:justify-between"
             data-testid="guest-row"
           >
-            <span className="font-medium">{g.fullName}</span>
+            <span className="flex items-center gap-2 font-medium">
+              {g.fullName}
+              {tiers[g.id] && tiers[g.id]!.tier !== "NEW" ? (
+                <Badge variant={TIER_VARIANT[tiers[g.id]!.tier] ?? "secondary"} className="text-[0.65rem]">
+                  {tiers[g.id]!.label}
+                </Badge>
+              ) : null}
+            </span>
             <span className="text-sm text-muted-foreground">
               {g.maskedMobile ?? "—"}
               {g.city ? ` · ${g.city}` : ""}

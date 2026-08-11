@@ -7,7 +7,37 @@
  */
 import { db } from "@/lib/db";
 import { hasPermission } from "@/lib/permissions";
+import { guestTier, type GuestTierInfo } from "./domain/tier";
 import type { SessionClaims } from "@/lib/auth/claims";
+
+/**
+ * Batched guest tiers for a set of guests — the list/search hot path. ONE indexed
+ * read of the derived stats snapshot for every id (no N+1), then the pure
+ * `guestTier` per guest. Revenue is honoured only with `report:view-financial`;
+ * otherwise tier falls back to visit count (always visible). Guest ids must
+ * already be caller-scoped (they come from the org-scoped guest search).
+ */
+export async function guestTiers(
+  user: SessionClaims,
+  guestIds: string[],
+): Promise<Record<string, GuestTierInfo>> {
+  if (guestIds.length === 0) return {};
+  const canSeeMoney = hasPermission(user, "report:view-financial");
+  const snaps = await db.unscoped().guestStatsSnapshot.findMany({
+    where: { guestId: { in: guestIds } },
+    select: { guestId: true, visits: true, totalRevenuePaise: true },
+  });
+  const byId = new Map(snaps.map((s) => [s.guestId, s]));
+  const out: Record<string, GuestTierInfo> = {};
+  for (const id of guestIds) {
+    const s = byId.get(id);
+    out[id] = guestTier({
+      visits: s?.visits ?? 0,
+      revenuePaise: canSeeMoney ? Number(s?.totalRevenuePaise ?? 0n) : null,
+    });
+  }
+  return out;
+}
 
 export type GuestHistoryView = {
   visits: number;
