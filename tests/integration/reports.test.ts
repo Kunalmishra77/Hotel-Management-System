@@ -40,6 +40,11 @@ async function claims(userId: string): Promise<SessionClaims> {
 
 async function seedMonth() {
   const bd = new Date(`${YM}-05`);
+  // payroll.test.ts derives its month from the same clock formula and can land on
+  // this same YM during the shared collect phase, leaving a PayrollRun that
+  // collides with ours on (propertyId, month, sequence). Clear any such leftover
+  // first so seedMonth is self-healing regardless of run order.
+  await prisma.payrollRun.deleteMany({ where: { propertyId: PROP_A_ID, month: YM } });
   const folio = await prisma.folio.create({ data: { propertyId: PROP_A_ID, kind: "DIRECT_SALE" }, select: { id: true } });
   await prisma.folioLine.create({ data: { folioId: folio.id, type: "ROOM", description: "Rooms", quantity: 1, unitPaise: 60_000_000, amountPaise: 60_000_000n, businessDate: bd } });
   await prisma.folioLine.create({ data: { folioId: folio.id, type: "FOOD", description: "F&B", quantity: 1, unitPaise: 8_000_000, amountPaise: 8_000_000n, businessDate: bd } });

@@ -102,11 +102,18 @@ async function main(): Promise<void> {
   await seedDataOnboarding(prisma);
   console.log("  ✔ 26-data-onboarding (sample import files)");
 
-  await seedDemoExtras(prisma);
-  console.log("  ✔ 27-demo-extras (owner payouts, renewal dates, laundry batches, field-staff)");
+  // Demo-only enrichment (owner payouts, 5-hotel portfolio, extra staff, in-house
+  // bookings) makes the live demo look full, but it pollutes the minimal fixture
+  // state the integration tests assert against. Skip it for the test database.
+  if (process.env.SEED_DEMO !== "false") {
+    await seedDemoExtras(prisma);
+    console.log("  ✔ 27-demo-extras (owner payouts, renewal dates, laundry batches, field-staff)");
 
-  await seedDemoPortfolio(prisma);
-  console.log("  ✔ 28-demo-portfolio (5 hotels + managers + 30-day snapshots)");
+    await seedDemoPortfolio(prisma);
+    console.log("  ✔ 28-demo-portfolio (5 hotels + managers + 30-day snapshots)");
+  } else {
+    console.log("  · demo seeds skipped (SEED_DEMO=false)");
+  }
 
   // Later modules register here as they are implemented.
 
