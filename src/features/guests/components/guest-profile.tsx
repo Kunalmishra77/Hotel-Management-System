@@ -13,12 +13,20 @@ import { useActionState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RevealSheet } from "./reveal-sheet";
 import { addGuestIdFormAction, type AddIdFormState } from "../form-actions";
 import type { GuestProfile as GuestProfileData } from "../queries";
+import type { GuestTierInfo } from "@/features/guest-history/domain/tier";
+
+const TIER_VARIANT: Record<string, "brass" | "secondary" | "outline"> = {
+  VIP: "brass",
+  REPEAT: "secondary",
+  NEW: "outline",
+};
 
 type RevealTarget = { field: "mobile" | "email" | "whatsapp"; label: string };
 
@@ -27,9 +35,11 @@ const ID_TYPES = ["AADHAAR", "PASSPORT", "DRIVING_LICENCE", "VOTER_ID", "PAN", "
 export function GuestProfile({
   guest,
   canRevealPii,
+  tier,
 }: {
   guest: GuestProfileData;
   canRevealPii: boolean;
+  tier: GuestTierInfo;
 }) {
   const [reveal, setReveal] = useState<RevealTarget | null>(null);
 
@@ -41,6 +51,10 @@ export function GuestProfile({
           {guest.companyName && (
             <p className="text-sm text-muted-foreground">{guest.companyName}</p>
           )}
+          <div className="mt-1.5 flex flex-wrap gap-1.5" data-testid="guest-tags">
+            <Badge variant={TIER_VARIANT[tier.tier] ?? "outline"}>{tier.label}</Badge>
+            {guest.companyName && <Badge variant="secondary">Corporate</Badge>}
+          </div>
         </div>
         <Button asChild variant="outline" size="sm">
           <Link href="/guests">Back</Link>

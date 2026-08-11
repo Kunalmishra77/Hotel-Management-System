@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { getGuestProfile } from "@/features/guests/queries";
 import { GuestProfile } from "@/features/guests/components/guest-profile";
 import { getGuestHistory } from "@/features/guest-history/queries";
+import { guestTier } from "@/features/guest-history/domain/tier";
 import { GuestHistorySection } from "@/features/guest-history/components/guest-history-section";
 
 export const metadata: Metadata = { title: "Guest" };
@@ -26,9 +27,11 @@ export default async function GuestProfilePage({
     ? await db.scoped(user).roomCategory.findFirst({ where: { id: history.preferredCategoryId }, select: { name: true } })
     : null;
 
+  const tier = guestTier({ visits: history.visits, revenuePaise: history.totalRevenuePaise });
+
   return (
     <div className="space-y-4">
-      <GuestProfile guest={guest} canRevealPii={hasPermission(user, "guest:view-pii")} />
+      <GuestProfile guest={guest} canRevealPii={hasPermission(user, "guest:view-pii")} tier={tier} />
       <div className="mx-auto w-full max-w-2xl px-4 pb-4">
         <GuestHistorySection history={history} preferredCategoryName={preferredCategory?.name ?? null} />
       </div>
