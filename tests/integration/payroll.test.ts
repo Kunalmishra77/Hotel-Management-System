@@ -61,7 +61,10 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await prisma.payrollLine.deleteMany({ where: { staffId: { in: [ANU, LATE, EX] } } });
+  // Delete ALL lines of this month's runs (the run can also carry lines for the
+  // seed's PROP_A staff, which would FK-block the run delete), then the runs.
+  const runs = await prisma.payrollRun.findMany({ where: { propertyId: PROP_A_ID, month: YM }, select: { id: true } });
+  await prisma.payrollLine.deleteMany({ where: { runId: { in: runs.map((r) => r.id) } } });
   await prisma.payrollRun.deleteMany({ where: { propertyId: PROP_A_ID, month: YM } });
   await prisma.attendance.deleteMany({ where: { staffId: { in: [ANU, LATE, EX] } } });
   await prisma.staffAdvance.deleteMany({ where: { staffId: { in: [ANU, LATE, EX] } } });

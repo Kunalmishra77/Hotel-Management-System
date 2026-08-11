@@ -48,74 +48,69 @@ function assertNotProduction(): void {
   }
 }
 
-async function main(): Promise<void> {
-  assertNotProduction();
-
-  const startedAt = Date.now();
-  console.log("Seeding Woodpecker PMS…");
+/**
+ * Seed the full minimal fixture into `client` (tiers 00–26). Exported so tests can
+ * re-seed a freshly-reset dedicated DB per file (see `tests/integration-reset.ts`).
+ * `SEED_DEMO=false` skips the demo-only enrichment (27/28) that pollutes fixture
+ * state. `log:false` silences per-step output for the per-file reseed.
+ */
+export async function seedDatabase(client: PrismaClient, opts: { log?: boolean } = {}): Promise<void> {
+  const say = (m: string) => { if (opts.log ?? true) console.log(m); };
 
   // Tier 0
-  await seedPlatform(prisma);
-  console.log("  ✔ 00-platform  (org, security settings, 2 properties, 6 users)");
-
-  await seedProperty(prisma);
-  console.log("  ✔ 01-property   (3 floors, 2 categories, ROOMS-A: 10 rooms)");
-
-  await seedGuests(prisma);
-  console.log("  ✔ 04-guest      (G-RAVI, G-RAVI2 duplicate, G-MEHTA)");
-
+  await seedPlatform(client);
+  say("  ✔ 00-platform  (org, security settings, 2 properties, 6 users)");
+  await seedProperty(client);
+  say("  ✔ 01-property   (3 floors, 2 categories, ROOMS-A: 10 rooms)");
+  await seedGuests(client);
+  say("  ✔ 04-guest      (G-RAVI, G-RAVI2 duplicate, G-MEHTA)");
   // Tier 1
-  await seedReservations(prisma);
-  console.log("  ✔ 03-reservation (ACME corporate + G-MEHTA link)");
-
+  await seedReservations(client);
+  say("  ✔ 03-reservation (ACME corporate + G-MEHTA link)");
   // Tier 4
-  await seedCommunications(prisma);
-  console.log("  ✔ 12-communications (templates, automations, consents, sandbox account)");
-
+  await seedCommunications(client);
+  say("  ✔ 12-communications (templates, automations, consents, sandbox account)");
   // Tier 5
-  await seedDynamicPricing(prisma);
-  console.log("  ✔ 24-dynamic-pricing (Deluxe rate plan + SUGGESTED rate)");
-
-  await seedBookingEngine(prisma);
-  console.log("  ✔ 23-booking-engine (published config, slug woodpecker-mg)");
-
-  await seedChannels(prisma);
-  console.log("  ✔ 13-channels    (CH-BDC sandbox, MAP-DLX, RES-EXT fixture)");
-
+  await seedDynamicPricing(client);
+  say("  ✔ 24-dynamic-pricing (Deluxe rate plan + SUGGESTED rate)");
+  await seedBookingEngine(client);
+  say("  ✔ 23-booking-engine (published config, slug woodpecker-mg)");
+  await seedChannels(client);
+  say("  ✔ 13-channels    (CH-BDC sandbox, MAP-DLX, RES-EXT fixture)");
   // Tier 6
-  await seedPos(prisma);
-  console.log("  ✔ 19-pos        (OUT-REST outlet + Masala Dosa/Coffee menu)");
-
-  await seedInventory(prisma);
-  console.log("  ✔ 20-inventory   (I-RICE, I-COFFEE, coffee recipe)");
-
-  await seedPayroll(prisma);
-  console.log("  ✔ 21-payroll    (S-ANU, S-LATE, S-EX, attendance+OT, ADV-ANU)");
-
-  await seedAccounting(prisma);
-  console.log("  ✔ 22-accounting  (PROV zoho sandbox + GL mappings)");
-
+  await seedPos(client);
+  say("  ✔ 19-pos        (OUT-REST outlet + Masala Dosa/Coffee menu)");
+  await seedInventory(client);
+  say("  ✔ 20-inventory   (I-RICE, I-COFFEE, coffee recipe)");
+  await seedPayroll(client);
+  say("  ✔ 21-payroll    (S-ANU, S-LATE, S-EX, attendance+OT, ADV-ANU)");
+  await seedAccounting(client);
+  say("  ✔ 22-accounting  (PROV zoho sandbox + GL mappings)");
   // Tier 7
-  await seedCorporate(prisma);
-  console.log("  ✔ 25-corporate  (TA-SKY 10%, NEG-DLX ₹3,500 for ACME)");
-
-  await seedDataOnboarding(prisma);
-  console.log("  ✔ 26-data-onboarding (sample import files)");
+  await seedCorporate(client);
+  say("  ✔ 25-corporate  (TA-SKY 10%, NEG-DLX ₹3,500 for ACME)");
+  await seedDataOnboarding(client);
+  say("  ✔ 26-data-onboarding (sample import files)");
 
   // Demo-only enrichment (owner payouts, 5-hotel portfolio, extra staff, in-house
   // bookings) makes the live demo look full, but it pollutes the minimal fixture
   // state the integration tests assert against. Skip it for the test database.
   if (process.env.SEED_DEMO !== "false") {
-    await seedDemoExtras(prisma);
-    console.log("  ✔ 27-demo-extras (owner payouts, renewal dates, laundry batches, field-staff)");
-
-    await seedDemoPortfolio(prisma);
-    console.log("  ✔ 28-demo-portfolio (5 hotels + managers + 30-day snapshots)");
+    await seedDemoExtras(client);
+    say("  ✔ 27-demo-extras (owner payouts, renewal dates, laundry batches, field-staff)");
+    await seedDemoPortfolio(client);
+    say("  ✔ 28-demo-portfolio (5 hotels + managers + 30-day snapshots)");
   } else {
-    console.log("  · demo seeds skipped (SEED_DEMO=false)");
+    say("  · demo seeds skipped (SEED_DEMO=false)");
   }
+}
 
-  // Later modules register here as they are implemented.
+async function main(): Promise<void> {
+  assertNotProduction();
+
+  const startedAt = Date.now();
+  console.log("Seeding Woodpecker PMS…");
+  await seedDatabase(prisma);
 
   // Opt-in scale seed (seed-data.md): `npm run db:seed -- --scale`.
   // 100k guests for the FR-10 p95<500ms search test. Off by default — it is
@@ -128,11 +123,15 @@ async function main(): Promise<void> {
   console.log(`Seed complete in ${Date.now() - startedAt}ms.`);
 }
 
-main()
-  .catch((e: unknown) => {
-    console.error("Seed failed:", e);
-    process.exitCode = 1;
-  })
-  .finally(() => {
-    void prisma.$disconnect();
-  });
+// Auto-run only as the CLI seed. When imported under Vitest (the per-file test
+// reset imports `seedDatabase`), do NOT run the full CLI main().
+if (!process.env.VITEST) {
+  main()
+    .catch((e: unknown) => {
+      console.error("Seed failed:", e);
+      process.exitCode = 1;
+    })
+    .finally(() => {
+      void prisma.$disconnect();
+    });
+}
