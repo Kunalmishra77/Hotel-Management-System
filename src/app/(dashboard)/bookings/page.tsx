@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AlertTriangle, CalendarPlus, FileCheck2, LogIn, LogOut, BedDouble, CalendarClock, Search } from "lucide-react";
+import { AlertTriangle, CalendarPlus, CalendarRange, FileCheck2, LogIn, LogOut, BedDouble, CalendarClock, Search } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
 import { arrivalsDepartures, listReservations, bookingsOverview } from "@/features/reservations/queries";
 import { ReservationBoard } from "@/features/reservations/components/reservation-board";
@@ -68,6 +68,7 @@ export default async function BookingsPage() {
         description={`Front desk · ${dateLabel}`}
         actions={
           <div className="flex items-center gap-2">
+            <Button asChild variant="outline" size="sm"><Link href="/bookings/calendar"><CalendarRange className="mr-1.5 size-4" />Calendar</Link></Button>
             <Button asChild variant="outline" size="sm"><Link href="/bookings/form-c"><FileCheck2 className="mr-1.5 size-4" />Form C</Link></Button>
             <Button asChild variant="outline" size="sm"><Link href="/search"><Search className="mr-1.5 size-4" />Search</Link></Button>
             <Button asChild size="sm"><Link href="/bookings/new" data-testid="new-booking-link"><CalendarPlus className="mr-1.5 size-4" />New booking</Link></Button>

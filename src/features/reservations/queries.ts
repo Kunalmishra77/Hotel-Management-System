@@ -440,11 +440,22 @@ export async function bookingsOverview(
   };
 }
 
-/** Allocations overlapping a range — the reservation calendar/board feed. */
+export type CalendarAllocation = {
+  roomId: string;
+  roomNumber: string;
+  reservationId: string;
+  code: string;
+  guestName: string;
+  startDate: Date;
+  endDate: Date;
+  status: string;
+};
+
+/** Allocations overlapping a range — the reservation calendar/tape-chart feed. */
 export async function reservationCalendar(
   user: SessionClaims,
   input: { propertyId: string; from: Date; to: Date },
-): Promise<{ roomId: string; roomNumber: string; reservationId: string; startDate: Date; endDate: Date; status: string }[]> {
+): Promise<CalendarAllocation[]> {
   const rows = await db.scoped(user).roomAllocation.findMany({
     where: {
       propertyId: input.propertyId,
@@ -456,7 +467,7 @@ export async function reservationCalendar(
       startDate: true,
       endDate: true,
       room: { select: { number: true } },
-      reservation: { select: { id: true, status: true } },
+      reservation: { select: { id: true, status: true, code: true, guest: { select: { fullName: true } } } },
     },
     orderBy: [{ roomId: "asc" }, { startDate: "asc" }],
   });
@@ -465,6 +476,8 @@ export async function reservationCalendar(
     roomId: a.roomId,
     roomNumber: a.room.number,
     reservationId: a.reservation.id,
+    code: a.reservation.code,
+    guestName: a.reservation.guest.fullName,
     startDate: a.startDate,
     endDate: a.endDate,
     status: a.reservation.status,
