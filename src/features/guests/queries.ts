@@ -18,6 +18,7 @@ import { maskContact } from "./domain/masking";
 import { duplicateScore, isProbableDuplicate } from "./domain/dedupe";
 import { normalizeEmail, normalizeGstin, normalizePhone } from "./domain/normalize";
 import { emailToken, mobileToken } from "./internal";
+import { guestIdsBySegment } from "@/features/guest-history/queries";
 import type { SessionClaims } from "@/lib/auth/claims";
 import type { SearchGuestsInput } from "./schema";
 
@@ -43,6 +44,84 @@ export type GuestSearchResult = {
   nextCursor: string | null;
 };
 
+/** The columns every masked guest-list row needs. */
+const GUEST_LIST_SELECT = {
+  id: true,
+  fullName: true,
+  mobile: true,
+  email: true,
+  city: true,
+  companyName: true,
+} as const;
+
+type GuestListRow = {
+  id: string;
+  fullName: string;
+  mobile: string | null;
+  email: string | null;
+  city: string | null;
+  companyName: string | null;
+};
+
+/**
+ * Decrypt-then-mask one contact field. Resilient by design: a single row whose
+ * ciphertext can't be opened (e.g. legacy data encrypted under a rotated key)
+ * degrades to `null` ("—") rather than throwing and taking down the whole list.
+ * The raw value still never leaves the server; exact values go through `revealPii`.
+ */
+function safeMaskContact(value: string | null, kind: "mobile" | "email"): string | null {
+  try {
+    return maskContact(decryptOptional(value), kind);
+  } catch {
+    return null;
+  }
+}
+
+/** Decrypt-then-mask a guest row into the masked list item (AC-7). */
+function toGuestListItem(row: GuestListRow): GuestListItem {
+  return {
+    id: row.id,
+    fullName: row.fullName,
+    maskedMobile: safeMaskContact(row.mobile, "mobile"),
+    maskedEmail: safeMaskContact(row.email, "email"),
+    city: row.city,
+    companyName: row.companyName,
+  };
+}
+
+export type GuestSegment = "vip" | "repeat" | "corporate";
+
+/**
+ * Guests in a CRM segment (the guests-page filter chips), MASKED. `corporate` is a
+ * direct `companyName` filter (04 owns Guest); `vip`/`repeat` ask 05 for the
+ * stats-matching ids (via its query surface) then fetch the org's guests for them —
+ * so the id set is always re-scoped to the caller's org here.
+ */
+export async function guestsBySegment(
+  user: SessionClaims,
+  input: { segment: GuestSegment; limit?: number },
+): Promise<GuestListItem[]> {
+  const prisma = db.unscoped();
+  const limit = input.limit ?? 24;
+  const base = { orgId: user.orgId, deletedAt: null };
+
+  if (input.segment === "corporate") {
+    const rows = await prisma.guest.findMany({
+      where: { ...base, companyName: { not: null } },
+      select: GUEST_LIST_SELECT,
+      orderBy: [{ fullName: "asc" }, { id: "asc" }],
+      take: limit,
+    });
+    return rows.map(toGuestListItem);
+  }
+
+  const ids = await guestIdsBySegment(user, input.segment, limit);
+  if (ids.length === 0) return [];
+  const rows = await prisma.guest.findMany({ where: { ...base, id: { in: ids } }, select: GUEST_LIST_SELECT });
+  const order = new Map(ids.map((id, i) => [id, i] as const));
+  return rows.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0)).map(toGuestListItem);
+}
+
 /**
  * Search guests, scoped to the caller's org, cursor-paginated, masked.
  *
@@ -62,14 +141,7 @@ export async function searchGuests(
 
   const rows = await prisma.guest.findMany({
     where,
-    select: {
-      id: true,
-      fullName: true,
-      mobile: true,
-      email: true,
-      city: true,
-      companyName: true,
-    },
+    select: GUEST_LIST_SELECT,
     orderBy: [{ fullName: "asc" }, { id: "asc" }],
     take: limit + 1, // one extra to detect a next page
     ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
@@ -78,17 +150,10 @@ export async function searchGuests(
   const hasMore = rows.length > limit;
   const page = hasMore ? rows.slice(0, limit) : rows;
 
+  // Decrypt then mask — the raw value never leaves the server. A caller with
+  // reveal permission uses `revealPii`, never this list.
   return {
-    guests: page.map((row) => ({
-      id: row.id,
-      fullName: row.fullName,
-      // Decrypt then mask — the raw value never leaves the server. A caller with
-      // reveal permission uses `revealPii`, never this list.
-      maskedMobile: maskContact(decryptOptional(row.mobile), "mobile"),
-      maskedEmail: maskContact(decryptOptional(row.email), "email"),
-      city: row.city,
-      companyName: row.companyName,
-    })),
+    guests: page.map(toGuestListItem),
     nextCursor: hasMore ? (page[page.length - 1]?.id ?? null) : null,
   };
 }
@@ -167,7 +232,7 @@ export async function guestsOverview(user: SessionClaims): Promise<GuestsOvervie
     prisma.guest.count({ where: { ...base, companyName: { not: null } } }),
     prisma.guest.findMany({
       where: base,
-      select: { id: true, fullName: true, mobile: true, email: true, city: true, companyName: true },
+      select: GUEST_LIST_SELECT,
       orderBy: [{ createdAt: "desc" }, { id: "asc" }],
       take: 8,
     }),
@@ -177,14 +242,7 @@ export async function guestsOverview(user: SessionClaims): Promise<GuestsOvervie
     total,
     newThisMonth,
     withCompany,
-    recent: recentRows.map((row) => ({
-      id: row.id,
-      fullName: row.fullName,
-      maskedMobile: maskContact(decryptOptional(row.mobile), "mobile"),
-      maskedEmail: maskContact(decryptOptional(row.email), "email"),
-      city: row.city,
-      companyName: row.companyName,
-    })),
+    recent: recentRows.map(toGuestListItem),
   };
 }
 

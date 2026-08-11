@@ -7,8 +7,30 @@
  */
 import { db } from "@/lib/db";
 import { hasPermission } from "@/lib/permissions";
-import { guestTier, type GuestTierInfo } from "./domain/tier";
+import { guestTier, VIP_MIN_VISITS, VIP_MIN_REVENUE_PAISE, type GuestTierInfo } from "./domain/tier";
 import type { SessionClaims } from "@/lib/auth/claims";
+
+/**
+ * Guest ids matching a stats-derived segment, most-valuable first — the 05 side of
+ * the guests segment filter. Reads only the derived snapshot (05 owns it); 04
+ * re-scopes the ids to the org when it fetches the guest rows. `vip` = the same
+ * threshold as `guestTier`; `repeat` = returning (2+ stays).
+ */
+export type StatsSegment = "vip" | "repeat";
+
+export async function guestIdsBySegment(_user: SessionClaims, segment: StatsSegment, limit: number): Promise<string[]> {
+  const where =
+    segment === "vip"
+      ? { OR: [{ visits: { gte: VIP_MIN_VISITS } }, { totalRevenuePaise: { gte: BigInt(VIP_MIN_REVENUE_PAISE) } }] }
+      : { visits: { gte: 2 } };
+  const snaps = await db.unscoped().guestStatsSnapshot.findMany({
+    where,
+    select: { guestId: true },
+    orderBy: [{ visits: "desc" }, { totalRevenuePaise: "desc" }],
+    take: limit,
+  });
+  return snaps.map((s) => s.guestId);
+}
 
 /**
  * Batched guest tiers for a set of guests — the list/search hot path. ONE indexed

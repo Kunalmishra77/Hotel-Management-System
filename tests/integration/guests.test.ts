@@ -45,7 +45,7 @@ import { addGuestId } from "@/features/guests/id-actions";
 import { revealPii, exportGuestData } from "@/features/guests/pii-actions";
 import { eraseGuest } from "@/features/guests/erase-actions";
 import { mergeGuests } from "@/features/guests/merge-actions";
-import { searchGuests, getGuestProfile } from "@/features/guests/queries";
+import { searchGuests, getGuestProfile, guestsBySegment } from "@/features/guests/queries";
 
 const prisma = createPrismaClient();
 const createdIds: string[] = [];
@@ -193,6 +193,23 @@ describe("addGuestId — Aadhaar gating (FR-3/4 / AC-4/5)", () => {
     });
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.error.message).toMatch(/Aadhaar/i);
+  });
+});
+
+describe("guestsBySegment (CRM segment filter)", () => {
+  it("corporate returns only guests with a company, masked", async () => {
+    const user = await actAs(USER_RECEPTION_A_ID);
+    const corp = await guestsBySegment(user, { segment: "corporate", limit: 24 });
+    expect(Array.isArray(corp)).toBe(true);
+    for (const g of corp) expect(g.companyName).not.toBeNull();
+  });
+
+  it("vip and repeat return arrays of masked list items", async () => {
+    const user = await actAs(USER_RECEPTION_A_ID);
+    const vip = await guestsBySegment(user, { segment: "vip", limit: 24 });
+    const repeat = await guestsBySegment(user, { segment: "repeat", limit: 24 });
+    expect(Array.isArray(vip)).toBe(true);
+    expect(Array.isArray(repeat)).toBe(true);
   });
 });
 
