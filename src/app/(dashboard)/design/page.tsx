@@ -6,6 +6,7 @@
  * and core component is demonstrated here so pages stay consistent.
  */
 import * as React from "react";
+import { notFound } from "next/navigation";
 import {
   BedDouble,
   CalendarCheck,
@@ -141,6 +142,11 @@ export default function DesignPage() {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, []);
+
+  // Dev-only style reference — not a production destination. Hidden from users in
+  // prod (still reachable in development for design work). Guard after hooks so
+  // hook order stays consistent within an environment.
+  if (process.env.NODE_ENV === "production") notFound();
 
   return (
     <TooltipProvider>

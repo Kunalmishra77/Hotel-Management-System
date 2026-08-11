@@ -24,13 +24,10 @@ export type NavItem = {
 };
 
 /**
- * Every destination the shell can offer.
- *
- * Sections whose module is not built yet still appear (so AC-24's permission
- * filtering is real and demonstrable today), but they resolve to a placeholder
- * naming the owning module rather than a 404 — and each placeholder enforces
- * this same permission server-side via `requirePermission`, so a hidden item is
- * not merely hidden.
+ * Every destination the shell can offer. Every entry resolves to a real, built
+ * page that enforces its declared permission server-side via `requirePermission`
+ * (AC-24) — so a hidden item is not merely hidden, and there are no placeholder
+ * destinations left in the shell.
  */
 export const NAV_ITEMS: readonly NavItem[] = [
   {
