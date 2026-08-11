@@ -76,12 +76,16 @@ describe("generateRun (T-8, FR-1/2/10/11, AC-1/10)", () => {
     expect(res.ok).toBe(true);
     if (!res.ok) return;
     expect(res.data.sequence).toBe(1);
-    expect(res.data.lineCount).toBe(2); // ANU + LATE; EX excluded
+    // The property carries other active staff (seed fixtures), so assert on THIS
+    // test's staff rather than an exact property-wide line count.
+    expect(res.data.lineCount).toBeGreaterThanOrEqual(2);
 
     const run = await prisma.payrollRun.findFirst({ where: { propertyId: PROP_A_ID, month: YM, sequence: 1 }, select: { id: true, status: true, runType: true, lines: { select: { staffId: true, netPaise: true } } } });
     expect(run?.status).toBe("DRAFT");
     expect(run?.runType).toBe("REGULAR");
-    expect(run?.lines.map((l) => l.staffId).sort()).toEqual([ANU, LATE].sort());
+    const lineIds = run?.lines.map((l) => l.staffId) ?? [];
+    expect(lineIds).toEqual(expect.arrayContaining([ANU, LATE])); // both active → included
+    expect(lineIds).not.toContain(EX); // inactive/left → excluded (AC-1)
     const anuLine = run?.lines.find((l) => l.staffId === ANU);
     expect(anuLine?.netPaise).toBe(0); // earnings < ₹40,000 advance → floored to 0
 
