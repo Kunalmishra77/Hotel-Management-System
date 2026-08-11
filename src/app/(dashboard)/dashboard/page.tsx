@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import Link from "next/link";
-import { ArrowUpRight, CalendarCheck, LogOut } from "lucide-react";
+import { ArrowUpRight, CalendarCheck, CalendarPlus, LogOut, ReceiptText, Search, UserPlus } from "lucide-react";
 import { requireUser } from "@/lib/auth";
-import { hasPermission } from "@/lib/permissions";
+import { hasPermission, type Permission } from "@/lib/permissions";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { visibleNavItems } from "@/features/platform/navigation";
@@ -37,9 +39,32 @@ export default async function DashboardPage() {
   const props = claims.accessiblePropertyIds.length;
   const roleText = claims.roleAssignments.map((r) => ROLE_LABELS[r.role]).join(", ");
 
+  // The highest-frequency front-desk tasks, one tap from the home — each gated on
+  // the permission its target enforces, so a user only sees what they can do.
+  const quickActions: { key: string; label: string; href: string; icon: ReactNode; permission: Permission; primary?: boolean }[] = [
+    { key: "new-booking", label: "New booking", href: "/bookings/new", icon: <CalendarPlus />, permission: "reservation:create", primary: true },
+    { key: "new-guest", label: "New guest", href: "/guests/new", icon: <UserPlus />, permission: "guest:create" },
+    { key: "find-guest", label: "Find guest", href: "/search", icon: <Search />, permission: "guest:view" },
+    { key: "billing", label: "Billing", href: "/billing", icon: <ReceiptText />, permission: "folio:view" },
+  ];
+  const actions = quickActions.filter((a) => hasPermission(claims, a.permission));
+
   return (
     <div className="space-y-6">
       <PageHeader title={`Welcome, ${claims.name}`} description={`${roleText} · ${props} propert${props === 1 ? "y" : "ies"} in scope`} />
+
+      {actions.length > 0 ? (
+        <div className="flex flex-wrap gap-2" data-testid="quick-actions">
+          {actions.map((a) => (
+            <Button key={a.key} asChild size="lg" variant={a.primary ? "default" : "outline"}>
+              <Link href={a.href} data-testid={`quick-${a.key}`}>
+                {a.icon}
+                <span className="ml-1.5">{a.label}</span>
+              </Link>
+            </Button>
+          ))}
+        </div>
+      ) : null}
 
       {tiles ? (
         <DashboardTiles tiles={tiles} propertyId={propertyId} canRunAudit={hasPermission(claims, "report:view-financial")} />
