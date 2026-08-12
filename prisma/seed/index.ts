@@ -30,6 +30,7 @@ import { seedCorporate } from "./25-corporate";
 import { seedDataOnboarding } from "./26-data-onboarding";
 import { seedDemoExtras } from "./27-demo-extras";
 import { seedDemoPortfolio } from "./28-demo-portfolio";
+import { seedDemoRich } from "./29-demo-rich";
 import { seedScale } from "./scale";
 
 const prisma = new PrismaClient();
@@ -100,6 +101,8 @@ export async function seedDatabase(client: PrismaClient, opts: { log?: boolean }
     say("  ✔ 27-demo-extras (owner payouts, renewal dates, laundry batches, field-staff)");
     await seedDemoPortfolio(client);
     say("  ✔ 28-demo-portfolio (5 hotels + managers + 30-day snapshots)");
+    await seedDemoRich(client);
+    say("  ✔ 29-demo-rich (15 rooms, 28 guests, 54 reservations, folios+payments, HK/maint/feedback)");
   } else {
     say("  · demo seeds skipped (SEED_DEMO=false)");
   }
