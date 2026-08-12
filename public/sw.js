@@ -13,7 +13,7 @@
  *
  * Bump CACHE_VERSION to invalidate old caches on deploy.
  */
-const CACHE_VERSION = "wp-v1";
+const CACHE_VERSION = "wp-v2";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const ASSET_CACHE = `${CACHE_VERSION}-assets`;
 const OFFLINE_URL = "/offline.html";
@@ -57,13 +57,22 @@ function isStaticAsset(url) {
 async function staleWhileRevalidate(request) {
   const cache = await caches.open(ASSET_CACHE);
   const cached = await cache.match(request);
-  const network = fetch(request)
-    .then((response) => {
-      if (response && response.ok) cache.put(request, response.clone());
-      return response;
-    })
-    .catch(() => cached);
-  return cached || network;
+  if (cached) {
+    // Serve the cached copy instantly; refresh in the background (ignore failures).
+    fetch(request)
+      .then((response) => {
+        if (response && response.ok) cache.put(request, response.clone());
+      })
+      .catch(() => {});
+    return cached;
+  }
+  // Not cached (e.g. a NEW build chunk after a deploy): go to the network. If the
+  // fetch fails (e.g. the container is briefly cold during a rolling update), let
+  // the error propagate so the browser handles/retries it — returning `undefined`
+  // to respondWith() here is what broke asset loads ("Failed to fetch") post-deploy.
+  const response = await fetch(request);
+  if (response && response.ok) cache.put(request, response.clone());
+  return response;
 }
 
 // Network-first for pages; the offline page is the only HTML we ever serve cached.
