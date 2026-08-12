@@ -70,10 +70,10 @@
     --chart-5: 265 52% 58%;
     --chart-6: 15 78% 55%;
 
-    /* Elevation */
-    --shadow-sm: 0 1px 2px 0 hsl(200 30% 12% / 0.06);
-    --shadow-md: 0 2px 4px -1px hsl(200 30% 12% / 0.06), 0 8px 24px -12px hsl(200 30% 12% / 0.18);
-    --shadow-lg: 0 12px 40px -16px hsl(200 30% 12% / 0.28);
+    /* Elevation — ink-tinted, two-layer (crisp, not muddy). */
+    --shadow-sm: 0 1px 2px 0 hsl(200 30% 14% / 0.05), 0 2px 6px -2px hsl(200 30% 14% / 0.08);
+    --shadow-md: 0 2px 4px -1px hsl(200 30% 12% / 0.06), 0 10px 28px -12px hsl(200 30% 12% / 0.20);
+    --shadow-lg: 0 14px 44px -16px hsl(200 30% 12% / 0.30);
   }
 
   .dark {
@@ -130,8 +130,8 @@
     --chart-5: 265 60% 72%;
     --chart-6: 15 80% 64%;
 
-    --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.4);
-    --shadow-md: 0 2px 4px -1px hsl(0 0% 0% / 0.4), 0 10px 30px -14px hsl(0 0% 0% / 0.6);
+    --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.3), 0 2px 8px -2px hsl(0 0% 0% / 0.45);
+    --shadow-md: 0 2px 4px -1px hsl(0 0% 0% / 0.4), 0 12px 32px -14px hsl(0 0% 0% / 0.65);
     --shadow-lg: 0 16px 48px -18px hsl(0 0% 0% / 0.7);
   }
 
@@ -156,6 +156,37 @@
   /* Tabular numerals wherever digits align (money, counts, IDs). */
   .tabular {
     font-variant-numeric: tabular-nums;
+  }
+
+  /* Uppercase section eyebrow — the small label above a group (HIMS-style). */
+  .eyebrow {
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: hsl(var(--muted-foreground));
+  }
+}
+
+@layer components {
+  /* Hover-lift for interactive cards/tiles — transform + shadow only. */
+  .u-lift {
+    transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+  }
+  .u-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+  /* Press feedback on tap targets. */
+  .u-press:active {
+    transform: scale(0.985);
+  }
+  /* Worklist row hover — subtle sunken wash. */
+  .u-row {
+    transition: background-color 0.12s ease;
+  }
+  .u-row:hover {
+    background-color: hsl(var(--muted) / 0.5);
   }
 }
 

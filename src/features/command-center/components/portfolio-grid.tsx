@@ -46,7 +46,7 @@ export function PortfolioGrid({ properties, activePropertyId }: { properties: Po
           const isActive = p.id === activePropertyId;
           const share = Math.round((p.revenuePaise / maxRevenue) * 100);
           return (
-            <Card key={p.id} className={cn("flex flex-col gap-3 p-4", isActive && "ring-1 ring-primary")}>
+            <Card key={p.id} className={cn("u-lift flex flex-col gap-3 p-4", isActive && "ring-1 ring-primary")}>
               {/* Identity */}
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
