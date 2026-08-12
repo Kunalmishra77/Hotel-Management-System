@@ -122,6 +122,14 @@ export const NAV_ITEMS: readonly NavItem[] = [
     permission: "reservation:view",
   },
   {
+    // 18/05 — guest feedback & reviews with AI sentiment (property-scoped).
+    key: "feedback",
+    label: "Feedback",
+    href: "/feedback",
+    icon: "MessageSquareHeart",
+    permission: "guest:view",
+  },
+  {
     key: "search",
     label: "Search",
     href: "/search",
