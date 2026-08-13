@@ -32,6 +32,42 @@ export type PublishedConfig = {
   cancelWindowHours: number;
 };
 
+/** A published property, for the public customer home listing. No PII, no
+ *  inventory internals — just what a guest needs to pick a place to stay. */
+export type PublishedSite = {
+  slug: string;
+  propertyName: string;
+  city: string;
+  state: string;
+};
+
+/** List every PUBLISHED booking site whose property is active & not deleted,
+ *  ordered by property name. Drives the customer website's property grid.
+ *  Unauthenticated-safe (public read), bounded, and never exposes PII. */
+export async function listPublishedSites(): Promise<PublishedSite[]> {
+  const prisma = bookingDb();
+  const configs = await prisma.bookingEngineConfig.findMany({
+    where: { isPublished: true },
+    select: { slug: true, propertyId: true },
+  });
+  if (configs.length === 0) return [];
+  const properties = await prisma.property.findMany({
+    where: {
+      id: { in: configs.map((c) => c.propertyId) },
+      isActive: true,
+      deletedAt: null,
+    },
+    select: { id: true, name: true, city: true, state: true },
+  });
+  const byId = new Map(properties.map((p) => [p.id, p]));
+  return configs
+    .flatMap((c) => {
+      const p = byId.get(c.propertyId);
+      return p ? [{ slug: c.slug, propertyName: p.name, city: p.city, state: p.state }] : [];
+    })
+    .sort((a, b) => a.propertyName.localeCompare(b.propertyName));
+}
+
 /** Load a PUBLISHED config for a public slug, joined with its property. Null if
  *  the slug is unknown or the site is not published (FR-1/2). */
 export async function loadPublishedConfig(slug: string): Promise<PublishedConfig | null> {
