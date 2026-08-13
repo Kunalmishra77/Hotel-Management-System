@@ -14,6 +14,7 @@ import type { SessionClaims } from "@/lib/auth/claims";
 import type { PropertyOption } from "../actions";
 import { bottomNavItems, visibleNavItems } from "../navigation";
 import { BottomNav } from "./bottom-nav";
+import { CommandPalette } from "./command-palette";
 import { PropertySwitcher } from "./property-switcher";
 import { SideNav } from "./side-nav";
 
@@ -36,7 +37,8 @@ export function AppShell({
       <header className="z-30 flex min-h-touch shrink-0 items-center justify-between gap-2 border-b bg-background px-2 pt-[env(safe-area-inset-top)]">
         <PropertySwitcher properties={properties} activePropertyId={claims.activePropertyId} />
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
+          <CommandPalette navItems={sideItems.map((i) => ({ key: i.key, label: i.label, href: i.href, icon: i.icon }))} />
           <ThemeToggle />
           <UserMenu name={claims.name} email={claims.email} />
         </div>
