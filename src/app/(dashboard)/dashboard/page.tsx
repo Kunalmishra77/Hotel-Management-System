@@ -9,8 +9,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { PageHeader } from "@/components/ui/page-header";
 import { visibleNavItems } from "@/features/platform/navigation";
 import { NavIcon } from "@/features/platform/components/nav-icon";
-import { liveTiles } from "@/features/analytics/queries";
+import { liveTiles, trend } from "@/features/analytics/queries";
 import { DashboardTiles } from "@/features/analytics/components/dashboard-tiles";
+import { TrendChart } from "@/components/ui/charts/trend-chart";
 import { arrivalsDepartures } from "@/features/reservations/queries";
 import { ArrivalsDeparturesCard } from "@/features/reservations/components/arrivals-departures-card";
 import { ROLE_LABELS } from "@/features/users/roles";
@@ -28,11 +29,17 @@ export default async function DashboardPage() {
   const propertyId = claims.activePropertyId ?? claims.accessiblePropertyIds[0] ?? null;
   const canOperational = hasPermission(claims, "report:view-operational");
   const canReservations = hasPermission(claims, "reservation:view");
+  const canFinancial = hasPermission(claims, "report:view-financial");
 
-  const [tiles, ad] = await Promise.all([
+  const today = new Date();
+  const trendFrom = new Date(today.getTime() - 13 * 86_400_000);
+  const [tiles, ad, revTrend] = await Promise.all([
     canOperational && propertyId ? liveTiles(claims, [propertyId]) : Promise.resolve(null),
     canReservations && propertyId
-      ? arrivalsDepartures(claims, { propertyId, date: new Date() })
+      ? arrivalsDepartures(claims, { propertyId, date: today })
+      : Promise.resolve(null),
+    canFinancial && propertyId
+      ? trend(claims, { metric: "revenue", from: trendFrom, to: today, propertyIds: [propertyId] })
       : Promise.resolve(null),
   ]);
 
@@ -68,6 +75,17 @@ export default async function DashboardPage() {
 
       {tiles ? (
         <DashboardTiles tiles={tiles} propertyId={propertyId} canRunAudit={hasPermission(claims, "report:view-financial")} />
+      ) : null}
+
+      {revTrend && revTrend.length > 0 ? (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Revenue — last 14 days</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <TrendChart data={revTrend.map((p) => ({ label: p.businessDate, value: p.value }))} format="inr" height={160} />
+          </CardContent>
+        </Card>
       ) : null}
 
       {ad ? (
