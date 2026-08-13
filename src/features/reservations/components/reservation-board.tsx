@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatDayMonth } from "@/lib/utils";
 import { checkOut } from "../lifecycle-actions";
+import { ReservationDrawer } from "./reservation-drawer";
 import type { ReservationListItem } from "../queries";
 
 export function ReservationBoard({
@@ -25,16 +26,18 @@ export function ReservationBoard({
   inHouse: ReservationListItem[];
   departures: ReservationListItem[];
 }) {
+  const [openId, setOpenId] = useState<string | null>(null);
   return (
     <div className="space-y-6">
-      <Section title={`Arrivals today (${arrivals.length})`} items={arrivals} testid="arrivals" />
-      <Section title={`In-house (${inHouse.length})`} items={inHouse} testid="in-house" />
-      <Section title={`Departures today (${departures.length})`} items={departures} testid="departures" />
+      <Section title={`Arrivals today (${arrivals.length})`} items={arrivals} testid="arrivals" onOpen={setOpenId} />
+      <Section title={`In-house (${inHouse.length})`} items={inHouse} testid="in-house" onOpen={setOpenId} />
+      <Section title={`Departures today (${departures.length})`} items={departures} testid="departures" onOpen={setOpenId} />
+      <ReservationDrawer openId={openId} onClose={() => setOpenId(null)} />
     </div>
   );
 }
 
-function Section({ title, items, testid }: { title: string; items: ReservationListItem[]; testid: string }) {
+function Section({ title, items, testid, onOpen }: { title: string; items: ReservationListItem[]; testid: string; onOpen: (id: string) => void }) {
   return (
     <section data-testid={`section-${testid}`}>
       <h2 className="mb-2 text-sm font-semibold text-muted-foreground">{title}</h2>
@@ -42,14 +45,14 @@ function Section({ title, items, testid }: { title: string; items: ReservationLi
         <p className="text-sm text-muted-foreground">Nothing here.</p>
       ) : (
         <ul className="space-y-2">
-          {items.map((r) => <li key={r.id}><ReservationCard r={r} /></li>)}
+          {items.map((r) => <li key={r.id}><ReservationCard r={r} onOpen={onOpen} /></li>)}
         </ul>
       )}
     </section>
   );
 }
 
-function ReservationCard({ r }: { r: ReservationListItem }) {
+function ReservationCard({ r, onOpen }: { r: ReservationListItem; onOpen: (id: string) => void }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -81,7 +84,7 @@ function ReservationCard({ r }: { r: ReservationListItem }) {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <Button asChild variant="ghost" size="sm"><Link href={`/bookings/${r.id}`}>Open</Link></Button>
+          <Button variant="ghost" size="sm" onClick={() => onOpen(r.id)} data-testid={`open-${r.code}`}>Details</Button>
           {r.status === "CONFIRMED" && (
             <Button asChild size="sm">
               <Link href={`/bookings/${r.id}/check-in`} data-testid={`checkin-${r.code}`}>Check in</Link>
