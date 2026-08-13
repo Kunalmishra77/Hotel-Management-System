@@ -93,4 +93,14 @@ export async function seedDemoPortfolio(prisma: PrismaClient): Promise<void> {
   await seedSnapshots(prisma, EXTRA[0]!.id, 2, EXTRA[0]!.rooms, 560_000, ref);
   await seedSnapshots(prisma, EXTRA[1]!.id, 3, EXTRA[1]!.rooms, 500_000, ref);
   await seedSnapshots(prisma, EXTRA[2]!.id, 4, EXTRA[2]!.rooms, 460_000, ref);
+
+  // Keep the org to EXACTLY these 5 real hotels. Soft-delete any other property —
+  // "BE Test Property" (the booking-engine seed makes a fresh one each run) and any
+  // stray/leftover hotels — so the property switcher and command centre never show
+  // test data. Soft-delete only (reversible); the property's rows are untouched.
+  const keep = [PROP_A_ID, PROP_B_ID, ...EXTRA.map((e) => e.id)];
+  await prisma.property.updateMany({
+    where: { orgId: ORG_ID, id: { notIn: keep }, deletedAt: null },
+    data: { deletedAt: ref, isActive: false },
+  });
 }

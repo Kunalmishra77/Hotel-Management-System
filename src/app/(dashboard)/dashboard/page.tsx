@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ArrowUpRight, CalendarCheck, CalendarPlus, LogOut, ReceiptText, Search, UserPlus } from "lucide-react";
+import { ArrowUpRight, Building2, Cable, CalendarCheck, CalendarDays, CalendarPlus, ChartColumn, Gauge, LogOut, ReceiptText, Search, ShieldCheck, Sparkles, UserPlus, Users, Wallet, Wrench } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { hasPermission, type Permission } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
@@ -46,15 +46,47 @@ export default async function DashboardPage() {
   const props = claims.accessiblePropertyIds.length;
   const roleText = claims.roleAssignments.map((r) => ROLE_LABELS[r.role]).join(", ");
 
-  // The highest-frequency front-desk tasks, one tap from the home — each gated on
-  // the permission its target enforces, so a user only sees what they can do.
-  const quickActions: { key: string; label: string; href: string; icon: ReactNode; permission: Permission; primary?: boolean }[] = [
-    { key: "new-booking", label: "New booking", href: "/bookings/new", icon: <CalendarPlus />, permission: "reservation:create", primary: true },
-    { key: "new-guest", label: "New guest", href: "/guests/new", icon: <UserPlus />, permission: "guest:create" },
-    { key: "find-guest", label: "Find guest", href: "/search", icon: <Search />, permission: "guest:view" },
-    { key: "billing", label: "Billing", href: "/billing", icon: <ReceiptText />, permission: "folio:view" },
+  // Role-appropriate quick actions — show what this ROLE actually does day-to-day,
+  // not everything its permissions allow. An Administrator holds every permission,
+  // but "New booking" isn't an admin's job (it's Reception's); showing it there is
+  // confusing. So the set is chosen by the caller's most-senior role, then still
+  // filtered by permission for safety (no dead links).
+  type QA = { key: string; label: string; href: string; icon: ReactNode; permission: Permission; primary?: boolean };
+  const ACTIONS_BY_ROLE: { role: string; actions: QA[] }[] = [
+    { role: "ADMINISTRATOR", actions: [
+      { key: "command", label: "Command centre", href: "/overview", icon: <Gauge />, permission: "report:view-financial", primary: true },
+      { key: "users", label: "Users & access", href: "/settings/users", icon: <ShieldCheck />, permission: "user:manage" },
+      { key: "properties", label: "Properties", href: "/properties", icon: <Building2 />, permission: "room:view-status" },
+      { key: "integrations", label: "Integrations", href: "/settings/integrations", icon: <Cable />, permission: "integration:manage" },
+    ] },
+    { role: "MANAGER", actions: [
+      { key: "overview", label: "Overview", href: "/overview", icon: <Gauge />, permission: "report:view-financial", primary: true },
+      { key: "bookings", label: "Bookings", href: "/bookings", icon: <CalendarDays />, permission: "reservation:view" },
+      { key: "guests", label: "Guests", href: "/guests", icon: <Users />, permission: "guest:view" },
+      { key: "reports", label: "Reports", href: "/reports", icon: <ChartColumn />, permission: "report:view-financial" },
+    ] },
+    { role: "ACCOUNTS", actions: [
+      { key: "billing", label: "Billing", href: "/billing", icon: <ReceiptText />, permission: "folio:view", primary: true },
+      { key: "expenses", label: "Expenses", href: "/expenses", icon: <Wallet />, permission: "expense:create" },
+      { key: "reports", label: "Reports", href: "/reports", icon: <ChartColumn />, permission: "report:view-financial" },
+      { key: "overview", label: "Overview", href: "/overview", icon: <Gauge />, permission: "report:view-financial" },
+    ] },
+    { role: "RECEPTION", actions: [
+      { key: "new-booking", label: "New booking", href: "/bookings/new", icon: <CalendarPlus />, permission: "reservation:create", primary: true },
+      { key: "new-guest", label: "New guest", href: "/guests/new", icon: <UserPlus />, permission: "guest:create" },
+      { key: "find-guest", label: "Find guest", href: "/search", icon: <Search />, permission: "guest:view" },
+      { key: "billing", label: "Billing", href: "/billing", icon: <ReceiptText />, permission: "folio:view" },
+    ] },
+    { role: "HOUSEKEEPING", actions: [
+      { key: "housekeeping", label: "Housekeeping", href: "/housekeeping", icon: <Sparkles />, permission: "housekeeping:update", primary: true },
+    ] },
+    { role: "MAINTENANCE", actions: [
+      { key: "maintenance", label: "Maintenance", href: "/maintenance", icon: <Wrench />, permission: "maintenance:manage", primary: true },
+    ] },
   ];
-  const actions = quickActions.filter((a) => hasPermission(claims, a.permission));
+  const roles = claims.roleAssignments.map((r) => r.role as string);
+  const roleSet = ACTIONS_BY_ROLE.find((s) => roles.includes(s.role))?.actions ?? [];
+  const actions = roleSet.filter((a) => hasPermission(claims, a.permission));
 
   return (
     <div className="space-y-6">
