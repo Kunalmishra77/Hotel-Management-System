@@ -8,7 +8,7 @@ Columns are the 14 login roles (staff without a login — housekeeping/room-serv
 |---|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
 | property:manage | ✔ | 🔒 |  |  |  |  |  |  |  |  |  |  |  |  |
 | room:manage | ✔ | ✔ | ✔ |  |  |  |  |  |  |  |  |  |  |  |
-| room:view-status | ✔ | ✔ | ✔ | ✔ | ✔ |  | ✔ |  | ✔ | ✔ | ✔ | ✔ | ✔ |  |
+| room:view-status | ✔ | ✔ | ✔ | ✔ |  |  | ✔ |  | ✔ | ✔ | ✔ | ✔ | ✔ |  |
 | reservation:view | ✔ | ✔ | ✔ | ✔ | ✔ |  |  |  |  |  |  |  |  |  |
 | reservation:create | ✔ | ✔ | ✔ | ✔ |  |  |  |  |  |  |  |  |  |  |
 | reservation:modify | ✔ | ✔ | ✔ | ✔ |  |  |  |  |  |  |  |  |  |  |
@@ -47,10 +47,10 @@ Columns are the 14 login roles (staff without a login — housekeeping/room-serv
 | folio:defer | 🔒 | 🔒 |  |  | 🔒 |  |  |  |  |  |  |  |  |  |
 | guest:manage | ✔ | ✔ | ✔ | ✔ |  |  |  |  |  |  |  |  |  |  |
 | guest:merge | 🔒 | 🔒 | 🔒 | 🔒 |  |  |  |  |  |  |  |  |  |  |
-| pos:order-create | ✔ | ✔ | ✔ | ✔ | ✔ |  |  |  | ✔ |  |  |  |  |  |
+| pos:order-create | ✔ | ✔ | ✔ | ✔ |  |  |  |  | ✔ |  |  |  |  |  |
 | pos:order-settle | ✔ | ✔ | ✔ | ✔ | ✔ |  |  |  | ✔ |  |  |  |  |  |
 | pos:order-void | 🔒 | 🔒 |  |  | 🔒 |  |  |  | 🔒 |  |  |  |  |  |
-| inventory:manage | ✔ | ✔ | ✔ |  | ✔ |  | ✔ | ✔ | ✔ |  |  |  | ✔ |  |
+| inventory:manage | ✔ | ✔ | ✔ |  |  |  | ✔ | ✔ | ✔ |  |  |  | ✔ |  |
 | pricing:approve | 🔒 | 🔒 |  |  |  |  |  |  |  |  |  |  |  |  |
 | corporate:manage | ✔ | ✔ | ✔ |  | ✔ |  |  |  |  |  |  |  |  |  |
 | bookingengine:manage | 🔒 | 🔒 |  |  |  |  |  |  |  |  |  |  |  |  |
