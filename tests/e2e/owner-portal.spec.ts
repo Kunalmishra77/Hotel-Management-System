@@ -61,7 +61,7 @@ test("owner sees only their surfaces, financials, and a payout statement (T-22)"
   await expect(page.getByTestId("owner-kpis")).toBeVisible();
 
   // Nav is permission-filtered to owner surfaces only (AC-1) — no bookings/guests.
-  await expect(page.getByRole("link", { name: "Owner home" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Owner portal" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Bookings" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Guests" })).toHaveCount(0);
 

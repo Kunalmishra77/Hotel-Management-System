@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AlertTriangle, CalendarPlus, CalendarRange, FileCheck2, LogIn, LogOut, BedDouble, CalendarClock, Search } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
+import { hasPermission } from "@/lib/permissions";
 import { arrivalsDepartures, listReservations, bookingsOverview } from "@/features/reservations/queries";
 import { ReservationBoard } from "@/features/reservations/components/reservation-board";
 import { KpiCard } from "@/components/ui/kpi-card";
@@ -71,7 +72,9 @@ export default async function BookingsPage() {
             <Button asChild variant="outline" size="sm"><Link href="/bookings/calendar"><CalendarRange className="mr-1.5 size-4" />Calendar</Link></Button>
             <Button asChild variant="outline" size="sm"><Link href="/bookings/form-c"><FileCheck2 className="mr-1.5 size-4" />Form C</Link></Button>
             <Button asChild variant="outline" size="sm"><Link href="/search"><Search className="mr-1.5 size-4" />Search</Link></Button>
-            <Button asChild size="sm"><Link href="/bookings/new" data-testid="new-booking-link"><CalendarPlus className="mr-1.5 size-4" />New booking</Link></Button>
+            {hasPermission(user, "reservation:create") ? (
+              <Button asChild size="sm"><Link href="/bookings/new" data-testid="new-booking-link"><CalendarPlus className="mr-1.5 size-4" />New booking</Link></Button>
+            ) : null}
           </div>
         }
       />
@@ -118,7 +121,13 @@ export default async function BookingsPage() {
 
         {/* Live board */}
         <div className="lg:col-span-2">
-          <ReservationBoard arrivals={arrivals} inHouse={inHouse.reservations} departures={departures} />
+          <ReservationBoard
+            arrivals={arrivals}
+            inHouse={inHouse.reservations}
+            departures={departures}
+            canCheckIn={hasPermission(user, "checkin:perform")}
+            canCheckOut={hasPermission(user, "checkout:perform")}
+          />
         </div>
       </div>
     </div>

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Users, UserPlus, Building2 } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
+import { hasPermission } from "@/lib/permissions";
 import { searchGuests, guestsOverview, guestsBySegment, type GuestSegment } from "@/features/guests/queries";
 import { guestTiers } from "@/features/guest-history/queries";
 import { GuestSearchBox } from "@/features/guests/components/guest-search-box";
@@ -62,9 +63,11 @@ export default async function GuestsPage({
         title="Guests"
         description="Permanent CRM — searchable across every property"
         actions={
-          <Button asChild size="sm">
-            <Link href="/guests/new" data-testid="new-guest-link"><UserPlus className="mr-1.5 size-4" />New guest</Link>
-          </Button>
+          hasPermission(user, "guest:create") ? (
+            <Button asChild size="sm">
+              <Link href="/guests/new" data-testid="new-guest-link"><UserPlus className="mr-1.5 size-4" />New guest</Link>
+            </Button>
+          ) : null
         }
       />
 

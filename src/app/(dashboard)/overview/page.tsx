@@ -59,7 +59,7 @@ export default async function OverviewPage() {
   return (
     <div className="mx-auto w-full max-w-6xl">
       <PageHeader
-        title={isPortfolio ? "Command centre" : "Overview"}
+        title="Command centre"
         description={
           isPortfolio
             ? `${t.count} properties · one dashboard · month to date`

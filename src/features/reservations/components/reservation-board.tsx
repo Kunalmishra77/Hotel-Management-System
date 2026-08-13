@@ -21,23 +21,32 @@ export function ReservationBoard({
   arrivals,
   inHouse,
   departures,
+  canCheckIn = false,
+  canCheckOut = false,
 }: {
   arrivals: ReservationListItem[];
   inHouse: ReservationListItem[];
   departures: ReservationListItem[];
+  /** Only front-desk roles get the Check-in/Check-out actions; a view-only role
+   *  (e.g. Accounts) sees the board without dead-end buttons it can't complete. */
+  canCheckIn?: boolean;
+  canCheckOut?: boolean;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
+  const perms = { canCheckIn, canCheckOut, onOpen: setOpenId };
   return (
     <div className="space-y-6">
-      <Section title={`Arrivals today (${arrivals.length})`} items={arrivals} testid="arrivals" onOpen={setOpenId} />
-      <Section title={`In-house (${inHouse.length})`} items={inHouse} testid="in-house" onOpen={setOpenId} />
-      <Section title={`Departures today (${departures.length})`} items={departures} testid="departures" onOpen={setOpenId} />
+      <Section title={`Arrivals today (${arrivals.length})`} items={arrivals} testid="arrivals" {...perms} />
+      <Section title={`In-house (${inHouse.length})`} items={inHouse} testid="in-house" {...perms} />
+      <Section title={`Departures today (${departures.length})`} items={departures} testid="departures" {...perms} />
       <ReservationDrawer openId={openId} onClose={() => setOpenId(null)} />
     </div>
   );
 }
 
-function Section({ title, items, testid, onOpen }: { title: string; items: ReservationListItem[]; testid: string; onOpen: (id: string) => void }) {
+type CardProps = { onOpen: (id: string) => void; canCheckIn: boolean; canCheckOut: boolean };
+
+function Section({ title, items, testid, ...perms }: { title: string; items: ReservationListItem[]; testid: string } & CardProps) {
   return (
     <section data-testid={`section-${testid}`}>
       <h2 className="mb-2 text-sm font-semibold text-muted-foreground">{title}</h2>
@@ -45,14 +54,14 @@ function Section({ title, items, testid, onOpen }: { title: string; items: Reser
         <p className="text-sm text-muted-foreground">Nothing here.</p>
       ) : (
         <ul className="space-y-2">
-          {items.map((r) => <li key={r.id}><ReservationCard r={r} onOpen={onOpen} /></li>)}
+          {items.map((r) => <li key={r.id}><ReservationCard r={r} {...perms} /></li>)}
         </ul>
       )}
     </section>
   );
 }
 
-function ReservationCard({ r, onOpen }: { r: ReservationListItem; onOpen: (id: string) => void }) {
+function ReservationCard({ r, onOpen, canCheckIn, canCheckOut }: { r: ReservationListItem } & CardProps) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -85,12 +94,12 @@ function ReservationCard({ r, onOpen }: { r: ReservationListItem; onOpen: (id: s
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <Button variant="ghost" size="sm" onClick={() => onOpen(r.id)} data-testid={`open-${r.code}`}>Details</Button>
-          {r.status === "CONFIRMED" && (
+          {canCheckIn && r.status === "CONFIRMED" && (
             <Button asChild size="sm">
               <Link href={`/bookings/${r.id}/check-in`} data-testid={`checkin-${r.code}`}>Check in</Link>
             </Button>
           )}
-          {r.status === "IN_HOUSE" && (
+          {canCheckOut && r.status === "IN_HOUSE" && (
             <Button size="sm" disabled={pending} onClick={() => act(() => checkOut({ reservationId: r.id }))}
               data-testid={`checkout-${r.code}`}>Check out</Button>
           )}

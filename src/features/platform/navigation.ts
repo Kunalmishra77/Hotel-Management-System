@@ -41,7 +41,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {
     // 27 owner-portal — property owner's home (financials for their property).
     key: "owner",
-    label: "Owner home",
+    label: "Owner portal",
     href: "/owner",
     icon: "House",
     permission: "owner:view-financials",
@@ -72,7 +72,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     // Manager/Accounts analytics home — consolidated KPIs, revenue trend, and
     // revenue segmentation across all accessible properties (financial-gated).
     key: "overview",
-    label: "Overview",
+    label: "Command centre",
     href: "/overview",
     icon: "Gauge",
     permission: "report:view-financial",
@@ -198,7 +198,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   },
   {
     key: "accounting",
-    label: "Accounting",
+    label: "Accounting sync",
     href: "/accounting",
     icon: "Landmark",
     permission: "integration:manage",
@@ -226,7 +226,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   },
   {
     key: "ai",
-    label: "Ask PMS",
+    label: "AI Assistant",
     href: "/ai",
     icon: "Bot",
     permission: "ai:use",

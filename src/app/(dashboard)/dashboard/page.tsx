@@ -60,7 +60,13 @@ export default async function DashboardPage() {
       { key: "integrations", label: "Integrations", href: "/settings/integrations", icon: <Cable />, permission: "integration:manage" },
     ] },
     { role: "MANAGER", actions: [
-      { key: "overview", label: "Overview", href: "/overview", icon: <Gauge />, permission: "report:view-financial", primary: true },
+      { key: "overview", label: "Command centre", href: "/overview", icon: <Gauge />, permission: "report:view-financial", primary: true },
+      { key: "bookings", label: "Bookings", href: "/bookings", icon: <CalendarDays />, permission: "reservation:view" },
+      { key: "guests", label: "Guests", href: "/guests", icon: <Users />, permission: "guest:view" },
+      { key: "reports", label: "Reports", href: "/reports", icon: <ChartColumn />, permission: "report:view-financial" },
+    ] },
+    { role: "ASSISTANT_MANAGER", actions: [
+      { key: "overview", label: "Command centre", href: "/overview", icon: <Gauge />, permission: "report:view-financial", primary: true },
       { key: "bookings", label: "Bookings", href: "/bookings", icon: <CalendarDays />, permission: "reservation:view" },
       { key: "guests", label: "Guests", href: "/guests", icon: <Users />, permission: "guest:view" },
       { key: "reports", label: "Reports", href: "/reports", icon: <ChartColumn />, permission: "report:view-financial" },
@@ -69,7 +75,7 @@ export default async function DashboardPage() {
       { key: "billing", label: "Billing", href: "/billing", icon: <ReceiptText />, permission: "folio:view", primary: true },
       { key: "expenses", label: "Expenses", href: "/expenses", icon: <Wallet />, permission: "expense:create" },
       { key: "reports", label: "Reports", href: "/reports", icon: <ChartColumn />, permission: "report:view-financial" },
-      { key: "overview", label: "Overview", href: "/overview", icon: <Gauge />, permission: "report:view-financial" },
+      { key: "overview", label: "Command centre", href: "/overview", icon: <Gauge />, permission: "report:view-financial" },
     ] },
     { role: "RECEPTION", actions: [
       { key: "new-booking", label: "New booking", href: "/bookings/new", icon: <CalendarPlus />, permission: "reservation:create", primary: true },
