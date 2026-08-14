@@ -5,6 +5,7 @@ import { CalendarDays, IndianRupee, ReceiptText, UserCheck } from "lucide-react"
 import { requirePermission } from "@/lib/auth/guard";
 import { hasPermission } from "@/lib/permissions";
 import { getReservation } from "@/features/reservations/queries";
+import { ConfirmBookingButton } from "@/features/reservations/components/confirm-booking-button";
 import { getBalance } from "@/features/billing";
 import { Badge } from "@/components/ui/badge";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
@@ -32,6 +33,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
   if (!r) notFound();
 
   const canFolio = hasPermission(user, "folio:view");
+  const canConfirm = r.status === "ENQUIRY" && hasPermission(user, "reservation:create");
   const canCheckIn = r.status === "CONFIRMED" && hasPermission(user, "checkin:perform");
   const balancePaise = canFolio ? await getBalance(user, id) : null;
 
@@ -50,6 +52,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
         }
         actions={
           <>
+            {canConfirm ? <ConfirmBookingButton reservationId={r.id} /> : null}
             {canCheckIn ? (
               <Button asChild size="sm">
                 <Link href={`/bookings/${r.id}/check-in`} data-testid="start-checkin">
