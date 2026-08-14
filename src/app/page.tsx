@@ -58,6 +58,9 @@ export default async function Home() {
             <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
               <Link href="#why">Why book direct</Link>
             </Button>
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/account">Sign in</Link>
+            </Button>
             {sites[0] && (
               <Button asChild size="sm">
                 <Link href={`/book/${sites[0].slug}`}>Book a stay</Link>
@@ -177,23 +180,27 @@ export default async function Home() {
         <div className="flex flex-col items-start gap-4 rounded-2xl border bg-card p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-8">
           <div className="max-w-xl">
             <p className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-primary">
-              <Sparkles className="size-3.5" aria-hidden="true" /> Coming next
+              <Sparkles className="size-3.5" aria-hidden="true" /> Your account
             </p>
-            <h2 className="mt-2 text-xl font-semibold tracking-tight">Your own guest account</h2>
+            <h2 className="mt-2 text-xl font-semibold tracking-tight">Sign in for a faster stay</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Soon you&apos;ll be able to sign in to see <b>My Bookings</b>, save your details, request
-              housekeeping or order food during your stay, and view your bill — all from your phone.
-              For now, booking direct takes just a minute.
+              Create an account to see <b>My Bookings</b>, save your details for one-tap booking, and manage
+              your stay from your phone. Use your email, or just your phone number — no password needed.
             </p>
           </div>
-          {sites[0] && (
-            <Button asChild size="lg" className="w-full shrink-0 sm:w-auto">
-              <Link href={`/book/${sites[0].slug}`}>
-                Book a stay
-                <ArrowRight className="ml-1.5 size-4" aria-hidden="true" />
-              </Link>
+          <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row">
+            <Button asChild size="lg" variant="outline" className="w-full sm:w-auto">
+              <Link href="/account/sign-up">Create account</Link>
             </Button>
-          )}
+            {sites[0] && (
+              <Button asChild size="lg" className="w-full sm:w-auto">
+                <Link href={`/book/${sites[0].slug}`}>
+                  Book a stay
+                  <ArrowRight className="ml-1.5 size-4" aria-hidden="true" />
+                </Link>
+              </Button>
+            )}
+          </div>
         </div>
       </section>
 

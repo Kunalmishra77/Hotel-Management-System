@@ -25,6 +25,7 @@ const { auth } = NextAuth(authConfig);
 const PUBLIC_PREFIXES = [
   "/", // public customer website (exact match only — see isPublic)
   "/portal", // public staff & owner launcher (role showcase → sign-in)
+  "/account", // guest area — its OWN session gates it server-side, not staff auth
   "/sign-in",
   "/two-factor",
   "/forgot-password",
