@@ -26,12 +26,13 @@ datasource db {
 // ============================ 00 PLATFORM / TENANCY ==========================
 
 model Organization {
-  id         String     @id @default(cuid())
-  name       String
-  properties Property[]
-  users      User[]
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  id            String         @id @default(cuid())
+  name          String
+  properties    Property[]
+  users         User[]
+  guestAccounts GuestAccount[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 }
 
 model Property {
@@ -703,6 +704,7 @@ model Guest {
   ids          GuestId[]
   reservations Reservation[]
   feedback     Feedback[]
+  accounts     GuestAccount[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -713,6 +715,84 @@ model Guest {
   @@index([orgId, emailHash])
   @@index([orgId, gstNumber])
   @@index([orgId, city])
+}
+
+/// A guest's login account for the CUSTOMER website (27-customer redesign, Phase 2).
+/// Completely separate from staff `User`/`Session` — a guest holds no role and can
+/// never reach `(dashboard)`. Each account links to exactly one CRM `Guest` (deduped
+/// by contact), so the hotel still sees one guest. Contact fields are encrypted at
+/// rest with a keyed hash for lookup, mirroring `Guest` (compliance.md).
+model GuestAccount {
+  id      String       @id @default(cuid())
+  orgId   String
+  org     Organization @relation(fields: [orgId], references: [id])
+  guestId String
+  guest   Guest        @relation(fields: [guestId], references: [id])
+
+  // Login identifiers — encrypted envelope + keyed hash for exact lookup.
+  email      String? // encrypted at rest; null for phone-only accounts
+  emailHash  String? // keyedHash(lowercased email)
+  mobile     String // encrypted at rest; always captured
+  mobileHash String // keyedHash(normalized mobile)
+
+  passwordHash    String? // bcrypt (cost >= 12); null when the account is phone-OTP-only
+  emailVerifiedAt DateTime?
+  phoneVerifiedAt DateTime?
+
+  isActive         Boolean   @default(true)
+  failedLoginCount Int       @default(0)
+  lockedUntil      DateTime?
+
+  sessions GuestSession[]
+  otps     GuestOtp[]
+
+  lastLoginAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  @@unique([orgId, mobileHash])
+  @@unique([orgId, emailHash])
+  @@index([orgId])
+  @@index([guestId])
+}
+
+/// DB-backed, revocable guest web session (mirrors staff `Session`). The random
+/// token lives only in an httpOnly cookie; the DB stores sha256(token). Every
+/// request re-checks `revokedAt`/`expiresAt`, so logout/lock takes effect at once.
+model GuestSession {
+  id             String       @id @default(cuid())
+  guestAccountId String
+  account        GuestAccount @relation(fields: [guestAccountId], references: [id])
+  tokenHash      String       @unique
+  ip             String?
+  device         String?
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@index([guestAccountId])
+}
+
+/// A one-time passcode for the phone login/signup path. Keyed by `mobileHash` so an
+/// OTP can be issued before an account exists. Only sha256(code) is stored; codes
+/// expire, are single-use (`consumedAt`), and cap `attempts`. Delivered via the
+/// messaging provider (sandbox outbox until SMS/DLT go-live).
+model GuestOtp {
+  id             String        @id @default(cuid())
+  orgId          String
+  guestAccountId String?
+  account        GuestAccount? @relation(fields: [guestAccountId], references: [id])
+  mobileHash     String
+  codeHash       String
+  purpose        String // "PHONE_AUTH" (signup+login); reserved for future e.g. "VERIFY_EMAIL"
+  expiresAt      DateTime
+  consumedAt     DateTime?
+  attempts       Int           @default(0)
+  createdAt      DateTime      @default(now())
+
+  @@index([orgId, mobileHash])
+  @@index([guestAccountId])
 }
 
 model GuestId {

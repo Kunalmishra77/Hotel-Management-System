@@ -23,6 +23,8 @@ Every business state change emits an immutable event (persisted to `DomainEvent`
 | `GuestPiiAccessed` | 04 | guestId, field, by, reason | audit |
 | `GuestMerged` | 04 | survivorId, loserId | 05 (recompute both), 14 |
 | `GuestErased` | 04 | guestId | audit |
+| `GuestAccountCreated` | customer redesign (P2) | accountId, guestId, method | audit |
+| `GuestAccountSignedIn` | customer redesign (P2) | accountId, guestId, method | audit |
 | `GuestStatsUpdated` | 05 | guestId | (profile cache) |
 | `FolioCharged` | 06/19 | folioId, type, amountPaise | 14, 05 |
 | `DiscountApplied` | 06 | folioId, amountPaise, by | audit, 14 |

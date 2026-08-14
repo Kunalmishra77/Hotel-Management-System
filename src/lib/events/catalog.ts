@@ -47,6 +47,9 @@ export const DOMAIN_EVENT_TYPES = [
   "GuestPiiAccessed",
   "GuestMerged",
   "GuestErased",
+  // customer redesign (Phase 2): guest self-service accounts
+  "GuestAccountCreated",
+  "GuestAccountSignedIn",
 
   // 05 guest history
   "GuestStatsUpdated",
