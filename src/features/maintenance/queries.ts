@@ -19,6 +19,8 @@ export type MaintenanceOverview = {
   urgent: number;
   preventiveDue: number;
   roomsBlocked: number;
+  /** Σ cost of jobs closed this month — the maintenance spend trail (Phase 7). */
+  costThisMonthPaise: number;
 };
 
 const PREVENTIVE_LEAD_DAYS = 7;
@@ -28,14 +30,20 @@ export async function maintenanceOverview(user: SessionClaims, propertyId: strin
   const scoped = db.scoped(user);
   const where = { propertyId };
   const dueBy = new Date(Date.now() + PREVENTIVE_LEAD_DAYS * 86_400_000);
-  const [statusGroups, urgent, preventiveDue, roomsBlocked] = await Promise.all([
+  const now = new Date();
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const [statusGroups, urgent, preventiveDue, roomsBlocked, cost] = await Promise.all([
     scoped.maintenanceJob.groupBy({ by: ["status"], where, _count: { _all: true } }),
     scoped.maintenanceJob.count({ where: { ...where, status: { in: ["OPEN", "IN_PROGRESS"] }, priority: { in: ["URGENT", "HIGH"] } } }),
     scoped.maintenanceJob.count({ where: { ...where, isPreventive: true, status: { not: "CLOSED" }, scheduledFor: { lte: dueBy } } }),
     scoped.maintenanceJob.count({ where: { ...where, status: { not: "CLOSED" }, roomBlockId: { not: null } } }),
+    scoped.maintenanceJob.aggregate({ where: { ...where, status: "CLOSED", closedAt: { gte: monthStart } }, _sum: { costPaise: true } }),
   ]);
   const c = (s: string) => statusGroups.find((g) => (g.status as string) === s)?._count._all ?? 0;
-  return { open: c("OPEN"), inProgress: c("IN_PROGRESS"), closed: c("CLOSED"), urgent, preventiveDue, roomsBlocked };
+  return {
+    open: c("OPEN"), inProgress: c("IN_PROGRESS"), closed: c("CLOSED"), urgent, preventiveDue, roomsBlocked,
+    costThisMonthPaise: cost._sum.costPaise ?? 0,
+  };
 }
 
 export type MaintenanceJobItem = {
@@ -47,6 +55,7 @@ export type MaintenanceJobItem = {
   status: string;
   priority: string;
   costPaise: number | null;
+  vendor: string | null;
   isPreventive: boolean;
   scheduledFor: Date | null;
   hasBlock: boolean;
@@ -58,7 +67,7 @@ export async function listJobs(
 ): Promise<MaintenanceJobItem[]> {
   const jobs = await db.scoped(user).maintenanceJob.findMany({
     where: { propertyId: input.propertyId, ...(input.status ? { status: input.status as never } : {}) },
-    select: { id: true, roomId: true, category: true, description: true, status: true, priority: true, costPaise: true, isPreventive: true, scheduledFor: true, roomBlockId: true },
+    select: { id: true, roomId: true, category: true, description: true, status: true, priority: true, costPaise: true, vendor: true, isPreventive: true, scheduledFor: true, roomBlockId: true },
     orderBy: [{ status: "asc" }, { priority: "desc" }, { createdAt: "desc" }],
     take: 200,
   });
@@ -69,7 +78,7 @@ export async function listJobs(
   return jobs.map((j) => ({
     id: j.id, roomId: j.roomId, roomNumber: j.roomId ? (numberOf.get(j.roomId) ?? null) : null,
     category: j.category, description: j.description, status: j.status, priority: j.priority,
-    costPaise: j.costPaise, isPreventive: j.isPreventive, scheduledFor: j.scheduledFor, hasBlock: j.roomBlockId !== null,
+    costPaise: j.costPaise, vendor: j.vendor, isPreventive: j.isPreventive, scheduledFor: j.scheduledFor, hasBlock: j.roomBlockId !== null,
   }));
 }
 

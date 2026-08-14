@@ -85,7 +85,7 @@ export async function startJob(input: unknown): Promise<Result<JobResult>> {
 /** Close a job with an optional cost; unblocks the room if it was blocked (FR-5, AC-4/5). */
 export async function closeJob(input: unknown): Promise<Result<JobResult>> {
   return toResult(async () => {
-    const { jobId, costPaise } = closeJobSchema.parse(input);
+    const { jobId, costPaise, vendor } = closeJobSchema.parse(input);
     const user = await requireUser();
     const job = await loadJob(user, jobId);
     authorize(user, "maintenance:manage", job.propertyId);
@@ -100,7 +100,7 @@ export async function closeJob(input: unknown): Promise<Result<JobResult>> {
 
     return withMaintenanceContext(user, () =>
       maintenanceDb(user).$transaction(async (tx) => {
-        await tx.maintenanceJob.updateMany({ where: { id: jobId }, data: { status: "CLOSED", closedAt: new Date(), costPaise: costPaise ?? null, roomBlockId: null } });
+        await tx.maintenanceJob.updateMany({ where: { id: jobId }, data: { status: "CLOSED", closedAt: new Date(), costPaise: costPaise ?? null, vendor: vendor ?? null, roomBlockId: null } });
         await emitEvent(tx, { type: "MaintenanceJobClosed", aggregateId: jobId, propertyId: job.propertyId, payload: { costPaise: costPaise ?? null } });
         await writeAudit(tx, { action: "maintenance:close", entityType: "MaintenanceJob", entityId: jobId, propertyId: job.propertyId, before: { status: job.status }, after: { status: "CLOSED", costPaise: costPaise ?? null } });
         return { jobId, status: "CLOSED" };

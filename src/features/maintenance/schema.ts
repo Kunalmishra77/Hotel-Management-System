@@ -16,7 +16,11 @@ export const createJobSchema = z.object({
 export type CreateJobInput = z.infer<typeof createJobSchema>;
 
 export const startJobSchema = z.object({ jobId: z.string().min(1) });
-export const closeJobSchema = z.object({ jobId: z.string().min(1), costPaise: z.number().int().min(0).optional() });
+export const closeJobSchema = z.object({
+  jobId: z.string().min(1),
+  costPaise: z.number().int().min(0).optional(),
+  vendor: z.string().trim().max(120).optional(),
+});
 export const blockRoomForJobSchema = z.object({
   jobId: z.string().min(1),
   startDate: z.coerce.date(),

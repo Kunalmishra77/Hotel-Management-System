@@ -154,6 +154,13 @@ export const NAV_ITEMS: readonly NavItem[] = [
     permission: "housekeeping:update",
   },
   {
+    key: "lost-found",
+    label: "Lost & Found",
+    href: "/lost-found",
+    icon: "PackageSearch",
+    permission: "housekeeping:update",
+  },
+  {
     key: "maintenance",
     label: "Maintenance",
     href: "/maintenance",

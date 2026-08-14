@@ -10,6 +10,7 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { authorize } from "@/lib/permissions";
 import { writeAudit } from "@/lib/audit";
+import { runWithContext, newRequestId } from "@/lib/context";
 import { NEXT_STATUSES } from "@/features/guest-account/domain/request-kind";
 
 const RESOLVED = new Set(["DONE", "DECLINED"]);
@@ -32,22 +33,25 @@ export async function updateGuestRequestStatus(id: string, status: string): Prom
       });
     }
 
-    // Server actions run inside the caller's request context, so writeAudit
-    // resolves the actor/org ambiently (same pattern as the other staff actions).
-    await db.unscoped().$transaction(async (tx) => {
-      await tx.guestRequest.update({
-        where: { id: req.id },
-        data: { status, resolvedAt: RESOLVED.has(status) ? new Date() : null },
-      });
-      await writeAudit(tx, {
-        action: "guestrequest:status",
-        entityType: "GuestRequest",
-        entityId: req.id,
-        propertyId: req.propertyId,
-        before: { status: req.status },
-        after: { status },
-      });
-    });
+    // Establish the request context writeAudit needs (actions have no ambient one).
+    await runWithContext(
+      { orgId: user.orgId, userId: user.userId, propertyScope: user.propertyScope, activePropertyId: req.propertyId, requestId: newRequestId(), ip: null, device: null },
+      () =>
+        db.unscoped().$transaction(async (tx) => {
+          await tx.guestRequest.update({
+            where: { id: req.id },
+            data: { status, resolvedAt: RESOLVED.has(status) ? new Date() : null },
+          });
+          await writeAudit(tx, {
+            action: "guestrequest:status",
+            entityType: "GuestRequest",
+            entityId: req.id,
+            propertyId: req.propertyId,
+            before: { status: req.status },
+            after: { status },
+          });
+        }),
+    );
 
     return { status };
   });

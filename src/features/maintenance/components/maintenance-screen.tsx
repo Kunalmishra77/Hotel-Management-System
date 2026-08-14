@@ -59,6 +59,7 @@ export function MaintenanceScreen({ propertyId, jobs, overview }: { propertyId: 
           { label: "Urgent / high", value: overview.urgent, tone: overview.urgent > 0 ? "danger" : "default" },
           { label: "Preventive due", value: overview.preventiveDue, tone: overview.preventiveDue > 0 ? "warning" : "default" },
           { label: "Rooms blocked", value: overview.roomsBlocked },
+          { label: "Spend (month)", value: rupees(overview.costThisMonthPaise) },
         ]}
       />
 
@@ -148,6 +149,7 @@ export function MaintenanceScreen({ propertyId, jobs, overview }: { propertyId: 
 
 function JobRow({ job, pending, run }: { job: MaintenanceJobItem; pending: boolean; run: (fn: () => Promise<{ ok: boolean; error?: { message: string } }>, onOk?: () => void) => void }) {
   const [cost, setCost] = useState(0);
+  const [vendor, setVendor] = useState("");
   const [showBlock, setShowBlock] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -157,7 +159,7 @@ function JobRow({ job, pending, run }: { job: MaintenanceJobItem; pending: boole
     <li className="space-y-2 p-3 text-sm" data-testid={`job-${job.id}`}>
       <div>
         <p className="font-medium">{job.category}{job.roomNumber ? ` · Room ${job.roomNumber}` : ""} · {job.priority}</p>
-        <p className="text-xs text-muted-foreground">{job.description} · {job.status}{job.hasBlock ? " · 🚫 blocked" : ""}{job.costPaise != null ? ` · ${rupees(job.costPaise)}` : ""}</p>
+        <p className="text-xs text-muted-foreground">{job.description} · {job.status}{job.hasBlock ? " · 🚫 blocked" : ""}{job.costPaise != null ? ` · ${rupees(job.costPaise)}` : ""}{job.vendor ? ` · ${job.vendor}` : ""}</p>
       </div>
       {job.status !== "CLOSED" && (
         <div className="flex flex-wrap items-center gap-2">
@@ -166,7 +168,8 @@ function JobRow({ job, pending, run }: { job: MaintenanceJobItem; pending: boole
             <Button size="sm" variant="outline" disabled={pending} onClick={() => setShowBlock(true)} data-testid={`block-${job.id}`}>Block room</Button>
           )}
           <Input type="number" inputMode="numeric" className="w-24" placeholder="Cost ₹" value={cost || ""} onChange={(e) => setCost(Number(e.target.value))} data-testid={`cost-${job.id}`} />
-          <Button size="sm" disabled={pending} onClick={() => run(() => closeJob({ jobId: job.id, costPaise: cost > 0 ? toPaise(cost) : undefined }))} data-testid={`close-${job.id}`}>Close</Button>
+          <Input className="w-36" placeholder="Vendor" value={vendor} onChange={(e) => setVendor(e.target.value)} data-testid={`vendor-${job.id}`} />
+          <Button size="sm" disabled={pending} onClick={() => run(() => closeJob({ jobId: job.id, costPaise: cost > 0 ? toPaise(cost) : undefined, vendor: vendor.trim() || undefined }))} data-testid={`close-${job.id}`}>Close</Button>
         </div>
       )}
       {showBlock && (

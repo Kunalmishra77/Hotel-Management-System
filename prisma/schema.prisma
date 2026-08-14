@@ -1309,12 +1309,34 @@ model MaintenanceJob {
   recurrence   String? // cron-ish for preventive
   roomBlockId  String? // links to RoomBlock while out of service
   costPaise    Int?
+  vendor       String? // who did the work (free-text work-order trail, Phase 7)
   reportedById String?
   closedAt     DateTime?
   createdAt    DateTime            @default(now())
 
   @@index([propertyId, status])
   @@index([scheduledFor])
+}
+
+/// A guest's forgotten item logged by housekeeping (customer redesign, Phase 7).
+/// Property-scoped; short lifecycle STORED → CLAIMED / DISPOSED. Free-text
+/// claimant name only — no guest PII beyond what staff type.
+model LostAndFoundItem {
+  id             String    @id @default(cuid())
+  orgId          String
+  propertyId     String
+  roomId         String?
+  description    String
+  foundOn        DateTime  @db.Date
+  foundByStaffId String?
+  status         String    @default("STORED") // STORED | CLAIMED | DISPOSED
+  claimantName   String?
+  resolvedOn     DateTime?
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([propertyId, status])
 }
 
 // ==================== 12 COMMUNICATIONS ======================================
