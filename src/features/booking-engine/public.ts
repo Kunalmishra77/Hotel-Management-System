@@ -34,11 +34,11 @@ import {
   upsertPublicGuest,
   withBookingSystemContext,
 } from "./internal";
-import { depositAmount } from "./domain/deposit";
+import { depositForPreference } from "./domain/deposit";
 import { gstInclusiveDisplay } from "./domain/gst-display";
 import { validateStayConstraints } from "./domain/constraints";
 import { loadPublishedConfig, previewCoupon, resolveStayNetPerRoom, type PublishedConfig } from "./queries";
-import type { HoldInput } from "./schema";
+import type { HoldInput, PaymentPreference } from "./schema";
 
 const SUCCESS_EVENTS = new Set(["payment.captured", "payment.success", "order.paid"]);
 const FAILURE_EVENTS = new Set(["payment.failed", "payment.cancelled", "order.failed", "payment.abandoned"]);
@@ -72,6 +72,10 @@ export type HoldResult = {
   /** Only the gateway params the client needs — never secrets (FR-5, AC-5). */
   gateway: { provider: string; orderId: string; amountPaise: number };
   replayed: boolean;
+  /** The payment path taken. Anonymous callers are always PARTIAL (deposit). */
+  paymentPreference: PaymentPreference;
+  /** True when already CONFIRMED (pay-at-hotel) — no online payment is due. */
+  confirmed: boolean;
 };
 
 /**
@@ -82,7 +86,7 @@ export type HoldResult = {
 export async function placeHold(
   cfg: PublishedConfig,
   input: HoldInput,
-  meta: { ip: string },
+  meta: { ip: string; allowPaymentPreference?: boolean },
 ): Promise<HoldResult> {
   const prisma = bookingDb();
 
@@ -109,6 +113,9 @@ export async function placeHold(
       }),
       gateway: { provider: resolvePaymentProvider().name, orderId: existing.gatewayOrderId, amountPaise: existing.amountPaise },
       replayed: true,
+      // A 0-amount order is the pay-at-hotel marker → already confirmed.
+      paymentPreference: existing.amountPaise === 0 ? "PAY_AT_HOTEL" : "PARTIAL",
+      confirmed: existing.amountPaise === 0,
     };
   }
 
@@ -178,7 +185,21 @@ export async function placeHold(
   }
 
   const totalPaise = Math.max(0, display.grossPaise - couponDiscount);
-  const deposit = depositAmount(totalPaise, cfg);
+
+  // Payment path (FR-5 + customer redesign). Anonymous callers omit the
+  // preference → PARTIAL/deposit, exactly as before. Signed-in guests may choose:
+  //   PAY_NOW      → the whole total online now,
+  //   PARTIAL      → the configured deposit online now,
+  //   PAY_AT_HOTEL → nothing online; the booking confirms and is paid on arrival.
+  // The preference is honoured ONLY when the caller is trusted to set it (the
+  // signed-in guest booking action). The public route leaves it off, so an
+  // anonymous caller can never reach PAY_AT_HOTEL / PAY_NOW and always pays the
+  // configured deposit.
+  const preference: PaymentPreference = meta.allowPaymentPreference
+    ? input.paymentPreference ?? "PARTIAL"
+    : "PARTIAL";
+  const payAtHotel = preference === "PAY_AT_HOTEL";
+  const deposit = depositForPreference(preference, totalPaise, cfg);
   const nightlyRate = Math.round(netPerRoomPaise / n);
   const holdExpiresAt = new Date(Date.now() + cfg.checkoutTtlMin * 60_000);
 
@@ -217,14 +238,16 @@ export async function placeHold(
                   propertyId: cfg.propertyId,
                   code: generateWebCode(),
                   guestId: guest.id,
-                  status: "ENQUIRY",
+                  // Pay-at-hotel confirms immediately (the guest is identified);
+                  // the paid paths stay a hold until the gateway webhook confirms.
+                  status: payAtHotel ? "CONFIRMED" : "ENQUIRY",
                   source: "WEBSITE",
                   checkInDate: input.checkInDate,
                   checkOutDate: input.checkOutDate,
                   nights: n,
                   adults: input.adults,
                   children: input.children,
-                  holdExpiresAt,
+                  holdExpiresAt: payAtHotel ? null : holdExpiresAt,
                   ratePaise: nightlyRate,
                   discountPaise: couponDiscount,
                   extraBedPaise: 0,
@@ -266,11 +289,16 @@ export async function placeHold(
 
           await emitEvent(tx, {
             type: "ReservationCreated", aggregateId: reservation.id, propertyId: cfg.propertyId,
-            payload: { code: reservation.code, status: "ENQUIRY", source: "WEBSITE", hold: true, nights: n },
+            payload: {
+              code: reservation.code,
+              status: payAtHotel ? "CONFIRMED" : "ENQUIRY",
+              source: "WEBSITE", hold: !payAtHotel, nights: n,
+            },
           });
           await writeAudit(tx, {
-            action: "bookingengine:hold", entityType: "Reservation", entityId: reservation.id, propertyId: cfg.propertyId,
-            after: { code: reservation.code, rooms: chosen.length, holdExpiresAt },
+            action: payAtHotel ? "bookingengine:book" : "bookingengine:hold",
+            entityType: "Reservation", entityId: reservation.id, propertyId: cfg.propertyId,
+            after: { code: reservation.code, rooms: chosen.length, preference, holdExpiresAt: payAtHotel ? null : holdExpiresAt },
           });
 
           return { reservationId: reservation.id, reservationCode: reservation.code, guestId: guest.id };
@@ -279,6 +307,54 @@ export async function placeHold(
       ),
     ),
   );
+
+  // Pay-at-hotel: no online payment. Record a settled 0-amount order (same
+  // idempotency + audit trail as a paid booking, but no gateway call). The
+  // booking is already CONFIRMED, so nothing further is owed online.
+  if (payAtHotel) {
+    const synthOrderId = `pah_${held.reservationId}`;
+    try {
+      await withBookingSystemContext(cfg.orgId, () =>
+        prisma.$transaction(async (tx) => {
+          const row = await tx.bookingEngineOrder.create({
+            data: {
+              propertyId: cfg.propertyId,
+              reservationId: held.reservationId,
+              gatewayOrderId: synthOrderId,
+              amountPaise: 0,
+              status: "PAID", // nothing to collect online
+              idempotencyKey: input.idempotencyKey,
+              consentVersion: input.consentVersion,
+              consentAt: new Date(),
+            },
+            select: { id: true },
+          });
+          await writeAudit(tx, {
+            action: "bookingengine:book-pay-at-hotel", entityType: "Reservation",
+            entityId: held.reservationId, propertyId: cfg.propertyId,
+            after: { orderId: row.id, confirmed: true, preference },
+          });
+        }),
+      );
+    } catch (e) {
+      // A duplicate idempotency key = the booking is already recorded; ignore.
+      if (!(e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002")) throw e;
+    }
+    return {
+      reservationId: held.reservationId,
+      reservationCode: held.reservationCode,
+      orderId: synthOrderId,
+      amountPaise: 0,
+      totalPaise,
+      selfServiceToken: signBookingToken({
+        orderId: synthOrderId, reservationId: held.reservationId, exp: Date.now() + 30 * 86_400_000,
+      }),
+      gateway: { provider: "none", orderId: synthOrderId, amountPaise: 0 },
+      replayed: false,
+      paymentPreference: preference,
+      confirmed: true,
+    };
+  }
 
   // Create the gateway order (sandbox if no live creds) — external, post-commit.
   const provider = resolvePaymentProvider();
@@ -331,6 +407,8 @@ export async function placeHold(
     }),
     gateway: { provider: provider.name, orderId: orderRow.gatewayOrderId, amountPaise: orderRow.amountPaise },
     replayed: false,
+    paymentPreference: preference,
+    confirmed: false,
   };
 }
 

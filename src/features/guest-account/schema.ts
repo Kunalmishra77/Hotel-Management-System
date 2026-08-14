@@ -53,3 +53,21 @@ export const verifyPhoneOtpSchema = z.object({
   fullName: z.string().trim().max(120).optional(),
 });
 export type VerifyPhoneOtpInput = z.input<typeof verifyPhoneOtpSchema>;
+
+/** A signed-in guest's booking submission. Identity comes from the session, so no
+ *  contact fields here — only what to book, and how to pay. */
+export const guestBookingSchema = z.object({
+  slug: z.string().min(1),
+  roomCategoryId: z.string().min(1),
+  checkInDate: z.coerce.date(),
+  checkOutDate: z.coerce.date(),
+  adults: z.number().int().min(1).max(20),
+  children: z.number().int().min(0).max(20).default(0),
+  rooms: z.number().int().min(1).max(10).default(1),
+  couponCode: z.string().trim().min(2).max(40).optional(),
+  paymentPreference: z.enum(["PAY_NOW", "PARTIAL", "PAY_AT_HOTEL"]),
+  consentAccepted: z.literal(true, {
+    errorMap: () => ({ message: "Please accept the terms to book." }),
+  }),
+});
+export type GuestBookingInput = z.input<typeof guestBookingSchema>;

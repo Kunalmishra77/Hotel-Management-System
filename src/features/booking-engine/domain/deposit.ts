@@ -45,3 +45,24 @@ export function depositAmount(
   // A deposit must be a positive amount no larger than the total.
   return Math.max(1, Math.min(raw, totalPaise));
 }
+
+/** How a guest chose to pay (customer redesign). */
+export type PaymentPreference = "PAY_NOW" | "PARTIAL" | "PAY_AT_HOTEL";
+
+/**
+ * The amount to collect ONLINE NOW for a signed-in guest's chosen payment path:
+ *   PAY_AT_HOTEL → 0 (pay on arrival),
+ *   PAY_NOW      → the whole total,
+ *   PARTIAL      → the property's configured deposit.
+ * Pure — the single source of truth for the online amount, so `placeHold` and any
+ * test agree exactly.
+ */
+export function depositForPreference(
+  preference: PaymentPreference,
+  totalPaise: number,
+  policy: { depositPolicy: DepositPolicy; depositValue: number },
+): number {
+  if (preference === "PAY_AT_HOTEL") return 0;
+  if (preference === "PAY_NOW") return Math.max(0, totalPaise);
+  return depositAmount(totalPaise, policy);
+}

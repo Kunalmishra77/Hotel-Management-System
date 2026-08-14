@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, CalendarCheck, Mail, Phone, Sparkles } from "lucide-react";
+import { ArrowRight, CalendarCheck, Mail, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { listPublishedSites } from "@/features/booking-engine/queries";
 import { requireGuest, getGuestSummary } from "@/features/guest-account/queries";
@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "My account · Woodpecker" };
 export default async function AccountHomePage() {
   const principal = await requireGuest("/account");
   const [summary, sites] = await Promise.all([getGuestSummary(principal), listPublishedSites()]);
-  const bookHref = sites[0] ? `/book/${sites[0].slug}` : "/";
+  const bookHref = sites.length > 0 ? "/account/book" : "/";
 
   return (
     <main className="mx-auto w-full max-w-5xl px-5 py-10">
@@ -53,21 +53,23 @@ export default async function AccountHomePage() {
         </section>
       </div>
 
-      {/* My bookings — populated in the next phase */}
+      {/* My bookings */}
       <section className="mt-4 rounded-xl border bg-card p-5 shadow-sm">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <h2 className="inline-flex items-center gap-2 text-base font-semibold">
             <CalendarCheck className="size-5 text-primary" aria-hidden="true" />
             My bookings
           </h2>
+          <Button asChild size="sm" variant="outline">
+            <Link href="/account/bookings">
+              View all
+              <ArrowRight className="ml-1.5 size-4" aria-hidden="true" />
+            </Link>
+          </Button>
         </div>
-        <div className="mt-4 flex items-start gap-2 rounded-lg border border-dashed bg-muted/30 p-4 text-sm text-muted-foreground">
-          <Sparkles className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
-          <span>
-            Your upcoming and past stays will appear here — with your bill, invoice, and the option to cancel or
-            modify. Make a booking to get started.
-          </span>
-        </div>
+        <p className="mt-3 text-sm text-muted-foreground">
+          See your upcoming and past stays, view the bill, and cancel within the free window.
+        </p>
       </section>
     </main>
   );

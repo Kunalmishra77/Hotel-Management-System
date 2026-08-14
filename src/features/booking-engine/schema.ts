@@ -46,8 +46,17 @@ export const holdSchema = z.object({
   // Anti-bot signals (FR-11). Absent is fine; a FILLED honeypot is the signal.
   honeypot: z.string().max(200).optional(),
   captchaToken: z.string().max(4000).optional(),
+  /**
+   * How the guest wants to pay. Absent (the public route never sends it) keeps the
+   * original PARTIAL/deposit-online behaviour. Only the signed-in guest booking
+   * action sets this — PAY_AT_HOTEL confirms with no online payment, which must
+   * never be reachable by an anonymous caller (it would let bots confirm free
+   * inventory). See `placeHold`.
+   */
+  paymentPreference: z.enum(["PAY_NOW", "PARTIAL", "PAY_AT_HOTEL"]).optional(),
 });
 export type HoldInput = z.infer<typeof holdSchema>;
+export type PaymentPreference = "PAY_NOW" | "PARTIAL" | "PAY_AT_HOTEL";
 
 /** Coupon preview at checkout — no side effects (FR-23, AC-20). */
 export const quoteSchema = z.object({

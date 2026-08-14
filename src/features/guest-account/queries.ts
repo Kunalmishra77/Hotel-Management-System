@@ -36,3 +36,90 @@ export async function getGuestSummary(principal: GuestPrincipal): Promise<GuestS
     mobileMasked: maskMobile(decryptOptional(account?.mobile ?? null)),
   };
 }
+
+const ACTIVE_STATUSES = ["ENQUIRY", "CONFIRMED", "IN_HOUSE"] as const;
+
+export type MyBooking = {
+  reservationId: string;
+  code: string;
+  status: string;
+  propertyName: string;
+  checkInDate: Date;
+  checkOutDate: Date;
+  nights: number;
+  totalPaise: number;
+  advancePaise: number;
+  upcoming: boolean;
+  /** Only meaningful in the detail view; false in the list. */
+  cancellable: boolean;
+};
+
+function bookingTotal(r: { ratePaise: number; nights: number; taxPaise: number; discountPaise: number }): number {
+  return r.ratePaise * r.nights + r.taxPaise - r.discountPaise;
+}
+
+/** Every booking for the signed-in guest (scoped by the session's guestId, never
+ *  a client-supplied id), newest first. */
+export async function listMyBookings(principal: GuestPrincipal): Promise<MyBooking[]> {
+  const rows = await db.unscoped().reservation.findMany({
+    where: { guestId: principal.guestId },
+    orderBy: { checkInDate: "desc" },
+    select: {
+      id: true, code: true, status: true, checkInDate: true, checkOutDate: true,
+      nights: true, ratePaise: true, taxPaise: true, discountPaise: true, advancePaise: true, propertyId: true,
+    },
+  });
+  if (rows.length === 0) return [];
+
+  const propIds = [...new Set(rows.map((r) => r.propertyId))];
+  const props = await db.unscoped().property.findMany({ where: { id: { in: propIds } }, select: { id: true, name: true } });
+  const nameById = new Map(props.map((p) => [p.id, p.name]));
+
+  return rows.map((r) => ({
+    reservationId: r.id,
+    code: r.code,
+    status: r.status,
+    propertyName: nameById.get(r.propertyId) ?? "—",
+    checkInDate: r.checkInDate,
+    checkOutDate: r.checkOutDate,
+    nights: r.nights,
+    totalPaise: bookingTotal(r),
+    advancePaise: r.advancePaise,
+    upcoming: (ACTIVE_STATUSES as readonly string[]).includes(r.status),
+    cancellable: false,
+  }));
+}
+
+/** One booking, ONLY if it belongs to the signed-in guest (else null → 404). */
+export async function getMyBooking(principal: GuestPrincipal, reservationId: string): Promise<MyBooking | null> {
+  const r = await db.unscoped().reservation.findFirst({
+    where: { id: reservationId, guestId: principal.guestId },
+    select: {
+      id: true, code: true, status: true, checkInDate: true, checkOutDate: true,
+      nights: true, ratePaise: true, taxPaise: true, discountPaise: true, advancePaise: true,
+      propertyId: true, property: { select: { name: true } },
+    },
+  });
+  if (!r) return null;
+
+  const cfg = await db
+    .unscoped()
+    .bookingEngineConfig.findUnique({ where: { propertyId: r.propertyId }, select: { cancelWindowHours: true } });
+  const hoursToCheckIn = (r.checkInDate.getTime() - Date.now()) / 3_600_000;
+  const cancellable =
+    (r.status === "CONFIRMED" || r.status === "ENQUIRY") && hoursToCheckIn >= (cfg?.cancelWindowHours ?? 48);
+
+  return {
+    reservationId: r.id,
+    code: r.code,
+    status: r.status,
+    propertyName: r.property.name,
+    checkInDate: r.checkInDate,
+    checkOutDate: r.checkOutDate,
+    nights: r.nights,
+    totalPaise: bookingTotal(r),
+    advancePaise: r.advancePaise,
+    upcoming: (ACTIVE_STATUSES as readonly string[]).includes(r.status),
+    cancellable,
+  };
+}
