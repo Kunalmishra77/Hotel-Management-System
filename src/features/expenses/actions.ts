@@ -17,6 +17,7 @@ import { toResult, type Result } from "@/lib/result";
 import { resolveStorageAdapter } from "@/lib/storage";
 import { expenseDb, withExpenseContext } from "./internal";
 import { createExpenseSchema, approveExpenseSchema, rejectExpenseSchema } from "./schema";
+import { requiresSuperApproval } from "./domain/escalation";
 
 export type ExpenseResult = { id: string; status: string };
 
@@ -75,9 +76,15 @@ export async function approveExpense(input: unknown): Promise<Result<ExpenseResu
     const { expenseId } = approveExpenseSchema.parse(input);
     const user = await requireUser();
     const client = expenseDb(user);
-    const expense = await client.expense.findFirst({ where: { id: expenseId }, select: { id: true, propertyId: true, status: true } });
+    const expense = await client.expense.findFirst({ where: { id: expenseId }, select: { id: true, propertyId: true, status: true, amountPaise: true } });
     if (!expense) throw new NotFoundError("Expense not found.");
-    authorize(user, "expense:approve", expense.propertyId);
+    // Escalation (Phase 6): a major spend needs Super-Admin approval — a Manager's
+    // expense:approve is refused; only an Administrator holds expense:approve-large.
+    authorize(
+      user,
+      requiresSuperApproval(expense.amountPaise) ? "expense:approve-large" : "expense:approve",
+      expense.propertyId,
+    );
 
     return withExpenseContext(user, () =>
       client.$transaction(async (tx) => {

@@ -36,6 +36,7 @@ export const PERMISSIONS = [
   "payment:record",
   "expense:create",
   "expense:approve",
+  "expense:approve-large",
   "report:view-operational",
   "report:view-financial",
   "staff:manage",
@@ -128,6 +129,8 @@ const MATRIX: Record<Permission, MatrixRow> = {
   "payment:record": { ADMINISTRATOR: A, MANAGER: A, ASSISTANT_MANAGER: A, RECEPTION: A, ACCOUNTS: A, POS_MANAGER: A },
   "expense:create": { ADMINISTRATOR: A, MANAGER: A, ASSISTANT_MANAGER: A, ACCOUNTS: A, PURCHASE_MANAGER: A },
   "expense:approve": { ADMINISTRATOR: A, MANAGER: L, ASSISTANT_MANAGER: L, ACCOUNTS: L },
+  // Phase 6: a major expense (over the escalation threshold) needs Super Admin.
+  "expense:approve-large": { ADMINISTRATOR: L },
   "report:view-operational": {
     ADMINISTRATOR: A,
     MANAGER: A,

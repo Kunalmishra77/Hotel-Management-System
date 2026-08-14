@@ -11,7 +11,7 @@ const authMock = vi.hoisted(() => ({ current: null as SessionClaims | null }));
 vi.mock("@/lib/auth", () => ({ requireUser: async () => { if (!authMock.current) throw new Error("no user"); return authMock.current; } }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {}, revalidateTag: () => {} }));
 
-import { PROP_A_ID, USER_ACCOUNTS_ID, USER_RECEPTION_A_ID } from "../../prisma/seed/fixtures";
+import { PROP_A_ID, USER_ACCOUNTS_ID, USER_RECEPTION_A_ID, USER_MANAGER_ID, USER_ADMIN_ID } from "../../prisma/seed/fixtures";
 import { assembleClaims } from "@/lib/auth/claims";
 import { createExpense, approveExpense, rejectExpense } from "@/features/expenses/actions";
 import { expenseRollup } from "@/features/expenses/queries";
@@ -123,5 +123,47 @@ describe("expenseRollup — APPROVED only (T-6, FR-5, AC-5)", () => {
     const byHead = await expenseRollup(claims, { propertyIds: [PROP_A_ID], from, to, groupBy: "head" });
     expect(byHead.totals.KITCHEN).toBe(120_000);
     expect(byHead.totals.UTILITIES).toBe(800_000);
+  });
+});
+
+describe("approval escalation (Phase 6 — major spend needs Super Admin)", () => {
+  // Threshold is ₹25,000 = 2,500,000 paise.
+  const large = () => veg({ head: "UTILITIES", subCategory: "Diesel genset", amountPaise: 3_000_000 });
+  const small = () => veg({ head: "UTILITIES", subCategory: "Bulbs", amountPaise: 500_000 });
+
+  async function makeExpense() {
+    await actAs(USER_ACCOUNTS_ID);
+    const res = await createExpense(large());
+    track(res);
+    if (!res.ok) throw new Error("setup: create failed");
+    return res.data.id;
+  }
+
+  it("refuses a Manager approving a MAJOR expense (escalates to Super Admin)", async () => {
+    const id = await makeExpense();
+    await actAs(USER_MANAGER_ID);
+    const res = await approveExpense({ expenseId: id });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error.code).toBe("FORBIDDEN");
+    expect((await prisma.expense.findUniqueOrThrow({ where: { id } })).status).toBe("DRAFT");
+  });
+
+  it("lets an Administrator approve the MAJOR expense", async () => {
+    const id = await makeExpense();
+    await actAs(USER_ADMIN_ID);
+    const res = await approveExpense({ expenseId: id });
+    expect(res.ok).toBe(true);
+    expect((await prisma.expense.findUniqueOrThrow({ where: { id } })).status).toBe("APPROVED");
+  });
+
+  it("lets a Manager approve a MINOR expense (no escalation)", async () => {
+    await actAs(USER_ACCOUNTS_ID);
+    const mk = await createExpense(small());
+    track(mk);
+    if (!mk.ok) throw new Error("setup");
+    await actAs(USER_MANAGER_ID);
+    const res = await approveExpense({ expenseId: mk.data.id });
+    expect(res.ok).toBe(true);
+    expect((await prisma.expense.findUniqueOrThrow({ where: { id: mk.data.id } })).status).toBe("APPROVED");
   });
 });

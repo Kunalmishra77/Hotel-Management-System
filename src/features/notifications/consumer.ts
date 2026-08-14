@@ -16,9 +16,10 @@ import {
   isGuestRequestKind,
   departmentPermissionForKind,
 } from "@/features/guest-account/domain/request-kind";
+import { requiresSuperApproval } from "@/features/expenses/domain/escalation";
 import { rolesThatCan } from "./domain/targets";
 
-const TYPES = ["ReservationCreated", "GuestRequestCreated"] as const;
+const TYPES = ["ReservationCreated", "GuestRequestCreated", "ExpenseRecorded"] as const;
 
 /** Active users who hold `permission` at this property (org-scoped). Not a
  *  property-scoped model, so targeting is explicit: the role grants the permission
@@ -123,12 +124,38 @@ async function handleGuestRequestCreated(envelope: EventEnvelope): Promise<void>
   });
 }
 
+/** A recorded expense → the approver pool that can clear it (escalated by size). */
+async function handleExpenseRecorded(envelope: EventEnvelope): Promise<void> {
+  if (!envelope.propertyId) return;
+  const payload = (envelope.payload ?? {}) as { head?: unknown; amountPaise?: unknown };
+  const amountPaise = typeof payload.amountPaise === "number" ? payload.amountPaise : 0;
+  const head = typeof payload.head === "string" ? payload.head : "Expense";
+
+  // Major spend → Super Admin (expense:approve-large); minor → any approver.
+  const permission = requiresSuperApproval(amountPaise) ? "expense:approve-large" : "expense:approve";
+  const recipients = await usersWithPermission(envelope.orgId, envelope.propertyId, permission);
+
+  const rupees = `₹${(amountPaise / 100).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+  await notify(recipients, {
+    orgId: envelope.orgId,
+    propertyId: envelope.propertyId,
+    type: "EXPENSE_APPROVAL",
+    title: requiresSuperApproval(amountPaise) ? "Expense needs Super-Admin approval" : "Expense needs approval",
+    body: `${head} · ${rupees}`,
+    link: "/expenses",
+    entityType: "Expense",
+    entityId: envelope.aggregateId,
+    eventId: envelope.id,
+  });
+}
+
 export const notificationsConsumer: EventConsumer = {
   name: "notifications",
   types: TYPES,
   async handle(envelope: EventEnvelope) {
     if (envelope.type === "ReservationCreated") return handleReservationCreated(envelope);
     if (envelope.type === "GuestRequestCreated") return handleGuestRequestCreated(envelope);
+    if (envelope.type === "ExpenseRecorded") return handleExpenseRecorded(envelope);
   },
 };
 

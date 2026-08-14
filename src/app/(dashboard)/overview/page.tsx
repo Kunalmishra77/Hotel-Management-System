@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { BedDouble, Building2, IndianRupee, LineChart, Percent, TrendingUp, Wallet } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
+import { parsePeriod, periodRange, PERIODS, PERIOD_LABEL } from "@/features/command-center/domain/period";
 import { liveTiles, trend } from "@/features/analytics/queries";
 import { revenueSegments } from "@/features/reports/queries";
 import { getPortfolio } from "@/features/command-center/queries";
@@ -37,19 +39,23 @@ const pct = (bps: number) => `${(bps / 100).toFixed(0)}%`;
  * place" screen with one-tap drill-in; for a single-property manager it collapses to
  * that property's numbers. Financial, so `report:view-financial` gates the route.
  */
-export default async function OverviewPage() {
+export default async function OverviewPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string }>;
+}) {
   const user = await requirePermission("report:view-financial");
   const propertyIds = user.accessiblePropertyIds;
 
   const today = new Date();
-  const monthStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
-  const trendFrom = new Date(today.getTime() - 29 * 86_400_000);
+  const period = parsePeriod((await searchParams).period);
+  const { from, label: periodLabel } = periodRange(period, today);
 
   const [tiles, portfolio, revTrend, segs] = await Promise.all([
     liveTiles(user, propertyIds),
-    getPortfolio(user, monthStart, today),
-    trend(user, { metric: "revenue", from: trendFrom, to: today, propertyIds }),
-    revenueSegments(user, { propertyIds, from: monthStart, to: today }),
+    getPortfolio(user, from, today),
+    trend(user, { metric: "revenue", from, to: today, propertyIds }),
+    revenueSegments(user, { propertyIds, from, to: today }),
   ]);
 
   const t = portfolio.totals;
@@ -60,25 +66,38 @@ export default async function OverviewPage() {
     <div className="mx-auto w-full max-w-6xl">
       <PageHeader
         title="Command centre"
-        description={
-          isPortfolio
-            ? `${t.count} properties · one dashboard · month to date`
-            : "Month to date"
+        description={isPortfolio ? `${t.count} properties · one dashboard · ${periodLabel}` : periodLabel}
+        actions={
+          <div className="inline-flex items-center rounded-lg border bg-card p-0.5 text-sm" role="group" aria-label="Date range">
+            {PERIODS.map((p) => (
+              <Link
+                key={p}
+                href={p === "30d" ? "/overview" : `/overview?period=${p}`}
+                className={
+                  p === period
+                    ? "rounded-md bg-primary px-2.5 py-1 font-medium text-primary-foreground"
+                    : "rounded-md px-2.5 py-1 text-muted-foreground hover:text-foreground"
+                }
+              >
+                {PERIOD_LABEL[p]}
+              </Link>
+            ))}
+          </div>
         }
       />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6" data-testid="overview-kpis">
         <KpiCard label="Occupancy (live)" value={pct(tiles.occupancyBps)} icon={<Percent />} hint="Current status" />
-        <KpiCard label="Revenue (MTD)" value={formatINR(t.revenuePaise)} icon={<IndianRupee />} />
+        <KpiCard label="Revenue" value={formatINR(t.revenuePaise)} icon={<IndianRupee />} />
         <KpiCard
-          label="Profit (MTD)"
+          label="Profit"
           value={formatINR(t.profitPaise)}
           icon={<TrendingUp />}
           trend={t.profitPaise >= 0 ? "up" : "down"}
           delta={t.profitPaise >= 0 ? "In profit" : "In loss"}
         />
-        <KpiCard label="ADR (MTD)" value={formatINR(t.adrPaise)} icon={<BedDouble />} hint="Room rate" />
-        <KpiCard label="RevPAR (MTD)" value={formatINR(t.revparPaise)} icon={<LineChart />} />
+        <KpiCard label="ADR" value={formatINR(t.adrPaise)} icon={<BedDouble />} hint="Room rate" />
+        <KpiCard label="RevPAR" value={formatINR(t.revparPaise)} icon={<LineChart />} />
         <KpiCard label="Pending dues" value={formatINR(tiles.pendingPaise ?? 0)} icon={<Wallet />} hint="Unsettled folios" />
       </div>
 
@@ -95,7 +114,7 @@ export default async function OverviewPage() {
 
       <Card className="mt-5">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Revenue — last 30 days</CardTitle>
+          <CardTitle className="text-base">Revenue — {periodLabel}</CardTitle>
         </CardHeader>
         <CardContent>
           <TrendChart data={trendData} format="inr" />

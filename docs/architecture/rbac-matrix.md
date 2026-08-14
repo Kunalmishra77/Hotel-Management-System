@@ -28,6 +28,7 @@ Columns are the 14 login roles (staff without a login — housekeeping/room-serv
 | payment:record | ✔ | ✔ | ✔ | ✔ | ✔ |  |  |  | ✔ |  |  |  |  |  |
 | expense:create | ✔ | ✔ | ✔ |  | ✔ |  |  | ✔ |  |  |  |  |  |  |
 | expense:approve | ✔ | 🔒 | 🔒 |  | 🔒 |  |  |  |  |  |  |  |  |  |
+| expense:approve-large | 🔒 |  |  |  |  |  |  |  |  |  |  |  |  |  |
 | report:view-operational | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |  |  | ✔ | ✔ |  |
 | report:view-financial | ✔ | ✔ | ✔ |  | ✔ |  |  |  |  |  |  |  |  |  |
 | staff:manage | ✔ | ✔ | ✔ |  |  | ✔ |  |  |  |  |  |  |  |  |
