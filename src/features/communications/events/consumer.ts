@@ -144,8 +144,22 @@ async function handleTriggered(envelope: EventEnvelope): Promise<void> {
   }
 }
 
-/** PaymentDueDetected → one templated reminder per (folio, businessDate) (FR-20). */
+/**
+ * Client mandate (MoM 3 Aug 2026, binding): "NO payment-reminder messages will be
+ * sent to guests." This flag suppresses the module-12 FR-20 reminder path; the
+ * pipeline below is retained (dead only while this is true) so re-enabling is a
+ * single deliberate policy change, never a silent one. Balance-due is shown at the
+ * desk/folio instead, never pushed to the guest.
+ */
+const SUPPRESS_PAYMENT_REMINDERS = true as boolean;
+
+/** PaymentDueDetected → one templated reminder per (folio, businessDate) (FR-20 — suppressed). */
 async function handlePaymentDue(envelope: EventEnvelope): Promise<void> {
+  if (SUPPRESS_PAYMENT_REMINDERS) {
+    logger.info("comms.payment_reminder_suppressed", { folioId: envelope.aggregateId });
+    return;
+  }
+
   const orgId = envelope.orgId;
   const payload = payloadOf(envelope);
   const folioId = envelope.aggregateId;

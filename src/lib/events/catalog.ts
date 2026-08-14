@@ -111,6 +111,11 @@ export const DOMAIN_EVENT_TYPES = [
   "GuestOrderRequested",
   "KitchenTicketMoved",
 
+  // Wave 3: guest add-ons / upsells
+  "AddOnRequested",
+  "AddOnAccepted",
+  "AddOnDeclined",
+
   // 20 inventory
   "StockMovementRecorded",
   "LowStockDetected",

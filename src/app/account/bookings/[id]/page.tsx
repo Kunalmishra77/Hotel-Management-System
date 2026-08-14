@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, CalendarCheck, MapPin, ReceiptIndianRupee } from "lucide-react";
-import { requireGuest, getMyBooking } from "@/features/guest-account/queries";
+import { requireGuest, getMyBooking, listBookingAddOns } from "@/features/guest-account/queries";
 import { BookingStatusBadge } from "@/features/guest-account/components/booking-status-badge";
 import { CancelBookingButton } from "@/features/guest-account/components/cancel-booking-button";
 import { OnlineCheckIn } from "@/features/guest-account/components/online-checkin";
+import { BookingAddOns } from "@/features/guest-account/components/booking-add-ons";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Booking · Woodpecker" };
@@ -20,6 +21,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
   const principal = await requireGuest(`/account/bookings/${id}`);
   const b = await getMyBooking(principal, id);
   if (!b) notFound();
+  const addOns = await listBookingAddOns(principal, id);
 
   const duePaise = Math.max(0, b.totalPaise - b.advancePaise);
 
@@ -68,6 +70,12 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
         {(b.onlineCheckInEligible || b.onlineCheckInAt) && (
           <div className="mt-6 border-t pt-5">
             <OnlineCheckIn reservationId={b.reservationId} alreadyCheckedIn={b.onlineCheckInAt !== null} />
+          </div>
+        )}
+
+        {(addOns.canRequest || addOns.mine.length > 0) && (
+          <div className="mt-6 border-t pt-5">
+            <BookingAddOns reservationId={b.reservationId} data={addOns} />
           </div>
         )}
 

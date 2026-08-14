@@ -89,6 +89,8 @@ model Property {
   documents         PropertyDocument[]
   importantDates    PropertyImportantDate[]
   ownerPayouts      OwnerPayout[]
+  addOns            AddOn[]
+  addOnRequests     AddOnRequest[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -577,6 +579,7 @@ model Reservation {
   posOrders        PosOrder[]
   registrationCard RegistrationCard?
   cform            CForm?
+  addOnRequests    AddOnRequest[]
 
   notes     String?
   createdAt DateTime @default(now())
@@ -707,10 +710,11 @@ model Guest {
   // merge lineage (04 FR-12)
   mergedIntoId String?
 
-  ids          GuestId[]
-  reservations Reservation[]
-  feedback     Feedback[]
-  accounts     GuestAccount[]
+  ids           GuestId[]
+  reservations  Reservation[]
+  feedback      Feedback[]
+  accounts      GuestAccount[]
+  addOnRequests AddOnRequest[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -936,6 +940,64 @@ model FolioLine {
 
   @@index([folioId])
   @@index([businessDate])
+}
+
+// Upsell / add-ons (Wave 3). A per-property catalog of paid extras a guest can
+// request against an upcoming/in-house booking; on staff-accept the priced,
+// GST-correct charge posts to the folio (settle-to-folio, no guest payment).
+enum AddOnRequestStatus {
+  REQUESTED
+  ACCEPTED
+  DECLINED
+}
+
+model AddOn {
+  id          String     @id @default(cuid())
+  propertyId  String
+  property    Property   @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  pricePaise  Int // per-unit, paise; bounded (Int) like a folio-line unitPaise
+  chargeType  ChargeType // the folio charge type this add-on posts as (drives GST)
+  hsnSac      String? // optional override; else derived from chargeType at posting
+  taxRateBps  Int? // optional GST override (bps); else derived from chargeType
+  active      Boolean    @default(true)
+  sortOrder   Int        @default(0)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  requests AddOnRequest[]
+
+  @@index([propertyId, active])
+}
+
+// A guest's request for a catalog add-on. Name/price/type are SNAPSHOTTED at
+// request time so a later catalog edit never rewrites a placed request or its
+// posted charge. Lifecycle: REQUESTED → ACCEPTED (folio charged) | DECLINED.
+model AddOnRequest {
+  id            String             @id @default(cuid())
+  orgId         String
+  propertyId    String
+  property      Property           @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  reservationId String
+  reservation   Reservation        @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+  guestId       String
+  guest         Guest              @relation(fields: [guestId], references: [id], onDelete: Restrict)
+  addOnId       String
+  addOn         AddOn              @relation(fields: [addOnId], references: [id], onDelete: Restrict)
+  nameSnapshot  String
+  unitPaise     Int
+  quantity      Int                @default(1)
+  chargeType    ChargeType
+  note          String?
+  status        AddOnRequestStatus @default(REQUESTED)
+  folioLineId   String? // the FolioLine created on accept
+  requestedAt   DateTime           @default(now())
+  decidedById   String?
+  decidedAt     DateTime?
+
+  @@index([propertyId, status])
+  @@index([reservationId])
 }
 
 enum PaymentMode {

@@ -81,6 +81,15 @@ export const onlineCheckInSchema = z.object({
 });
 export type OnlineCheckInInput = z.input<typeof onlineCheckInSchema>;
 
+/** A guest's request for a catalog add-on against their own booking (Wave 3). */
+export const requestAddOnSchema = z.object({
+  reservationId: z.string().min(1),
+  addOnId: z.string().min(1),
+  quantity: z.number().int().min(1).max(10).default(1),
+  note: z.string().trim().max(300).optional(),
+});
+export type RequestAddOnInput = z.input<typeof requestAddOnSchema>;
+
 /** An in-room service request from a checked-in guest (Phase 4). */
 export const guestRequestSchema = z.object({
   kind: z.enum(["HOUSEKEEPING", "MAINTENANCE", "AMENITY", "OTHER"]),

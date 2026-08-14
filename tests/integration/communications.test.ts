@@ -289,12 +289,12 @@ describe("US-4 RBAC + inactive automation (AC-13/17)", () => {
   });
 });
 
-describe("US-5 payment reminder idempotency across 06 + 14 (AC-15/FR-20)", () => {
-  it("enqueues at most one reminder per (folio, businessDate)", async () => {
+describe("payment reminders suppressed (MoM 3 Aug 2026 — overrides FR-20)", () => {
+  it("sends NO payment reminder even when PaymentDueDetected fires (client mandate)", async () => {
     const evt = () => envelope("PaymentDueDetected", "c12_folio_1", { guestId: GUEST, propertyId: PROP_A_ID, businessDate: "2026-08-01" });
     await communicationsConsumer.handle(evt()); // 06 checkout
     await communicationsConsumer.handle(evt()); // 14 night-audit close (same folio/day)
     const count = await prisma.messageLog.count({ where: { guestId: GUEST, templateKey: "PAYMENT_REMINDER" } });
-    expect(count).toBe(1);
+    expect(count).toBe(0);
   });
 });

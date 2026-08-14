@@ -9,6 +9,8 @@ import { db } from "@/lib/db";
 import { decryptOptional, maskEmail, maskMobile } from "@/lib/crypto/encryption";
 import { resolveGuestSession, type GuestPrincipal } from "@/lib/guest-auth";
 import { canOnlineCheckIn } from "./domain/online-checkin";
+import { canRequestAddOn } from "@/features/add-ons/domain/upsell";
+import { listActiveAddOns, type CatalogAddOn } from "@/features/add-ons/queries";
 
 /** The current guest principal, or redirect to sign-in preserving the destination. */
 export async function requireGuest(next?: string): Promise<GuestPrincipal> {
@@ -133,5 +135,48 @@ export async function getMyBooking(principal: GuestPrincipal, reservationId: str
     onlineCheckInAt: r.onlineCheckInAt,
     onlineCheckInEligible: canOnlineCheckIn(r.status),
     expectedArrival: r.expectedArrival,
+  };
+}
+
+export type MyAddOnRequest = {
+  id: string;
+  name: string;
+  unitPaise: number;
+  quantity: number;
+  status: string;
+};
+export type BookingAddOns = {
+  /** Whether the booking status still allows requesting an extra. */
+  canRequest: boolean;
+  available: CatalogAddOn[];
+  mine: MyAddOnRequest[];
+};
+
+/**
+ * The add-ons panel for ONE of the guest's own bookings: the property's active
+ * catalog + the guest's own requests against this booking. Scoped by the session
+ * principal (never a client id) — a foreign booking returns an empty, inert panel.
+ */
+export async function listBookingAddOns(principal: GuestPrincipal, reservationId: string): Promise<BookingAddOns> {
+  const r = await db.unscoped().reservation.findFirst({
+    where: { id: reservationId, guestId: principal.guestId },
+    select: { id: true, propertyId: true, status: true },
+  });
+  if (!r) return { canRequest: false, available: [], mine: [] };
+
+  const canRequest = canRequestAddOn(r.status);
+  const [available, mine] = await Promise.all([
+    canRequest ? listActiveAddOns(r.propertyId) : Promise.resolve([]),
+    db.unscoped().addOnRequest.findMany({
+      where: { reservationId: r.id, guestId: principal.guestId },
+      orderBy: { requestedAt: "desc" },
+      select: { id: true, nameSnapshot: true, unitPaise: true, quantity: true, status: true },
+    }),
+  ]);
+
+  return {
+    canRequest,
+    available,
+    mine: mine.map((m) => ({ id: m.id, name: m.nameSnapshot, unitPaise: m.unitPaise, quantity: m.quantity, status: m.status })),
   };
 }

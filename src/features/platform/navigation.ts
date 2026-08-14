@@ -120,6 +120,15 @@ export const NAV_ITEMS: readonly NavItem[] = [
     permission: "request:manage",
   },
   {
+    // Guest add-on / upsell requests awaiting reception (Wave 3). Accepting posts
+    // the charge to the folio, so it's gated on the same permission as charging.
+    key: "add-ons",
+    label: "Add-on requests",
+    href: "/add-ons",
+    icon: "Sparkles",
+    permission: "folio:charge",
+  },
+  {
     // FRRO Form C register for foreign-guest arrivals (03 FR-25/26). Same
     // permission as the bookings board; the register itself never exposes ID numbers.
     key: "form-c",

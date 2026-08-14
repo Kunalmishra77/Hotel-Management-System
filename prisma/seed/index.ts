@@ -28,6 +28,7 @@ import { seedPayroll } from "./21-payroll";
 import { seedAccounting } from "./22-accounting";
 import { seedCorporate } from "./25-corporate";
 import { seedDataOnboarding } from "./26-data-onboarding";
+import { seedAddOns } from "./add-ons";
 import { seedDemoExtras } from "./27-demo-extras";
 import { seedDemoPortfolio } from "./28-demo-portfolio";
 import { seedDemoRich } from "./29-demo-rich";
@@ -77,6 +78,8 @@ export async function seedDatabase(client: PrismaClient, opts: { log?: boolean }
   say("  ✔ 24-dynamic-pricing (Deluxe rate plan + SUGGESTED rate)");
   await seedBookingEngine(client);
   say("  ✔ 23-booking-engine (published config, slug woodpecker-mg)");
+  await seedAddOns(client);
+  say("  ✔ add-ons        (5 upsell extras for PROP_A)");
   await seedChannels(client);
   say("  ✔ 13-channels    (CH-BDC sandbox, MAP-DLX, RES-EXT fixture)");
   // Tier 6
