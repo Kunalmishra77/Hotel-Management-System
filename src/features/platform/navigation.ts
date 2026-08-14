@@ -79,6 +79,14 @@ export const NAV_ITEMS: readonly NavItem[] = [
     primary: true,
   },
   {
+    // Architecture v2 · Approvals — cross-property expense-approval queue.
+    key: "approvals",
+    label: "Approvals",
+    href: "/approvals",
+    icon: "ClipboardCheck",
+    permission: "expense:approve",
+  },
+  {
     // Architecture v2 · Super Admin — every property ranked/compared (report:view-financial).
     key: "insights",
     label: "Portfolio insights",

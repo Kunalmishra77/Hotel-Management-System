@@ -5,7 +5,53 @@
  */
 import { db } from "@/lib/db";
 import { rollup, totalPaise, type RollupKey } from "./domain/rollup";
+import { requiresSuperApproval } from "./domain/escalation";
 import type { SessionClaims } from "@/lib/auth/claims";
+
+export type PendingApproval = {
+  id: string;
+  head: string;
+  subCategory: string | null;
+  amountPaise: number;
+  spentOn: Date;
+  vendor: string | null;
+  propertyId: string;
+  propertyName: string;
+  needsSuperApproval: boolean;
+};
+
+/**
+ * Cross-property expense-approval queue (architecture v2 · Super Admin/Manager
+ * Approvals). Every DRAFT expense awaiting approval across the caller's accessible
+ * properties, flagged with whether it needs Super-Admin (large) approval.
+ */
+export async function listPendingApprovals(user: SessionClaims): Promise<PendingApproval[]> {
+  const ids = [...user.accessiblePropertyIds];
+  if (ids.length === 0) return [];
+  const rows = await db.scoped(user).expense.findMany({
+    where: { propertyId: { in: ids }, status: "DRAFT" },
+    select: { id: true, head: true, subCategory: true, amountPaise: true, spentOn: true, vendor: true, propertyId: true },
+    orderBy: { spentOn: "desc" },
+    take: 200,
+  });
+  if (rows.length === 0) return [];
+  const props = await db.unscoped().property.findMany({
+    where: { id: { in: [...new Set(rows.map((r) => r.propertyId))] } },
+    select: { id: true, name: true },
+  });
+  const nameById = new Map(props.map((p) => [p.id, p.name]));
+  return rows.map((r) => ({
+    id: r.id,
+    head: r.head,
+    subCategory: r.subCategory,
+    amountPaise: r.amountPaise,
+    spentOn: r.spentOn,
+    vendor: r.vendor,
+    propertyId: r.propertyId,
+    propertyName: nameById.get(r.propertyId) ?? r.propertyId,
+    needsSuperApproval: requiresSuperApproval(r.amountPaise),
+  }));
+}
 
 export type ExpenseListItem = {
   id: string;
