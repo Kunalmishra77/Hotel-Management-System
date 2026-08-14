@@ -55,7 +55,7 @@ const USERS: SeededUser[] = [
     name: "Aarti Menon",
     role: RoleName.ADMINISTRATOR,
     propertyIds: [], // org-wide
-    twoFactor: true,
+    twoFactor: false, // demo: frictionless password login (role 2FA enforcement is off)
   },
   {
     id: USER_MANAGER_ID,
@@ -79,7 +79,7 @@ const USERS: SeededUser[] = [
     name: "Suresh Iyer",
     role: RoleName.ACCOUNTS,
     propertyIds: [PROP_A_ID, PROP_B_ID],
-    twoFactor: true,
+    twoFactor: false, // demo: frictionless password login
   },
   {
     id: USER_HOUSEKEEPING_ID,

@@ -7,7 +7,7 @@ import { hasPermission, type Permission } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
-import { visibleNavItems } from "@/features/platform/navigation";
+import { portalNavItems } from "@/features/platform/portals";
 import { NavIcon } from "@/features/platform/components/nav-icon";
 import { liveTiles, trend } from "@/features/analytics/queries";
 import { DashboardTiles } from "@/features/analytics/components/dashboard-tiles";
@@ -24,7 +24,10 @@ export const metadata: Metadata = { title: "Dashboard" };
  */
 export default async function DashboardPage() {
   const claims = await requireUser();
-  const sections = visibleNavItems(claims.resolvedPermissions).filter((s) => s.key !== "dashboard");
+  const sections = portalNavItems(
+    claims.roleAssignments.map((r) => r.role),
+    claims.resolvedPermissions,
+  ).filter((s) => s.key !== "dashboard");
 
   const propertyId = claims.activePropertyId ?? claims.accessiblePropertyIds[0] ?? null;
   const canOperational = hasPermission(claims, "report:view-operational");

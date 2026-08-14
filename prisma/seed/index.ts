@@ -29,6 +29,7 @@ import { seedAccounting } from "./22-accounting";
 import { seedCorporate } from "./25-corporate";
 import { seedDataOnboarding } from "./26-data-onboarding";
 import { seedAddOns } from "./add-ons";
+import { seedPortfolioFill } from "./portfolio-fill";
 import { seedDemoExtras } from "./27-demo-extras";
 import { seedDemoPortfolio } from "./28-demo-portfolio";
 import { seedDemoRich } from "./29-demo-rich";
@@ -105,6 +106,8 @@ export async function seedDatabase(client: PrismaClient, opts: { log?: boolean }
     say("  ✔ 27-demo-extras (owner payouts, renewal dates, laundry batches, field-staff)");
     await seedDemoPortfolio(client);
     say("  ✔ 28-demo-portfolio (5 hotels + managers + 30-day snapshots)");
+    await seedPortfolioFill(client);
+    say("  ✔ portfolio-fill (rooms + guests + bookings for the 4 non-flagship hotels)");
     await seedDemoRich(client);
     say("  ✔ 29-demo-rich (15 rooms, 28 guests, 54 reservations, folios+payments, HK/maint/feedback)");
     await seedDemoCustomer(client);

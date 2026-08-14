@@ -13,10 +13,11 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { NotificationBell } from "@/features/notifications/components/notification-bell";
 import type { SessionClaims } from "@/lib/auth/claims";
 import type { PropertyOption } from "../actions";
-import { bottomNavItems, visibleNavItems } from "../navigation";
+import { portalNavItems, portalBottomNavItems } from "../portals";
 import { BottomNav } from "./bottom-nav";
 import { CommandPalette } from "./command-palette";
 import { PropertySwitcher } from "./property-switcher";
+import { ScopeIndicator } from "./scope-indicator";
 import { SideNav } from "./side-nav";
 
 export function AppShell({
@@ -28,15 +29,24 @@ export function AppShell({
   properties: PropertyOption[];
   children: React.ReactNode;
 }) {
-  const sideItems = visibleNavItems(claims.resolvedPermissions);
-  const barItems = bottomNavItems(claims.resolvedPermissions);
+  // Architecture v2 · Phase 1 — role-scoped portal nav: each role sees only its
+  // own portal's modules, in blueprint order (still permission-gated underneath).
+  const roles = claims.roleAssignments.map((r) => r.role);
+  const sideItems = portalNavItems(roles, claims.resolvedPermissions);
+  const barItems = portalBottomNavItems(roles, claims.resolvedPermissions);
 
   return (
     // h-dvh (not min-h) so the sidebar and main scroll INDEPENDENTLY inside a
     // fixed viewport — the left nav no longer scrolls away with the content.
     <div className="flex h-dvh flex-col overflow-hidden">
       <header className="z-30 flex min-h-touch shrink-0 items-center justify-between gap-2 border-b bg-background px-2 pt-[env(safe-area-inset-top)]">
-        <PropertySwitcher properties={properties} activePropertyId={claims.activePropertyId} />
+        {properties.length > 1 ? (
+          // Multi-property (super-admin / group): no "switch to a hotel" dropdown —
+          // default is ALL hotels; drill-in from the command centre, ◀ back from anywhere.
+          <ScopeIndicator properties={properties} activePropertyId={claims.activePropertyId} />
+        ) : (
+          <PropertySwitcher properties={properties} activePropertyId={claims.activePropertyId} />
+        )}
 
         <div className="flex items-center gap-1.5">
           <CommandPalette navItems={sideItems.map((i) => ({ key: i.key, label: i.label, href: i.href, icon: i.icon }))} />

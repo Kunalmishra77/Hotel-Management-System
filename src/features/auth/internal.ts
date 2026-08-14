@@ -8,6 +8,7 @@
  */
 import type { RoleName } from "@prisma/client";
 import { db } from "@/lib/db";
+import { assembleClaims } from "@/lib/auth/claims";
 import { writeAudit } from "@/lib/audit";
 import { emitEvent } from "@/lib/events";
 import { newRequestId, runWithContext } from "@/lib/context";
@@ -43,11 +44,17 @@ export function safeNext(next: string | undefined): string {
  */
 export async function landingRoute(userId: string, next: string | undefined): Promise<string> {
   if (next && next.startsWith("/") && !next.startsWith("//")) return next;
-  const user = await authDb.user.findUnique({
-    where: { id: userId },
-    select: { roleAssignments: { select: { role: true } } },
-  });
-  const roles = new Set<RoleName>((user?.roleAssignments ?? []).map((r) => r.role));
+  const claims = await assembleClaims(authDb, userId);
+  if (!claims) return "/dashboard";
+
+  // Multi-property redesign: a user who spans more than one hotel and can read
+  // financials (super-admin / group manager) lands on the CONSOLIDATED command
+  // centre — their default is "all hotels at once", not a single focused hotel.
+  const roles = new Set<RoleName>(claims.roleAssignments.map((r) => r.role));
+  if (claims.accessiblePropertyIds.length > 1 && claims.resolvedPermissions.includes("report:view-financial")) {
+    return "/overview";
+  }
+  if (roles.has("OWNER")) return "/owner";
   if (roles.has("ADMINISTRATOR") || roles.has("MANAGER") || roles.has("ASSISTANT_MANAGER")) return "/dashboard";
   if (roles.has("RECEPTION")) return "/bookings";
   if (roles.has("ACCOUNTS")) return "/billing";

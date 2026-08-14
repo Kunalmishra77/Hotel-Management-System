@@ -3,41 +3,20 @@
 /**
  * Multi-property command centre — the per-hotel portfolio grid. Each card is one
  * property with its month-to-date KPIs, its manager, and a revenue share bar, plus
- * a "drill in" that switches the whole app's active property to that hotel and opens
- * its operational dashboard. This is what makes the multi-property architecture
- * obvious from the UI: Super Admin → every hotel, one screen, one tap to focus.
+ * a "view" that opens the hotel's READ-ONLY executive view (Property View Mode).
+ * Operational work stays in that property's own portal — the Super Admin monitors,
+ * never runs the front desk from here. Super Admin → every hotel, one screen.
  */
-import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import Link from "next/link";
 import { ArrowRight, BedDouble, LineChart, Percent, User } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn, formatINR } from "@/lib/utils";
-import { switchProperty } from "@/features/platform/actions";
 import type { PortfolioProperty } from "../queries";
 
 const pct = (bps: number) => `${(bps / 100).toFixed(0)}%`;
 
 export function PortfolioGrid({ properties, activePropertyId }: { properties: PortfolioProperty[]; activePropertyId: string | null }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
   const maxRevenue = Math.max(1, ...properties.map((p) => p.revenuePaise));
-
-  const drillIn = (id: string) => {
-    setError(null);
-    setBusyId(id);
-    startTransition(async () => {
-      const result = await switchProperty({ propertyId: id });
-      if (!result.ok) {
-        setError(result.error.message);
-        setBusyId(null);
-        return;
-      }
-      router.push("/dashboard");
-    });
-  };
 
   return (
     <div>
@@ -80,25 +59,21 @@ export function PortfolioGrid({ properties, activePropertyId }: { properties: Po
                 </div>
               </div>
 
-              {/* Drill-in */}
-              <button
-                type="button"
-                onClick={() => drillIn(p.id)}
-                disabled={pending}
+              {/* Read-only executive drill-in → Property View Mode */}
+              <Link
+                href={`/overview/${p.id}`}
                 className={cn(
                   "mt-auto flex min-h-touch items-center justify-center gap-1.5 rounded-md border text-sm font-medium",
                   "hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  pending && busyId === p.id && "opacity-60",
                 )}
               >
-                {isActive ? "Active — open dashboard" : "Open this hotel"}
+                View this hotel
                 <ArrowRight className="size-4" />
-              </button>
+              </Link>
             </Card>
           );
         })}
       </div>
-      {error && <p role="alert" className="mt-2 text-xs text-destructive">{error}</p>}
     </div>
   );
 }
