@@ -57,16 +57,16 @@ const PORTAL_NAV: Record<PortalId, readonly string[]> = {
   OWNER: ["owner", "owner-documents", "owner-schedule", "owner-payouts"],
   // Single-hotel operations control centre.
   MANAGER: [
-    "dashboard", "rooms", "bookings", "guests",
+    "dashboard", "operations", "rooms", "bookings", "in-house", "guests",
     "housekeeping", "maintenance", "inventory", "laundry",
-    "billing", "expenses", "payroll", "staff", "field-staff",
+    "billing", "approvals", "expenses", "payroll", "staff", "field-staff",
     "feedback", "requests", "reports", "communications", "ai",
   ],
-  // Front-desk operations console.
+  // Front-desk operations console. (Search is the header command palette, not a page.)
   RECEPTION: [
-    "dashboard", "rooms", "bookings", "guests",
+    "dashboard", "rooms", "bookings", "in-house", "guests",
     "requests", "add-ons", "billing",
-    "housekeeping", "maintenance", "form-c", "search", "ai",
+    "housekeeping", "maintenance", "form-c", "ai",
   ],
   // Finance console.
   ACCOUNTS: ["overview", "billing", "expenses", "payroll", "accounting", "corporate", "reports", "ai"],

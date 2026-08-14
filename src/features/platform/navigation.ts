@@ -130,6 +130,15 @@ export const NAV_ITEMS: readonly NavItem[] = [
     primary: true,
   },
   {
+    // Architecture v2 · Reception/Manager — a dedicated view of currently in-house guests.
+    key: "in-house",
+    label: "In-house guests",
+    href: "/in-house",
+    icon: "UserCheck",
+    permission: "reservation:view",
+    primary: true,
+  },
+  {
     key: "requests",
     label: "Guest requests",
     href: "/requests",
