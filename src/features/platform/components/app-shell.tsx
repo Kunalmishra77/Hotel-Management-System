@@ -10,6 +10,7 @@
  */
 import { UserMenu } from "@/components/layout/user-menu";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { NotificationBell } from "@/features/notifications/components/notification-bell";
 import type { SessionClaims } from "@/lib/auth/claims";
 import type { PropertyOption } from "../actions";
 import { bottomNavItems, visibleNavItems } from "../navigation";
@@ -39,6 +40,7 @@ export function AppShell({
 
         <div className="flex items-center gap-1.5">
           <CommandPalette navItems={sideItems.map((i) => ({ key: i.key, label: i.label, href: i.href, icon: i.icon }))} />
+          <NotificationBell />
           <ThemeToggle />
           <UserMenu name={claims.name} email={claims.email} />
         </div>

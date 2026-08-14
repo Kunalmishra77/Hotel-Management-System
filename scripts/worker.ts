@@ -16,14 +16,8 @@ import "dotenv/config";
 import PgBoss from "pg-boss";
 import { PrismaClient } from "@prisma/client";
 import { dispatchOutbox } from "../src/lib/events/dispatch";
-import { registerGuestHistoryConsumer } from "../src/features/guest-history/consumer";
-import { registerHousekeepingConsumer } from "../src/features/housekeeping/consumer";
-import { registerCommunicationsConsumer } from "../src/features/communications/events/consumer";
+import { registerAllConsumers } from "../src/features/register-consumers";
 import { dispatchQueuedMessages, scheduleTick } from "../src/features/communications/dispatch";
-import { registerAiSentimentConsumer } from "../src/features/ai/consumer";
-import { registerChannelsConsumer } from "../src/features/channels/consumer";
-import { registerInventoryConsumer } from "../src/features/inventory/consumer";
-import { registerAccountingConsumer } from "../src/features/accounting/consumer";
 import { syncWorker } from "../src/features/accounting/sync";
 import { registerImportJobs } from "../src/features/data-onboarding/job";
 import { channelsProcessInbox, pullActiveChannels, deadLetterStalePushes } from "../src/features/channels/jobs";
@@ -72,13 +66,7 @@ async function main(): Promise<void> {
 
   // Register the event consumers the dispatcher delivers to (05 guest-history;
   // more modules register here as they add consumers).
-  registerGuestHistoryConsumer();
-  registerHousekeepingConsumer();
-  registerCommunicationsConsumer();
-  registerAiSentimentConsumer();
-  registerChannelsConsumer();
-  registerInventoryConsumer();
-  registerAccountingConsumer();
+  registerAllConsumers();
   // 26 data-onboarding: large-file import jobs (enqueued on demand). The pg-boss
   // handler shape is looser than registerImportJobs' declared param — the tested
   // path is the inline runner; the worker path is a documented follow-up.
