@@ -551,6 +551,7 @@ model Reservation {
   checkOutDate    DateTime  @db.Date
   checkInAt       DateTime?
   checkOutAt      DateTime?
+  onlineCheckInAt DateTime? // guest completed self-service online check-in pre-arrival (wave 2)
   expectedArrival String? // §2 planned check-in time / ETA at booking (e.g. "18:00", "late evening")
   nights          Int
   adults          Int       @default(1)

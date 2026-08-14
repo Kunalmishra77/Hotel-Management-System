@@ -25,6 +25,8 @@ export type ReservationDetail = {
   children: number;
   roomNumbers: string[];
   needsAttention: string | null;
+  onlineCheckInAt: Date | null;
+  expectedArrival: string | null;
   balancePaise: number | null;
   lines: { type: string; description: string; amountPaise: number; taxPaise: number }[];
   payments: { mode: string; amountPaise: number; isRefund: boolean }[];
@@ -46,6 +48,8 @@ export async function getReservationDetail(id: string): Promise<ReservationDetai
       adults: true,
       children: true,
       needsAttention: true,
+      onlineCheckInAt: true,
+      expectedArrival: true,
       propertyId: true,
       guest: { select: { fullName: true } },
       allocations: { select: { room: { select: { number: true } } } },
@@ -76,6 +80,8 @@ export async function getReservationDetail(id: string): Promise<ReservationDetai
     children: r.children,
     roomNumbers: r.allocations.map((a) => a.room.number),
     needsAttention: r.needsAttention,
+    onlineCheckInAt: r.onlineCheckInAt,
+    expectedArrival: r.expectedArrival,
     balancePaise,
     lines: (r.folio?.lines ?? []).map((l) => ({
       type: l.type,

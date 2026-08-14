@@ -8,7 +8,7 @@
  */
 import { useEffect, useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
-import { ArrowRight, BedDouble, CalendarDays, User, Check } from "lucide-react";
+import { ArrowRight, BedDouble, CalendarDays, User, Check, PenLine } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -52,6 +52,11 @@ export function ReservationDrawer({ openId, onClose }: { openId: string | null; 
                 <span className="font-mono text-xs">{d.code}</span>
                 <Badge variant={STATUS_VARIANT[d.status] ?? "secondary"}>{d.status.replace("_", "-").toLowerCase()}</Badge>
                 {d.needsAttention ? <Badge variant="destructive">{d.needsAttention}</Badge> : null}
+                {d.onlineCheckInAt ? (
+                  <Badge variant="success" className="gap-1">
+                    <PenLine className="size-3" aria-hidden="true" /> Online check-in done
+                  </Badge>
+                ) : null}
               </div>
             </div>
 
@@ -67,6 +72,9 @@ export function ReservationDrawer({ openId, onClose }: { openId: string | null; 
                 <Row icon={<BedDouble className="size-4" />} label="Rooms" value={d.roomNumbers.length ? d.roomNumbers.join(", ") : "Not assigned"} />
                 <Row icon={<User className="size-4" />} label="Guests" value={`${d.adults} adult${d.adults === 1 ? "" : "s"}${d.children ? ` · ${d.children} child` : ""}`} />
                 <Row icon={<ArrowRight className="size-4" />} label="Source" value={SOURCE_LABEL[d.source] ?? d.source} />
+                {d.expectedArrival ? (
+                  <Row icon={<PenLine className="size-4" />} label="ETA" value={d.expectedArrival} />
+                ) : null}
                 <div className="flex items-center justify-between border-t pt-3">
                   <span className="text-sm text-muted-foreground">Balance due</span>
                   <span className={cn("font-semibold tabular", (d.balancePaise ?? 0) > 0 ? "text-destructive" : "text-success")}>

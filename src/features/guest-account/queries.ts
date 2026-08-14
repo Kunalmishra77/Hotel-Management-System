@@ -8,6 +8,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { decryptOptional, maskEmail, maskMobile } from "@/lib/crypto/encryption";
 import { resolveGuestSession, type GuestPrincipal } from "@/lib/guest-auth";
+import { canOnlineCheckIn } from "./domain/online-checkin";
 
 /** The current guest principal, or redirect to sign-in preserving the destination. */
 export async function requireGuest(next?: string): Promise<GuestPrincipal> {
@@ -52,6 +53,9 @@ export type MyBooking = {
   upcoming: boolean;
   /** Only meaningful in the detail view; false in the list. */
   cancellable: boolean;
+  onlineCheckInAt: Date | null;
+  onlineCheckInEligible: boolean;
+  expectedArrival: string | null;
 };
 
 function bookingTotal(r: { ratePaise: number; nights: number; taxPaise: number; discountPaise: number }): number {
@@ -67,6 +71,7 @@ export async function listMyBookings(principal: GuestPrincipal): Promise<MyBooki
     select: {
       id: true, code: true, status: true, checkInDate: true, checkOutDate: true,
       nights: true, ratePaise: true, taxPaise: true, discountPaise: true, advancePaise: true, propertyId: true,
+      onlineCheckInAt: true, expectedArrival: true,
     },
   });
   if (rows.length === 0) return [];
@@ -87,6 +92,9 @@ export async function listMyBookings(principal: GuestPrincipal): Promise<MyBooki
     advancePaise: r.advancePaise,
     upcoming: (ACTIVE_STATUSES as readonly string[]).includes(r.status),
     cancellable: false,
+    onlineCheckInAt: r.onlineCheckInAt,
+    onlineCheckInEligible: canOnlineCheckIn(r.status),
+    expectedArrival: r.expectedArrival,
   }));
 }
 
@@ -98,6 +106,7 @@ export async function getMyBooking(principal: GuestPrincipal, reservationId: str
       id: true, code: true, status: true, checkInDate: true, checkOutDate: true,
       nights: true, ratePaise: true, taxPaise: true, discountPaise: true, advancePaise: true,
       propertyId: true, property: { select: { name: true } },
+      onlineCheckInAt: true, expectedArrival: true,
     },
   });
   if (!r) return null;
@@ -121,5 +130,8 @@ export async function getMyBooking(principal: GuestPrincipal, reservationId: str
     advancePaise: r.advancePaise,
     upcoming: (ACTIVE_STATUSES as readonly string[]).includes(r.status),
     cancellable,
+    onlineCheckInAt: r.onlineCheckInAt,
+    onlineCheckInEligible: canOnlineCheckIn(r.status),
+    expectedArrival: r.expectedArrival,
   };
 }

@@ -34,6 +34,7 @@ import {
   verifyPhoneOtp,
 } from "@/features/guest-account/actions";
 import { listMyBookings, getMyBooking } from "@/features/guest-account/queries";
+import { submitOnlineCheckIn } from "@/features/guest-account/checkin-actions";
 
 const prisma = createPrismaClient();
 const NONCE = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
@@ -67,6 +68,7 @@ async function trackNewRows(email?: string, mobile?: string): Promise<void> {
 beforeEach(() => jar.clear());
 
 afterAll(async () => {
+  await prisma.registrationCard.deleteMany({ where: { reservationId: { in: createdReservationIds } } });
   await prisma.reservation.deleteMany({ where: { id: { in: createdReservationIds } } });
   await prisma.guestSession.deleteMany({ where: { guestAccountId: { in: createdAccountIds } } });
   await prisma.guestOtp.deleteMany({
@@ -208,5 +210,84 @@ describe("My Bookings scoping (IDOR)", () => {
     // getMyBooking refuses another guest's booking id (IDOR → null).
     expect(await getMyBooking(principalB, aRes)).toBeNull();
     expect(await getMyBooking(principalA, aRes)).not.toBeNull();
+  });
+});
+
+describe("submitOnlineCheckIn (Wave 2)", () => {
+  const sig = Buffer.from("wave2-online-checkin-signature").toString("base64");
+
+  async function makeReservation(guestId: string, code: string, status: string): Promise<string> {
+    const r = await prisma.reservation.create({
+      data: {
+        propertyId: PROP_A_ID, code, guestId, status: status as never, source: "WEBSITE",
+        checkInDate: new Date("2027-03-10"), checkOutDate: new Date("2027-03-12"),
+        nights: 2, adults: 2, ratePaise: 500000, taxPaise: 60000, advancePaise: 0,
+      },
+      select: { id: true },
+    });
+    createdReservationIds.push(r.id);
+    return r.id;
+  }
+
+  it("signs the registration card, flags the reservation, and blocks non-owners + non-confirmed stays", async () => {
+    // A signed-in guest (signup sets the session cookie in the jar).
+    const email = freshEmail("oci");
+    const signup = await signUpEmail({ fullName: "OCI Guest", email, password: "check-in-99", mobile: freshMobile() });
+    expect(signup.ok).toBe(true);
+    await trackNewRows(email);
+    const acc = await prisma.guestAccount.findFirst({
+      where: { orgId: ORG_ID, emailHash: emailHashOf(email) },
+      select: { guestId: true },
+    });
+    const guestId = acc!.guestId;
+
+    const confirmed = await makeReservation(guestId, `OCI-${NONCE}`, "CONFIRMED");
+
+    // Happy path: the guest's own CONFIRMED booking checks in online.
+    const ok = await submitOnlineCheckIn({
+      reservationId: confirmed,
+      signatureBase64: sig,
+      expectedArrival: "around 7 PM",
+      specialRequests: "High floor please",
+    });
+    expect(ok.ok).toBe(true);
+
+    // A RegistrationCard exists, guest-completed (no capturedById), source online.
+    const card = await prisma.registrationCard.findFirst({
+      where: { reservationId: confirmed },
+      select: { capturedById: true, signatureObjectKey: true, signatureChecksum: true, guestSnapshot: true },
+    });
+    expect(card).not.toBeNull();
+    expect(card!.capturedById).toBeNull();
+    expect(card!.signatureObjectKey).toBeTruthy();
+    expect(card!.signatureChecksum).toBeTruthy();
+    expect((card!.guestSnapshot as { source?: string }).source).toBe("online");
+
+    // The reservation is flagged + ETA persisted for reception.
+    const res = await prisma.reservation.findUnique({
+      where: { id: confirmed },
+      select: { onlineCheckInAt: true, expectedArrival: true },
+    });
+    expect(res!.onlineCheckInAt).not.toBeNull();
+    expect(res!.expectedArrival).toBe("around 7 PM");
+
+    // A second confirmed booking, but the session now belongs to another guest → NOT_FOUND (IDOR).
+    const otherEmail = freshEmail("oci-other");
+    const other = await signUpEmail({ fullName: "Other", email: otherEmail, password: "check-in-99", mobile: freshMobile() });
+    expect(other.ok).toBe(true);
+    await trackNewRows(otherEmail);
+    const foreign = await submitOnlineCheckIn({ reservationId: confirmed, signatureBase64: sig });
+    expect(foreign.ok).toBe(false);
+    if (!foreign.ok) expect(foreign.error.code).toBe("NOT_FOUND");
+
+    // A CHECKED_OUT booking (owned by that second guest) can't be re-checked-in online.
+    const otherAcc = await prisma.guestAccount.findFirst({
+      where: { orgId: ORG_ID, emailHash: emailHashOf(otherEmail) },
+      select: { guestId: true },
+    });
+    const checkedOut = await makeReservation(otherAcc!.guestId, `OCO-${NONCE}`, "CHECKED_OUT");
+    const late = await submitOnlineCheckIn({ reservationId: checkedOut, signatureBase64: sig });
+    expect(late.ok).toBe(false);
+    if (!late.ok) expect(late.error.code).toBe("ILLEGAL_TRANSITION");
   });
 });

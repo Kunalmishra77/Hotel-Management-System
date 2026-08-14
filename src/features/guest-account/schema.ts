@@ -72,6 +72,15 @@ export const guestBookingSchema = z.object({
 });
 export type GuestBookingInput = z.input<typeof guestBookingSchema>;
 
+/** Guest self-service online check-in (Wave 2). */
+export const onlineCheckInSchema = z.object({
+  reservationId: z.string().min(1),
+  signatureBase64: z.string().min(1, "Please sign to complete check-in."),
+  expectedArrival: z.string().trim().max(40).optional(),
+  specialRequests: z.string().trim().max(500).optional(),
+});
+export type OnlineCheckInInput = z.input<typeof onlineCheckInSchema>;
+
 /** An in-room service request from a checked-in guest (Phase 4). */
 export const guestRequestSchema = z.object({
   kind: z.enum(["HOUSEKEEPING", "MAINTENANCE", "AMENITY", "OTHER"]),

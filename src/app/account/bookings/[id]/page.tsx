@@ -5,6 +5,7 @@ import { ArrowLeft, CalendarCheck, MapPin, ReceiptIndianRupee } from "lucide-rea
 import { requireGuest, getMyBooking } from "@/features/guest-account/queries";
 import { BookingStatusBadge } from "@/features/guest-account/components/booking-status-badge";
 import { CancelBookingButton } from "@/features/guest-account/components/cancel-booking-button";
+import { OnlineCheckIn } from "@/features/guest-account/components/online-checkin";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Booking · Woodpecker" };
@@ -63,6 +64,12 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
             </dd>
           </div>
         </dl>
+
+        {(b.onlineCheckInEligible || b.onlineCheckInAt) && (
+          <div className="mt-6 border-t pt-5">
+            <OnlineCheckIn reservationId={b.reservationId} alreadyCheckedIn={b.onlineCheckInAt !== null} />
+          </div>
+        )}
 
         <div className="mt-6 border-t pt-5">
           {b.cancellable ? (
