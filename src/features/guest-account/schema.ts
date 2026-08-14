@@ -71,3 +71,10 @@ export const guestBookingSchema = z.object({
   }),
 });
 export type GuestBookingInput = z.input<typeof guestBookingSchema>;
+
+/** An in-room service request from a checked-in guest (Phase 4). */
+export const guestRequestSchema = z.object({
+  kind: z.enum(["HOUSEKEEPING", "MAINTENANCE", "AMENITY", "OTHER"]),
+  detail: z.string().trim().min(3, "Tell us a little more.").max(500),
+});
+export type GuestRequestInput = z.input<typeof guestRequestSchema>;

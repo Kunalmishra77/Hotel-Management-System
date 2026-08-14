@@ -55,6 +55,7 @@ export const PERMISSIONS = [
   "folio:defer",
   "guest:manage",
   "guest:merge",
+  "request:manage",
   "pos:order-create",
   "pos:order-settle",
   "pos:order-void",
@@ -181,6 +182,8 @@ const MATRIX: Record<Permission, MatrixRow> = {
   "folio:defer": { ADMINISTRATOR: L, MANAGER: L, ACCOUNTS: L },
   "guest:manage": { ADMINISTRATOR: A, MANAGER: A, ASSISTANT_MANAGER: A, RECEPTION: A },
   "guest:merge": { ADMINISTRATOR: L, MANAGER: L, ASSISTANT_MANAGER: L, RECEPTION: L },
+  // Phase 4: triage in-room guest service requests (front-desk hub).
+  "request:manage": { ADMINISTRATOR: A, MANAGER: A, ASSISTANT_MANAGER: A, RECEPTION: A },
   "pos:order-create": { ADMINISTRATOR: A, MANAGER: A, ASSISTANT_MANAGER: A, RECEPTION: A, POS_MANAGER: A },
   "pos:order-settle": { ADMINISTRATOR: A, MANAGER: A, ASSISTANT_MANAGER: A, RECEPTION: A, ACCOUNTS: A, POS_MANAGER: A },
   "pos:order-void": { ADMINISTRATOR: L, MANAGER: L, ACCOUNTS: L, POS_MANAGER: L },

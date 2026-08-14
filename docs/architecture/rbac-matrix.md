@@ -47,6 +47,7 @@ Columns are the 14 login roles (staff without a login — housekeeping/room-serv
 | folio:defer | 🔒 | 🔒 |  |  | 🔒 |  |  |  |  |  |  |  |  |  |
 | guest:manage | ✔ | ✔ | ✔ | ✔ |  |  |  |  |  |  |  |  |  |  |
 | guest:merge | 🔒 | 🔒 | 🔒 | 🔒 |  |  |  |  |  |  |  |  |  |  |
+| request:manage | ✔ | ✔ | ✔ | ✔ |  |  |  |  |  |  |  |  |  |  |
 | pos:order-create | ✔ | ✔ | ✔ | ✔ |  |  |  |  | ✔ |  |  |  |  |  |
 | pos:order-settle | ✔ | ✔ | ✔ | ✔ | ✔ |  |  |  | ✔ |  |  |  |  |  |
 | pos:order-void | 🔒 | 🔒 |  |  | 🔒 |  |  |  | 🔒 |  |  |  |  |  |

@@ -13,6 +13,7 @@ import {
   USER_RECEPTION_A_ID,
   USER_MANAGER_ID,
   USER_HOUSEKEEPING_ID,
+  USER_MAINTENANCE_ID,
 } from "../../prisma/seed/fixtures";
 import { notificationsConsumer } from "@/features/notifications/consumer";
 import type { EventEnvelope } from "@/lib/events/dispatch";
@@ -23,9 +24,12 @@ const EVENT_ID = `evt_notif_${NONCE}`;
 
 let guestId = "";
 let reservationId = "";
+const requestIds: string[] = [];
+const REQ_EVENTS = [`${EVENT_ID}_hk`, `${EVENT_ID}_amen`];
 
 afterAll(async () => {
-  await prisma.notification.deleteMany({ where: { eventId: EVENT_ID } });
+  await prisma.notification.deleteMany({ where: { eventId: { in: [EVENT_ID, `${EVENT_ID}_direct`, ...REQ_EVENTS] } } });
+  if (requestIds.length) await prisma.guestRequest.deleteMany({ where: { id: { in: requestIds } } });
   if (reservationId) await prisma.reservation.deleteMany({ where: { id: reservationId } });
   if (guestId) await prisma.guest.deleteMany({ where: { id: guestId } });
   await prisma.$disconnect();
@@ -90,5 +94,37 @@ describe("notifications consumer", () => {
     await notificationsConsumer.handle(env);
     const n = await prisma.notification.count({ where: { eventId: `${EVENT_ID}_direct` } });
     expect(n).toBe(0);
+  });
+
+  it("routes a guest request to reception + the owning department", async () => {
+    const mkReq = async (kind: string) => {
+      const gr = await prisma.guestRequest.create({
+        data: { orgId: ORG_ID, propertyId: PROP_A_ID, reservationId, guestId, kind, detail: `${kind} please` },
+        select: { id: true },
+      });
+      requestIds.push(gr.id);
+      return gr.id;
+    };
+    const reqEnv = (reqId: string, eventId: string): EventEnvelope => ({
+      id: eventId, seq: 2n, type: "GuestRequestCreated", orgId: ORG_ID, propertyId: PROP_A_ID,
+      aggregateId: reqId, payload: { kind: "" }, occurredAt: new Date(),
+    });
+
+    // HOUSEKEEPING → reception AND housekeeping, not maintenance.
+    const hkId = await mkReq("HOUSEKEEPING");
+    await notificationsConsumer.handle(reqEnv(hkId, `${EVENT_ID}_hk`));
+    const hk = (await prisma.notification.findMany({ where: { eventId: `${EVENT_ID}_hk` }, select: { recipientUserId: true } }))
+      .map((x) => x.recipientUserId);
+    expect(hk).toContain(USER_RECEPTION_A_ID);
+    expect(hk).toContain(USER_HOUSEKEEPING_ID);
+    expect(hk).not.toContain(USER_MAINTENANCE_ID);
+
+    // AMENITY → reception only (no department).
+    const amenId = await mkReq("AMENITY");
+    await notificationsConsumer.handle(reqEnv(amenId, `${EVENT_ID}_amen`));
+    const amen = (await prisma.notification.findMany({ where: { eventId: `${EVENT_ID}_amen` }, select: { recipientUserId: true } }))
+      .map((x) => x.recipientUserId);
+    expect(amen).toContain(USER_RECEPTION_A_ID);
+    expect(amen).not.toContain(USER_HOUSEKEEPING_ID);
   });
 });

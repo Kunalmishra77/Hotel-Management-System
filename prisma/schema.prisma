@@ -821,6 +821,30 @@ model GuestOtp {
   @@index([guestAccountId])
 }
 
+/// An in-stay service request a checked-in guest raises from their phone (customer
+/// redesign, Phase 4): housekeeping, maintenance, an amenity, or other. Guest-owned
+/// (they submit + track it); staff triage it from a reception inbox. Bound to the
+/// guest's active IN_HOUSE reservation + room, resolved server-side from the
+/// session — never a client-supplied id.
+model GuestRequest {
+  id            String    @id @default(cuid())
+  orgId         String
+  propertyId    String
+  reservationId String
+  roomId        String?
+  guestId       String
+  kind          String // HOUSEKEEPING | MAINTENANCE | AMENITY | OTHER
+  detail        String
+  status        String    @default("OPEN") // OPEN | ACKNOWLEDGED | IN_PROGRESS | DONE | DECLINED
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  resolvedAt    DateTime?
+
+  @@index([propertyId, status])
+  @@index([guestId])
+  @@index([reservationId])
+}
+
 model GuestId {
   id             String   @id @default(cuid())
   guestId        String

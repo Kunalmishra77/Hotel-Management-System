@@ -1,16 +1,21 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, CalendarCheck, Mail, Phone } from "lucide-react";
+import { ArrowRight, CalendarCheck, Mail, Phone, ConciergeBell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { listPublishedSites } from "@/features/booking-engine/queries";
 import { requireGuest, getGuestSummary } from "@/features/guest-account/queries";
+import { getActiveStay } from "@/features/guest-account/stay-queries";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "My account · Woodpecker" };
 
 export default async function AccountHomePage() {
   const principal = await requireGuest("/account");
-  const [summary, sites] = await Promise.all([getGuestSummary(principal), listPublishedSites()]);
+  const [summary, sites, stay] = await Promise.all([
+    getGuestSummary(principal),
+    listPublishedSites(),
+    getActiveStay(principal),
+  ]);
   const bookHref = sites.length > 0 ? "/account/book" : "/";
 
   return (
@@ -19,6 +24,25 @@ export default async function AccountHomePage() {
         <p className="text-sm text-muted-foreground">Welcome back</p>
         <h1 className="text-balance text-2xl font-semibold tracking-tight sm:text-3xl">{summary.fullName}</h1>
       </div>
+
+      {stay && (
+        <Link
+          href="/account/stay"
+          className="group mb-4 flex items-center justify-between gap-3 rounded-2xl border border-primary/30 bg-primary/5 p-5 shadow-sm transition hover:border-primary/50 hover:shadow-md"
+        >
+          <div className="min-w-0">
+            <p className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-primary">
+              <ConciergeBell className="size-3.5" aria-hidden="true" /> You&apos;re checked in
+            </p>
+            <p className="mt-1 font-semibold">
+              {stay.propertyName}
+              {stay.roomNumber ? ` · Room ${stay.roomNumber}` : ""}
+            </p>
+            <p className="text-sm text-muted-foreground">Order food, request service, and view your bill.</p>
+          </div>
+          <ArrowRight className="size-5 shrink-0 text-primary transition group-hover:translate-x-0.5" aria-hidden="true" />
+        </Link>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         {/* Contact on file */}

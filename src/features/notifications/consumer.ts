@@ -8,17 +8,23 @@
  * `createMany({ skipDuplicates })` against the unique (eventId, recipientUserId),
  * so a retry never double-notifies.
  */
+import type { Permission } from "@/lib/permissions/permission-map";
 import { db } from "@/lib/db";
 import { registerConsumer, type EventConsumer, type EventEnvelope } from "@/lib/events/dispatch";
+import {
+  KIND_LABEL,
+  isGuestRequestKind,
+  departmentPermissionForKind,
+} from "@/features/guest-account/domain/request-kind";
 import { rolesThatCan } from "./domain/targets";
 
-const TYPES = ["ReservationCreated"] as const;
+const TYPES = ["ReservationCreated", "GuestRequestCreated"] as const;
 
-/** Active users who can view reservations at this property (org-scoped). */
-async function reservationViewers(orgId: string, propertyId: string): Promise<string[]> {
-  const roles = rolesThatCan("reservation:view");
-  // Not a property-scoped model — targeting is explicit: the role must grant the
-  // permission AND (be org-wide Admin OR be assigned to this property).
+/** Active users who hold `permission` at this property (org-scoped). Not a
+ *  property-scoped model, so targeting is explicit: the role grants the permission
+ *  AND (is org-wide Admin OR is assigned to this property). */
+async function usersWithPermission(orgId: string, propertyId: string, permission: Permission): Promise<string[]> {
+  const roles = rolesThatCan(permission);
   const rows = await db.unscoped().roleAssignment.findMany({
     where: {
       role: { in: roles },
@@ -32,40 +38,97 @@ async function reservationViewers(orgId: string, propertyId: string): Promise<st
 
 const isoDay = (d: Date): string => d.toISOString().slice(0, 10);
 
+/** Insert one notification per recipient, idempotent on (eventId, recipient). */
+async function notify(
+  recipients: string[],
+  base: { orgId: string; propertyId: string | null; type: string; title: string; body: string; link: string; entityType: string; entityId: string; eventId: string },
+): Promise<void> {
+  if (recipients.length === 0) return;
+  await db.unscoped().notification.createMany({
+    data: recipients.map((uid) => ({
+      orgId: base.orgId,
+      propertyId: base.propertyId,
+      recipientUserId: uid,
+      type: base.type,
+      title: base.title,
+      body: base.body,
+      link: base.link,
+      entityType: base.entityType,
+      entityId: base.entityId,
+      eventId: base.eventId,
+    })),
+    skipDuplicates: true,
+  });
+}
+
+/** A new ONLINE booking → the desk/management that can view reservations. */
+async function handleReservationCreated(envelope: EventEnvelope): Promise<void> {
+  const payload = (envelope.payload ?? {}) as Record<string, unknown>;
+  if (payload.source !== "WEBSITE" || !envelope.propertyId) return; // only online bookings
+
+  const r = await db.unscoped().reservation.findUnique({
+    where: { id: envelope.aggregateId },
+    select: { id: true, code: true, checkInDate: true, checkOutDate: true, guest: { select: { fullName: true } } },
+  });
+  if (!r) return;
+
+  const recipients = await usersWithPermission(envelope.orgId, envelope.propertyId, "reservation:view");
+  await notify(recipients, {
+    orgId: envelope.orgId,
+    propertyId: envelope.propertyId,
+    type: "BOOKING_CREATED",
+    title: "New online booking",
+    body: `${r.guest.fullName} · ${r.code} · ${isoDay(r.checkInDate)}–${isoDay(r.checkOutDate)}`,
+    link: `/bookings/${r.id}`,
+    entityType: "Reservation",
+    entityId: r.id,
+    eventId: envelope.id,
+  });
+}
+
+/** An in-room guest request → reception (the hub) + the owning department. */
+async function handleGuestRequestCreated(envelope: EventEnvelope): Promise<void> {
+  if (!envelope.propertyId) return;
+  const req = await db.unscoped().guestRequest.findUnique({
+    where: { id: envelope.aggregateId },
+    select: { id: true, kind: true, detail: true, roomId: true },
+  });
+  if (!req || !isGuestRequestKind(req.kind)) return;
+
+  const room = req.roomId
+    ? await db.unscoped().room.findUnique({ where: { id: req.roomId }, select: { number: true } })
+    : null;
+
+  // Reception is always told; the department for housekeeping/maintenance too.
+  const perms: Permission[] = ["reservation:view"];
+  const dept = departmentPermissionForKind(req.kind);
+  if (dept) perms.push(dept);
+
+  const recipientSets = await Promise.all(
+    perms.map((p) => usersWithPermission(envelope.orgId, envelope.propertyId!, p)),
+  );
+  const recipients = [...new Set(recipientSets.flat())];
+
+  const where = room?.number ? `Room ${room.number}` : "A guest";
+  await notify(recipients, {
+    orgId: envelope.orgId,
+    propertyId: envelope.propertyId,
+    type: "GUEST_REQUEST",
+    title: `${KIND_LABEL[req.kind]} request`,
+    body: `${where} · ${req.detail.slice(0, 80)}`,
+    link: "/requests",
+    entityType: "GuestRequest",
+    entityId: req.id,
+    eventId: envelope.id,
+  });
+}
+
 export const notificationsConsumer: EventConsumer = {
   name: "notifications",
   types: TYPES,
   async handle(envelope: EventEnvelope) {
-    if (envelope.type !== "ReservationCreated") return;
-    const payload = (envelope.payload ?? {}) as Record<string, unknown>;
-    if (payload.source !== "WEBSITE" || !envelope.propertyId) return; // only online bookings
-
-    const prisma = db.unscoped();
-    const r = await prisma.reservation.findUnique({
-      where: { id: envelope.aggregateId },
-      select: { id: true, code: true, checkInDate: true, checkOutDate: true, guest: { select: { fullName: true } } },
-    });
-    if (!r) return;
-
-    const recipients = await reservationViewers(envelope.orgId, envelope.propertyId);
-    if (recipients.length === 0) return;
-
-    const body = `${r.guest.fullName} · ${r.code} · ${isoDay(r.checkInDate)}–${isoDay(r.checkOutDate)}`;
-    await prisma.notification.createMany({
-      data: recipients.map((uid) => ({
-        orgId: envelope.orgId,
-        propertyId: envelope.propertyId,
-        recipientUserId: uid,
-        type: "BOOKING_CREATED",
-        title: "New online booking",
-        body,
-        link: `/bookings/${r.id}`,
-        entityType: "Reservation",
-        entityId: r.id,
-        eventId: envelope.id,
-      })),
-      skipDuplicates: true,
-    });
+    if (envelope.type === "ReservationCreated") return handleReservationCreated(envelope);
+    if (envelope.type === "GuestRequestCreated") return handleGuestRequestCreated(envelope);
   },
 };
 

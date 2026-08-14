@@ -25,6 +25,7 @@ Every business state change emits an immutable event (persisted to `DomainEvent`
 | `GuestErased` | 04 | guestId | audit |
 | `GuestAccountCreated` | customer redesign (P2) | accountId, guestId, method | audit |
 | `GuestAccountSignedIn` | customer redesign (P2) | accountId, guestId, method | audit |
+| `GuestRequestCreated` | customer redesign (P4) | requestId, kind, propertyId, roomId | notifications |
 | `GuestStatsUpdated` | 05 | guestId | (profile cache) |
 | `FolioCharged` | 06/19 | folioId, type, amountPaise | 14, 05 |
 | `DiscountApplied` | 06 | folioId, amountPaise, by | audit, 14 |
