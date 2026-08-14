@@ -29,7 +29,7 @@ export default async function GuestBookPropertyPage({ params }: { params: Promis
       >
         <ArrowLeft className="size-3.5" aria-hidden="true" /> All properties
       </Link>
-      <GuestBooking slug={cfg.slug} propertyName={cfg.propertyName} />
+      <GuestBooking slug={cfg.slug} propertyName={cfg.propertyName} cancelWindowHours={cfg.cancelWindowHours} />
     </main>
   );
 }

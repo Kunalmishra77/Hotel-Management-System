@@ -430,6 +430,10 @@ model RoomCategory {
   maxChildren   Int        @default(1)
   hsnSac        String? // for GST on room tariff
   gstBps        Int        @default(1200) // room GST slab in bps (config-driven; 23/06 use this for GST-inclusive display + posting)
+  // Guest-journey wave 1: rich booking cards (public display only, no PII)
+  description   String? // short room-type blurb shown on the booking site
+  amenities     String[] // e.g. ["Free Wi-Fi","AC","Kitchenette"]
+  imageUrls     String[] // room photo URLs (staff-config); empty → placeholder
   rooms         Room[]
   ratePlans     RatePlan[]
 

@@ -21,14 +21,54 @@ type Category = {
   nights: number;
   totalPaise: number;
   depositPaise: number;
+  description?: string | null;
+  amenities?: string[];
+  imageUrls?: string[];
 };
+
+/** Room photo with a gradient fallback that always shows (broken/absent URL safe). */
+function RoomImage({ src, alt, className }: { src?: string; alt: string; className?: string }) {
+  return (
+    <div className={`relative overflow-hidden bg-gradient-to-br from-primary/20 to-primary/5 ${className ?? ""}`}>
+      {src && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={src} alt={alt} loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+      )}
+    </div>
+  );
+}
+
+function Amenities({ items }: { items?: string[] }) {
+  if (!items || items.length === 0) return null;
+  return (
+    <div className="mt-1.5 flex flex-wrap gap-1">
+      {items.slice(0, 5).map((a) => (
+        <span key={a} className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">{a}</span>
+      ))}
+    </div>
+  );
+}
 
 type Pref = "PAY_AT_HOTEL" | "PARTIAL" | "PAY_NOW";
 
 const rupees = (paise: number): string =>
   `₹${(paise / 100).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 
-export function GuestBooking({ slug, propertyName }: { slug: string; propertyName: string }): React.ReactElement {
+/** The last day free cancellation is allowed = check-in minus the window. */
+function freeCancelBy(checkInStr: string, hours: number): string {
+  const d = new Date(new Date(`${checkInStr}T00:00:00`).getTime() - hours * 3600 * 1000);
+  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+}
+
+export function GuestBooking({
+  slug,
+  propertyName,
+  cancelWindowHours,
+}: {
+  slug: string;
+  propertyName: string;
+  cancelWindowHours?: number;
+}): React.ReactElement {
   const today = new Date().toISOString().slice(0, 10);
   const [checkIn, setCheckIn] = useState(today);
   const [checkOut, setCheckOut] = useState(today);
@@ -37,6 +77,7 @@ export function GuestBooking({ slug, propertyName }: { slug: string; propertyNam
   const [results, setResults] = useState<Category[] | null>(null);
   const [selected, setSelected] = useState<Category | null>(null);
   const [pref, setPref] = useState<Pref>("PAY_AT_HOTEL");
+  const [coupon, setCoupon] = useState("");
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -70,6 +111,7 @@ export function GuestBooking({ slug, propertyName }: { slug: string; propertyNam
       adults,
       rooms,
       paymentPreference: pref,
+      couponCode: coupon.trim() || undefined,
       consentAccepted: consent,
     });
     setBusy(false);
@@ -132,12 +174,33 @@ export function GuestBooking({ slug, propertyName }: { slug: string; propertyNam
           <CardTitle>Confirm your stay</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="rounded-md border p-3 text-sm">
-            <div className="font-medium">
-              {selected.name} · {selected.nights} night(s) · {rooms} room(s)
+          <div className="overflow-hidden rounded-lg border">
+            <RoomImage src={selected.imageUrls?.[0]} alt={selected.name} className="h-32 w-full" />
+            <div className="p-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="font-medium">{selected.name}</span>
+                <span className="font-semibold">{rupees(selected.totalPaise)}</span>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {selected.nights} night(s) · {rooms} room(s) · incl. GST
+              </div>
+              <Amenities items={selected.amenities} />
             </div>
-            <div>{rupees(selected.totalPaise)} incl. GST</div>
           </div>
+
+          {/* Coupon */}
+          <div className="space-y-1.5">
+            <Label htmlFor="gb-coupon">Coupon code (optional)</Label>
+            <Input id="gb-coupon" value={coupon} onChange={(e) => setCoupon(e.target.value.toUpperCase())} placeholder="e.g. WELCOME10" />
+            {coupon.trim() && <p className="text-xs text-muted-foreground">Applied at confirmation — your final total reflects any valid discount.</p>}
+          </div>
+
+          {/* Cancellation policy */}
+          {cancelWindowHours != null && (
+            <p className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+              ✓ Free cancellation until {freeCancelBy(checkIn, cancelWindowHours)}.
+            </p>
+          )}
 
           <fieldset className="space-y-2">
             <legend className="mb-1 text-sm font-medium">How would you like to pay?</legend>
@@ -233,17 +296,23 @@ export function GuestBooking({ slug, propertyName }: { slug: string; propertyNam
         <p className="text-sm text-muted-foreground">No rooms available for those dates.</p>
       )}
       {results?.map((c) => (
-        <Card key={c.roomCategoryId}>
-          <CardContent className="flex items-center justify-between gap-3 p-4">
-            <div>
-              <div className="font-medium">{c.name}</div>
-              <div className="text-sm">
-                {rupees(c.totalPaise)} incl. GST · {c.nights}n
+        <Card key={c.roomCategoryId} className="overflow-hidden">
+          <RoomImage src={c.imageUrls?.[0]} alt={c.name} className="h-40 w-full" />
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="font-semibold">{c.name}</div>
+                <div className="text-xs text-muted-foreground">{c.available} left for your dates</div>
               </div>
-              <div className="text-xs text-muted-foreground">{c.available} left</div>
+              <div className="shrink-0 text-right">
+                <div className="font-semibold">{rupees(c.totalPaise)}</div>
+                <div className="text-[11px] text-muted-foreground">incl. GST · {c.nights}n</div>
+              </div>
             </div>
-            <Button size="sm" onClick={() => { setSelected(c); setPref("PAY_AT_HOTEL"); setError(null); }}>
-              Select
+            {c.description && <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{c.description}</p>}
+            <Amenities items={c.amenities} />
+            <Button size="sm" className="mt-3 w-full" onClick={() => { setSelected(c); setPref("PAY_AT_HOTEL"); setError(null); }}>
+              Select this room
             </Button>
           </CardContent>
         </Card>

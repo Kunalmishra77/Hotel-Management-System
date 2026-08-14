@@ -19,6 +19,9 @@ type Category = {
   nights: number;
   totalPaise: number;
   depositPaise: number;
+  description?: string | null;
+  amenities?: string[];
+  imageUrls?: string[];
 };
 
 const rupees = (paise: number): string =>
@@ -174,14 +177,33 @@ export function BookingWidget({ slug, propertyName }: { slug: string; propertyNa
 
       {results && results.length === 0 && <p className="text-sm text-muted-foreground">No rooms available for those dates.</p>}
       {results?.map((c) => (
-        <Card key={c.roomCategoryId}>
-          <CardContent className="flex items-center justify-between gap-3 p-4">
-            <div>
-              <div className="font-medium">{c.name}</div>
-              <div className="text-sm">{rupees(c.totalPaise)} incl. GST · {c.nights}n</div>
-              <div className="text-xs text-muted-foreground">{c.available} left</div>
+        <Card key={c.roomCategoryId} className="overflow-hidden">
+          <div className="relative h-36 w-full overflow-hidden bg-gradient-to-br from-primary/20 to-primary/5">
+            {c.imageUrls?.[0] && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={c.imageUrls[0]} alt={c.name} loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+            )}
+          </div>
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="font-semibold">{c.name}</div>
+                <div className="text-xs text-muted-foreground">{c.available} left</div>
+              </div>
+              <div className="shrink-0 text-right">
+                <div className="font-semibold">{rupees(c.totalPaise)}</div>
+                <div className="text-[11px] text-muted-foreground">incl. GST · {c.nights}n</div>
+              </div>
             </div>
-            <Button size="sm" onClick={() => { setSelected(c); setError(null); }}>Book</Button>
+            {c.description && <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{c.description}</p>}
+            {c.amenities && c.amenities.length > 0 && (
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {c.amenities.slice(0, 5).map((a) => (
+                  <span key={a} className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">{a}</span>
+                ))}
+              </div>
+            )}
+            <Button size="sm" className="mt-3 w-full" onClick={() => { setSelected(c); setError(null); }}>Book</Button>
           </CardContent>
         </Card>
       ))}

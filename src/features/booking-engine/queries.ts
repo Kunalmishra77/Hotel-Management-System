@@ -143,6 +143,10 @@ export type AvailabilityCategory = {
   gstBps: number;
   depositPaise: number;
   rateSource: string;
+  // Rich booking cards (wave 1) — public display only, no PII.
+  description: string | null;
+  amenities: string[];
+  imageUrls: string[];
 };
 
 export type AvailabilityResult = {
@@ -180,12 +184,15 @@ export async function getPublicAvailability(
     else byCategory.set(room.categoryId, { name: room.categoryName, baseRatePaise: room.baseRatePaise, count: 1 });
   }
 
-  // gstBps is per category — read the sellable categories in one query.
+  // gstBps + display fields are per category — read the sellable categories once.
   const catRows = await prisma.roomCategory.findMany({
     where: { propertyId: cfg.propertyId, id: { in: [...byCategory.keys()] } },
-    select: { id: true, gstBps: true },
+    select: { id: true, gstBps: true, description: true, amenities: true, imageUrls: true },
   });
   const gstByCat = new Map(catRows.map((c) => [c.id, c.gstBps]));
+  const displayByCat = new Map(
+    catRows.map((c) => [c.id, { description: c.description, amenities: c.amenities, imageUrls: c.imageUrls }]),
+  );
 
   const categories: AvailabilityCategory[] = [];
   for (const [categoryId, info] of byCategory) {
@@ -212,6 +219,9 @@ export async function getPublicAvailability(
       gstBps,
       depositPaise: depositAmount(display.grossPaise, cfg),
       rateSource: source,
+      description: displayByCat.get(categoryId)?.description ?? null,
+      amenities: displayByCat.get(categoryId)?.amenities ?? [],
+      imageUrls: displayByCat.get(categoryId)?.imageUrls ?? [],
     });
   }
   categories.sort((a, b) => a.totalPaise - b.totalPaise);
