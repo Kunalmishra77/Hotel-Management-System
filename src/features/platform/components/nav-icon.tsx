@@ -32,6 +32,7 @@ import {
   Package,
   PackageSearch,
   Shirt,
+  Siren,
   Receipt,
   Search,
   Settings,
@@ -88,6 +89,7 @@ const ICONS: Record<string, LucideIcon> = {
   UserCheck,
   Navigation,
   Shirt,
+  Siren,
   MoreHorizontal,
 };
 

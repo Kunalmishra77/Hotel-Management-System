@@ -39,6 +39,16 @@ export const NAV_ITEMS: readonly NavItem[] = [
     primary: true,
   },
   {
+    // Architecture v2 · Manager — the daily attention board (arrivals, departures,
+    // approvals, flagged bookings). report:view-operational (Manager/Asst-Manager).
+    key: "operations",
+    label: "Operations centre",
+    href: "/operations",
+    icon: "Siren",
+    permission: "report:view-operational",
+    primary: true,
+  },
+  {
     // 27 owner-portal — property owner's home (financials for their property).
     key: "owner",
     label: "Owner portal",
