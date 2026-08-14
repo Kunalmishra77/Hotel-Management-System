@@ -79,6 +79,15 @@ export const NAV_ITEMS: readonly NavItem[] = [
     primary: true,
   },
   {
+    // Architecture v2 · Super Admin — every property ranked/compared (report:view-financial).
+    key: "insights",
+    label: "Portfolio insights",
+    href: "/insights",
+    icon: "Trophy",
+    permission: "report:view-financial",
+    primary: true,
+  },
+  {
     key: "properties",
     label: "Properties",
     href: "/properties",

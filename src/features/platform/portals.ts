@@ -49,7 +49,7 @@ const ROLE_PORTAL_PRIORITY: readonly { role: RoleName; portal: PortalId }[] = [
 const PORTAL_NAV: Record<PortalId, readonly string[]> = {
   // Chain-owner command centre. Revenue & Distribution = channels + pricing + corporate + booking-site.
   SUPER_ADMIN: [
-    "overview", "properties", "reports",
+    "overview", "insights", "properties", "reports",
     "channels", "pricing", "corporate", "booking-site",
     "communications", "users", "accounting", "data-import", "settings", "ai",
   ],
