@@ -4,6 +4,7 @@ import { AlertTriangle, CalendarPlus, CalendarRange, FileCheck2, LogIn, LogOut, 
 import { requirePermission } from "@/lib/auth/guard";
 import { hasPermission } from "@/lib/permissions";
 import { arrivalsDepartures, listReservations, bookingsOverview } from "@/features/reservations/queries";
+import { parseBoardView, BOARD_VIEW_LABEL } from "@/features/reservations/domain/board-view";
 import { ReservationBoard } from "@/features/reservations/components/reservation-board";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,9 +46,14 @@ const STATUS_STEPS: { key: string; label: string; tone: string }[] = [
  * business comes from (booking-source mix) — then the live arrivals/in-house/
  * departures board underneath. `reservation:view`; property-scoped.
  */
-export default async function BookingsPage() {
+export default async function BookingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ view?: string }>;
+}) {
   const user = await requirePermission("reservation:view");
   const propertyId = user.activePropertyId;
+  const view = parseBoardView((await searchParams).view);
 
   if (!propertyId) {
     return <div className="p-4"><p className="text-sm text-muted-foreground">Select a property to see its bookings.</p></div>;
@@ -81,9 +87,9 @@ export default async function BookingsPage() {
 
       {/* Today at a glance */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6" data-testid="bookings-kpis">
-        <KpiCard label="Arrivals today" value={overview.arrivalsToday} icon={<LogIn />} hint="Due to check in" />
-        <KpiCard label="Departures today" value={overview.departuresToday} icon={<LogOut />} hint="Due to check out" />
-        <KpiCard label="In-house" value={overview.inHouse} icon={<BedDouble />} hint="Currently staying" />
+        <KpiCard label="Arrivals today" value={overview.arrivalsToday} icon={<LogIn />} hint="Due to check in" href="/bookings?view=arrivals" />
+        <KpiCard label="Departures today" value={overview.departuresToday} icon={<LogOut />} hint="Due to check out" href="/bookings?view=departures" />
+        <KpiCard label="In-house" value={overview.inHouse} icon={<BedDouble />} hint="Currently staying" href="/bookings?view=in-house" />
         <KpiCard label="Enquiries / holds" value={overview.statusCounts["ENQUIRY"] ?? 0} icon={<CalendarClock />} hint="Tentative" />
         <KpiCard
           label="Needs attention"
@@ -121,12 +127,23 @@ export default async function BookingsPage() {
 
         {/* Live board */}
         <div className="lg:col-span-2">
+          {view !== "all" && (
+            <div className="mb-3 flex items-center gap-2 text-sm">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 font-medium text-primary">
+                Showing: {BOARD_VIEW_LABEL[view]}
+              </span>
+              <Link href="/bookings" className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+                Clear filter
+              </Link>
+            </div>
+          )}
           <ReservationBoard
             arrivals={arrivals}
             inHouse={inHouse.reservations}
             departures={departures}
             canCheckIn={hasPermission(user, "checkin:perform")}
             canCheckOut={hasPermission(user, "checkout:perform")}
+            view={view}
           />
         </div>
       </div>

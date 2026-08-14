@@ -23,6 +23,7 @@ export function ReservationBoard({
   departures,
   canCheckIn = false,
   canCheckOut = false,
+  view = "all",
 }: {
   arrivals: ReservationListItem[];
   inHouse: ReservationListItem[];
@@ -31,14 +32,17 @@ export function ReservationBoard({
    *  (e.g. Accounts) sees the board without dead-end buttons it can't complete. */
   canCheckIn?: boolean;
   canCheckOut?: boolean;
+  /** Focus the board to one segment (Phase 5 — a clicked KPI). "all" shows all. */
+  view?: "all" | "arrivals" | "in-house" | "departures";
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const perms = { canCheckIn, canCheckOut, onOpen: setOpenId };
+  const show = (v: "arrivals" | "in-house" | "departures") => view === "all" || view === v;
   return (
     <div className="space-y-6">
-      <Section title={`Arrivals today (${arrivals.length})`} items={arrivals} testid="arrivals" {...perms} />
-      <Section title={`In-house (${inHouse.length})`} items={inHouse} testid="in-house" {...perms} />
-      <Section title={`Departures today (${departures.length})`} items={departures} testid="departures" {...perms} />
+      {show("arrivals") && <Section title={`Arrivals today (${arrivals.length})`} items={arrivals} testid="arrivals" {...perms} />}
+      {show("in-house") && <Section title={`In-house (${inHouse.length})`} items={inHouse} testid="in-house" {...perms} />}
+      {show("departures") && <Section title={`Departures today (${departures.length})`} items={departures} testid="departures" {...perms} />}
       <ReservationDrawer openId={openId} onClose={() => setOpenId(null)} />
     </div>
   );

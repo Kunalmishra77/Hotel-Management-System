@@ -51,10 +51,10 @@ export default async function BillingPage() {
         />
         <KpiCard label="Unsettled folios" value={String(overview.unsettledFolios)} icon={<ReceiptText />} hint="With a balance" />
         <KpiCard label="Collected today" value={formatINR(overview.collectedTodayPaise)} icon={<HandCoins />} hint="Payments received" />
-        <KpiCard label="Invoices this month" value={String(overview.invoicesThisMonth)} icon={<FileText />} hint="GST invoices issued" />
+        <KpiCard label="Invoices this month" value={String(overview.invoicesThisMonth)} icon={<FileText />} hint="GST invoices issued" href="#invoices" />
       </div>
 
-      <Card className="mt-4">
+      <Card id="invoices" className="mt-4 scroll-mt-20">
         <CardHeader className="pb-2">
           <CardTitle className="text-base">GST invoices</CardTitle>
         </CardHeader>

@@ -1,5 +1,6 @@
 import * as React from "react";
-import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
+import Link from "next/link";
+import { ArrowDownRight, ArrowUpRight, ArrowRight, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card } from "./card";
 
@@ -9,6 +10,10 @@ type Trend = "up" | "down" | "flat";
  * KPI card — the dashboard workhorse. Summary-first: big value, a labelled
  * delta with a directional cue, and room for a sparkline (as `children`).
  * `goodDirection` decides whether "up" is coloured positive or negative.
+ *
+ * Pass `href` to make the whole card a link (Phase 5) — the number becomes a door
+ * to the records behind it, with a hover-lift + keyboard focus. Without `href`
+ * it is exactly the static card it always was.
  */
 export function KpiCard({
   label,
@@ -18,6 +23,7 @@ export function KpiCard({
   goodDirection = "up",
   icon,
   hint,
+  href,
   className,
   children,
 }: {
@@ -28,16 +34,27 @@ export function KpiCard({
   goodDirection?: "up" | "down";
   icon?: React.ReactNode;
   hint?: string;
+  href?: string;
   className?: string;
   children?: React.ReactNode;
 }) {
   const positive = trend === "flat" ? null : trend === goodDirection;
   const TrendIcon = trend === "up" ? ArrowUpRight : trend === "down" ? ArrowDownRight : Minus;
-  return (
-    <Card className={cn("p-4", className)}>
+  const clickable = Boolean(href);
+
+  const body = (
+    <Card
+      className={cn(
+        "p-4",
+        clickable && "u-lift group h-full transition hover:border-primary/40",
+        className,
+      )}
+    >
       <div className="flex items-start justify-between gap-2">
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-        {icon ? (
+        {clickable ? (
+          <ArrowRight className="size-4 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-primary" aria-hidden="true" />
+        ) : icon ? (
           <span className="grid size-8 place-items-center rounded-md bg-primary/10 text-primary [&_svg]:size-4">
             {icon}
           </span>
@@ -68,5 +85,12 @@ export function KpiCard({
       ) : null}
       {children ? <div className="mt-3">{children}</div> : null}
     </Card>
+  );
+
+  if (!href) return body;
+  return (
+    <Link href={href} className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+      {body}
+    </Link>
   );
 }
