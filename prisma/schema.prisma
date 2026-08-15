@@ -91,6 +91,8 @@ model Property {
   ownerPayouts      OwnerPayout[]
   addOns            AddOn[]
   addOnRequests     AddOnRequest[]
+  assets            Asset[]
+  roomInspections   RoomInspection[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -1383,6 +1385,42 @@ model MaintenanceJob {
 
   @@index([propertyId, status])
   @@index([scheduledFor])
+}
+
+/// Maintenance asset/equipment registry (architecture v2 · Phase 5). Property-scoped
+/// physical assets (AC, TV, generator…) with warranty + status for the maintenance team.
+model Asset {
+  id            String    @id @default(cuid())
+  propertyId    String
+  property      Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  name          String
+  category      String // AC · TV · FRIDGE · HEATER · ELEVATOR · GENERATOR · KITCHEN · OTHER
+  location      String? // room number or area
+  serialNo      String?
+  warrantyUntil DateTime? @db.Date
+  status        String    @default("OPERATIONAL") // OPERATIONAL | UNDER_REPAIR | OUT_OF_SERVICE
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([propertyId, category])
+}
+
+/// Post-clean room inspection (architecture v2 · Phase 5). After housekeeping marks a
+/// room clean it is inspected before becoming available: PASS → ready, FAIL → re-clean.
+model RoomInspection {
+  id            String    @id @default(cuid())
+  propertyId    String
+  property      Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  roomId        String
+  status        String    @default("PENDING") // PENDING | PASS | FAIL
+  defectNotes   String?
+  inspectedById String?
+  inspectedAt   DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([propertyId, status])
+  @@index([roomId])
 }
 
 /// A guest's forgotten item logged by housekeeping (customer redesign, Phase 7).

@@ -213,6 +213,30 @@ export const NAV_ITEMS: readonly NavItem[] = [
     permission: "maintenance:manage",
   },
   {
+    // Architecture v2 · Phase 5 — maintenance asset/equipment registry.
+    key: "assets",
+    label: "Assets & equipment",
+    href: "/assets",
+    icon: "HardDrive",
+    permission: "maintenance:manage",
+  },
+  {
+    // Architecture v2 · Phase 5 — housekeeping post-clean room inspection queue.
+    key: "inspection",
+    label: "Room inspection",
+    href: "/inspection",
+    icon: "ClipboardList",
+    permission: "housekeeping:update",
+  },
+  {
+    // Architecture v2 · Phase 5 — Outlet kitchen ticket board.
+    key: "kitchen",
+    label: "Kitchen board",
+    href: "/pos/kitchen",
+    icon: "UtensilsCrossed",
+    permission: "pos:order-create",
+  },
+  {
     key: "billing",
     label: "Billing",
     href: "/billing",

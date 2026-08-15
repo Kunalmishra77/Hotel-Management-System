@@ -71,11 +71,11 @@ const PORTAL_NAV: Record<PortalId, readonly string[]> = {
   // Finance console.
   ACCOUNTS: ["overview", "billing", "expenses", "payroll", "accounting", "corporate", "reports", "ai"],
   // Room-readiness console.
-  HOUSEKEEPING: ["dashboard", "housekeeping", "lost-found", "inventory", "laundry", "ai"],
+  HOUSEKEEPING: ["dashboard", "housekeeping", "inspection", "lost-found", "inventory", "laundry", "ai"],
   // Technical operations console.
-  MAINTENANCE: ["dashboard", "maintenance", "ai"],
+  MAINTENANCE: ["dashboard", "maintenance", "assets", "ai"],
   // F&B / room-service outlet.
-  OUTLET: ["dashboard", "pos", "ai"],
+  OUTLET: ["dashboard", "pos", "kitchen", "ai"],
   // Store · purchase · laundry.
   STORE: ["dashboard", "inventory", "laundry", "reports", "ai"],
 };

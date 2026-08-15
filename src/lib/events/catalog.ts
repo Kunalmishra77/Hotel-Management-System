@@ -116,6 +116,11 @@ export const DOMAIN_EVENT_TYPES = [
   "AddOnAccepted",
   "AddOnDeclined",
 
+  // Architecture v2 · Phase 5 — maintenance assets + room inspection
+  "AssetRegistered",
+  "AssetStatusChanged",
+  "RoomInspected",
+
   // 20 inventory
   "StockMovementRecorded",
   "LowStockDetected",

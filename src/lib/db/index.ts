@@ -50,6 +50,8 @@ export const PROPERTY_SCOPED_MODELS = [
   "Staff",
   "HousekeepingTask",
   "MaintenanceJob",
+  "Asset",
+  "RoomInspection",
   "MessageLog",
   "Feedback",
   "ChannelAccount",
