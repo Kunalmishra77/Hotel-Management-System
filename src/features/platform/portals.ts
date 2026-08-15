@@ -51,7 +51,7 @@ const PORTAL_NAV: Record<PortalId, readonly string[]> = {
   SUPER_ADMIN: [
     "overview", "insights", "properties", "approvals", "reports",
     "channels", "pricing", "corporate", "booking-site",
-    "communications", "users", "accounting", "data-import", "settings", "ai",
+    "communications", "users", "accounting", "data-import", "settings",
   ],
   // Read-mostly property-owner portal (merges into Super Admin in a later phase).
   OWNER: ["owner", "owner-documents", "owner-schedule", "owner-payouts"],
@@ -60,24 +60,24 @@ const PORTAL_NAV: Record<PortalId, readonly string[]> = {
     "dashboard", "operations", "rooms", "bookings", "in-house", "guests",
     "housekeeping", "maintenance", "inventory", "laundry",
     "billing", "approvals", "expenses", "payroll", "staff", "field-staff",
-    "feedback", "requests", "reports", "communications", "ai",
+    "feedback", "requests", "reports", "communications",
   ],
   // Front-desk operations console. (Search is the header command palette, not a page.)
   RECEPTION: [
     "dashboard", "rooms", "bookings", "in-house", "guests",
     "requests", "add-ons", "billing",
-    "housekeeping", "maintenance", "form-c", "ai",
+    "housekeeping", "maintenance", "form-c",
   ],
   // Finance console.
-  ACCOUNTS: ["overview", "billing", "expenses", "payroll", "accounting", "corporate", "reports", "ai"],
+  ACCOUNTS: ["overview", "billing", "expenses", "payroll", "accounting", "corporate", "reports"],
   // Room-readiness console.
-  HOUSEKEEPING: ["dashboard", "housekeeping", "inspection", "lost-found", "inventory", "laundry", "ai"],
+  HOUSEKEEPING: ["dashboard", "housekeeping", "inspection", "lost-found", "inventory", "laundry"],
   // Technical operations console.
-  MAINTENANCE: ["dashboard", "maintenance", "assets", "ai"],
+  MAINTENANCE: ["dashboard", "maintenance", "assets"],
   // F&B / room-service outlet.
-  OUTLET: ["dashboard", "pos", "kitchen", "ai"],
+  OUTLET: ["dashboard", "pos", "kitchen"],
   // Store · purchase · laundry.
-  STORE: ["dashboard", "inventory", "laundry", "reports", "ai"],
+  STORE: ["dashboard", "inventory", "laundry", "reports"],
 };
 
 const NAV_BY_KEY = new Map(NAV_ITEMS.map((i) => [i.key, i]));

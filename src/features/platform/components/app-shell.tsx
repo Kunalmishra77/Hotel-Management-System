@@ -11,6 +11,8 @@
 import { UserMenu } from "@/components/layout/user-menu";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { NotificationBell } from "@/features/notifications/components/notification-bell";
+import { AiLauncher } from "@/features/ai/components/ai-launcher";
+import { hasPermission } from "@/lib/permissions";
 import type { SessionClaims } from "@/lib/auth/claims";
 import type { PropertyOption } from "../actions";
 import { portalNavItems, portalBottomNavItems } from "../portals";
@@ -68,6 +70,9 @@ export function AppShell({
       </div>
 
       <BottomNav items={barItems} />
+
+      {/* Floating AI assistant — available across every portal (blueprint · Phase 7). */}
+      {hasPermission(claims, "ai:use") ? <AiLauncher /> : null}
     </div>
   );
 }
