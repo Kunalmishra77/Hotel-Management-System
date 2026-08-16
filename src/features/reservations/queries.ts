@@ -74,7 +74,14 @@ export async function listReservations(
       ...(input.status ? { status: input.status as never } : {}),
     },
     select: LIST_SELECT,
-    orderBy: [{ checkInDate: "desc" }, { id: "asc" }],
+    // In-house = "who's staying now", so order by the ACTUAL check-in moment
+    // (checkInAt, a full timestamp) newest-first — the guest you just checked in
+    // is at the top. Other statuses keep the scheduled-date order (checkInDate is
+    // date-only, so it can't distinguish same-day check-ins). Intelligent sort.
+    orderBy:
+      input.status === "IN_HOUSE"
+        ? [{ checkInAt: { sort: "desc", nulls: "last" } }, { id: "asc" }]
+        : [{ checkInDate: "desc" }, { id: "asc" }],
     take: limit + 1,
     ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
   })) as Row[];
