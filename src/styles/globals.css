@@ -202,3 +202,51 @@
     }
   }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Customer website theme (Kaaya-inspired eco-luxe). SCOPED to `.stay-theme`
+   so it never affects the staff app. Committed warm-light palette: deep forest
+   green + warm gold on a stone canvas, elegant serif headings, sharp corners.
+   ───────────────────────────────────────────────────────────────────────── */
+.stay-theme {
+  --forest: #1B4332;
+  --olive: #4A7C59;
+  --sage: #8FAF91;
+  --sand: #C8A96E;
+  --stone: #F5F0E8;
+  --timber: #5C3D1E;
+  --ink: #24312A;
+  /* Re-point the app's semantic tokens to the warm eco-luxe palette so any shared
+     component (the booking widget, cards, buttons) renders cohesively + committed-light
+     inside the customer site, regardless of the viewer's OS theme. */
+  --background: 40 39% 93%;
+  --foreground: 152 20% 17%;
+  --card: 0 0% 100%;
+  --card-foreground: 152 20% 17%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 152 20% 17%;
+  --primary: 152 43% 18%;
+  --primary-foreground: 40 39% 93%;
+  --secondary: 40 30% 90%;
+  --secondary-foreground: 152 20% 17%;
+  --muted: 40 30% 90%;
+  --muted-foreground: 30 25% 36%;
+  --accent: 40 30% 90%;
+  --accent-foreground: 152 20% 17%;
+  --border: 40 25% 84%;
+  --input: 40 25% 84%;
+  --ring: 38 45% 61%;
+  background: var(--stone);
+  color: var(--timber);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+.stay-theme .serif { font-family: var(--font-serif), Georgia, serif; }
+.stay-theme ::selection { background: var(--sand); color: var(--forest); }
+.stay-label { text-transform: uppercase; letter-spacing: 0.25em; font-size: 0.72rem; font-weight: 600; color: var(--sand); }
+.stay-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; min-height: 3rem; padding: 0 1.75rem; border-radius: 2px; font-size: 0.86rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; transition: all .25s ease; }
+.stay-btn-primary { background: var(--sand); color: var(--forest); }
+.stay-btn-primary:hover { background: var(--forest); color: var(--stone); }
+.stay-btn-ghost { border: 1px solid var(--sand); color: var(--sand); }
+.stay-btn-ghost:hover { background: var(--sand); color: var(--forest); }
+.stay-btn-onlight { border: 1px solid var(--forest); color: var(--forest); }
+.stay-btn-onlight:hover { background: var(--forest); color: var(--stone); }
