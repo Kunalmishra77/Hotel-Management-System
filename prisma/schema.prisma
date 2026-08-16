@@ -28,6 +28,12 @@ datasource db {
 model Organization {
   id            String         @id @default(cuid())
   name          String
+  // SaaS subscription (architecture v2 · "How we offer it"). The org (hotel chain)
+  // is the tenant; plan + add-on modules describe what they've bought.
+  plan          String         @default("CORE") // CORE | GROWTH | ENTERPRISE
+  planStatus    String         @default("TRIAL") // TRIAL | ACTIVE | PAST_DUE | CANCELLED
+  planRenewsAt  DateTime?
+  addonModules  String[]       @default([]) // channel-manager · booking-engine · owner-portal · ai
   properties    Property[]
   users         User[]
   guestAccounts GuestAccount[]
