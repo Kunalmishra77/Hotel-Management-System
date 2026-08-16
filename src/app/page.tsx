@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   ArrowRight, MapPin, ShieldCheck, BadgeIndianRupee, Zap, Sparkles,
-  BedDouble, Wifi, ConciergeBell, CalendarCheck, type LucideIcon,
+  BedDouble, Wifi, ConciergeBell, CalendarCheck, Phone, Mail, Clock, type LucideIcon,
 } from "lucide-react";
 import { getCurrentSession } from "@/lib/auth";
 import { listPublishedSites } from "@/features/booking-engine/queries";
@@ -31,6 +31,22 @@ const AMENITIES: { icon: LucideIcon; label: string }[] = [
   { icon: CalendarCheck, label: "Flexible stays" },
 ];
 
+// Curated stay imagery for the gallery (external, marketing-only — no PII).
+const GALLERY: { src: string; alt: string }[] = [
+  { src: "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&q=70&auto=format&fit=crop", alt: "Serviced living room" },
+  { src: "https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=800&q=70&auto=format&fit=crop", alt: "Suite bedroom" },
+  { src: "https://images.unsplash.com/photo-1584132967334-10e028bd69f7?w=800&q=70&auto=format&fit=crop", alt: "Modern bathroom" },
+  { src: "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&q=70&auto=format&fit=crop", alt: "Apartment kitchen" },
+  { src: "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=70&auto=format&fit=crop", alt: "Hotel exterior" },
+  { src: "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800&q=70&auto=format&fit=crop", alt: "Workspace desk" },
+];
+
+const OFFERS: { badge: string; title: string; desc: string }[] = [
+  { badge: "Stay longer", title: "3 nights, pay for 2", desc: "Book a 3-night stay and the third night is on us — direct bookings only." },
+  { badge: "Corporate", title: "Negotiated business rates", desc: "Frequent work trips? Ask about a corporate contract with monthly billing." },
+  { badge: "Early bird", title: "10% off, book 30 days ahead", desc: "Plan early and save — the earlier you confirm, the better the rate." },
+];
+
 /**
  * Customer website — the GUEST-facing front door (one of the two products that
  * share one brain; the other is the staff portal at `/staff`). Public and
@@ -52,11 +68,20 @@ export default async function Home() {
             <span className="hidden text-sm text-muted-foreground sm:inline">Apartments &amp; Suites</span>
           </div>
           <nav className="flex items-center gap-1">
-            <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
-              <Link href="#properties">Our properties</Link>
+            <Button asChild variant="ghost" size="sm" className="hidden md:inline-flex">
+              <Link href="#about">About</Link>
             </Button>
-            <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
-              <Link href="#why">Why book direct</Link>
+            <Button asChild variant="ghost" size="sm" className="hidden md:inline-flex">
+              <Link href="#properties">Properties</Link>
+            </Button>
+            <Button asChild variant="ghost" size="sm" className="hidden lg:inline-flex">
+              <Link href="#gallery">Gallery</Link>
+            </Button>
+            <Button asChild variant="ghost" size="sm" className="hidden lg:inline-flex">
+              <Link href="#offers">Offers</Link>
+            </Button>
+            <Button asChild variant="ghost" size="sm" className="hidden md:inline-flex">
+              <Link href="#contact">Contact</Link>
             </Button>
             <Button asChild variant="ghost" size="sm">
               <Link href="/account">Sign in</Link>
@@ -109,8 +134,44 @@ export default async function Home() {
         </div>
       </section>
 
+      {/* About */}
+      <section id="about" className="mx-auto w-full max-w-6xl scroll-mt-20 px-5 py-14">
+        <div className="grid items-center gap-8 lg:grid-cols-2">
+          <div className="max-w-xl">
+            <p className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-primary">
+              <Sparkles className="size-3.5" aria-hidden="true" /> About Woodpecker
+            </p>
+            <h2 className="mt-2 text-balance text-2xl font-semibold tracking-tight sm:text-3xl">
+              The space of an apartment. The care of a hotel.
+            </h2>
+            <p className="mt-4 text-pretty text-sm text-muted-foreground sm:text-base">
+              Woodpecker Apartments &amp; Suites runs serviced homes across India for guests who want more
+              than a hotel room — a proper living space, a kitchen, and room to work, backed by daily
+              housekeeping, a front desk that answers, and instant direct booking with GST-inclusive prices.
+            </p>
+            <p className="mt-3 text-pretty text-sm text-muted-foreground sm:text-base">
+              Whether it&apos;s a two-night work trip or a two-month relocation, every stay is looked after by
+              a real team — not an app that goes quiet after you pay.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { k: "Multiple", v: "cities across India" },
+              { k: "24×7", v: "front desk & housekeeping" },
+              { k: "GST", v: "inclusive, invoiced" },
+              { k: "Direct", v: "best-rate guarantee" },
+            ].map((s) => (
+              <div key={s.k} className="rounded-xl border bg-card p-5 shadow-sm">
+                <p className="font-display text-2xl font-bold tracking-tight text-primary">{s.k}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{s.v}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Our properties */}
-      <section id="properties" className="mx-auto w-full max-w-6xl scroll-mt-20 px-5 py-14">
+      <section id="properties" className="mx-auto w-full max-w-6xl scroll-mt-20 border-t px-5 py-14">
         <div className="mb-8 max-w-2xl">
           <h2 className="text-balance text-2xl font-semibold tracking-tight sm:text-3xl">Our properties</h2>
           <p className="mt-2 text-pretty text-sm text-muted-foreground sm:text-base">
@@ -175,6 +236,54 @@ export default async function Home() {
         </div>
       </section>
 
+      {/* Gallery */}
+      <section id="gallery" className="mx-auto w-full max-w-6xl scroll-mt-20 px-5 py-14">
+        <div className="mb-8 max-w-2xl">
+          <h2 className="text-balance text-2xl font-semibold tracking-tight sm:text-3xl">A look inside</h2>
+          <p className="mt-2 text-pretty text-sm text-muted-foreground sm:text-base">
+            Light-filled living spaces, full kitchens, and workspaces designed for a longer stay.
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {GALLERY.map((g, i) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={g.src}
+              src={g.src}
+              alt={g.alt}
+              loading="lazy"
+              className={`h-40 w-full rounded-xl border object-cover shadow-sm sm:h-52 ${i === 0 ? "col-span-2 sm:col-span-1" : ""}`}
+            />
+          ))}
+        </div>
+      </section>
+
+      {/* Offers */}
+      <section id="offers" className="border-y bg-muted/20 scroll-mt-20">
+        <div className="mx-auto w-full max-w-6xl px-5 py-14">
+          <div className="mb-8 max-w-2xl">
+            <h2 className="text-balance text-2xl font-semibold tracking-tight sm:text-3xl">Direct-booking offers</h2>
+            <p className="mt-2 text-pretty text-sm text-muted-foreground sm:text-base">
+              Deals you only get when you book with us — never on the OTAs.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {OFFERS.map((o) => (
+              <div key={o.title} className="flex flex-col rounded-xl border bg-card p-5 shadow-sm">
+                <span className="inline-block w-fit rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">{o.badge}</span>
+                <h3 className="mt-3 text-base font-semibold">{o.title}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">{o.desc}</p>
+                {sites[0] && (
+                  <Link href={`/book/${sites[0].slug}`} className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
+                    Book to claim <ArrowRight className="size-3.5" aria-hidden="true" />
+                  </Link>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Guest account teaser — arriving in the next phase (no dead button) */}
       <section className="mx-auto w-full max-w-6xl px-5 py-14">
         <div className="flex flex-col items-start gap-4 rounded-2xl border bg-card p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-8">
@@ -199,6 +308,44 @@ export default async function Home() {
                   <ArrowRight className="ml-1.5 size-4" aria-hidden="true" />
                 </Link>
               </Button>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* Contact */}
+      <section id="contact" className="mx-auto w-full max-w-6xl scroll-mt-20 px-5 py-14">
+        <div className="grid gap-8 rounded-2xl border bg-card p-6 shadow-sm sm:p-8 lg:grid-cols-2">
+          <div className="max-w-md">
+            <h2 className="text-balance text-2xl font-semibold tracking-tight sm:text-3xl">Talk to us</h2>
+            <p className="mt-2 text-pretty text-sm text-muted-foreground sm:text-base">
+              Planning a longer stay, a group booking, or a corporate contract? Our front desk answers
+              24×7 — call, email, or just book online and we&apos;ll take it from there.
+            </p>
+            <div className="mt-6 flex flex-col gap-3">
+              <a href="tel:+911234567890" className="inline-flex items-center gap-2.5 text-sm hover:text-primary">
+                <span className="grid size-9 place-items-center rounded-lg bg-primary/10 text-primary"><Phone className="size-4" aria-hidden="true" /></span>
+                +91 12345 67890
+              </a>
+              <a href="mailto:stay@woodpecker.example" className="inline-flex items-center gap-2.5 text-sm hover:text-primary">
+                <span className="grid size-9 place-items-center rounded-lg bg-primary/10 text-primary"><Mail className="size-4" aria-hidden="true" /></span>
+                stay@woodpecker.example
+              </a>
+              <p className="inline-flex items-center gap-2.5 text-sm text-muted-foreground">
+                <span className="grid size-9 place-items-center rounded-lg bg-primary/10 text-primary"><Clock className="size-4" aria-hidden="true" /></span>
+                Front desk open 24×7, every day
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col justify-center gap-3 rounded-xl border bg-muted/20 p-6">
+            <p className="text-sm font-medium">Ready to book?</p>
+            <p className="text-sm text-muted-foreground">Check live availability and confirm in seconds — best rate, taxes included.</p>
+            {sites[0] ? (
+              <Button asChild size="lg" className="mt-1 w-full sm:w-auto">
+                <Link href={`/book/${sites[0].slug}`}>Book a stay <ArrowRight className="ml-1.5 size-4" aria-hidden="true" /></Link>
+              </Button>
+            ) : (
+              <Button asChild size="lg" variant="outline" className="mt-1 w-full sm:w-auto"><Link href="#properties">See properties</Link></Button>
             )}
           </div>
         </div>
