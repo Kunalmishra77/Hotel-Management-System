@@ -45,10 +45,16 @@ export async function getGuestSummary(principal: GuestPrincipal): Promise<GuestS
     where: { id: principal.accountId },
     select: { email: true, mobile: true, guest: { select: { fullName: true } } },
   });
+  // A display-only decrypt must NEVER crash the guest's account area. If the stored
+  // ciphertext can't be decrypted (e.g. a PII-key mismatch on legacy/seeded rows),
+  // degrade to an unmasked-null value rather than throwing the whole page.
+  const safeMask = (value: string | null | undefined, mask: (v: string | null) => string | null): string | null => {
+    try { return mask(decryptOptional(value)); } catch { return null; }
+  };
   return {
     fullName: account?.guest.fullName ?? "Guest",
-    emailMasked: maskEmail(decryptOptional(account?.email ?? null)),
-    mobileMasked: maskMobile(decryptOptional(account?.mobile ?? null)),
+    emailMasked: safeMask(account?.email ?? null, maskEmail),
+    mobileMasked: safeMask(account?.mobile ?? null, maskMobile),
   };
 }
 
