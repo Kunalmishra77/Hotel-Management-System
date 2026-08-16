@@ -253,6 +253,22 @@ export const NAV_ITEMS: readonly NavItem[] = [
     permission: "folio:view",
   },
   {
+    // Architecture v2 · Manager consolidation — Finance & Approvals in one hub.
+    key: "finance",
+    label: "Finance & approvals",
+    href: "/finance",
+    icon: "Wallet",
+    permission: "report:view-financial",
+  },
+  {
+    // Architecture v2 · Manager consolidation — Guest Experience (feedback + requests + reviews).
+    key: "guest-experience",
+    label: "Guest experience",
+    href: "/guest-experience",
+    icon: "MessageSquareHeart",
+    permission: "guest:view",
+  },
+  {
     key: "expenses",
     label: "Expenses",
     href: "/expenses",

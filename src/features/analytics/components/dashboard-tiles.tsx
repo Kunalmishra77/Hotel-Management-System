@@ -7,6 +7,7 @@
  * trigger. Mobile-first, grouped bands with iconography + semantic tone.
  */
 import { useState, useTransition, type ComponentType } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   BedDouble, DoorOpen, Gauge, LogIn, LogOut, Sparkles,
@@ -59,19 +60,19 @@ export function DashboardTiles({
       )}
 
       <Band label="Occupancy now">
-        <Tile icon={Gauge} label="Occupancy" value={pct(tiles.occupancyBps)} tone="accent" bar={tiles.occupancyBps / 100} testid="tile-occupancy" />
-        <Tile icon={BedDouble} label="Occupied" value={String(tiles.rooms.occupied)} testid="tile-occupied" />
-        <Tile icon={DoorOpen} label="Vacant" value={String(tiles.rooms.vacant)} />
-        <Tile icon={Sparkles} label="Housekeeping" value={String(tiles.rooms.housekeeping)} />
+        <Tile icon={Gauge} label="Occupancy" value={pct(tiles.occupancyBps)} tone="accent" bar={tiles.occupancyBps / 100} testid="tile-occupancy" href="/rooms" />
+        <Tile icon={BedDouble} label="Occupied" value={String(tiles.rooms.occupied)} testid="tile-occupied" href="/in-house" />
+        <Tile icon={DoorOpen} label="Vacant" value={String(tiles.rooms.vacant)} href="/rooms" />
+        <Tile icon={Sparkles} label="Housekeeping" value={String(tiles.rooms.housekeeping)} href="/housekeeping" />
       </Band>
 
       <Band label="Today">
-        <Tile icon={LogIn} label="Arrivals" value={String(tiles.arrivalsToday)} />
-        <Tile icon={LogOut} label="Departures" value={String(tiles.departuresToday)} />
-        {money && <Tile icon={IndianRupee} label="Revenue" value={rupees(tiles.revenueTodayPaise!)} tone="accent" testid="tile-revenue" />}
-        {tiles.expenseTodayPaise !== null && <Tile icon={Receipt} label="Expenses" value={rupees(tiles.expenseTodayPaise)} />}
+        <Tile icon={LogIn} label="Arrivals" value={String(tiles.arrivalsToday)} href="/operations" />
+        <Tile icon={LogOut} label="Departures" value={String(tiles.departuresToday)} href="/operations" />
+        {money && <Tile icon={IndianRupee} label="Revenue" value={rupees(tiles.revenueTodayPaise!)} tone="accent" testid="tile-revenue" href="/reports" />}
+        {tiles.expenseTodayPaise !== null && <Tile icon={Receipt} label="Expenses" value={rupees(tiles.expenseTodayPaise)} href="/expenses" />}
         {tiles.pendingPaise !== null && (
-          <Tile icon={Clock} label="Pending" value={rupees(tiles.pendingPaise)} tone={tiles.pendingPaise > 0 ? "warn" : "default"} testid="tile-pending" />
+          <Tile icon={Clock} label="Pending" value={rupees(tiles.pendingPaise)} tone={tiles.pendingPaise > 0 ? "warn" : "default"} testid="tile-pending" href="/billing" />
         )}
       </Band>
     </div>
@@ -94,14 +95,14 @@ const TONE: Record<Tone, { chip: string; num: string; fill: string }> = {
 };
 
 function Tile({
-  icon: Icon, label, value, tone = "default", bar, testid,
+  icon: Icon, label, value, tone = "default", bar, testid, href,
 }: {
   icon: ComponentType<{ className?: string }>;
-  label: string; value: string; tone?: Tone; bar?: number; testid?: string;
+  label: string; value: string; tone?: Tone; bar?: number; testid?: string; href?: string;
 }) {
   const t = TONE[tone];
-  return (
-    <div className="rounded-xl border bg-card p-4 shadow-sm transition-shadow hover:shadow-md">
+  const inner = (
+    <>
       <div className={`flex size-8 items-center justify-center rounded-lg ${t.chip}`}>
         <Icon className="size-4" />
       </div>
@@ -112,6 +113,13 @@ function Tile({
           <div className={`h-full rounded-full ${t.fill}`} style={{ width: `${Math.max(0, Math.min(100, bar))}%` }} />
         </div>
       )}
-    </div>
+    </>
+  );
+  const cls = "block rounded-xl border bg-card p-4 shadow-sm transition-shadow hover:shadow-md";
+  // Every KPI is a tappable filter (blueprint · dashboards-to-spec).
+  return href ? (
+    <Link href={href} className={`${cls} hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}>{inner}</Link>
+  ) : (
+    <div className={cls}>{inner}</div>
   );
 }
