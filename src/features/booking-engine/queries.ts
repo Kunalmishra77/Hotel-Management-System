@@ -99,6 +99,73 @@ export async function loadPublishedConfig(slug: string): Promise<PublishedConfig
   };
 }
 
+/** Rich, date-independent property content for the OTA-style property page:
+ *  identity + location + the sellable room types (photos, amenities, from-price).
+ *  Public read; no PII, no inventory internals. */
+export type ShowcaseRoomType = {
+  id: string;
+  name: string;
+  description: string | null;
+  amenities: string[];
+  imageUrls: string[];
+  fromPaise: number; // GST-inclusive nightly "from" price
+};
+export type PropertyShowcase = {
+  slug: string;
+  propertyName: string;
+  city: string;
+  state: string;
+  addressLine1: string;
+  heroImages: string[];
+  amenities: string[]; // union across room types
+  roomTypes: ShowcaseRoomType[];
+  fromPaise: number | null; // cheapest room type
+  cancelWindowHours: number;
+};
+
+export async function loadPropertyShowcase(slug: string): Promise<PropertyShowcase | null> {
+  const prisma = bookingDb();
+  const cfg = await prisma.bookingEngineConfig.findUnique({ where: { slug } });
+  if (!cfg || !cfg.isPublished) return null;
+  const property = await prisma.property.findFirst({
+    where: { id: cfg.propertyId, isActive: true, deletedAt: null },
+    select: { id: true, name: true, city: true, state: true, addressLine1: true },
+  });
+  if (!property) return null;
+
+  const cats = await prisma.roomCategory.findMany({
+    where: { propertyId: property.id, id: { in: cfg.onlineSellableCategoryIds } },
+    orderBy: { baseRatePaise: "asc" },
+    select: { id: true, name: true, description: true, amenities: true, imageUrls: true, baseRatePaise: true, gstBps: true },
+  });
+
+  const roomTypes: ShowcaseRoomType[] = cats.map((c) => ({
+    id: c.id,
+    name: c.name,
+    description: c.description,
+    amenities: c.amenities,
+    imageUrls: c.imageUrls,
+    fromPaise: Math.round(c.baseRatePaise * (1 + c.gstBps / 10_000)),
+  }));
+
+  const heroImages = [...new Set(roomTypes.flatMap((r) => r.imageUrls))].slice(0, 6);
+  const amenities = [...new Set(roomTypes.flatMap((r) => r.amenities))];
+  const fromPaise = roomTypes.length ? Math.min(...roomTypes.map((r) => r.fromPaise)) : null;
+
+  return {
+    slug: cfg.slug,
+    propertyName: property.name,
+    city: property.city,
+    state: property.state,
+    addressLine1: property.addressLine1,
+    heroImages,
+    amenities,
+    roomTypes,
+    fromPaise,
+    cancelWindowHours: cfg.cancelWindowHours,
+  };
+}
+
 /** The nightly dates of a stay, as UTC-midnight calendar dates (matches @db.Date). */
 function nightlyDates(checkIn: Date, n: number): Date[] {
   const base = Date.UTC(checkIn.getUTCFullYear(), checkIn.getUTCMonth(), checkIn.getUTCDate());
