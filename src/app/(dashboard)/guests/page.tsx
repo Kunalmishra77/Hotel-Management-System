@@ -6,7 +6,7 @@ import { hasPermission } from "@/lib/permissions";
 import { searchGuests, guestsOverview, guestsBySegment, type GuestSegment } from "@/features/guests/queries";
 import { guestTiers } from "@/features/guest-history/queries";
 import { GuestSearchBox } from "@/features/guests/components/guest-search-box";
-import { GuestList } from "@/features/guests/components/guest-list";
+import { GuestsTable } from "@/features/guests/components/guests-table";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -58,7 +58,7 @@ export default async function GuestsPage({
   const tiers = await guestTiers(user, displayed.map((g) => g.id));
 
   return (
-    <div className="mx-auto w-full max-w-4xl">
+    <div className="mx-auto w-full max-w-6xl">
       <PageHeader
         title="Guests"
         description="Permanent CRM — searchable across every property"
@@ -101,17 +101,17 @@ export default async function GuestsPage({
         })}
       </div>
 
-      <div className="mt-3">
-        {query ? (
-          <GuestList guests={displayed} query={query} tiers={tiers} />
+      <div className="mt-4">
+        {!query ? (
+          <h2 className="mb-2 text-sm font-semibold text-muted-foreground">
+            {segment ? SEGMENT_HEADING[segment] : "Recently added"}
+          </h2>
         ) : (
-          <>
-            <h2 className="mb-2 text-sm font-semibold text-muted-foreground">
-              {segment ? SEGMENT_HEADING[segment] : "Recently added"}
-            </h2>
-            <GuestList guests={displayed} query="" tiers={tiers} />
-          </>
+          <h2 className="mb-2 text-sm font-semibold text-muted-foreground">
+            {displayed.length} result{displayed.length === 1 ? "" : "s"} for &ldquo;{query}&rdquo;
+          </h2>
         )}
+        <GuestsTable guests={displayed} tiers={tiers} />
       </div>
     </div>
   );
