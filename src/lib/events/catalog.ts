@@ -50,6 +50,7 @@ export const DOMAIN_EVENT_TYPES = [
   // customer redesign (Phase 2): guest self-service accounts
   "GuestAccountCreated",
   "GuestAccountSignedIn",
+  "GuestProfileUpdated",
   // customer redesign (Phase 4): in-room guest service requests
   "GuestRequestCreated",
 

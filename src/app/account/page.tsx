@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, CalendarCheck, Mail, Phone, ConciergeBell, Crown, Star } from "lucide-react";
+import { ArrowRight, CalendarCheck, Mail, Phone, ConciergeBell, Crown, Star, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { listPublishedSites } from "@/features/booking-engine/queries";
 import { requireGuest, getGuestSummary, getMyLoyalty } from "@/features/guest-account/queries";
@@ -48,7 +48,15 @@ export default async function AccountHomePage() {
       <div className="grid gap-4 sm:grid-cols-2">
         {/* Contact on file */}
         <section className="rounded-xl border bg-card p-5 shadow-sm">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Contact on file</h2>
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Contact on file</h2>
+            <Link
+              href="/account/profile"
+              className="inline-flex items-center gap-1 text-sm font-medium text-primary underline-offset-4 hover:underline"
+            >
+              <Pencil className="size-3.5" aria-hidden="true" /> Edit
+            </Link>
+          </div>
           <ul className="mt-3 space-y-2 text-sm">
             <li className="inline-flex items-center gap-2">
               <Phone className="size-4 text-muted-foreground" aria-hidden="true" />

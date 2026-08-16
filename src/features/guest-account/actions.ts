@@ -22,6 +22,7 @@ import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import {
   createGuestSession,
   revokeGuestSession,
+  resolveGuestSession,
   mobileHashOf,
   emailHashOf,
   normalizeMobile,
@@ -39,15 +40,19 @@ import {
   logInEmailSchema,
   requestPhoneOtpSchema,
   verifyPhoneOtpSchema,
+  updateProfileSchema,
 } from "./schema";
 import {
   TIMING_EQUALISER_HASH,
+  PLACEHOLDER_GUEST_NAME,
   resolvePublicOrgId,
   findOrCreateGuestForAccount,
   deliverOtpSms,
 } from "./internal";
 
-export type GuestAuthResult = { accountId: string };
+/** `needsProfile` is set only on the phone path when a brand-new account was made
+ *  with no real name yet — the UI then routes the guest to complete their profile. */
+export type GuestAuthResult = { accountId: string; needsProfile?: boolean };
 export type OtpRequestResult = { sent: true; devCode?: string };
 
 const INVALID = () => new DomainError(ErrorCode.INVALID_CREDENTIALS);
@@ -224,7 +229,7 @@ export async function verifyPhoneOtp(raw: unknown): Promise<Result<GuestAuthResu
     const mobileHash = mobileHashOf(input.mobile);
     const now = new Date();
 
-    const accountId = await runWithSystemContext(orgId, () =>
+    const { accountId, needsProfile } = await runWithSystemContext(orgId, () =>
       db.unscoped().$transaction(async (tx) => {
         const otp = await tx.guestOtp.findFirst({
           where: { orgId, mobileHash, purpose: "PHONE_AUTH", consumedAt: null },
@@ -266,12 +271,12 @@ export async function verifyPhoneOtp(raw: unknown): Promise<Result<GuestAuthResu
             aggregateId: existing.id,
             payload: { guestId: existing.guestId, method: "phone" },
           });
-          return existing.id;
+          return { accountId: existing.id, needsProfile: false };
         }
 
         const guest = await findOrCreateGuestForAccount(tx, {
           orgId,
-          fullName: input.fullName?.trim() || "Guest",
+          fullName: input.fullName?.trim() || PLACEHOLDER_GUEST_NAME,
           mobile: input.mobile,
         });
         const account = await tx.guestAccount.create({
@@ -295,12 +300,13 @@ export async function verifyPhoneOtp(raw: unknown): Promise<Result<GuestAuthResu
           aggregateId: account.id,
           payload: { guestId: guest.id, method: "phone" },
         });
-        return account.id;
+        // No real name captured yet (placeholder) → the UI will ask for one.
+        return { accountId: account.id, needsProfile: guest.fullName === PLACEHOLDER_GUEST_NAME };
       }),
     );
 
     await createGuestSession(accountId, now);
-    return { accountId };
+    return { accountId, needsProfile };
   });
 }
 
@@ -308,6 +314,66 @@ export async function verifyPhoneOtp(raw: unknown): Promise<Result<GuestAuthResu
 export async function logOutGuest(): Promise<Result<{ ok: true }>> {
   return toResult(async () => {
     await revokeGuestSession();
+    return { ok: true };
+  });
+}
+
+/**
+ * The signed-in guest edits their own profile — name (so a phone-only signup stops
+ * showing the "Guest" placeholder) and, optionally, an email. Identity comes from
+ * the session, never the client. Name updates the CRM `Guest`; email is mirrored
+ * onto the account (used for login + display) and de-duplicated against other
+ * accounts before it is accepted.
+ */
+export async function updateMyProfile(raw: unknown): Promise<Result<{ ok: true }>> {
+  return toResult(async () => {
+    const principal = await resolveGuestSession();
+    if (!principal) throw new DomainError(ErrorCode.UNAUTHENTICATED);
+
+    const input = updateProfileSchema.parse(raw);
+    const normalizedEmail = input.email ? input.email.trim().toLowerCase() : null;
+    const emailHash = normalizedEmail ? emailHashOf(normalizedEmail) : null;
+
+    await runWithSystemContext(principal.orgId, () =>
+      db.unscoped().$transaction(async (tx) => {
+        if (emailHash) {
+          const clash = await tx.guestAccount.findFirst({
+            where: { orgId: principal.orgId, emailHash, id: { not: principal.accountId }, deletedAt: null },
+            select: { id: true },
+          });
+          if (clash) {
+            throw new ConflictError("That email is already used by another account.");
+          }
+        }
+
+        await tx.guest.update({
+          where: { id: principal.guestId },
+          data: {
+            fullName: input.fullName,
+            ...(normalizedEmail ? { email: encryptString(normalizedEmail), emailHash } : {}),
+          },
+        });
+
+        if (normalizedEmail) {
+          await tx.guestAccount.update({
+            where: { id: principal.accountId },
+            data: { email: encryptString(normalizedEmail), emailHash },
+          });
+        }
+
+        await writeAudit(tx, {
+          action: "guestaccount:profile-update",
+          entityType: "GuestAccount",
+          entityId: principal.accountId,
+        });
+        await emitEvent(tx, {
+          type: "GuestProfileUpdated",
+          aggregateId: principal.accountId,
+          payload: { guestId: principal.guestId, emailChanged: Boolean(normalizedEmail) },
+        });
+      }),
+    );
+
     return { ok: true };
   });
 }

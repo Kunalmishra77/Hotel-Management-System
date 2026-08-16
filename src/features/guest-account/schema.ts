@@ -54,6 +54,20 @@ export const verifyPhoneOtpSchema = z.object({
 });
 export type VerifyPhoneOtpInput = z.input<typeof verifyPhoneOtpSchema>;
 
+/** A signed-in guest editing their own profile. Name is required (so a phone-only
+ *  signup stops showing the "Guest" placeholder); email is optional. */
+export const updateProfileSchema = z.object({
+  fullName: z.string().trim().min(1, "Enter your name.").max(120),
+  email: z
+    .string()
+    .trim()
+    .max(200)
+    .email("Enter a valid email address.")
+    .optional()
+    .or(z.literal("").transform(() => undefined)),
+});
+export type UpdateProfileInput = z.input<typeof updateProfileSchema>;
+
 /** A signed-in guest's booking submission. Identity comes from the session, so no
  *  contact fields here — only what to book, and how to pay. */
 export const guestBookingSchema = z.object({

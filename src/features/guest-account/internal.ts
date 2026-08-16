@@ -18,6 +18,14 @@ import { normalizeMobile, mobileHashOf, emailHashOf } from "@/lib/guest-auth";
 export const TIMING_EQUALISER_HASH = "$2a$12$C6UzMDM.H6dfI/f/IKcEe.WQ1cJPUuTZUJ4L2Xn5qkOaBcQ6dGZ0K";
 
 /**
+ * The name a brand-new phone-only signup gets when no name was captured and no
+ * existing guest matched. The account area treats it as "no real name yet" and
+ * asks the guest to complete their profile. Kept as one constant so the default
+ * and the "needs profile" check can never drift apart.
+ */
+export const PLACEHOLDER_GUEST_NAME = "Guest";
+
+/**
  * The org that owns the public customer surface. Single operator for now (one
  * Organization), resolved from any active property. When the customer site
  * becomes multi-tenant this is where an org-per-host lookup goes.
@@ -38,7 +46,7 @@ export async function resolvePublicOrgId(): Promise<string> {
 export async function findOrCreateGuestForAccount(
   tx: { guest: PrismaClient["guest"] },
   input: { orgId: string; fullName: string; mobile: string; email?: string | null },
-): Promise<{ id: string }> {
+): Promise<{ id: string; fullName: string }> {
   const mobileHash = mobileHashOf(input.mobile);
   const emailHash = input.email ? emailHashOf(input.email) : null;
 
@@ -48,7 +56,7 @@ export async function findOrCreateGuestForAccount(
       deletedAt: null,
       OR: [{ mobileHash }, ...(emailHash ? [{ emailHash }] : [])],
     },
-    select: { id: true },
+    select: { id: true, fullName: true },
   });
   if (existing) return existing;
 
@@ -61,7 +69,7 @@ export async function findOrCreateGuestForAccount(
       email: encryptOptional(input.email ?? null),
       emailHash,
     },
-    select: { id: true },
+    select: { id: true, fullName: true },
   });
 }
 

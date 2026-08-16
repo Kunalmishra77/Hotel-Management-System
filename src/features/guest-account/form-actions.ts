@@ -6,7 +6,7 @@
  * failure we surface a user-safe message + field errors (never a raw throw).
  */
 import { redirect } from "next/navigation";
-import { signUpEmail, logInEmail, requestPhoneOtp, verifyPhoneOtp } from "./actions";
+import { signUpEmail, logInEmail, requestPhoneOtp, verifyPhoneOtp, updateMyProfile } from "./actions";
 import type { GuestFormState } from "./form-state";
 
 /** Only same-origin relative paths are honoured as a post-login destination. */
@@ -60,6 +60,21 @@ export async function verifyPhoneOtpFormAction(
     mobile: formData.get("mobile"),
     code: formData.get("code"),
     fullName: formData.get("fullName") ?? undefined,
+  });
+  if (!res.ok) return errorState(res.error);
+  const next = safeNext(formData.get("next"));
+  // Brand-new phone signup with no name yet → capture it before sending them on.
+  if (res.data.needsProfile) redirect(`/account/welcome?next=${encodeURIComponent(next)}`);
+  redirect(next);
+}
+
+export async function updateProfileFormAction(
+  _prev: GuestFormState,
+  formData: FormData,
+): Promise<GuestFormState> {
+  const res = await updateMyProfile({
+    fullName: formData.get("fullName"),
+    email: formData.get("email") ?? undefined,
   });
   if (!res.ok) return errorState(res.error);
   redirect(safeNext(formData.get("next")));
