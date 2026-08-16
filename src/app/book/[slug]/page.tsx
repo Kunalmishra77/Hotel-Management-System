@@ -11,7 +11,6 @@ import {
   MapPin, Star, ShieldCheck, BadgeIndianRupee, Zap, Clock, CalendarX, ArrowRight, Check,
 } from "lucide-react";
 import { loadPropertyShowcase, type ShowcaseRoomType } from "@/features/booking-engine/queries";
-import { BookingWidget } from "@/features/booking-engine/components/booking-widget";
 import { PropertyGallery } from "@/features/booking-engine/components/property-gallery";
 import { amenityIcon } from "@/features/booking-engine/components/amenity-icon";
 import { StayNav } from "@/features/marketing/components/stay-nav";
@@ -93,7 +92,7 @@ export default async function PropertyPage({ params }: { params: Promise<{ slug:
             <section id="rooms">
               <h2 className="serif text-2xl font-semibold tracking-tight" style={{ color: "var(--forest)" }}>Choose your room</h2>
               <div className="mt-4 space-y-4">
-                {s.roomTypes.map((r) => <RoomTypeCard key={r.id} room={r} />)}
+                {s.roomTypes.map((r) => <RoomTypeCard key={r.id} room={r} slug={s.slug} />)}
               </div>
             </section>
 
@@ -123,14 +122,34 @@ export default async function PropertyPage({ params }: { params: Promise<{ slug:
             </section>
           </div>
 
-          {/* Booking card */}
+          {/* Booking card — reserve requires a signed-in guest (market-standard:
+              browse open, book behind login). CTA → login-gated /account/book. */}
           <aside id="book" className="scroll-mt-24 lg:sticky lg:top-24 lg:h-fit">
-            {s.fromPaise !== null && (
-              <p className="mb-2 text-sm" style={{ color: "var(--timber)" }}>
-                From <span className="serif text-2xl font-bold" style={{ color: "var(--forest)" }}>{rupees(s.fromPaise)}</span>/night · incl. GST
+            <div className="rounded-sm border bg-white p-5 shadow-sm" style={{ borderColor: "var(--border)" }}>
+              {s.fromPaise !== null && (
+                <p className="text-sm" style={{ color: "var(--timber)" }}>
+                  From <span className="serif text-2xl font-bold" style={{ color: "var(--forest)" }}>{rupees(s.fromPaise)}</span>
+                  <span className="text-sm font-normal">/night · incl. GST</span>
+                </p>
+              )}
+              <Link
+                href={`/account/book/${s.slug}`}
+                className="stay-btn stay-btn-primary mt-4 w-full"
+              >
+                Book now <ArrowRight className="size-4" aria-hidden="true" />
+              </Link>
+              <p className="mt-3 text-center text-xs" style={{ color: "var(--timber)" }}>
+                Sign in or create a free account to pick dates &amp; confirm.{" "}
+                <Link href={`/account/sign-in?next=/account/book/${s.slug}`} className="font-medium underline" style={{ color: "var(--olive)" }}>
+                  Sign in
+                </Link>
               </p>
-            )}
-            <BookingWidget slug={s.slug} propertyName={s.propertyName} />
+              <ul className="mt-4 space-y-2 border-t pt-4 text-xs" style={{ borderColor: "var(--border)", color: "var(--timber)" }}>
+                <li className="inline-flex items-center gap-1.5"><Zap className="size-3.5" style={{ color: "var(--olive)" }} aria-hidden="true" /> Instant confirmation</li>
+                <li className="inline-flex items-center gap-1.5"><CalendarX className="size-3.5" style={{ color: "var(--olive)" }} aria-hidden="true" /> Free cancellation up to {s.cancelWindowHours}h before</li>
+                <li className="inline-flex items-center gap-1.5"><BadgeIndianRupee className="size-3.5" style={{ color: "var(--olive)" }} aria-hidden="true" /> Best-rate direct · pay online or at hotel</li>
+              </ul>
+            </div>
           </aside>
         </div>
       </main>
@@ -144,7 +163,7 @@ export default async function PropertyPage({ params }: { params: Promise<{ slug:
   );
 }
 
-function RoomTypeCard({ room }: { room: ShowcaseRoomType }) {
+function RoomTypeCard({ room, slug }: { room: ShowcaseRoomType; slug: string }) {
   return (
     <div className="flex flex-col overflow-hidden rounded-sm border bg-white shadow-sm sm:flex-row" style={{ borderColor: "var(--border)" }}>
       {room.imageUrls[0] ? (
@@ -169,9 +188,9 @@ function RoomTypeCard({ room }: { room: ShowcaseRoomType }) {
           <p className="text-sm" style={{ color: "var(--timber)" }}>
             From <span className="serif font-bold" style={{ color: "var(--forest)" }}>{rupees(room.fromPaise)}</span>/night
           </p>
-          <a href="#book" className="stay-btn stay-btn-onlight" style={{ minHeight: "2.5rem", padding: "0 1rem" }}>
+          <Link href={`/account/book/${slug}`} className="stay-btn stay-btn-onlight" style={{ minHeight: "2.5rem", padding: "0 1rem" }}>
             Select <ArrowRight className="size-3.5" aria-hidden="true" />
-          </a>
+          </Link>
         </div>
       </div>
     </div>
