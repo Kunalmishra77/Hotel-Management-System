@@ -3,6 +3,7 @@ import { Check, Sparkles, Building2, BadgeCheck } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
 import { getSubscription } from "@/features/subscription/queries";
 import { PLANS, ADDONS, PLAN_BY_ID, PLAN_STATUS_LABEL } from "@/features/subscription/plans";
+import { PlanSwitch } from "@/features/subscription/components/plan-switch";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -78,16 +79,17 @@ export default async function SubscriptionPage() {
               </div>
               <p className="mt-0.5 text-sm text-muted-foreground">{p.tagline}</p>
               <p className="mt-3"><span className="font-display text-2xl font-bold">{inr(p.pricePerPropertyMonth)}</span><span className="text-sm text-muted-foreground">/property/mo</span></p>
-              <ul className="mt-4 space-y-1.5 text-sm">
+              <ul className="mt-4 flex-1 space-y-1.5 text-sm">
                 {p.includes.map((f) => (
                   <li key={f} className="flex items-start gap-2"><Check className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-hidden="true" /> {f}</li>
                 ))}
               </ul>
+              <PlanSwitch plan={p.id} isCurrent={isCurrent} />
             </div>
           );
         })}
       </div>
-      <p className="mt-4 text-center text-xs text-muted-foreground">To change your plan or add modules, contact your Woodpecker account manager.</p>
+      <p className="mt-4 text-center text-xs text-muted-foreground">Changing plans updates your modules immediately. Recurring billing is set up with your account manager.</p>
     </div>
   );
 }
