@@ -3,8 +3,9 @@ import Link from "next/link";
 import { ArrowRight, BedDouble, CalendarClock, ReceiptIndianRupee, UtensilsCrossed, ConciergeBell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { requireGuest } from "@/features/guest-account/queries";
-import { getActiveStay, listMyRequests } from "@/features/guest-account/stay-queries";
+import { getActiveStay, listMyRequests, listStayMessages } from "@/features/guest-account/stay-queries";
 import { GuestRequestForm } from "@/features/guest-account/components/guest-request-form";
+import { GuestChat } from "@/features/guest-account/components/guest-chat";
 import { KIND_LABEL, REQUEST_STATUS_LABEL, ACTIVE_REQUEST_STATUSES, isGuestRequestKind } from "@/features/guest-account/domain/request-kind";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +32,11 @@ function StatusBadge({ status }: { status: string }) {
 
 export default async function MyStayPage() {
   const principal = await requireGuest("/account/stay");
-  const [stay, requests] = await Promise.all([getActiveStay(principal), listMyRequests(principal)]);
+  const [stay, requests, messages] = await Promise.all([
+    getActiveStay(principal),
+    listMyRequests(principal),
+    listStayMessages(principal),
+  ]);
 
   if (!stay) {
     return (
@@ -123,6 +128,11 @@ export default async function MyStayPage() {
         <div className="mt-4">
           <GuestRequestForm />
         </div>
+      </section>
+
+      {/* Chat with reception */}
+      <section className="mt-4">
+        <GuestChat messages={messages} />
       </section>
 
       {/* Tracker */}

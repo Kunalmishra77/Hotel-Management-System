@@ -156,6 +156,15 @@ export const NAV_ITEMS: readonly NavItem[] = [
     permission: "request:manage",
   },
   {
+    // Architecture v2 · Phase 6 — guest ↔ reception chat inbox.
+    key: "messages",
+    label: "Guest messages",
+    href: "/messages",
+    icon: "MessageSquare",
+    permission: "request:manage",
+    primary: true,
+  },
+  {
     // Guest add-on / upsell requests awaiting reception (Wave 3). Accepting posts
     // the charge to the folio, so it's gated on the same permission as charging.
     key: "add-ons",

@@ -90,6 +90,12 @@ export const requestAddOnSchema = z.object({
 });
 export type RequestAddOnInput = z.input<typeof requestAddOnSchema>;
 
+/** A chat message from a checked-in guest to reception (Phase 6). */
+export const sendGuestMessageSchema = z.object({
+  body: z.string().trim().min(1, "Type a message.").max(1000),
+});
+export type SendGuestMessageInput = z.input<typeof sendGuestMessageSchema>;
+
 /** An in-room service request from a checked-in guest (Phase 4). */
 export const guestRequestSchema = z.object({
   kind: z.enum(["HOUSEKEEPING", "MAINTENANCE", "AMENITY", "OTHER"]),

@@ -84,3 +84,21 @@ export async function listMyRequests(principal: GuestPrincipal): Promise<MyReque
     select: { id: true, kind: true, detail: true, status: true, createdAt: true, resolvedAt: true },
   });
 }
+
+export type StayMessage = { id: string; sender: string; body: string; createdAt: Date };
+
+/** The chat thread for the guest's current stay (oldest → newest). Empty if no active stay. */
+export async function listStayMessages(principal: GuestPrincipal): Promise<StayMessage[]> {
+  const stay = await db.unscoped().reservation.findFirst({
+    where: { guestId: principal.guestId, status: "IN_HOUSE" },
+    orderBy: { checkInDate: "desc" },
+    select: { id: true },
+  });
+  if (!stay) return [];
+  return db.unscoped().guestMessage.findMany({
+    where: { reservationId: stay.id },
+    orderBy: { createdAt: "asc" },
+    take: 100,
+    select: { id: true, sender: true, body: true, createdAt: true },
+  });
+}

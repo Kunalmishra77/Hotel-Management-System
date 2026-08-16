@@ -121,6 +121,9 @@ export const DOMAIN_EVENT_TYPES = [
   "AssetStatusChanged",
   "RoomInspected",
 
+  // Architecture v2 · Phase 6 — guest ↔ reception chat
+  "GuestMessageSent",
+
   // 20 inventory
   "StockMovementRecorded",
   "LowStockDetected",

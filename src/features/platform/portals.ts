@@ -60,12 +60,12 @@ const PORTAL_NAV: Record<PortalId, readonly string[]> = {
     "dashboard", "operations", "rooms", "bookings", "in-house", "guests",
     "housekeeping", "maintenance", "inventory", "laundry",
     "billing", "approvals", "expenses", "payroll", "staff", "field-staff",
-    "feedback", "requests", "reports", "communications",
+    "feedback", "requests", "messages", "reports", "communications",
   ],
   // Front-desk operations console. (Search is the header command palette, not a page.)
   RECEPTION: [
     "dashboard", "rooms", "bookings", "in-house", "guests",
-    "requests", "add-ons", "billing",
+    "requests", "messages", "add-ons", "billing",
     "housekeeping", "maintenance", "form-c",
   ],
   // Finance console.

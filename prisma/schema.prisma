@@ -93,6 +93,7 @@ model Property {
   addOnRequests     AddOnRequest[]
   assets            Asset[]
   roomInspections   RoomInspection[]
+  guestMessages     GuestMessage[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -582,6 +583,7 @@ model Reservation {
   registrationCard RegistrationCard?
   cform            CForm?
   addOnRequests    AddOnRequest[]
+  guestMessages    GuestMessage[]
 
   notes     String?
   createdAt DateTime @default(now())
@@ -1421,6 +1423,27 @@ model RoomInspection {
 
   @@index([propertyId, status])
   @@index([roomId])
+}
+
+/// Guest ↔ reception chat (architecture v2 · Phase 6). One thread per reservation;
+/// each row is a message from the GUEST or from STAFF. Free-text only — no PII
+/// beyond what the two parties type.
+model GuestMessage {
+  id            String      @id @default(cuid())
+  orgId         String
+  propertyId    String
+  property      Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  reservationId String
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  guestId       String
+  sender        String // GUEST | STAFF
+  body          String
+  senderUserId  String? // set when sender = STAFF
+  readAt        DateTime?
+  createdAt     DateTime    @default(now())
+
+  @@index([propertyId, reservationId])
+  @@index([reservationId, createdAt])
 }
 
 /// A guest's forgotten item logged by housekeeping (customer redesign, Phase 7).
