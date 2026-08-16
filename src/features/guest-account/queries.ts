@@ -11,6 +11,18 @@ import { resolveGuestSession, type GuestPrincipal } from "@/lib/guest-auth";
 import { canOnlineCheckIn } from "./domain/online-checkin";
 import { canRequestAddOn } from "@/features/add-ons/domain/upsell";
 import { listActiveAddOns, type CatalogAddOn } from "@/features/add-ons/queries";
+import { loyaltyFor, type Loyalty } from "./domain/loyalty";
+
+/** The signed-in guest's loyalty standing, derived from their completed stays. */
+export async function getMyLoyalty(principal: GuestPrincipal): Promise<Loyalty> {
+  const rows = await db.unscoped().reservation.findMany({
+    where: { guestId: principal.guestId, status: "CHECKED_OUT" },
+    select: { nights: true },
+  });
+  const stays = rows.length;
+  const nights = rows.reduce((s, r) => s + (r.nights ?? 0), 0);
+  return loyaltyFor(stays, nights);
+}
 
 /** The current guest principal, or redirect to sign-in preserving the destination. */
 export async function requireGuest(next?: string): Promise<GuestPrincipal> {

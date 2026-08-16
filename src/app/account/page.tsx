@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, CalendarCheck, Mail, Phone, ConciergeBell } from "lucide-react";
+import { ArrowRight, CalendarCheck, Mail, Phone, ConciergeBell, Crown, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { listPublishedSites } from "@/features/booking-engine/queries";
-import { requireGuest, getGuestSummary } from "@/features/guest-account/queries";
+import { requireGuest, getGuestSummary, getMyLoyalty } from "@/features/guest-account/queries";
 import { getActiveStay } from "@/features/guest-account/stay-queries";
 
 export const dynamic = "force-dynamic";
@@ -11,10 +11,11 @@ export const metadata: Metadata = { title: "My account · Woodpecker" };
 
 export default async function AccountHomePage() {
   const principal = await requireGuest("/account");
-  const [summary, sites, stay] = await Promise.all([
+  const [summary, sites, stay, loyalty] = await Promise.all([
     getGuestSummary(principal),
     listPublishedSites(),
     getActiveStay(principal),
+    getMyLoyalty(principal),
   ]);
   const bookHref = sites.length > 0 ? "/account/book" : "/";
 
@@ -76,6 +77,27 @@ export default async function AccountHomePage() {
           </Button>
         </section>
       </div>
+
+      {/* Loyalty */}
+      <section className="mt-6 overflow-hidden rounded-2xl border bg-gradient-to-br from-primary to-[hsl(187,92%,17%)] text-primary-foreground shadow-sm">
+        <div className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-primary-foreground/80">
+              <Crown className="size-3.5" aria-hidden="true" /> Woodpecker Rewards
+            </p>
+            <p className="mt-1 text-2xl font-semibold">{loyalty.tierName} member</p>
+            <p className="mt-0.5 text-sm text-primary-foreground/85">
+              {loyalty.stays} stay{loyalty.stays === 1 ? "" : "s"} · {loyalty.nights} night{loyalty.nights === 1 ? "" : "s"}
+              {loyalty.nextTier ? ` · ${loyalty.staysToNext} more to ${loyalty.nextTier}` : " · top tier"}
+            </p>
+          </div>
+          <ul className="flex flex-col gap-1 text-sm text-primary-foreground/90">
+            {loyalty.perks.slice(0, 3).map((p) => (
+              <li key={p} className="inline-flex items-center gap-1.5"><Star className="size-3.5 shrink-0" aria-hidden="true" /> {p}</li>
+            ))}
+          </ul>
+        </div>
+      </section>
 
       {/* My bookings */}
       <section className="mt-4 rounded-xl border bg-card p-5 shadow-sm">
