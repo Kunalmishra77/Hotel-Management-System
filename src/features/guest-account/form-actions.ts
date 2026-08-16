@@ -7,13 +7,7 @@
  */
 import { redirect } from "next/navigation";
 import { signUpEmail, logInEmail, requestPhoneOtp, verifyPhoneOtp } from "./actions";
-
-export type GuestFormState =
-  | { status: "idle" }
-  | { status: "error"; message: string; fieldErrors?: Record<string, string[]> }
-  | { status: "otp_sent"; mobile: string; devCode?: string };
-
-const IDLE: GuestFormState = { status: "idle" };
+import type { GuestFormState } from "./form-state";
 
 /** Only same-origin relative paths are honoured as a post-login destination. */
 function safeNext(raw: FormDataEntryValue | null): string {
@@ -70,5 +64,3 @@ export async function verifyPhoneOtpFormAction(
   if (!res.ok) return errorState(res.error);
   redirect(safeNext(formData.get("next")));
 }
-
-export { IDLE as GUEST_FORM_IDLE };

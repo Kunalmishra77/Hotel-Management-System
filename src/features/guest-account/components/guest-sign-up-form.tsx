@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
-import { signUpEmailFormAction, GUEST_FORM_IDLE } from "../form-actions";
+import { signUpEmailFormAction } from "../form-actions";
+import { GUEST_FORM_IDLE } from "../form-state";
 
 export function GuestSignUpForm({ next }: { next?: string }) {
   const [state, submit, pending] = useActionState(signUpEmailFormAction, GUEST_FORM_IDLE);

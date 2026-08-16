@@ -45,7 +45,6 @@ import {
   resolvePublicOrgId,
   findOrCreateGuestForAccount,
   deliverOtpSms,
-  isNonProduction,
 } from "./internal";
 
 export type GuestAuthResult = { accountId: string };
@@ -208,8 +207,12 @@ export async function requestPhoneOtp(raw: unknown): Promise<Result<OtpRequestRe
     );
 
     await deliverOtpSms(input.mobile, code);
-    // Dev/sandbox convenience so the demo works before SMS/DLT go-live.
-    return isNonProduction() ? { sent: true, devCode: code } : { sent: true };
+    // No live SMS gateway is wired yet (deliverOtpSms uses the mock provider), so
+    // the code is never actually delivered. Surface it in the response so the demo
+    // phone-OTP flow is usable end-to-end (integrations.md sandbox rule). The moment
+    // a real gateway is activated (SMS_MODE=live), stop returning it.
+    const smsLive = process.env.SMS_MODE === "live";
+    return smsLive ? { sent: true } : { sent: true, devCode: code };
   });
 }
 

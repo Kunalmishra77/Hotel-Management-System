@@ -4,8 +4,9 @@
  * two-step machine (enter number → enter code) mirroring the staff 2FA pattern:
  * a wrong code must not throw the user back to re-entering their number.
  */
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
@@ -15,9 +16,8 @@ import {
   requestPhoneOtpFormAction,
   verifyPhoneOtpFormAction,
   logInEmailFormAction,
-  GUEST_FORM_IDLE,
-  type GuestFormState,
 } from "../form-actions";
+import { GUEST_FORM_IDLE, type GuestFormState } from "../form-state";
 
 function ErrorLine({ state }: { state: GuestFormState }) {
   if (state.status !== "error") return null;
@@ -82,6 +82,18 @@ function PhoneTab({ next }: { next?: string }) {
 
 function OtpStep({ mobile, devCode, next }: { mobile: string; devCode?: string; next?: string }) {
   const [state, verify, verifying] = useActionState(verifyPhoneOtpFormAction, GUEST_FORM_IDLE);
+
+  // Demo mode (no live SMS gateway): pop the code as a top-right toast the moment
+  // it's issued, so it reads like a real "OTP arrived" notification. Long-lived so
+  // the guest can read it while typing. Goes away automatically once SMS goes live.
+  useEffect(() => {
+    if (!devCode) return;
+    toast.success(`Your OTP is ${devCode}`, {
+      description: "Demo mode — enter this code to continue. Live SMS arrives once the gateway is activated.",
+      position: "top-right",
+      duration: 60000,
+    });
+  }, [devCode]);
 
   return (
     <form action={verify} className="space-y-4">
