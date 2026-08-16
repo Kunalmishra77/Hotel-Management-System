@@ -117,8 +117,9 @@ export async function seedPlatform(prisma: PrismaClient): Promise<void> {
   // --- Organization -------------------------------------------------------
   await prisma.organization.upsert({
     where: { id: ORG_ID },
-    create: { id: ORG_ID, name: "Woodpecker Group" },
-    update: { name: "Woodpecker Group" },
+    // Demo tenant is on the full Enterprise plan so every module is available.
+    create: { id: ORG_ID, name: "Woodpecker Group", plan: "ENTERPRISE", planStatus: "ACTIVE", addonModules: ["channel-manager", "booking-engine", "owner-portal", "ai"] },
+    update: { name: "Woodpecker Group", plan: "ENTERPRISE", planStatus: "ACTIVE", addonModules: ["channel-manager", "booking-engine", "owner-portal", "ai"] },
   });
 
   // --- Security settings (FR-1/4/5/7 read their limits from here) ---------
