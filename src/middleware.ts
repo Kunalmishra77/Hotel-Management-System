@@ -82,6 +82,6 @@ export const config = {
    * request wastes latency on the mobile networks the NFRs budget for.
    */
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|offline.html|icons/|.*\\.png$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|offline.html|icons/|.*\\.(?:png|jpg|jpeg|gif|webp|svg|avif|ico)$).*)",
   ],
 };
