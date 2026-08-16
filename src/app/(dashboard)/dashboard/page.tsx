@@ -7,13 +7,14 @@ import { hasPermission, type Permission } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
-import { portalNavItems } from "@/features/platform/portals";
+import { portalNavItems, resolvePortal } from "@/features/platform/portals";
 import { NavIcon } from "@/features/platform/components/nav-icon";
 import { liveTiles, trend } from "@/features/analytics/queries";
 import { DashboardTiles } from "@/features/analytics/components/dashboard-tiles";
 import { TrendChart } from "@/components/ui/charts/trend-chart";
-import { arrivalsDepartures } from "@/features/reservations/queries";
+import { arrivalsDepartures, bookingsOverview } from "@/features/reservations/queries";
 import { ArrivalsDeparturesCard } from "@/features/reservations/components/arrivals-departures-card";
+import { ReceptionDashboard } from "@/features/reservations/components/reception-dashboard";
 import { ROLE_LABELS } from "@/features/users/roles";
 
 export const metadata: Metadata = { title: "Dashboard" };
@@ -30,6 +31,36 @@ export default async function DashboardPage() {
   ).filter((s) => s.key !== "dashboard");
 
   const propertyId = claims.activePropertyId ?? claims.accessiblePropertyIds[0] ?? null;
+
+  // Portal-specific home: Reception gets a dedicated operational command centre
+  // (actions + live ops KPIs + today's board), NOT the generic dashboard. This is
+  // the pattern that gives every portal its own identity (redesign Wave 1).
+  const portal = resolvePortal(claims.roleAssignments.map((r) => r.role));
+  if (portal === "RECEPTION" && propertyId) {
+    const now = new Date();
+    const [tiles, overview, ad] = await Promise.all([
+      liveTiles(claims, [propertyId]).catch(() => null),
+      bookingsOverview(claims, { propertyId, date: now }),
+      arrivalsDepartures(claims, { propertyId, date: now }),
+    ]);
+    return (
+      <ReceptionDashboard
+        name={claims.name}
+        propertyName={null}
+        tiles={tiles}
+        overview={overview}
+        arrivals={ad.arrivals}
+        departures={ad.departures}
+        can={{
+          create: hasPermission(claims, "reservation:create"),
+          guestCreate: hasPermission(claims, "guest:create"),
+          folioView: hasPermission(claims, "folio:view"),
+          roomView: hasPermission(claims, "room:view-status"),
+        }}
+      />
+    );
+  }
+
   const canOperational = hasPermission(claims, "report:view-operational");
   const canReservations = hasPermission(claims, "reservation:view");
   const canFinancial = hasPermission(claims, "report:view-financial");
