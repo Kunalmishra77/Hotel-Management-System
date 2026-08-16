@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { LogOut, ShieldCheck, UserRound } from "lucide-react";
+import { LogOut, ShieldCheck, UserRound, Bell } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,6 +44,11 @@ export function UserMenu({ name, email }: { name: string; email: string }) {
         <DropdownMenuItem asChild>
           <Link href="/profile">
             <UserRound /> My profile
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/notifications">
+            <Bell /> Notifications
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
