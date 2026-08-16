@@ -22,7 +22,7 @@ import { emitEvent } from "@/lib/events";
 import { encryptString, keyedHash } from "@/lib/crypto/encryption";
 import { isFullAadhaarStorageEnabled } from "@/lib/constants/compliance";
 import { resolveStorageAdapter, scanObjectKey } from "@/lib/storage";
-import { DomainError, ErrorCode, NotFoundError } from "@/lib/errors";
+import { NotFoundError } from "@/lib/errors";
 import { toResult, type Result } from "@/lib/result";
 import { maskIdValue } from "./domain/masking";
 import { addGuestIdSchema } from "./schema";
@@ -31,7 +31,7 @@ import { guestDb, withGuestContext } from "./internal";
 export type GuestIdAdded = {
   id: string;
   type: IdType;
-  maskedValue: string;
+  maskedValue: string | null;
   hasScan: boolean;
 };
 
@@ -50,45 +50,30 @@ export async function addGuestId(input: unknown): Promise<Result<GuestIdAdded>> 
 
     const type = data.type as IdType;
     const fullStorageAllowed = type === "AADHAAR" ? isFullAadhaarStorageEnabled() : true;
+    const value = data.value?.trim() || null;
 
-    // FR-4 — reject an attempt to store a full Aadhaar or an Aadhaar scan while
-    // full storage is off. This is a hard refusal, not a silent truncation, so
-    // the caller knows the full number was NOT retained.
-    if (type === "AADHAAR" && !fullStorageAllowed && data.scanBase64) {
-      throw new DomainError(ErrorCode.VALIDATION_FAILED, "Aadhaar scan storage disabled", {
-        publicMessage:
-          "Storing an Aadhaar scan is disabled by policy. Only the last 4 digits are kept.",
-        details: { code: "AADHAAR_FULL_STORAGE_DISABLED" },
-      });
-    }
+    // Finalized front-desk workflow: an ID is captured as DOCUMENT IMAGES; a typed
+    // number is optional. When a number IS given it is masked; the FULL number is
+    // retained (encrypted + searchable) only where policy permits — Aadhaar stays
+    // gated behind COMPLIANCE_STORE_FULL_AADHAAR, so we never keep a full Aadhaar
+    // number by default. The images themselves go to encrypted object storage.
+    const maskedValue = value ? (maskIdValue(type, value) ?? null) : null;
+    const encryptedValue = value && fullStorageAllowed ? encryptString(value) : null;
+    const valueHash = value && fullStorageAllowed ? keyedHash(value.replace(/\s/g, "").toUpperCase()) : null;
 
-    const maskedValue = maskIdValue(type, data.value) ?? "";
-
-    // Full value + search token only when policy permits (always for non-Aadhaar,
-    // Aadhaar only when the flag is on).
-    const encryptedValue = fullStorageAllowed ? encryptString(data.value) : null;
-    const valueHash = fullStorageAllowed
-      ? keyedHash(data.value.replace(/\s/g, "").toUpperCase())
-      : null;
-
-    // Upload the scan (if any and allowed) BEFORE the DB write, so a failed
+    // Upload document images (front + back) BEFORE the DB write, so a failed
     // upload never leaves a row pointing at a missing object.
-    let scanKey: string | null = null;
-    let scanChecksum: string | null = null;
-    if (data.scanBase64 && fullStorageAllowed) {
+    const uploadImage = async (base64?: string | null, contentType?: string | null) => {
+      if (!base64) return { key: null as string | null, checksum: null as string | null };
       const storage = resolveStorageAdapter();
-      const key = scanObjectKey({
-        orgId: user.orgId,
-        guestId: data.guestId,
-        idType: type,
-        unique: randomUUID().slice(0, 8),
+      const key = scanObjectKey({ orgId: user.orgId, guestId: data.guestId, idType: type, unique: randomUUID().slice(0, 8) });
+      const stored = await storage.put(key, Buffer.from(base64, "base64"), {
+        contentType: contentType ?? "application/octet-stream",
       });
-      const stored = await storage.put(key, Buffer.from(data.scanBase64, "base64"), {
-        contentType: data.scanContentType ?? "application/octet-stream",
-      });
-      scanKey = stored.key;
-      scanChecksum = stored.checksum;
-    }
+      return { key: stored.key, checksum: stored.checksum };
+    };
+    const front = await uploadImage(data.scanBase64, data.scanContentType);
+    const back = await uploadImage(data.backScanBase64, data.backScanContentType);
 
     return withGuestContext(user, () =>
       prisma.$transaction(async (tx) => {
@@ -99,10 +84,12 @@ export async function addGuestId(input: unknown): Promise<Result<GuestIdAdded>> 
             maskedValue,
             valueHash,
             encryptedValue,
-            scanObjectKey: scanKey,
-            scanChecksum,
+            scanObjectKey: front.key,
+            scanChecksum: front.checksum,
+            backObjectKey: back.key,
+            backChecksum: back.checksum,
           },
-          select: { id: true, type: true, maskedValue: true, scanObjectKey: true },
+          select: { id: true, type: true, maskedValue: true, scanObjectKey: true, backObjectKey: true },
         });
 
         await emitEvent(tx, {
@@ -123,7 +110,7 @@ export async function addGuestId(input: unknown): Promise<Result<GuestIdAdded>> 
           id: row.id,
           type: row.type,
           maskedValue: row.maskedValue,
-          hasScan: row.scanObjectKey !== null,
+          hasScan: row.scanObjectKey !== null || row.backObjectKey !== null,
         };
       }),
     );

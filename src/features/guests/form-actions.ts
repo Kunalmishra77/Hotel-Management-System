@@ -88,7 +88,7 @@ export async function createGuestFormAction(
 export type AddIdFormState =
   | { status: "idle" }
   | { status: "error"; message: string }
-  | { status: "added"; maskedValue: string };
+  | { status: "added"; maskedValue: string | null };
 
 /** Add a government ID to a guest (AC-4/5). Stays on the profile. */
 export async function addGuestIdFormAction(

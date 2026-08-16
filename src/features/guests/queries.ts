@@ -255,7 +255,7 @@ export type GuestProfile = GuestListItem & {
   gstNumber: string | null;
   purposeOfVisit: string | null;
   foodPreference: string | null;
-  ids: { id: string; type: string; maskedValue: string; hasScan: boolean }[];
+  ids: { id: string; type: string; maskedValue: string | null; hasScan: boolean }[];
 };
 
 /** One guest, masked by default (T-17). Reveal goes through `revealPii`. */

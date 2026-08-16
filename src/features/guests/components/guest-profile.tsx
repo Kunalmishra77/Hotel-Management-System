@@ -85,7 +85,7 @@ export function GuestProfile({
                 <li key={id.id} className="flex items-center justify-between p-3 text-sm">
                   <span>{ID_LABEL[id.type] ?? id.type}</span>
                   <span className="font-mono text-muted-foreground" data-testid="masked-id">
-                    {id.maskedValue}{id.hasScan ? " · scan" : ""}
+                    {id.maskedValue ?? "Image on file"}{id.hasScan ? " · scan" : ""}
                   </span>
                 </li>
               ))}

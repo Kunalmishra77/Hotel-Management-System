@@ -243,7 +243,7 @@ export async function getReservation(
 // the guest (04) and billing (06) query surfaces, never a foreign SELECT.
 // ---------------------------------------------------------------------------
 
-export type CheckInIdSummary = { id: string; type: string; maskedValue: string; hasScan: boolean };
+export type CheckInIdSummary = { id: string; type: string; maskedValue: string | null; hasScan: boolean };
 
 export type CheckInContext = {
   id: string;

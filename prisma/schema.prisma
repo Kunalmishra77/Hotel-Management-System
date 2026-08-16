@@ -872,11 +872,13 @@ model GuestId {
   guestId        String
   guest          Guest    @relation(fields: [guestId], references: [id])
   type           IdType
-  maskedValue    String // e.g. "XXXX XXXX 1234"
+  maskedValue    String? // e.g. "XXXX XXXX 1234"; null when the document is image-only (no number captured)
   valueHash      String? // keyed hash → search by ID number (client §4) without decrypting
   encryptedValue String? // full value only if compliance flag permits
-  scanObjectKey  String? // object-storage ref, not bytes
+  scanObjectKey  String? // FRONT / primary document image — object-storage ref, not bytes
   scanChecksum   String?
+  backObjectKey  String? // BACK image (e.g. Aadhaar reverse) — the image-first capture workflow
+  backChecksum   String?
   createdAt      DateTime @default(now())
 
   @@index([guestId])

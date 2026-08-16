@@ -97,7 +97,7 @@ export async function revealPii(input: unknown): Promise<Result<RevealedPii>> {
 export type GuestExport = {
   guestId: string;
   profile: Record<string, unknown>;
-  ids: { type: IdType; maskedValue: string }[];
+  ids: { type: IdType; maskedValue: string | null }[];
   exportedAt: string;
 };
 

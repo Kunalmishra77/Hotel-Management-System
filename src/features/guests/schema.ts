@@ -73,10 +73,16 @@ export const updateGuestSchema = createGuestSchema
 export const addGuestIdSchema = z.object({
   guestId: z.string().min(1),
   type: z.enum(["AADHAAR", "PASSPORT", "DRIVING_LICENCE", "PAN", "VOTER_ID", "VISA"]),
-  value: z.string().trim().min(1, "The ID number is required.").max(60),
-  /** Base64 scan bytes; optional. */
+  /** The ID number — OPTIONAL. The finalized front-desk workflow captures the
+   *  document as an IMAGE; a typed number is no longer required (and for Aadhaar
+   *  we deliberately don't force one). */
+  value: z.string().trim().max(60).optional().nullable(),
+  /** FRONT / primary document image (base64), optional. */
   scanBase64: z.string().optional().nullable(),
   scanContentType: z.string().optional().nullable(),
+  /** BACK image (base64) — e.g. the Aadhaar reverse. Optional. */
+  backScanBase64: z.string().optional().nullable(),
+  backScanContentType: z.string().optional().nullable(),
 });
 
 export const revealPiiSchema = z.object({
