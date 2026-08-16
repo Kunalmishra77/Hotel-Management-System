@@ -85,3 +85,34 @@ describe("portalNavItems — role isolation", () => {
     expect(() => portalNavItems(roles(["RECEPTION"]), [])).not.toThrow();
   });
 });
+
+describe("portalNavItems — SaaS plan gating", () => {
+  const adminKeys = (mods?: string[]) => portalNavItems(roles(["ADMINISTRATOR"]), ALL_PERMS, mods).map((i) => i.key);
+
+  it("undefined modules = no gating (add-on modules visible)", () => {
+    const k = adminKeys(undefined);
+    expect(k).toContain("channels");
+    expect(k).toContain("booking-site");
+  });
+
+  it("a Core plan (no add-ons) hides channel/booking-engine/owner/ai modules", () => {
+    const k = adminKeys([]);
+    expect(k).not.toContain("channels");
+    expect(k).not.toContain("booking-site");
+    // core modules still present
+    expect(k).toContain("overview");
+    expect(k).toContain("users");
+  });
+
+  it("an Enterprise plan (all add-ons) shows the gated modules", () => {
+    const k = adminKeys(["channel-manager", "booking-engine", "owner-portal", "ai"]);
+    expect(k).toContain("channels");
+    expect(k).toContain("booking-site");
+  });
+
+  it("gates only the module it requires — booking-engine shows booking-site but not channels", () => {
+    const k = adminKeys(["booking-engine"]);
+    expect(k).toContain("booking-site");
+    expect(k).not.toContain("channels");
+  });
+});

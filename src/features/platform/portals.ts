@@ -82,6 +82,21 @@ const PORTAL_NAV: Record<PortalId, readonly string[]> = {
 
 const NAV_BY_KEY = new Map(NAV_ITEMS.map((i) => [i.key, i]));
 
+/**
+ * Nav keys that require a paid add-on module (architecture v2 · SaaS feature-gating).
+ * A nav entry here is hidden unless the org's plan includes the module. Everything
+ * not listed is part of the Core plan and always available.
+ */
+const NAV_MODULE_REQUIREMENT: Record<string, string> = {
+  channels: "channel-manager",
+  "booking-site": "booking-engine",
+  owner: "owner-portal",
+  "owner-documents": "owner-portal",
+  "owner-schedule": "owner-portal",
+  "owner-payouts": "owner-portal",
+  ai: "ai",
+};
+
 /** The caller's portal, or null when no role maps to one (→ fall back to flat nav). */
 export function resolvePortal(roles: readonly RoleName[]): PortalId | null {
   const held = new Set(roles);
@@ -91,24 +106,42 @@ export function resolvePortal(roles: readonly RoleName[]): PortalId | null {
   return null;
 }
 
-/** Role-scoped, blueprint-ordered nav for the caller's portal ∩ held permissions. */
-export function portalNavItems(roles: readonly RoleName[], permissions: readonly Permission[]): NavItem[] {
+/** True when a nav key is available given the org's enabled add-on modules. When
+ *  `enabledModules` is undefined, no gating is applied (backward-compatible). */
+function moduleAllowed(key: string, enabledModules?: readonly string[]): boolean {
+  if (!enabledModules) return true;
+  const req = NAV_MODULE_REQUIREMENT[key];
+  return req ? enabledModules.includes(req) : true;
+}
+
+/** Role-scoped, blueprint-ordered nav for the caller's portal ∩ held permissions,
+ *  ∩ the org's plan modules (SaaS feature-gating). */
+export function portalNavItems(
+  roles: readonly RoleName[],
+  permissions: readonly Permission[],
+  enabledModules?: readonly string[],
+): NavItem[] {
   const held = new Set(permissions);
+  const gate = (i: NavItem) => held.has(i.permission) && moduleAllowed(i.key, enabledModules);
   const portal = resolvePortal(roles);
-  if (!portal) return NAV_ITEMS.filter((i) => held.has(i.permission));
+  if (!portal) return NAV_ITEMS.filter(gate);
 
   const items: NavItem[] = [];
   for (const key of PORTAL_NAV[portal]) {
     const item = NAV_BY_KEY.get(key);
-    if (item && held.has(item.permission)) items.push(item);
+    if (item && gate(item)) items.push(item);
   }
   // Never strand a user with an empty rail (e.g. permissions narrower than the portal list).
-  return items.length > 0 ? items : NAV_ITEMS.filter((i) => held.has(i.permission));
+  return items.length > 0 ? items : NAV_ITEMS.filter(gate);
 }
 
 /** The phone bottom bar for the caller's portal — primary items first, capped. */
-export function portalBottomNavItems(roles: readonly RoleName[], permissions: readonly Permission[]): NavItem[] {
-  const items = portalNavItems(roles, permissions);
+export function portalBottomNavItems(
+  roles: readonly RoleName[],
+  permissions: readonly Permission[],
+  enabledModules?: readonly string[],
+): NavItem[] {
+  const items = portalNavItems(roles, permissions, enabledModules);
   const primary = items.filter((i) => i.primary);
   const rest = items.filter((i) => !i.primary);
   return [...primary, ...rest].slice(0, BOTTOM_NAV_LIMIT);

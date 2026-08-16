@@ -25,17 +25,21 @@ import { SideNav } from "./side-nav";
 export function AppShell({
   claims,
   properties,
+  enabledModules,
   children,
 }: {
   claims: SessionClaims;
   properties: PropertyOption[];
+  /** The org's plan add-on modules (SaaS gating); undefined = no gating. */
+  enabledModules?: readonly string[];
   children: React.ReactNode;
 }) {
-  // Architecture v2 · Phase 1 — role-scoped portal nav: each role sees only its
-  // own portal's modules, in blueprint order (still permission-gated underneath).
+  // Architecture v2 · Phase 1 — role-scoped portal nav: each role sees only its own
+  // portal's modules, in blueprint order (permission-gated + plan-gated underneath).
   const roles = claims.roleAssignments.map((r) => r.role);
-  const sideItems = portalNavItems(roles, claims.resolvedPermissions);
-  const barItems = portalBottomNavItems(roles, claims.resolvedPermissions);
+  const sideItems = portalNavItems(roles, claims.resolvedPermissions, enabledModules);
+  const barItems = portalBottomNavItems(roles, claims.resolvedPermissions, enabledModules);
+  const aiEnabled = !enabledModules || enabledModules.includes("ai");
 
   return (
     // h-dvh (not min-h) so the sidebar and main scroll INDEPENDENTLY inside a
@@ -71,8 +75,8 @@ export function AppShell({
 
       <BottomNav items={barItems} />
 
-      {/* Floating AI assistant — available across every portal (blueprint · Phase 7). */}
-      {hasPermission(claims, "ai:use") ? <AiLauncher /> : null}
+      {/* Floating AI assistant — every portal, if the plan includes the AI module. */}
+      {hasPermission(claims, "ai:use") && aiEnabled ? <AiLauncher /> : null}
     </div>
   );
 }
