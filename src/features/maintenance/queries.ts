@@ -6,6 +6,36 @@ import { db } from "@/lib/db";
 import { authorize } from "@/lib/permissions";
 import type { SessionClaims } from "@/lib/auth/claims";
 
+/** High-value maintenance jobs still open — surfaced on the Approvals board for a
+ *  manager/owner to review the spend. Cross-property; ₹5,000+ by default. */
+export type MaintenanceCostReview = {
+  id: string;
+  propertyId: string;
+  propertyName: string;
+  category: string;
+  description: string;
+  costPaise: number;
+  priority: string;
+};
+
+export async function listMaintenanceCostReview(user: SessionClaims, minPaise = 500_000): Promise<MaintenanceCostReview[]> {
+  const ids = [...user.accessiblePropertyIds];
+  if (ids.length === 0) return [];
+  const rows = await db.scoped(user).maintenanceJob.findMany({
+    where: { propertyId: { in: ids }, status: { in: ["OPEN", "IN_PROGRESS"] }, costPaise: { gte: minPaise } },
+    orderBy: { costPaise: "desc" },
+    take: 50,
+    select: { id: true, propertyId: true, category: true, description: true, costPaise: true, priority: true },
+  });
+  if (rows.length === 0) return [];
+  const props = await db.unscoped().property.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.propertyId))] } }, select: { id: true, name: true } });
+  const nameById = new Map(props.map((p) => [p.id, p.name]));
+  return rows.map((r) => ({
+    id: r.id, propertyId: r.propertyId, propertyName: nameById.get(r.propertyId) ?? r.propertyId,
+    category: r.category, description: r.description, costPaise: r.costPaise ?? 0, priority: r.priority,
+  }));
+}
+
 /**
  * Maintenance board summary — open/in-progress/closed job counts, urgent load
  * (URGENT+HIGH still open), preventive jobs due within the lead window, and rooms
