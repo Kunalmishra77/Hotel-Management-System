@@ -241,6 +241,42 @@
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 .stay-theme .serif { font-family: var(--font-serif), Georgia, serif; }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Internal product landing page (`/portal`). SCOPED to `.portal-page` so it
+   never touches the staff app or the customer site. A premium teal/ink + brass
+   identity — the platform's OWN brand (distinct from the customer forest/gold),
+   committed-light with a deep ink hero. Elegant serif display + clean sans body.
+   ───────────────────────────────────────────────────────────────────────── */
+.portal-page {
+  --ink: #082a2f;        /* deepest ink-teal — hero ground */
+  --ink-2: #0c3b42;      /* raised ink surface */
+  --teal: #0e7c8b;       /* primary brand teal */
+  --teal-bright: #27a6b5;/* luminous accent on dark */
+  --brass: #c79350;      /* warm secondary accent (Concierge brass) */
+  --brass-soft: #e6cfa6;
+  --stone: #f5f8f8;      /* light section ground */
+  --paper: #ffffff;      /* cards */
+  --ink-text: #0b1a1c;   /* body ink */
+  --muted: #566c6f;      /* secondary text */
+  --line: #e0e8e8;       /* hairline borders */
+  background: var(--paper);
+  color: var(--ink-text);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+.portal-page .serif { font-family: var(--font-serif), Georgia, serif; }
+.portal-page ::selection { background: var(--brass-soft); color: var(--ink); }
+.p-eyebrow { text-transform: uppercase; letter-spacing: 0.18em; font-size: 0.72rem; font-weight: 700; color: var(--teal); }
+.p-eyebrow-onDark { color: var(--brass); }
+.p-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; min-height: 3rem; padding: 0 1.6rem; border-radius: 0.6rem; font-size: 0.92rem; font-weight: 600; transition: all .2s ease; }
+.p-btn-primary { background: var(--teal); color: #fff; }
+.p-btn-primary:hover { background: #0a6774; }
+.p-btn-brass { background: var(--brass); color: var(--ink); }
+.p-btn-brass:hover { background: var(--brass-soft); }
+.p-btn-ghost { border: 1px solid rgba(255,255,255,.28); color: #eaf3f3; }
+.p-btn-ghost:hover { background: rgba(255,255,255,.1); }
+.p-btn-outline { border: 1px solid var(--line); color: var(--ink-text); background: var(--paper); }
+.p-btn-outline:hover { border-color: var(--teal); color: var(--teal); }
 .stay-theme ::selection { background: var(--sand); color: var(--forest); }
 .stay-label { text-transform: uppercase; letter-spacing: 0.25em; font-size: 0.72rem; font-weight: 600; color: var(--sand); }
 .stay-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; min-height: 3rem; padding: 0 1.75rem; border-radius: 2px; font-size: 0.86rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; transition: all .25s ease; }
