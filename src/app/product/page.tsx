@@ -28,7 +28,7 @@ export default function ProductPage() {
           <nav className="flex items-center gap-1">
             <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex"><Link href="#plans">Pricing</Link></Button>
             <Button asChild variant="ghost" size="sm"><Link href="/sign-in">Staff sign in</Link></Button>
-            <Button asChild size="sm"><a href="mailto:sales@woodpecker.example">Book a demo</a></Button>
+            <Button asChild size="sm"><Link href="/start">Start free trial</Link></Button>
           </nav>
         </div>
       </header>
@@ -47,8 +47,8 @@ export default function ProductPage() {
             AI — modular, mobile-first, and priced per property. Grow from 5 hotels to 500 without changing systems.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <Button asChild size="lg" variant="secondary"><a href="mailto:sales@woodpecker.example">Book a demo <ArrowRight className="ml-1.5 size-4" aria-hidden="true" /></a></Button>
-            <Button asChild size="lg" variant="outline" className="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10"><Link href="#plans">See pricing</Link></Button>
+            <Button asChild size="lg" variant="secondary"><Link href="/start">Start free trial <ArrowRight className="ml-1.5 size-4" aria-hidden="true" /></Link></Button>
+            <Button asChild size="lg" variant="outline" className="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10"><a href="mailto:sales@woodpecker.example">Book a demo</a></Button>
           </div>
         </div>
       </section>
