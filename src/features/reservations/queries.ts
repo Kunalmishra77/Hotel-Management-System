@@ -20,6 +20,8 @@ export type ReservationListItem = {
   guestName: string;
   checkInDate: Date;
   checkOutDate: Date;
+  /** The actual moment of check-in (null until checked in) — powers "checked in 2h ago". */
+  checkInAt: Date | null;
   nights: number;
   roomNumbers: string[];
   needsAttention: string | null;
@@ -31,6 +33,7 @@ const LIST_SELECT = {
   status: true,
   checkInDate: true,
   checkOutDate: true,
+  checkInAt: true,
   nights: true,
   needsAttention: true,
   guest: { select: { fullName: true } },
@@ -43,6 +46,7 @@ type Row = {
   status: string;
   checkInDate: Date;
   checkOutDate: Date;
+  checkInAt: Date | null;
   nights: number;
   needsAttention: string | null;
   guest: { fullName: string };
@@ -57,6 +61,7 @@ function toItem(r: Row): ReservationListItem {
     guestName: r.guest.fullName,
     checkInDate: r.checkInDate,
     checkOutDate: r.checkOutDate,
+    checkInAt: r.checkInAt,
     nights: r.nights,
     roomNumbers: r.allocations.map((a) => a.room.number),
     needsAttention: r.needsAttention,
