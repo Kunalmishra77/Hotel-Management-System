@@ -26,12 +26,17 @@ export function AppShell({
   claims,
   properties,
   enabledModules,
+  brandName,
+  brandColor,
   children,
 }: {
   claims: SessionClaims;
   properties: PropertyOption[];
   /** The org's plan add-on modules (SaaS gating); undefined = no gating. */
   enabledModules?: readonly string[];
+  /** White-label brand shown in the header. */
+  brandName?: string | null;
+  brandColor?: string | null;
   children: React.ReactNode;
 }) {
   // Architecture v2 · Phase 1 — role-scoped portal nav: each role sees only its own
@@ -46,13 +51,22 @@ export function AppShell({
     // fixed viewport — the left nav no longer scrolls away with the content.
     <div className="flex h-dvh flex-col overflow-hidden">
       <header className="z-30 flex min-h-touch shrink-0 items-center justify-between gap-2 border-b bg-background px-2 pt-[env(safe-area-inset-top)]">
-        {properties.length > 1 ? (
-          // Multi-property (super-admin / group): no "switch to a hotel" dropdown —
-          // default is ALL hotels; drill-in from the command centre, ◀ back from anywhere.
-          <ScopeIndicator properties={properties} activePropertyId={claims.activePropertyId} />
-        ) : (
-          <PropertySwitcher properties={properties} activePropertyId={claims.activePropertyId} />
-        )}
+        <div className="flex items-center gap-1.5">
+          {brandName ? (
+            <span className="hidden items-center gap-1.5 pl-1 pr-1 text-sm font-semibold tracking-tight sm:inline-flex">
+              <span className="size-2.5 rounded-full" style={{ backgroundColor: brandColor ?? "var(--primary)" }} aria-hidden="true" />
+              <span className="max-w-[9rem] truncate">{brandName}</span>
+              <span className="text-muted-foreground/40" aria-hidden="true">·</span>
+            </span>
+          ) : null}
+          {properties.length > 1 ? (
+            // Multi-property (super-admin / group): no "switch to a hotel" dropdown —
+            // default is ALL hotels; drill-in from the command centre, ◀ back from anywhere.
+            <ScopeIndicator properties={properties} activePropertyId={claims.activePropertyId} />
+          ) : (
+            <PropertySwitcher properties={properties} activePropertyId={claims.activePropertyId} />
+          )}
+        </div>
 
         <div className="flex items-center gap-1.5">
           <CommandPalette navItems={sideItems.map((i) => ({ key: i.key, label: i.label, href: i.href, icon: i.icon }))} />

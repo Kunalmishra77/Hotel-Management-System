@@ -34,6 +34,9 @@ model Organization {
   planStatus    String         @default("TRIAL") // TRIAL | ACTIVE | PAST_DUE | CANCELLED
   planRenewsAt  DateTime?
   addonModules  String[]       @default([]) // channel-manager · booking-engine · owner-portal · ai
+  // White-label (architecture v2 · SaaS). The brand shown inside the tenant's app.
+  brandName     String? // defaults to `name` when null
+  brandColor    String? // hex accent, e.g. #1F5C46
   properties    Property[]
   users         User[]
   guestAccounts GuestAccount[]

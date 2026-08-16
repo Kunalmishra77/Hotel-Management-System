@@ -9,20 +9,27 @@
 import { redirect } from "next/navigation";
 import { getCurrentSession } from "@/lib/auth";
 import { listAccessibleProperties } from "@/features/platform/actions";
-import { getSubscription } from "@/features/subscription/queries";
+import { getSubscription, getBranding } from "@/features/subscription/queries";
 import { AppShell } from "@/features/platform/components/app-shell";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getCurrentSession();
   if (!session) redirect("/sign-in");
 
-  const [properties, sub] = await Promise.all([
+  const [properties, sub, branding] = await Promise.all([
     listAccessibleProperties(),
     getSubscription(session.claims),
+    getBranding(session.claims.orgId),
   ]);
 
   return (
-    <AppShell claims={session.claims} properties={properties} enabledModules={sub?.effectiveAddons}>
+    <AppShell
+      claims={session.claims}
+      properties={properties}
+      enabledModules={sub?.effectiveAddons}
+      brandName={branding?.brandName ?? null}
+      brandColor={branding?.brandColor ?? null}
+    >
       {children}
     </AppShell>
   );

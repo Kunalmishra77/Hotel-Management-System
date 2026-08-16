@@ -16,6 +16,18 @@ export type Subscription = {
   propertyCount: number;
 };
 
+export type Branding = { orgName: string; brandName: string; brandColor: string | null };
+
+/** The tenant's white-label brand (name + accent), falling back to the org name. */
+export async function getBranding(orgId: string): Promise<Branding | null> {
+  const org = await db.unscoped().organization.findUnique({
+    where: { id: orgId },
+    select: { name: true, brandName: true, brandColor: true },
+  });
+  if (!org) return null;
+  return { orgName: org.name, brandName: org.brandName?.trim() || org.name, brandColor: org.brandColor };
+}
+
 export async function getSubscription(user: SessionClaims): Promise<Subscription | null> {
   const org = await db.unscoped().organization.findUnique({
     where: { id: user.orgId },
