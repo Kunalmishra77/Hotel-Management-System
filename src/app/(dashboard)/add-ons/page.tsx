@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import { Sparkles } from "lucide-react";
+import { Sparkles, IndianRupee, CheckCircle2, Clock } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
 import { PageHeader } from "@/components/ui/page-header";
+import { KpiCard } from "@/components/ui/kpi-card";
 import { listPendingAddOnRequests } from "@/features/add-ons/queries";
 import { AddOnDecideControls } from "@/features/add-ons/components/add-on-decide-controls";
 
@@ -23,18 +24,29 @@ export default async function AddOnRequestsPage() {
   await requirePermission("folio:charge");
   const requests = await listPendingAddOnRequests();
 
+  const totalValue = requests.reduce((s, r) => s + r.unitPaise * r.quantity, 0);
+  const chargeable = requests.filter((r) => r.chargeable).length;
+  const awaiting = requests.length - chargeable;
+
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-6">
+    <div className="mx-auto w-full max-w-5xl px-4 py-6">
       <PageHeader title="Add-on requests" description="Extras guests asked for. Accepting adds the charge to their folio." />
 
+      <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <KpiCard label="Pending" value={requests.length} icon={<Sparkles />} hint="Awaiting decision" className={requests.length > 0 ? "border-warning/40" : undefined} />
+        <KpiCard label="Value" value={rupees(totalValue)} icon={<IndianRupee />} hint="If all accepted" />
+        <KpiCard label="Chargeable now" value={chargeable} icon={<CheckCircle2 />} hint="Guest in-house" />
+        <KpiCard label="Awaiting check-in" value={awaiting} icon={<Clock />} hint="Not yet chargeable" />
+      </div>
+
       {requests.length === 0 ? (
-        <div className="mt-6 rounded-xl border border-dashed bg-muted/30 p-10 text-center">
+        <div className="mt-6 rounded-xl border border-dashed bg-muted/30 p-12 text-center">
           <Sparkles className="mx-auto size-6 text-muted-foreground" aria-hidden="true" />
           <p className="mt-3 text-sm font-medium">No pending requests</p>
           <p className="mt-1 text-sm text-muted-foreground">Guest add-on requests will appear here.</p>
         </div>
       ) : (
-        <ul className="mt-6 space-y-3">
+        <ul className="mt-6 grid gap-3 lg:grid-cols-2">
           {requests.map((r) => (
             <li key={r.id} className="rounded-xl border bg-card p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3">

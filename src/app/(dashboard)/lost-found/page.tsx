@@ -3,6 +3,7 @@ import { PackageSearch, MapPin } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { KpiCard } from "@/components/ui/kpi-card";
 import { listLostAndFound } from "@/features/lost-found/queries";
 import { LostFoundForm } from "@/features/lost-found/components/lost-found-form";
 import { ResolveLostItem } from "@/features/lost-found/components/resolve-lost-item";
@@ -31,10 +32,18 @@ export default async function LostFoundPage() {
   await requirePermission("housekeeping:update");
   const items = await listLostAndFound();
 
+  const stored = items.filter((i) => i.status === "STORED").length;
+  const claimed = items.filter((i) => i.status === "CLAIMED").length;
+
   return (
-    <div className="mx-auto grid w-full max-w-4xl gap-4 px-4 py-6 lg:grid-cols-3">
+    <div className="mx-auto grid w-full max-w-5xl gap-4 px-4 py-6 lg:grid-cols-3">
       <div className="lg:col-span-2">
         <PageHeader title="Lost & Found" description="Items guests left behind — logged, then claimed or disposed." />
+        <div className="mt-4 grid grid-cols-3 gap-3">
+          <KpiCard label="Logged" value={items.length} icon={<PackageSearch />} hint="All items" />
+          <KpiCard label="Stored" value={stored} icon={<MapPin />} hint="Unclaimed" className={stored > 0 ? "border-warning/40" : undefined} />
+          <KpiCard label="Claimed" value={claimed} icon={<PackageSearch />} hint="Collected" />
+        </div>
         {items.length === 0 ? (
           <div className="mt-6 rounded-xl border border-dashed bg-muted/30 p-10 text-center">
             <PackageSearch className="mx-auto size-6 text-muted-foreground" aria-hidden="true" />

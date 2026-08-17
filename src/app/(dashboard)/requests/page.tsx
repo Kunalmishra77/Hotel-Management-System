@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import { ConciergeBell } from "lucide-react";
+import { ConciergeBell, Sparkles, Wrench, BellRing } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
 import { PageHeader } from "@/components/ui/page-header";
+import { KpiCard } from "@/components/ui/kpi-card";
 import { listGuestRequests } from "@/features/guest-requests/queries";
 import { RequestStatusControls } from "@/features/guest-requests/components/request-status-controls";
 import { KIND_LABEL, REQUEST_STATUS_LABEL, isGuestRequestKind } from "@/features/guest-account/domain/request-kind";
@@ -21,18 +22,29 @@ export default async function GuestRequestsPage() {
   await requirePermission("request:manage");
   const requests = await listGuestRequests();
 
+  const hk = requests.filter((r) => r.kind === "HOUSEKEEPING").length;
+  const maint = requests.filter((r) => r.kind === "MAINTENANCE").length;
+  const other = requests.length - hk - maint;
+
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-6">
+    <div className="mx-auto w-full max-w-5xl px-4 py-6">
       <PageHeader title="Guest requests" description="In-room service requests from checked-in guests." />
 
+      <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <KpiCard label="Open requests" value={requests.length} icon={<BellRing />} hint="Awaiting action" className={requests.length > 0 ? "border-warning/40" : undefined} />
+        <KpiCard label="Housekeeping" value={hk} icon={<Sparkles />} hint="Cleaning/amenity" />
+        <KpiCard label="Maintenance" value={maint} icon={<Wrench />} hint="Repairs" />
+        <KpiCard label="Other" value={other} icon={<ConciergeBell />} hint="Concierge etc." />
+      </div>
+
       {requests.length === 0 ? (
-        <div className="mt-6 rounded-xl border border-dashed bg-muted/30 p-10 text-center">
+        <div className="mt-6 rounded-xl border border-dashed bg-muted/30 p-12 text-center">
           <ConciergeBell className="mx-auto size-6 text-muted-foreground" aria-hidden="true" />
           <p className="mt-3 text-sm font-medium">No open requests</p>
           <p className="mt-1 text-sm text-muted-foreground">New in-room requests will appear here.</p>
         </div>
       ) : (
-        <ul className="mt-6 space-y-3">
+        <ul className="mt-6 grid gap-3 lg:grid-cols-2">
           {requests.map((r) => (
             <li key={r.id} className="rounded-xl border bg-card p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3">

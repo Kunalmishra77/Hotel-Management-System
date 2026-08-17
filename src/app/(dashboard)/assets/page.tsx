@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
-import { HardDrive, MapPin, ShieldCheck } from "lucide-react";
+import { HardDrive, MapPin, ShieldCheck, Tags } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
 import { listAssets } from "@/features/assets/queries";
 import { AssetForm } from "@/features/assets/components/asset-form";
 import { AssetStatus } from "@/features/assets/components/asset-status";
 import { PageHeader } from "@/components/ui/page-header";
+import { KpiCard } from "@/components/ui/kpi-card";
 import { Card } from "@/components/ui/card";
 
 export const dynamic = "force-dynamic";
@@ -22,18 +23,27 @@ export default async function AssetsPage() {
   const propertyId = user.activePropertyId ?? user.accessiblePropertyIds[0] ?? null;
   const assets = propertyId ? await listAssets(user, propertyId) : [];
 
+  const categories = new Set(assets.map((a) => a.category)).size;
+  const underWarranty = assets.filter((a) => a.warrantyUntil && new Date(a.warrantyUntil) > new Date()).length;
+
   return (
-    <div className="mx-auto w-full max-w-3xl px-1 py-1">
+    <div className="mx-auto w-full max-w-5xl px-1 py-1">
       <PageHeader title="Assets & equipment" description={`${assets.length} asset${assets.length === 1 ? "" : "s"} on record.`} actions={<AssetForm />} />
 
+      <div className="mt-6 grid grid-cols-3 gap-3">
+        <KpiCard label="Assets" value={assets.length} icon={<HardDrive />} hint="On record" />
+        <KpiCard label="Categories" value={categories} icon={<Tags />} hint="Types tracked" />
+        <KpiCard label="Under warranty" value={underWarranty} icon={<ShieldCheck />} hint="Still covered" />
+      </div>
+
       {assets.length === 0 ? (
-        <div className="mt-6 rounded-xl border border-dashed bg-muted/30 p-10 text-center">
+        <div className="mt-6 rounded-xl border border-dashed bg-muted/30 p-12 text-center">
           <HardDrive className="mx-auto size-6 text-muted-foreground" aria-hidden="true" />
           <p className="mt-3 text-sm font-medium">No assets yet</p>
           <p className="mt-1 text-sm text-muted-foreground">Register the property&apos;s equipment to track warranty and repairs.</p>
         </div>
       ) : (
-        <ul className="mt-6 space-y-2.5">
+        <ul className="mt-6 grid gap-2.5 lg:grid-cols-2">
           {assets.map((a) => (
             <li key={a.id}>
               <Card className="flex items-center justify-between gap-3 p-4">
