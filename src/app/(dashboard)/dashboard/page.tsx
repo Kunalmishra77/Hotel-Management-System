@@ -15,6 +15,9 @@ import { TrendChart } from "@/components/ui/charts/trend-chart";
 import { arrivalsDepartures, bookingsOverview } from "@/features/reservations/queries";
 import { ArrivalsDeparturesCard } from "@/features/reservations/components/arrivals-departures-card";
 import { ReceptionDashboard } from "@/features/reservations/components/reception-dashboard";
+import { getPortfolio } from "@/features/command-center/queries";
+import { ManagerDashboard } from "@/features/command-center/components/manager-dashboard";
+import { listPendingApprovals } from "@/features/expenses/queries";
 import { ROLE_LABELS } from "@/features/users/roles";
 
 export const metadata: Metadata = { title: "Dashboard" };
@@ -57,6 +60,33 @@ export default async function DashboardPage() {
           folioView: hasPermission(claims, "folio:view"),
           roomView: hasPermission(claims, "room:view-status"),
         }}
+      />
+    );
+  }
+
+  // Manager portal home: a monitoring/analytics/approvals command centre — distinct
+  // from Reception's operational board and the generic dashboard.
+  if (portal === "MANAGER" && propertyId && hasPermission(claims, "report:view-financial")) {
+    const now = new Date();
+    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const trendFrom = new Date(now.getTime() - 13 * 86_400_000);
+    const canApprove = hasPermission(claims, "expense:approve");
+    const [portfolio, revTrend, mgrTiles, approvals] = await Promise.all([
+      getPortfolio(claims, monthStart, now),
+      trend(claims, { metric: "revenue", from: trendFrom, to: now, propertyIds: claims.accessiblePropertyIds }),
+      liveTiles(claims, claims.accessiblePropertyIds).catch(() => null),
+      canApprove ? listPendingApprovals(claims) : Promise.resolve([]),
+    ]);
+    return (
+      <ManagerDashboard
+        name={claims.name}
+        propertyCount={claims.accessiblePropertyIds.length}
+        portfolio={portfolio}
+        revenueTrend={revTrend.map((p) => ({ label: p.businessDate, value: p.value }))}
+        approvals={approvals}
+        pendingDuesPaise={mgrTiles?.pendingPaise ?? 0}
+        activePropertyId={claims.activePropertyId ?? null}
+        canApprove={canApprove}
       />
     );
   }
