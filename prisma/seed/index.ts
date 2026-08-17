@@ -101,13 +101,26 @@ export async function seedDatabase(client: PrismaClient, opts: { log?: boolean }
   // Demo-only enrichment (owner payouts, 5-hotel portfolio, extra staff, in-house
   // bookings) makes the live demo look full, but it pollutes the minimal fixture
   // state the integration tests assert against. Skip it for the test database.
+  //
+  // Three modes via SEED_DEMO:
+  //   "false" → no enrichment (integration tests).
+  //   "lite"  → a CLEAN, small single-property demo: skips the multi-hotel
+  //             inflators (27/28/portfolio-fill add 4-5 hotels, ~70 guests, ~80
+  //             bookings) and keeps only the MG-Road demo (29) + login guest (30).
+  //             Use this for a tidy live demo — ~1-2 properties, not 13.
+  //   default → the full multi-hotel demo.
+  const demoLite = process.env.SEED_DEMO === "lite";
   if (process.env.SEED_DEMO !== "false") {
-    await seedDemoExtras(client);
-    say("  ✔ 27-demo-extras (owner payouts, renewal dates, laundry batches, field-staff)");
-    await seedDemoPortfolio(client);
-    say("  ✔ 28-demo-portfolio (5 hotels + managers + 30-day snapshots)");
-    await seedPortfolioFill(client);
-    say("  ✔ portfolio-fill (rooms + guests + bookings for the 4 non-flagship hotels)");
+    if (!demoLite) {
+      await seedDemoExtras(client);
+      say("  ✔ 27-demo-extras (owner payouts, renewal dates, laundry batches, field-staff)");
+      await seedDemoPortfolio(client);
+      say("  ✔ 28-demo-portfolio (5 hotels + managers + 30-day snapshots)");
+      await seedPortfolioFill(client);
+      say("  ✔ portfolio-fill (rooms + guests + bookings for the 4 non-flagship hotels)");
+    } else {
+      say("  · lite demo: skipping multi-hotel enrichment (27-extras, 28-portfolio, portfolio-fill)");
+    }
     await seedDemoRich(client);
     say("  ✔ 29-demo-rich (15 rooms, 28 guests, 54 reservations, folios+payments, HK/maint/feedback)");
     await seedDemoCustomer(client);
