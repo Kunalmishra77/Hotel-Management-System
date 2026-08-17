@@ -7,6 +7,7 @@ import { listPendingApprovals } from "@/features/expenses/queries";
 import { listMaintenanceCostReview } from "@/features/maintenance/queries";
 import { ApprovalControls } from "@/features/expenses/components/approval-controls";
 import { PageHeader } from "@/components/ui/page-header";
+import { KpiCard } from "@/components/ui/kpi-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatINR } from "@/lib/utils";
 
@@ -27,12 +28,23 @@ export default async function ApprovalsPage() {
     hasPermission(user, "maintenance:manage") ? listMaintenanceCostReview(user) : Promise.resolve([]),
   ]);
 
+  const totalPending = pending.reduce((s, e) => s + e.amountPaise, 0);
+  const superFlagged = pending.filter((e) => e.needsSuperApproval).length;
+  const maintTotal = maintCosts.reduce((s, m) => s + m.costPaise, 0);
+
   return (
-    <div className="mx-auto w-full max-w-3xl px-1 py-1">
+    <div className="mx-auto w-full max-w-5xl px-1 py-1">
       <PageHeader title="Approvals" description="Expenses and high-value spend awaiting your sign-off." />
 
+      <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <KpiCard label="To approve" value={pending.length} icon={<ClipboardCheck />} hint="Expenses" className={pending.length > 0 ? "border-warning/40" : undefined} />
+        <KpiCard label="Value awaiting" value={formatINR(totalPending)} icon={<Building2 />} hint="Total pending" />
+        <KpiCard label="Super-admin flagged" value={superFlagged} icon={<ShieldAlert />} hint="High value" className={superFlagged > 0 ? "border-destructive/30" : undefined} />
+        <KpiCard label="Maintenance review" value={maintCosts.length} icon={<Wrench />} hint={maintCosts.length ? formatINR(maintTotal) : "None"} />
+      </div>
+
       {pending.length === 0 && maintCosts.length === 0 ? (
-        <div className="mt-6 rounded-xl border border-dashed bg-muted/30 p-10 text-center">
+        <div className="mt-6 rounded-xl border border-dashed bg-muted/30 p-12 text-center">
           <ClipboardCheck className="mx-auto size-6 text-muted-foreground" aria-hidden="true" />
           <p className="mt-3 text-sm font-medium">Nothing to approve</p>
           <p className="mt-1 text-sm text-muted-foreground">New approvals will appear here.</p>
@@ -42,7 +54,7 @@ export default async function ApprovalsPage() {
       {pending.length > 0 && (
         <>
         <h2 className="mt-6 mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Expense approvals</h2>
-        <ul className="space-y-3">
+        <ul className="grid gap-3 lg:grid-cols-2">
           {pending.map((e) => (
             <li key={e.id} className="rounded-xl border bg-card p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3">
