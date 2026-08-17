@@ -24,6 +24,10 @@ import { housekeepingOverview } from "@/features/housekeeping/queries";
 import { HousekeepingDashboard } from "@/features/housekeeping/components/housekeeping-dashboard";
 import { maintenanceOverview } from "@/features/maintenance/queries";
 import { MaintenanceDashboard } from "@/features/maintenance/components/maintenance-dashboard";
+import { listOpenOrders, roomOrderInbox, kitchenTickets, listOutlets } from "@/features/pos/queries";
+import { OutletDashboard } from "@/features/pos/components/outlet-dashboard";
+import { inventoryOverview } from "@/features/inventory/queries";
+import { StoreDashboard } from "@/features/inventory/components/store-dashboard";
 import { ROLE_LABELS } from "@/features/users/roles";
 
 export const metadata: Metadata = { title: "Dashboard" };
@@ -132,6 +136,32 @@ export default async function DashboardPage() {
   if (portal === "MAINTENANCE" && propertyId) {
     const overview = await maintenanceOverview(claims, propertyId);
     return <MaintenanceDashboard name={claims.name} overview={overview} canAssets={hasPermission(claims, "maintenance:manage")} />;
+  }
+
+  // Outlet / POS portal: point-of-sale operational command centre.
+  if (portal === "OUTLET" && propertyId) {
+    const [open, roomInbox, tickets, outlets] = await Promise.all([
+      listOpenOrders(claims, { propertyId }),
+      roomOrderInbox(claims, propertyId),
+      kitchenTickets(claims, propertyId),
+      listOutlets(claims, propertyId),
+    ]);
+    return (
+      <OutletDashboard
+        name={claims.name}
+        openOrders={open.length}
+        openValuePaise={open.reduce((s, o) => s + o.totalPaise, 0)}
+        roomOrdersPending={roomInbox.length}
+        kitchenTickets={tickets.length}
+        outlets={outlets.length}
+      />
+    );
+  }
+
+  // Store / Inventory portal: stock operational command centre.
+  if (portal === "STORE" && propertyId) {
+    const overview = await inventoryOverview(claims, propertyId);
+    return <StoreDashboard name={claims.name} overview={overview} />;
   }
 
   const canOperational = hasPermission(claims, "report:view-operational");
