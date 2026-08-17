@@ -3,16 +3,11 @@ import { ReceiptText, Wallet, HandCoins, FileText } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
 import { billingOverview, searchInvoices } from "@/features/billing/queries";
 import { KpiCard } from "@/components/ui/kpi-card";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
-import { EmptyState } from "@/components/ui/empty-state";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { InvoicesTable } from "@/features/billing/components/invoices-table";
 import { formatINR } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Billing" };
-
-const fmtDate = (d: Date) =>
-  new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 
 /**
  * 06 — Billing home for the active property: outstanding dues + the recent GST
@@ -38,7 +33,7 @@ export default async function BillingPage() {
   ]);
 
   return (
-    <div className="mx-auto w-full max-w-4xl">
+    <div className="mx-auto w-full max-w-6xl">
       <PageHeader title="Billing" description="Outstanding dues, collections and GST tax invoices for this property." />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" data-testid="billing-kpis">
@@ -54,45 +49,10 @@ export default async function BillingPage() {
         <KpiCard label="Invoices this month" value={String(overview.invoicesThisMonth)} icon={<FileText />} hint="GST invoices issued" href="#invoices" />
       </div>
 
-      <Card id="invoices" className="mt-4 scroll-mt-20">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">GST invoices</CardTitle>
-        </CardHeader>
-        <CardContent className="px-0">
-          {invoices.length === 0 ? (
-            <div className="px-4 pb-2">
-              <EmptyState
-                icon={<ReceiptText />}
-                title="No invoices yet"
-                description="A GST tax invoice is issued from a guest's folio at settlement."
-              />
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table data-testid="invoice-list">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Invoice</TableHead>
-                    <TableHead>Customer</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead className="text-right">Issued</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {invoices.map((inv) => (
-                    <TableRow key={inv.id}>
-                      <TableCell className="font-mono text-sm font-medium">{inv.number}</TableCell>
-                      <TableCell>{inv.customerName}</TableCell>
-                      <TableCell className="text-right tabular font-medium">{formatINR(inv.totalPaise)}</TableCell>
-                      <TableCell className="text-right tabular text-muted-foreground">{fmtDate(inv.issuedAt)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <section id="invoices" className="mt-6 scroll-mt-20">
+        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">GST invoices</h2>
+        <InvoicesTable invoices={invoices} />
+      </section>
     </div>
   );
 }
