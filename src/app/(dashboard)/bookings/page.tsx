@@ -4,8 +4,11 @@ import { AlertTriangle, CalendarPlus, CalendarRange, FileCheck2, LogIn, LogOut, 
 import { requirePermission } from "@/lib/auth/guard";
 import { hasPermission } from "@/lib/permissions";
 import { arrivalsDepartures, listReservations, bookingsOverview } from "@/features/reservations/queries";
+import { trend } from "@/features/analytics/queries";
+import { resolvePortal } from "@/features/platform/portals";
 import { parseBoardView, BOARD_VIEW_LABEL } from "@/features/reservations/domain/board-view";
 import { ReservationBoard } from "@/features/reservations/components/reservation-board";
+import { ManagerBookings } from "@/features/reservations/components/manager-bookings";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
@@ -57,6 +60,29 @@ export default async function BookingsPage({
 
   if (!propertyId) {
     return <div className="p-4"><p className="text-sm text-muted-foreground">Select a property to see its bookings.</p></div>;
+  }
+
+  // Page-level portal identity: a Manager reads Bookings as performance & insights
+  // (volume, funnel, occupancy trend, source mix) — NOT the front desk's
+  // operational check-in board. Same route, completely different page.
+  const portal = resolvePortal(user.roleAssignments.map((r) => r.role));
+  if (portal === "MANAGER") {
+    const now = new Date();
+    const trendFrom = new Date(now.getTime() - 13 * 86_400_000);
+    const [mgrOverview, occTrend] = await Promise.all([
+      bookingsOverview(user, { propertyId, date: now }),
+      hasPermission(user, "report:view-financial")
+        ? trend(user, { metric: "occupancy", from: trendFrom, to: now, propertyIds: [propertyId] })
+        : Promise.resolve([]),
+    ]);
+    const dLabel = now.toLocaleDateString("en-IN", { weekday: "short", day: "2-digit", month: "short" });
+    return (
+      <ManagerBookings
+        overview={mgrOverview}
+        occupancyTrend={occTrend.map((p) => ({ label: p.businessDate, value: p.value }))}
+        dateLabel={dLabel}
+      />
+    );
   }
 
   const today = new Date();
