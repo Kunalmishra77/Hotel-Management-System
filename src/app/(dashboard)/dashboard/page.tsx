@@ -20,6 +20,10 @@ import { ManagerDashboard } from "@/features/command-center/components/manager-d
 import { listPendingApprovals } from "@/features/expenses/queries";
 import { billingOverview } from "@/features/billing/queries";
 import { AccountsDashboard } from "@/features/billing/components/accounts-dashboard";
+import { housekeepingOverview } from "@/features/housekeeping/queries";
+import { HousekeepingDashboard } from "@/features/housekeeping/components/housekeeping-dashboard";
+import { maintenanceOverview } from "@/features/maintenance/queries";
+import { MaintenanceDashboard } from "@/features/maintenance/components/maintenance-dashboard";
 import { ROLE_LABELS } from "@/features/users/roles";
 
 export const metadata: Metadata = { title: "Dashboard" };
@@ -118,6 +122,16 @@ export default async function DashboardPage() {
         canApprove={canApprove}
       />
     );
+  }
+
+  // Housekeeping / Maintenance portals: operational task-board command centres.
+  if (portal === "HOUSEKEEPING" && propertyId) {
+    const overview = await housekeepingOverview(claims, propertyId);
+    return <HousekeepingDashboard name={claims.name} overview={overview} canRooms={hasPermission(claims, "room:view-status")} />;
+  }
+  if (portal === "MAINTENANCE" && propertyId) {
+    const overview = await maintenanceOverview(claims, propertyId);
+    return <MaintenanceDashboard name={claims.name} overview={overview} canAssets={hasPermission(claims, "maintenance:manage")} />;
   }
 
   const canOperational = hasPermission(claims, "report:view-operational");
