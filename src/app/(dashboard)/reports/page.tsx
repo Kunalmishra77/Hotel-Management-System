@@ -50,7 +50,7 @@ export default async function ReportsPage({
   ]);
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-4 p-4">
+    <div className="mx-auto w-full max-w-5xl space-y-4 p-4">
       <ReportsFilterBar properties={properties} selected={propertyIds} month={month} />
       <ProfitReportView month={month} report={report} segments={segments} propertyCount={propertyIds.length} />
     </div>

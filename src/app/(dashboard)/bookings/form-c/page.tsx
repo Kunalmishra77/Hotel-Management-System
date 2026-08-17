@@ -23,7 +23,7 @@ export default async function FormCPage() {
   const canSubmit = can(user, "checkin:perform", propertyId);
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-4 p-4">
+    <div className="mx-auto w-full max-w-5xl space-y-4 p-4">
       <div>
         <h1 className="text-xl font-semibold">Form C register</h1>
         <p className="text-sm text-muted-foreground">

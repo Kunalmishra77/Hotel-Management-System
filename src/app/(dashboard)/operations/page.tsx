@@ -6,6 +6,7 @@ import { arrivalsDepartures, bookingsOverview, type ReservationListItem } from "
 import { listPendingApprovals } from "@/features/expenses/queries";
 import { hasPermission } from "@/lib/permissions";
 import { PageHeader } from "@/components/ui/page-header";
+import { KpiCard } from "@/components/ui/kpi-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatINR } from "@/lib/utils";
 
@@ -30,14 +31,23 @@ export default async function OperationsPage() {
   ]);
   const approvalsHere = propertyId ? approvals.filter((a) => a.propertyId === propertyId) : [];
 
+  const approvalsValue = approvalsHere.reduce((s, a) => s + a.amountPaise, 0);
+
   return (
-    <div className="mx-auto w-full max-w-4xl px-1 py-1">
+    <div className="mx-auto w-full max-w-5xl px-1 py-1">
       <PageHeader
         title={<span className="inline-flex items-center gap-2"><Siren className="size-5 text-primary" aria-hidden="true" /> Operations centre</span>}
         description="Everything that needs your attention today."
       />
 
-      <div className="mt-2 grid gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <KpiCard label="Arrivals today" value={ad.arrivals.length} icon={<LogIn />} hint="Due to check in" href="/bookings" />
+        <KpiCard label="Departures today" value={ad.departures.length} icon={<LogOut />} hint="Due to check out" href="/in-house" />
+        <KpiCard label="Needs attention" value={overview?.needsAttention ?? 0} icon={<TriangleAlert />} hint="Flagged bookings" href="/bookings" className={overview && overview.needsAttention > 0 ? "border-warning/40" : undefined} />
+        <KpiCard label="Approvals" value={approvalsHere.length} icon={<ClipboardCheck />} hint={approvalsHere.length ? formatINR(approvalsValue) : "None"} href="/approvals" />
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <ResSection
           title="Arriving today"
           icon={<LogIn className="size-4" aria-hidden="true" />}

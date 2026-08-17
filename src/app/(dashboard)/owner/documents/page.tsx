@@ -23,7 +23,7 @@ export default async function OwnerDocumentsPage() {
   const canUpload = can(user, "owner:upload-docs", propertyId) || can(user, "owner:manage", propertyId);
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-4 p-4">
+    <div className="mx-auto w-full max-w-5xl space-y-4 p-4">
       <div>
         <h1 className="text-xl font-semibold">Documents</h1>
         <p className="text-sm text-muted-foreground">Agreements, licences, tax papers and statements for your property.</p>
