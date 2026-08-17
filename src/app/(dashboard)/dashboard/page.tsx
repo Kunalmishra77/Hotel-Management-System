@@ -18,6 +18,8 @@ import { ReceptionDashboard } from "@/features/reservations/components/reception
 import { getPortfolio } from "@/features/command-center/queries";
 import { ManagerDashboard } from "@/features/command-center/components/manager-dashboard";
 import { listPendingApprovals } from "@/features/expenses/queries";
+import { billingOverview } from "@/features/billing/queries";
+import { AccountsDashboard } from "@/features/billing/components/accounts-dashboard";
 import { ROLE_LABELS } from "@/features/users/roles";
 
 export const metadata: Metadata = { title: "Dashboard" };
@@ -86,6 +88,33 @@ export default async function DashboardPage() {
         approvals={approvals}
         pendingDuesPaise={mgrTiles?.pendingPaise ?? 0}
         activePropertyId={claims.activePropertyId ?? null}
+        canApprove={canApprove}
+      />
+    );
+  }
+
+  // Accounts portal home: a finance command centre — receivables, collections,
+  // invoicing and sign-offs.
+  if (portal === "ACCOUNTS" && propertyId) {
+    const now = new Date();
+    const trendFrom = new Date(now.getTime() - 13 * 86_400_000);
+    const canApprove = hasPermission(claims, "expense:approve");
+    const canFin = hasPermission(claims, "report:view-financial");
+    const [billing, revTrend, acctTiles, approvals] = await Promise.all([
+      billingOverview(claims, propertyId),
+      canFin
+        ? trend(claims, { metric: "revenue", from: trendFrom, to: now, propertyIds: claims.accessiblePropertyIds })
+        : Promise.resolve([]),
+      liveTiles(claims, [propertyId]).catch(() => null),
+      canApprove ? listPendingApprovals(claims) : Promise.resolve([]),
+    ]);
+    return (
+      <AccountsDashboard
+        name={claims.name}
+        billing={billing}
+        revenueTrend={revTrend.map((p) => ({ label: p.businessDate, value: p.value }))}
+        approvals={approvals}
+        revenueTodayPaise={acctTiles?.revenueTodayPaise ?? null}
         canApprove={canApprove}
       />
     );
