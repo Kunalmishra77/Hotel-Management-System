@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import { ClipboardCheck, DoorClosed } from "lucide-react";
+import { ClipboardCheck, DoorClosed, CheckCircle2, RotateCcw } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
 import { listInspectionQueue, listRecentInspections } from "@/features/inspections/queries";
 import { InspectControl } from "@/features/inspections/components/inspect-control";
 import { PageHeader } from "@/components/ui/page-header";
+import { KpiCard } from "@/components/ui/kpi-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const dynamic = "force-dynamic";
@@ -23,9 +24,18 @@ export default async function InspectionPage() {
     ? await Promise.all([listInspectionQueue(user, propertyId), listRecentInspections(user, propertyId)])
     : [[], []];
 
+  const passed = recent.filter((r) => r.status === "PASS").length;
+  const failed = recent.filter((r) => r.status !== "PASS").length;
+
   return (
-    <div className="mx-auto w-full max-w-3xl px-1 py-1">
+    <div className="mx-auto w-full max-w-4xl px-1 py-1">
       <PageHeader title="Room inspection" description={`${queue.length} room${queue.length === 1 ? "" : "s"} awaiting inspection.`} />
+
+      <div className="mt-6 grid grid-cols-3 gap-3">
+        <KpiCard label="Awaiting" value={queue.length} icon={<ClipboardCheck />} hint="To inspect" className={queue.length > 0 ? "border-warning/40" : undefined} />
+        <KpiCard label="Passed" value={passed} icon={<CheckCircle2 />} hint="Recently ready" />
+        <KpiCard label="Re-clean" value={failed} icon={<RotateCcw />} hint="Recently failed" className={failed > 0 ? "border-destructive/30" : undefined} />
+      </div>
 
       {queue.length === 0 ? (
         <div className="mt-6 rounded-xl border border-dashed bg-muted/30 p-10 text-center">

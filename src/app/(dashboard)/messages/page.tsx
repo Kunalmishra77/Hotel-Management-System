@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { MessagesSquare, ArrowRight } from "lucide-react";
+import { MessagesSquare, ArrowRight, Reply } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
 import { listMessageThreads } from "@/features/guest-messages/queries";
 import { PageHeader } from "@/components/ui/page-header";
+import { KpiCard } from "@/components/ui/kpi-card";
 import { Card } from "@/components/ui/card";
 
 export const dynamic = "force-dynamic";
@@ -25,12 +26,19 @@ export default async function MessagesPage() {
   await requirePermission("request:manage");
   const threads = await listMessageThreads();
 
+  const awaiting = threads.filter((t) => t.lastSender === "GUEST").length;
+
   return (
-    <div className="mx-auto w-full max-w-3xl px-1 py-1">
+    <div className="mx-auto w-full max-w-4xl px-1 py-1">
       <PageHeader title="Guest messages" description="Chat threads from checked-in guests." />
 
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:max-w-md">
+        <KpiCard label="Active threads" value={threads.length} icon={<MessagesSquare />} hint="Conversations" />
+        <KpiCard label="Awaiting reply" value={awaiting} icon={<Reply />} hint="Guest wrote last" className={awaiting > 0 ? "border-warning/40" : undefined} />
+      </div>
+
       {threads.length === 0 ? (
-        <div className="mt-6 rounded-xl border border-dashed bg-muted/30 p-10 text-center">
+        <div className="mt-6 rounded-xl border border-dashed bg-muted/30 p-12 text-center">
           <MessagesSquare className="mx-auto size-6 text-muted-foreground" aria-hidden="true" />
           <p className="mt-3 text-sm font-medium">No messages</p>
           <p className="mt-1 text-sm text-muted-foreground">Guest chats will appear here.</p>
