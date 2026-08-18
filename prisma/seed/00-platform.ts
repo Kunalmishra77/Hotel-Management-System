@@ -111,6 +111,22 @@ const USERS: SeededUser[] = [
     role: RoleName.OWNER,
     propertyIds: [PROP_A_ID, PROP_B_ID],
   },
+  {
+    // POS_MANAGER @ PROP-A — the Outlet portal's demo login.
+    id: "demo_u_pos",
+    email: "pos.mg@woodpecker.example",
+    name: "Ganesh Rao",
+    role: RoleName.POS_MANAGER,
+    propertyIds: [PROP_A_ID],
+  },
+  {
+    // INVENTORY_MANAGER @ PROP-A — the Store portal's demo login.
+    id: "demo_u_inv",
+    email: "store.mg@woodpecker.example",
+    name: "Fatima Sheikh",
+    role: RoleName.INVENTORY_MANAGER,
+    propertyIds: [PROP_A_ID],
+  },
 ];
 
 export async function seedPlatform(prisma: PrismaClient): Promise<void> {
