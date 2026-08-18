@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowUpRight, Trophy, TrendingDown } from "lucide-react";
+import { ArrowUpRight, Trophy, TrendingDown, IndianRupee, Percent, BedDouble, LineChart, TrendingUp, Building2 } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
-import { parsePeriod, periodRange, PERIOD_PRESETS, PERIOD_LABEL } from "@/features/command-center/domain/period";
+import { parsePeriod, periodRange, previousWindow, deltaPct } from "@/features/command-center/domain/period";
 import { getPortfolio, type PortfolioProperty } from "@/features/command-center/queries";
+import { PeriodFilter } from "@/features/command-center/components/period-filter";
+import { KpiCard } from "@/components/ui/kpi-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -11,19 +13,37 @@ import { formatINR } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Portfolio insights" };
 const pct = (bps: number) => `${(bps / 100).toFixed(0)}%`;
+const iso = (d: Date) => d.toISOString().slice(0, 10);
+function deltaProps(d: number | null, goodDirection: "up" | "down" = "up") {
+  if (d === null) return { hint: "no prior data" };
+  const trend = d > 0.5 ? ("up" as const) : d < -0.5 ? ("down" as const) : ("flat" as const);
+  return { trend, delta: `${d > 0 ? "+" : ""}${d.toFixed(0)}%`, goodDirection, hint: "vs previous" };
+}
 
 /**
  * Super Admin · Portfolio Insights (architecture v2 · Phase 2). Every property
  * ranked and compared against the rest — best/lowest performer, revenue and
  * occupancy league tables. Read-only; reuses the canonical portfolio metrics.
  */
-export default async function InsightsPage({ searchParams }: { searchParams: Promise<{ period?: string }> }) {
+export default async function InsightsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string; from?: string; to?: string }>;
+}) {
   const user = await requirePermission("report:view-financial");
   const today = new Date();
-  const period = parsePeriod((await searchParams).period);
-  const { from, label: periodLabel } = periodRange(period, today);
-  const portfolio = await getPortfolio(user, from, today);
+  const sp = await searchParams;
+  const period = parsePeriod(sp.period);
+  const win = periodRange(period, today, { from: sp.from, to: sp.to });
+  const prev = previousWindow(win);
+  const [portfolio, prevPortfolio] = await Promise.all([
+    getPortfolio(user, win.from, win.to),
+    getPortfolio(user, prev.from, prev.to),
+  ]);
   const props = portfolio.properties;
+  const t = portfolio.totals;
+  const pv = prevPortfolio.totals;
+  const periodLabel = win.label;
 
   if (props.length < 2) {
     return (
@@ -43,23 +63,21 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
 
   return (
     <div className="mx-auto w-full max-w-5xl">
-      <PageHeader
-        title="Portfolio insights"
-        description={`Every hotel, ranked · ${periodLabel}`}
-        actions={
-          <div className="inline-flex items-center rounded-lg border bg-card p-0.5 text-sm" role="group" aria-label="Date range">
-            {PERIOD_PRESETS.map((per) => (
-              <Link
-                key={per}
-                href={per === "mtd" ? "/insights" : `/insights?period=${per}`}
-                className={per === period ? "rounded-md bg-primary px-2.5 py-1 font-medium text-primary-foreground" : "rounded-md px-2.5 py-1 text-muted-foreground hover:text-foreground"}
-              >
-                {PERIOD_LABEL[per]}
-              </Link>
-            ))}
-          </div>
-        }
-      />
+      <PageHeader title="Portfolio insights" description={`Every hotel, ranked · ${periodLabel}`} />
+
+      <div className="mt-1">
+        <PeriodFilter period={period} from={iso(win.from)} to={iso(win.to)} />
+      </div>
+
+      {/* Portfolio KPI band with period-over-period deltas */}
+      <div className="mb-4 mt-4 grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+        <KpiCard label="Revenue" value={formatINR(t.revenuePaise)} icon={<IndianRupee />} {...deltaProps(deltaPct(t.revenuePaise, pv.revenuePaise))} />
+        <KpiCard label="Profit" value={formatINR(t.profitPaise)} icon={<TrendingUp />} {...deltaProps(deltaPct(t.profitPaise, pv.profitPaise))} className={t.profitPaise < 0 ? "border-destructive/40" : undefined} />
+        <KpiCard label="Occupancy" value={pct(t.occupancyBps)} icon={<Percent />} {...deltaProps(deltaPct(t.occupancyBps, pv.occupancyBps))} />
+        <KpiCard label="ADR" value={formatINR(t.adrPaise)} icon={<BedDouble />} {...deltaProps(deltaPct(t.adrPaise, pv.adrPaise))} />
+        <KpiCard label="RevPAR" value={formatINR(t.revparPaise)} icon={<LineChart />} {...deltaProps(deltaPct(t.revparPaise, pv.revparPaise))} />
+        <KpiCard label="Properties" value={t.count} icon={<Building2 />} hint="in portfolio" />
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Card className="border-emerald-600/30">
