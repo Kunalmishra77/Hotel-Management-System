@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   BedDouble, IndianRupee, LineChart, Percent, TrendingUp, Wallet, Gauge, Trophy,
   TriangleAlert, ArrowRight, LogIn, LogOut, DoorOpen, CircleDollarSign,
+  CalendarCheck, XCircle, UserX,
 } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
 import {
@@ -11,7 +12,7 @@ import {
 } from "@/features/command-center/domain/period";
 import { liveTiles, trend } from "@/features/analytics/queries";
 import { revenueSegments } from "@/features/reports/queries";
-import { getPortfolio } from "@/features/command-center/queries";
+import { getPortfolio, portfolioBookingCounts } from "@/features/command-center/queries";
 import { PeriodFilter } from "@/features/command-center/components/period-filter";
 import { PortfolioLeague } from "@/features/command-center/components/portfolio-league";
 import { netAfterCommission } from "@/features/command-center/domain/commission";
@@ -69,12 +70,13 @@ export default async function OverviewPage({
   const win = periodRange(period, today, { from: sp.from, to: sp.to });
   const prev = previousWindow(win);
 
-  const [tiles, portfolio, prevPortfolio, revTrend, segs] = await Promise.all([
+  const [tiles, portfolio, prevPortfolio, revTrend, segs, bookingCounts] = await Promise.all([
     liveTiles(user, propertyIds),
     getPortfolio(user, win.from, win.to),
     getPortfolio(user, prev.from, prev.to),
     trend(user, { metric: "revenue", from: win.from, to: win.to, propertyIds }),
     revenueSegments(user, { propertyIds, from: win.from, to: win.to }),
+    portfolioBookingCounts(user, { propertyIds, from: win.from, to: win.to }),
   ]);
 
   const t = portfolio.totals;
@@ -125,6 +127,10 @@ export default async function OverviewPage({
         <KpiCard label="RevPAR" value={formatINR(t.revparPaise)} icon={<LineChart />} {...deltaProps(deltaPct(t.revparPaise, p.revparPaise))} />
         <KpiCard label="Live occupancy" value={pct(tiles.occupancyBps)} icon={<Gauge />} hint="right now" href="/rooms" />
         <KpiCard label="Pending dues" value={formatINR(tiles.pendingPaise ?? 0)} icon={<Wallet />} hint="unsettled folios" href="/billing" className={(tiles.pendingPaise ?? 0) > 0 ? "border-warning/40" : undefined} />
+        <KpiCard label="Bookings" value={bookingCounts.bookings} icon={<CalendarCheck />} hint="realised in range" />
+        <KpiCard label="Cancellations" value={bookingCounts.cancelled} icon={<XCircle />} hint={`${bookingCounts.cancelRatePct}% cancel/no-show`} className={bookingCounts.cancelled > 0 ? "border-destructive/30" : undefined} />
+        <KpiCard label="No-shows" value={bookingCounts.noShow} icon={<UserX />} hint="did not arrive" />
+        <KpiCard label="Net revenue" value={formatINR(netRevenue)} icon={<CircleDollarSign />} hint="after OTA commission" />
       </div>
 
       {/* Revenue trend + today's live board */}

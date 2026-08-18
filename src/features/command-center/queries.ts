@@ -97,3 +97,36 @@ export async function getPortfolio(user: SessionClaims, monthStart: Date, today:
     },
   };
 }
+
+export type PortfolioBookingCounts = {
+  /** Realised bookings (confirmed / in-house / checked-out) with a check-in in range. */
+  bookings: number;
+  cancelled: number;
+  noShow: number;
+  /** (cancelled + no-show) ÷ all bookings, as a percentage. */
+  cancelRatePct: number;
+};
+
+/**
+ * Portfolio booking outcomes over a window — bookings vs cancellations vs no-shows,
+ * counted by scheduled check-in date. One grouped count across the caller's
+ * accessible properties. `report:view-financial`.
+ */
+export async function portfolioBookingCounts(
+  user: SessionClaims,
+  input: { propertyIds: string[]; from: Date; to: Date },
+): Promise<PortfolioBookingCounts> {
+  authorize(user, "report:view-financial", user.activePropertyId);
+  if (input.propertyIds.length === 0) return { bookings: 0, cancelled: 0, noShow: 0, cancelRatePct: 0 };
+  const groups = await db.scoped(user).reservation.groupBy({
+    by: ["status"],
+    where: { propertyId: { in: input.propertyIds }, checkInDate: { gte: input.from, lte: input.to } },
+    _count: { _all: true },
+  });
+  const count = (s: string) => groups.find((g) => (g.status as string) === s)?._count._all ?? 0;
+  const bookings = count("CONFIRMED") + count("IN_HOUSE") + count("CHECKED_OUT");
+  const cancelled = count("CANCELLED");
+  const noShow = count("NO_SHOW");
+  const denom = bookings + cancelled + noShow;
+  return { bookings, cancelled, noShow, cancelRatePct: denom > 0 ? Math.round(((cancelled + noShow) / denom) * 100) : 0 };
+}
