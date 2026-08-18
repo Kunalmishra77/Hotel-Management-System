@@ -6,9 +6,10 @@
  * — not hidden by CSS, simply absent from the payload.
  */
 import Link from "next/link";
-import { Building2, Plus } from "lucide-react";
+import { Building2, Plus, DoorOpen, BedDouble, Gauge, DoorClosed } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { KpiCard } from "@/components/ui/kpi-card";
 import { can } from "@/lib/permissions";
 import type { SessionClaims } from "@/lib/auth/claims";
 import type { PropertyOverviewItem } from "../queries";
@@ -25,6 +26,13 @@ export function PropertyOverview({
   // Creating a property is org-scoped (see actions.ts) — only offer it to a
   // caller who could actually complete it.
   const mayCreate = can(user, "property:manage") && user.propertyScope.kind === "ALL_IN_ORG";
+
+  // Portfolio room roll-up (live, current-status) across the caller's scope.
+  const totalRooms = properties.reduce((s, p) => s + p.occupancy.total, 0);
+  const occupied = properties.reduce((s, p) => s + p.occupancy.occupied, 0);
+  const vacant = properties.reduce((s, p) => s + p.occupancy.vacant, 0);
+  const sellable = properties.reduce((s, p) => s + p.occupancy.availableForOccupancy, 0);
+  const occPct = sellable > 0 ? Math.round((occupied / sellable) * 100) : 0;
 
   return (
     <div className="space-y-4">
@@ -47,6 +55,16 @@ export function PropertyOverview({
           </Button>
         )}
       </div>
+
+      {properties.length > 0 && (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
+          <KpiCard label="Properties" value={properties.length} icon={<Building2 />} hint="in scope" />
+          <KpiCard label="Total rooms" value={totalRooms} icon={<BedDouble />} hint="across portfolio" />
+          <KpiCard label="Occupied now" value={occupied} icon={<DoorClosed />} hint="in-house" />
+          <KpiCard label="Vacant now" value={vacant} icon={<DoorOpen />} hint="ready to sell" />
+          <KpiCard label="Live occupancy" value={`${occPct}%`} icon={<Gauge />} hint="current status" />
+        </div>
+      )}
 
       {properties.length === 0 ? (
         <EmptyState mayCreate={mayCreate} />
