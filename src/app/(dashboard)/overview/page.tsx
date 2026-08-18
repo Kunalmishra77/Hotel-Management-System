@@ -14,6 +14,7 @@ import { revenueSegments } from "@/features/reports/queries";
 import { getPortfolio } from "@/features/command-center/queries";
 import { PeriodFilter } from "@/features/command-center/components/period-filter";
 import { PortfolioLeague } from "@/features/command-center/components/portfolio-league";
+import { netAfterCommission } from "@/features/command-center/domain/commission";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
@@ -89,6 +90,7 @@ export default async function OverviewPage({
   const otaRev = segs.bySource.filter((s) => OTA_SOURCES.has(s.source)).reduce((a, s) => a + s.revenuePaise, 0);
   const otherRev = Math.max(0, t.revenuePaise - directRev - otaRev);
   const directRatio = t.revenuePaise > 0 ? Math.round((directRev / t.revenuePaise) * 100) : 0;
+  const { commissionPaise: otaCommission, netPaise: netRevenue } = netAfterCommission(segs.bySource, t.revenuePaise);
 
   // Ranked league (by revenue) → best & worst spotlight.
   const ranked = [...portfolio.properties].sort((a, b) => b.revenuePaise - a.revenuePaise);
@@ -206,7 +208,11 @@ export default async function OverviewPage({
               <li className="flex items-center justify-between"><span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-primary" /> OTA (commissioned)</span><span className="tabular font-medium">{formatINR(otaRev)}</span></li>
               <li className="flex items-center justify-between"><span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-[hsl(var(--brand-brass))]" /> Corporate / other</span><span className="tabular font-medium">{formatINR(otherRev)}</span></li>
             </ul>
-            <p className="text-xs text-muted-foreground">Higher direct share = less OTA commission = more margin.</p>
+            <div className="border-t pt-2 text-sm">
+              <div className="flex items-center justify-between"><span className="text-muted-foreground">OTA commission (est.)</span><span className="tabular text-destructive">−{formatINR(otaCommission)}</span></div>
+              <div className="mt-0.5 flex items-center justify-between font-semibold"><span>Net revenue</span><span className="tabular">{formatINR(netRevenue)}</span></div>
+            </div>
+            <p className="text-xs text-muted-foreground">Net = gross − OTA commission. Higher direct share = more margin.</p>
           </CardContent>
         </Card>
         <Card>
