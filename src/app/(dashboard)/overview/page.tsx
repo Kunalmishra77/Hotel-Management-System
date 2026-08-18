@@ -40,7 +40,9 @@ const iso = (d: Date) => d.toISOString().slice(0, 10);
 
 /** KpiCard delta props from a signed %-change; `goodDirection` colours it. */
 function deltaProps(d: number | null, goodDirection: "up" | "down" = "up") {
-  if (d === null) return { hint: "no prior data" };
+  // No comparable prior window (previous ≈ 0), or a swing so large the % is noise
+  // (e.g. first bookings in a fresh period) — show the value without a misleading delta.
+  if (d === null || Math.abs(d) > 300) return { hint: "vs previous" };
   const trend = d > 0.5 ? ("up" as const) : d < -0.5 ? ("down" as const) : ("flat" as const);
   return { trend, delta: `${d > 0 ? "+" : ""}${d.toFixed(0)}%`, goodDirection, hint: "vs previous" };
 }

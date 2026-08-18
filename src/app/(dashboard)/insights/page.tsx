@@ -15,7 +15,7 @@ export const metadata: Metadata = { title: "Portfolio insights" };
 const pct = (bps: number) => `${(bps / 100).toFixed(0)}%`;
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 function deltaProps(d: number | null, goodDirection: "up" | "down" = "up") {
-  if (d === null) return { hint: "no prior data" };
+  if (d === null || Math.abs(d) > 300) return { hint: "vs previous" };
   const trend = d > 0.5 ? ("up" as const) : d < -0.5 ? ("down" as const) : ("flat" as const);
   return { trend, delta: `${d > 0 ? "+" : ""}${d.toFixed(0)}%`, goodDirection, hint: "vs previous" };
 }
