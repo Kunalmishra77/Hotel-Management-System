@@ -30,6 +30,10 @@ const SOURCE_LABEL: Record<string, string> = {
 };
 const sourceLabel = (s: string) => SOURCE_LABEL[s] ?? s.replace(/_/g, " ").toLowerCase();
 const pct = (bps: number) => `${Math.round(bps / 100)}%`;
+
+// Channel families — direct earns full margin; OTA carries commission.
+const DIRECT_SOURCES = new Set(["DIRECT", "WEBSITE", "PHONE", "WALK_IN"]);
+const OTA_SOURCES = new Set(["BOOKING_COM", "MAKEMYTRIP", "GOIBIBO", "AGODA", "AIRBNB"]);
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
 /** KpiCard delta props from a signed %-change; `goodDirection` colours it. */
@@ -79,6 +83,12 @@ export default async function OverviewPage({
 
   const gopparNow = goppar(t.profitPaise, t.revenuePaise, t.revparPaise);
   const gopparPrev = goppar(p.profitPaise, p.revenuePaise, p.revparPaise);
+
+  // Channel mix — direct vs OTA vs corporate/other, from the revenue-by-source split.
+  const directRev = segs.bySource.filter((s) => DIRECT_SOURCES.has(s.source)).reduce((a, s) => a + s.revenuePaise, 0);
+  const otaRev = segs.bySource.filter((s) => OTA_SOURCES.has(s.source)).reduce((a, s) => a + s.revenuePaise, 0);
+  const otherRev = Math.max(0, t.revenuePaise - directRev - otaRev);
+  const directRatio = t.revenuePaise > 0 ? Math.round((directRev / t.revenuePaise) * 100) : 0;
 
   // Ranked league (by revenue) → best & worst spotlight.
   const ranked = [...portfolio.properties].sort((a, b) => b.revenuePaise - a.revenuePaise);
@@ -172,8 +182,33 @@ export default async function OverviewPage({
         </div>
       ) : null}
 
-      {/* Revenue by source + top corporates */}
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+      {/* Channel mix + revenue by source + top corporates */}
+      <div className="mt-4 grid gap-4 lg:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-baseline justify-between gap-2 text-base">
+              Channel mix
+              <span className="text-sm font-normal text-muted-foreground">{directRatio}% direct</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex h-2.5 overflow-hidden rounded-full bg-muted">
+              {t.revenuePaise > 0 ? (
+                <>
+                  <div className="bg-success" style={{ width: `${(directRev / t.revenuePaise) * 100}%` }} title="Direct" />
+                  <div className="bg-primary" style={{ width: `${(otaRev / t.revenuePaise) * 100}%` }} title="OTA" />
+                  <div className="bg-[hsl(var(--brand-brass))]" style={{ width: `${(otherRev / t.revenuePaise) * 100}%` }} title="Corporate / other" />
+                </>
+              ) : null}
+            </div>
+            <ul className="space-y-1.5 text-sm">
+              <li className="flex items-center justify-between"><span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-success" /> Direct</span><span className="tabular font-medium">{formatINR(directRev)}</span></li>
+              <li className="flex items-center justify-between"><span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-primary" /> OTA (commissioned)</span><span className="tabular font-medium">{formatINR(otaRev)}</span></li>
+              <li className="flex items-center justify-between"><span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-[hsl(var(--brand-brass))]" /> Corporate / other</span><span className="tabular font-medium">{formatINR(otherRev)}</span></li>
+            </ul>
+            <p className="text-xs text-muted-foreground">Higher direct share = less OTA commission = more margin.</p>
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-base">Revenue by source</CardTitle></CardHeader>
           <CardContent>
