@@ -34,6 +34,7 @@ import { seedDemoExtras } from "./27-demo-extras";
 import { seedDemoPortfolio } from "./28-demo-portfolio";
 import { seedDemoRich } from "./29-demo-rich";
 import { seedDemoCustomer } from "./30-demo-customer";
+import { seedDemoHauzKhas } from "./31-demo-hauzkhas";
 import { seedScale } from "./scale";
 
 const prisma = new PrismaClient();
@@ -110,21 +111,33 @@ export async function seedDatabase(client: PrismaClient, opts: { log?: boolean }
   //             Use this for a tidy live demo — ~1-2 properties, not 13.
   //   default → the full multi-hotel demo.
   const demoLite = process.env.SEED_DEMO === "lite";
+  // "hauzkhas" → the client's real 4-property Hauz Khas portfolio at
+  // India-realistic scale (16 rooms, low-lakh monthly revenue). Skips every
+  // generic multi-hotel inflator (27/28/portfolio-fill/29) which model large
+  // hotels and would drown the small real numbers.
+  const demoHauzKhas = process.env.SEED_DEMO === "hauzkhas";
   if (process.env.SEED_DEMO !== "false") {
-    if (!demoLite) {
-      await seedDemoExtras(client);
-      say("  ✔ 27-demo-extras (owner payouts, renewal dates, laundry batches, field-staff)");
-      await seedDemoPortfolio(client);
-      say("  ✔ 28-demo-portfolio (5 hotels + managers + 30-day snapshots)");
-      await seedPortfolioFill(client);
-      say("  ✔ portfolio-fill (rooms + guests + bookings for the 4 non-flagship hotels)");
+    if (demoHauzKhas) {
+      await seedDemoHauzKhas(client);
+      say("  ✔ 31-demo-hauzkhas (4 Hauz Khas blocks · 16 rooms · ₹2.5-3.5k tariffs · realistic bookings)");
+      await seedDemoCustomer(client);
+      say("  ✔ 30-demo-customer (login-able guest account + in-room request, lost&found, expense to approve)");
     } else {
-      say("  · lite demo: skipping multi-hotel enrichment (27-extras, 28-portfolio, portfolio-fill)");
+      if (!demoLite) {
+        await seedDemoExtras(client);
+        say("  ✔ 27-demo-extras (owner payouts, renewal dates, laundry batches, field-staff)");
+        await seedDemoPortfolio(client);
+        say("  ✔ 28-demo-portfolio (5 hotels + managers + 30-day snapshots)");
+        await seedPortfolioFill(client);
+        say("  ✔ portfolio-fill (rooms + guests + bookings for the 4 non-flagship hotels)");
+      } else {
+        say("  · lite demo: skipping multi-hotel enrichment (27-extras, 28-portfolio, portfolio-fill)");
+      }
+      await seedDemoRich(client);
+      say("  ✔ 29-demo-rich (15 rooms, 28 guests, 54 reservations, folios+payments, HK/maint/feedback)");
+      await seedDemoCustomer(client);
+      say("  ✔ 30-demo-customer (login-able guest account + in-room request, lost&found, a major expense to approve)");
     }
-    await seedDemoRich(client);
-    say("  ✔ 29-demo-rich (15 rooms, 28 guests, 54 reservations, folios+payments, HK/maint/feedback)");
-    await seedDemoCustomer(client);
-    say("  ✔ 30-demo-customer (login-able guest account + in-room request, lost&found, a major expense to approve)");
   } else {
     say("  · demo seeds skipped (SEED_DEMO=false)");
   }
