@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowUpRight, Trophy, TrendingDown } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
-import { parsePeriod, periodRange, PERIODS, PERIOD_LABEL } from "@/features/command-center/domain/period";
+import { parsePeriod, periodRange, PERIOD_PRESETS, PERIOD_LABEL } from "@/features/command-center/domain/period";
 import { getPortfolio, type PortfolioProperty } from "@/features/command-center/queries";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
@@ -48,10 +48,10 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
         description={`Every hotel, ranked · ${periodLabel}`}
         actions={
           <div className="inline-flex items-center rounded-lg border bg-card p-0.5 text-sm" role="group" aria-label="Date range">
-            {PERIODS.map((per) => (
+            {PERIOD_PRESETS.map((per) => (
               <Link
                 key={per}
-                href={per === "30d" ? "/insights" : `/insights?period=${per}`}
+                href={per === "mtd" ? "/insights" : `/insights?period=${per}`}
                 className={per === period ? "rounded-md bg-primary px-2.5 py-1 font-medium text-primary-foreground" : "rounded-md px-2.5 py-1 text-muted-foreground hover:text-foreground"}
               >
                 {PERIOD_LABEL[per]}
