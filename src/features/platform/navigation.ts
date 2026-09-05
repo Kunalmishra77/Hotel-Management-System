@@ -398,22 +398,6 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: "ShieldCheck",
     permission: "user:manage",
   },
-  {
-    // Architecture v2 · SaaS — the org's plan, modules & billing.
-    key: "subscription",
-    label: "Subscription",
-    href: "/settings/subscription",
-    icon: "Coins",
-    permission: "settings:manage",
-  },
-  {
-    // Architecture v2 · SaaS — white-label branding.
-    key: "branding",
-    label: "Branding",
-    href: "/settings/branding",
-    icon: "Sparkles",
-    permission: "settings:manage",
-  },
 ];
 
 /** Items the caller may actually reach. */
