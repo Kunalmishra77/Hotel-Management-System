@@ -11,7 +11,8 @@ Each phase lists what already exists so we don't rebuild, and what's actually mi
 - ✅ **Phase 2** (2026-09-05) — Billing shows guest folios/open accounts (fix: paid check-ins were invisible because the page listed only invoices); checkout auto-issues the GST invoice (best-effort, idempotent). Verified 21 live folios now list. Pushed.
 - ✅ **Phase 3** (2026-09-05) — Guest edit form + route (`/guests/[id]/edit`), reachable pre/post check-in (guest is not status-gated). `updateGuest` now persists ALL editable fields; added `dob` (age) capture; contacts edit blank-to-keep (no PII surfaced). Build green, pushed. *Reservation-detail edits (dates/room/occupancy) fold into Phase 4.*
 - ✅ **Phase 4** (2026-09-05) — `ReservationGuest` model + migration (applied to live). Add/remove accompanying guests on a booking (no new booking) + occupancy (adults/children) edit, on the booking detail; active-booking gated, `reservation:modify`, audited. Build green, pushed. *Extra-bed-as-charge → Phase 5.*
-- ⏳ **Phase 5** — next: dynamic bill adjustments (rate override, discount, reception add-ons, extra bed) with live recalculation.
+- ✅ **Phase 5** (2026-09-05) — Dynamic bill adjustments on the folio: wired the built-but-hidden **Discount** action into the UI, and added **ROOM** to the charge types (room-price increase / upgrade / extra night). With existing +Charge (EXTRA_BED / services) and Phase-4 extra guests, staff can now increase/decrease price, discount, add extra bed/services — balance auto-recalculates (derived). Append-only + audited. Build green, pushed.
+- ⏳ **Phase 6** — next: Super-Admin Bookings section + complete Booking Details page.
 
 ---
 
