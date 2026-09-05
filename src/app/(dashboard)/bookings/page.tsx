@@ -6,6 +6,7 @@ import { hasPermission } from "@/lib/permissions";
 import { arrivalsDepartures, listReservations, bookingsOverview } from "@/features/reservations/queries";
 import { trend } from "@/features/analytics/queries";
 import { resolvePortal } from "@/features/platform/portals";
+import { SuperAdminBookings } from "@/features/command-center/components/super-admin-bookings";
 import { parseBoardView, BOARD_VIEW_LABEL } from "@/features/reservations/domain/board-view";
 import { ReservationBoard } from "@/features/reservations/components/reservation-board";
 import { ManagerBookings } from "@/features/reservations/components/manager-bookings";
@@ -52,11 +53,21 @@ const STATUS_STEPS: { key: string; label: string; tone: string }[] = [
 export default async function BookingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string }>;
+  searchParams: Promise<{ view?: string; period?: string; from?: string; to?: string }>;
 }) {
   const user = await requirePermission("reservation:view");
+  const sp = await searchParams;
+  const portal = resolvePortal(user.roleAssignments.map((r) => r.role));
+
+  // Super-Admin reads Bookings as a portfolio: totals + per-property outcomes +
+  // a recent-bookings feed across EVERY property — not a single-property board,
+  // so it runs before the activePropertyId guard.
+  if (portal === "SUPER_ADMIN" && hasPermission(user, "report:view-financial")) {
+    return <SuperAdminBookings user={user} sp={sp} />;
+  }
+
   const propertyId = user.activePropertyId;
-  const view = parseBoardView((await searchParams).view);
+  const view = parseBoardView(sp.view);
 
   if (!propertyId) {
     return <div className="p-4"><p className="text-sm text-muted-foreground">Select a property to see its bookings.</p></div>;
@@ -65,7 +76,6 @@ export default async function BookingsPage({
   // Page-level portal identity: a Manager reads Bookings as performance & insights
   // (volume, funnel, occupancy trend, source mix) — NOT the front desk's
   // operational check-in board. Same route, completely different page.
-  const portal = resolvePortal(user.roleAssignments.map((r) => r.role));
   if (portal === "MANAGER") {
     const now = new Date();
     const trendFrom = new Date(now.getTime() - 13 * 86_400_000);

@@ -8,6 +8,8 @@ import { getReservation, getReservationGuestPanel } from "@/features/reservation
 import { ConfirmBookingButton } from "@/features/reservations/components/confirm-booking-button";
 import { ReservationGuestsCard } from "@/features/reservations/components/reservation-guests-card";
 import { getBalance } from "@/features/billing";
+import { getReservationFolio } from "@/features/billing/queries";
+import { BookingBillSummary } from "@/features/reservations/components/booking-bill-summary";
 import { Badge } from "@/components/ui/badge";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
@@ -37,9 +39,10 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
   const canConfirm = r.status === "ENQUIRY" && hasPermission(user, "reservation:create");
   const canCheckIn = r.status === "CONFIRMED" && hasPermission(user, "checkin:perform");
   const canManageGuests = hasPermission(user, "reservation:modify");
-  const [balancePaise, guestPanel] = await Promise.all([
+  const [balancePaise, guestPanel, billFolio] = await Promise.all([
     canFolio ? getBalance(user, id) : Promise.resolve(null),
     getReservationGuestPanel(user, id),
+    canFolio ? getReservationFolio(user, id) : Promise.resolve(null),
   ]);
 
   return (
@@ -132,6 +135,10 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
           </Card>
         ) : null}
       </div>
+
+      {billFolio ? (
+        <BookingBillSummary folio={billFolio} reservationId={r.id} canManageFolio={hasPermission(user, "folio:charge")} />
+      ) : null}
 
       {guestPanel ? (
         <ReservationGuestsCard

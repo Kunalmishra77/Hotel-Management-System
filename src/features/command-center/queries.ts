@@ -130,3 +130,84 @@ export async function portfolioBookingCounts(
   const denom = bookings + cancelled + noShow;
   return { bookings, cancelled, noShow, cancelRatePct: denom > 0 ? Math.round(((cancelled + noShow) / denom) * 100) : 0 };
 }
+
+export type PropertyBookingStat = {
+  propertyId: string;
+  name: string;
+  bookings: number;
+  cancelled: number;
+  noShow: number;
+};
+
+/** Per-property booking outcomes over a window (Super-Admin Bookings section). */
+export async function perPropertyBookingCounts(
+  user: SessionClaims,
+  input: { propertyIds: string[]; from: Date; to: Date },
+): Promise<PropertyBookingStat[]> {
+  authorize(user, "report:view-financial", user.activePropertyId);
+  if (input.propertyIds.length === 0) return [];
+  const [groups, props] = await Promise.all([
+    db.scoped(user).reservation.groupBy({
+      by: ["propertyId", "status"],
+      where: { propertyId: { in: input.propertyIds }, checkInDate: { gte: input.from, lte: input.to } },
+      _count: { _all: true },
+    }),
+    db.scoped(user).property.findMany({
+      where: { id: { in: input.propertyIds }, deletedAt: null },
+      select: { id: true, name: true },
+      orderBy: { code: "asc" },
+    }),
+  ]);
+  const byProp = new Map<string, PropertyBookingStat>();
+  for (const p of props) byProp.set(p.id, { propertyId: p.id, name: p.name, bookings: 0, cancelled: 0, noShow: 0 });
+  for (const g of groups) {
+    const stat = byProp.get(g.propertyId);
+    if (!stat) continue;
+    const n = g._count._all;
+    const s = g.status as string;
+    if (s === "CANCELLED") stat.cancelled += n;
+    else if (s === "NO_SHOW") stat.noShow += n;
+    else if (s === "CONFIRMED" || s === "IN_HOUSE" || s === "CHECKED_OUT") stat.bookings += n;
+  }
+  return [...byProp.values()];
+}
+
+export type PortfolioBookingRow = {
+  id: string;
+  code: string;
+  guestName: string;
+  propertyName: string;
+  status: string;
+  source: string;
+  checkInDate: Date;
+  checkOutDate: Date;
+};
+
+/** The most-recent bookings across every accessible property (newest first). */
+export async function recentPortfolioBookings(
+  user: SessionClaims,
+  input: { propertyIds: string[]; limit?: number },
+): Promise<PortfolioBookingRow[]> {
+  authorize(user, "report:view-financial", user.activePropertyId);
+  if (input.propertyIds.length === 0) return [];
+  const rows = await db.scoped(user).reservation.findMany({
+    where: { propertyId: { in: input.propertyIds } },
+    select: {
+      id: true, code: true, status: true, source: true, checkInDate: true, checkOutDate: true,
+      guest: { select: { fullName: true } },
+      property: { select: { name: true } },
+    },
+    orderBy: { createdAt: "desc" },
+    take: input.limit ?? 25,
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    code: r.code,
+    guestName: r.guest?.fullName ?? "—",
+    propertyName: r.property?.name ?? "—",
+    status: r.status,
+    source: r.source,
+    checkInDate: r.checkInDate,
+    checkOutDate: r.checkOutDate,
+  }));
+}

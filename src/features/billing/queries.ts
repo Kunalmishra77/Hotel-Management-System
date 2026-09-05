@@ -34,6 +34,27 @@ export async function getFolio(user: SessionClaims, folioId: string): Promise<Fo
   };
 }
 
+/** Full folio (lines + payments + derived balance) for a reservation — powers the
+ *  complete booking-details financial breakdown. Property-scoped. */
+export async function getReservationFolio(user: SessionClaims, reservationId: string): Promise<FolioView | null> {
+  const folio = await db.scoped(user).folio.findFirst({
+    where: { reservationId },
+    select: {
+      id: true,
+      lines: { select: { id: true, type: true, description: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true }, orderBy: { createdAt: "asc" } },
+      payments: { select: { id: true, mode: true, amountPaise: true, isRefund: true }, orderBy: { receivedAt: "asc" } },
+    },
+  });
+  if (!folio) return null;
+  const balance = folioBalance(folio.lines, folio.payments);
+  return {
+    id: folio.id,
+    balancePaise: Number(balance),
+    lines: folio.lines.map((l) => ({ ...l, amountPaise: Number(l.amountPaise) })),
+    payments: folio.payments.map((p) => ({ ...p, amountPaise: Number(p.amountPaise) })),
+  };
+}
+
 export type InvoiceListItem = {
   id: string;
   number: string;
