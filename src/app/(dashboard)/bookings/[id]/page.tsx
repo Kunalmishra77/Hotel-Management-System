@@ -4,8 +4,9 @@ import Link from "next/link";
 import { CalendarDays, IndianRupee, ReceiptText, UserCheck } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
 import { hasPermission } from "@/lib/permissions";
-import { getReservation } from "@/features/reservations/queries";
+import { getReservation, getReservationGuestPanel } from "@/features/reservations/queries";
 import { ConfirmBookingButton } from "@/features/reservations/components/confirm-booking-button";
+import { ReservationGuestsCard } from "@/features/reservations/components/reservation-guests-card";
 import { getBalance } from "@/features/billing";
 import { Badge } from "@/components/ui/badge";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
@@ -35,7 +36,11 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
   const canFolio = hasPermission(user, "folio:view");
   const canConfirm = r.status === "ENQUIRY" && hasPermission(user, "reservation:create");
   const canCheckIn = r.status === "CONFIRMED" && hasPermission(user, "checkin:perform");
-  const balancePaise = canFolio ? await getBalance(user, id) : null;
+  const canManageGuests = hasPermission(user, "reservation:modify");
+  const [balancePaise, guestPanel] = await Promise.all([
+    canFolio ? getBalance(user, id) : Promise.resolve(null),
+    getReservationGuestPanel(user, id),
+  ]);
 
   return (
     <div className="mx-auto w-full max-w-2xl">
@@ -127,6 +132,17 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
           </Card>
         ) : null}
       </div>
+
+      {guestPanel ? (
+        <ReservationGuestsCard
+          reservationId={r.id}
+          status={r.status}
+          adults={guestPanel.adults}
+          childCount={guestPanel.children}
+          guests={guestPanel.guests}
+          canManage={canManageGuests}
+        />
+      ) : null}
     </div>
   );
 }

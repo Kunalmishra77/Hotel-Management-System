@@ -73,6 +73,27 @@ export const cancelReservationSchema = z.object({
   reason: z.string().min(1).max(500),
 });
 
+/** Add an accompanying guest (occupant) to an existing booking — no new booking. */
+export const addReservationGuestSchema = z.object({
+  reservationId: z.string().min(1),
+  fullName: z.string().trim().min(1, "Name is required.").max(120),
+  age: z.coerce.number().int().min(0).max(120).optional().nullable(),
+  gender: z.string().trim().max(20).optional().nullable().or(z.literal("").transform(() => null)),
+  relation: z.string().trim().max(40).optional().nullable().or(z.literal("").transform(() => null)),
+});
+export type AddReservationGuestInput = z.infer<typeof addReservationGuestSchema>;
+
+export const removeReservationGuestSchema = z.object({
+  reservationGuestId: z.string().min(1),
+});
+
+/** Adjust occupancy counts on a booking (post-booking / during stay). */
+export const updateOccupancySchema = z.object({
+  reservationId: z.string().min(1),
+  adults: z.coerce.number().int().min(1).max(30),
+  children: z.coerce.number().int().min(0).max(30),
+});
+
 export const reallocateRoomSchema = z.object({
   reservationId: z.string().min(1),
   toRoomId: z.string().min(1).optional(),

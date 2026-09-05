@@ -495,3 +495,33 @@ export async function reservationCalendar(
     status: a.reservation.status,
   }));
 }
+
+export type ReservationGuestPanel = {
+  adults: number;
+  children: number;
+  guests: { id: string; fullName: string; age: number | null; gender: string | null; relation: string | null }[];
+};
+
+/**
+ * Occupancy + accompanying guests for a booking's guest-management panel.
+ * Property-scoped; `reservation:view` is enforced on the page. The primary guest
+ * is on the reservation itself — these are the additional occupants (03 add-ons).
+ */
+export async function getReservationGuestPanel(
+  user: SessionClaims,
+  reservationId: string,
+): Promise<ReservationGuestPanel | null> {
+  const r = await db.scoped(user).reservation.findFirst({
+    where: { id: reservationId },
+    select: {
+      adults: true,
+      children: true,
+      accompanyingGuests: {
+        select: { id: true, fullName: true, age: true, gender: true, relation: true },
+        orderBy: { createdAt: "asc" },
+      },
+    },
+  });
+  if (!r) return null;
+  return { adults: r.adults, children: r.children, guests: r.accompanyingGuests };
+}

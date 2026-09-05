@@ -103,6 +103,7 @@ model Property {
   assets            Asset[]
   roomInspections   RoomInspection[]
   guestMessages     GuestMessage[]
+  reservationGuests ReservationGuest[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -593,6 +594,7 @@ model Reservation {
   cform            CForm?
   addOnRequests    AddOnRequest[]
   guestMessages    GuestMessage[]
+  accompanyingGuests ReservationGuest[]
 
   notes     String?
   createdAt DateTime @default(now())
@@ -605,6 +607,29 @@ model Reservation {
   @@index([corporateId])
   @@index([travelAgentId])
   @@index([channelRef])
+}
+
+// Accompanying occupants on a booking — the guest add-ons captured at/after
+// check-in (03 FR — extra guests without a new booking). The PRIMARY guest is
+// Reservation.guest (a CRM Guest); these are the additional people sharing the
+// room, recorded lightly for the register + occupancy. No ID NUMBERS are stored
+// here (avoid PII at rest) — a companion needing a full record is created as a
+// Guest. Cascade-deletes with the reservation.
+model ReservationGuest {
+  id            String      @id @default(cuid())
+  propertyId    String
+  property      Property    @relation(fields: [propertyId], references: [id])
+  reservationId String
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  fullName      String
+  age           Int?
+  gender        String?
+  relation      String? // relationship to the primary guest (e.g. Spouse, Child, Colleague)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([reservationId])
+  @@index([propertyId])
 }
 
 // Digital registration card + e-signature captured at check-in (03 T6, MoM).

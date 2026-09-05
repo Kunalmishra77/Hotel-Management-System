@@ -10,7 +10,8 @@ Each phase lists what already exists so we don't rebuild, and what's actually mi
 - ✅ **Phase 1** (2026-09-05) — Subscription + Branding removed from Super-Admin; feature backend kept for plan-gating. Build green, pushed.
 - ✅ **Phase 2** (2026-09-05) — Billing shows guest folios/open accounts (fix: paid check-ins were invisible because the page listed only invoices); checkout auto-issues the GST invoice (best-effort, idempotent). Verified 21 live folios now list. Pushed.
 - ✅ **Phase 3** (2026-09-05) — Guest edit form + route (`/guests/[id]/edit`), reachable pre/post check-in (guest is not status-gated). `updateGuest` now persists ALL editable fields; added `dob` (age) capture; contacts edit blank-to-keep (no PII surfaced). Build green, pushed. *Reservation-detail edits (dates/room/occupancy) fold into Phase 4.*
-- ⏳ **Phase 4** — next: accompanying-guests model (needs migration) + occupancy/extra-bed adjustments.
+- ✅ **Phase 4** (2026-09-05) — `ReservationGuest` model + migration (applied to live). Add/remove accompanying guests on a booking (no new booking) + occupancy (adults/children) edit, on the booking detail; active-booking gated, `reservation:modify`, audited. Build green, pushed. *Extra-bed-as-charge → Phase 5.*
+- ⏳ **Phase 5** — next: dynamic bill adjustments (rate override, discount, reception add-ons, extra bed) with live recalculation.
 
 ---
 
