@@ -47,6 +47,13 @@ export const createGuestSchema = z.object({
   whatsapp: z.string().trim().optional().nullable(),
   email: emailSchema,
   gender: optionalString(20),
+  dob: z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date like 1990-05-01.")
+    .optional()
+    .nullable()
+    .or(z.literal("").transform(() => null)),
   nationality: optionalString(60),
   occupation: optionalString(60),
   addressLine: optionalString(200),

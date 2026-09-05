@@ -35,10 +35,12 @@ const ID_TYPES = ["AADHAAR", "PASSPORT", "DRIVING_LICENCE", "VOTER_ID", "PAN", "
 export function GuestProfile({
   guest,
   canRevealPii,
+  canManage = false,
   tier,
 }: {
   guest: GuestProfileData;
   canRevealPii: boolean;
+  canManage?: boolean;
   tier: GuestTierInfo;
 }) {
   const [reveal, setReveal] = useState<RevealTarget | null>(null);
@@ -56,9 +58,16 @@ export function GuestProfile({
             {guest.companyName && <Badge variant="secondary">Corporate</Badge>}
           </div>
         </div>
-        <Button asChild variant="outline" size="sm">
-          <Link href="/guests">Back</Link>
-        </Button>
+        <div className="flex shrink-0 gap-2">
+          {canManage && (
+            <Button asChild size="sm" data-testid="edit-guest">
+              <Link href={`/guests/${guest.id}/edit`}>Edit</Link>
+            </Button>
+          )}
+          <Button asChild variant="outline" size="sm">
+            <Link href="/guests">Back</Link>
+          </Button>
+        </div>
       </div>
 
       <Card>

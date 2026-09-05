@@ -89,6 +89,7 @@ export async function createGuest(input: unknown): Promise<Result<GuestCreated>>
             orgId: user.orgId,
             fullName: data.fullName,
             gender: data.gender ?? null,
+            dob: data.dob ? new Date(data.dob) : null,
             nationality: data.nationality ?? null,
             occupation: data.occupation ?? null,
             addressLine: data.addressLine ?? null,
@@ -160,13 +161,23 @@ export async function updateGuest(input: unknown): Promise<Result<GuestCreated>>
             ...stripUndefined({
               fullName: patch.fullName,
               gender: patch.gender,
+              // @db.Date — undefined skips, null clears, string sets.
+              dob: patch.dob !== undefined ? (patch.dob ? new Date(patch.dob) : null) : undefined,
+              nationality: patch.nationality,
+              occupation: patch.occupation,
+              addressLine: patch.addressLine,
               city: patch.city,
               state: patch.state,
+              country: patch.country,
+              pincode: patch.pincode,
               companyName: patch.companyName,
               gstNumber: patch.gstNumber,
+              purposeOfVisit: patch.purposeOfVisit,
               specialRequests: patch.specialRequests,
               foodPreference: patch.foodPreference,
               medicalNotes: patch.medicalNotes,
+              preferredRoomCategoryId: patch.preferredRoomCategoryId,
+              preferredFloor: patch.preferredFloor,
             }),
             // Recompute the encrypted value + search token together on change.
             ...contactColumns({

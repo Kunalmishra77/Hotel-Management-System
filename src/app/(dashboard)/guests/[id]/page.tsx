@@ -31,7 +31,12 @@ export default async function GuestProfilePage({
 
   return (
     <div className="space-y-4">
-      <GuestProfile guest={guest} canRevealPii={hasPermission(user, "guest:view-pii")} tier={tier} />
+      <GuestProfile
+        guest={guest}
+        canRevealPii={hasPermission(user, "guest:view-pii")}
+        canManage={hasPermission(user, "guest:manage")}
+        tier={tier}
+      />
       <div className="mx-auto w-full max-w-2xl px-4 pb-4">
         <GuestHistorySection history={history} preferredCategoryName={preferredCategory?.name ?? null} />
       </div>

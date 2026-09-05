@@ -13,6 +13,7 @@
  */
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
+import { authorize } from "@/lib/permissions";
 import { decryptOptional, keyedHash } from "@/lib/crypto/encryption";
 import { maskContact } from "./domain/masking";
 import { duplicateScore, isProbableDuplicate } from "./domain/dedupe";
@@ -301,6 +302,71 @@ export async function getGuestProfile(
       maskedValue: id.maskedValue,
       hasScan: id.scanObjectKey !== null,
     })),
+  };
+}
+
+export type GuestEditData = {
+  id: string;
+  fullName: string;
+  gender: string | null;
+  dob: string | null; // yyyy-mm-dd for the date input
+  nationality: string | null;
+  occupation: string | null;
+  addressLine: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  pincode: string | null;
+  companyName: string | null;
+  gstNumber: string | null;
+  purposeOfVisit: string | null;
+  specialRequests: string | null;
+  foodPreference: string | null;
+  medicalNotes: string | null;
+  maskedMobile: string | null;
+  maskedWhatsapp: string | null;
+  maskedEmail: string | null;
+};
+
+/**
+ * Editable guest fields for the edit form (`guest:manage`). Non-PII fields are
+ * pre-filled; contact fields come back MASKED (a hint) and the form leaves them
+ * blank — blank means "keep unchanged" — so correcting a name/age/address never
+ * surfaces full PII, and a wrong contact is fixed by typing the new value.
+ */
+export async function getGuestForEdit(user: SessionClaims, guestId: string): Promise<GuestEditData | null> {
+  authorize(user, "guest:manage");
+  const g = await db.unscoped().guest.findFirst({
+    where: { id: guestId, orgId: user.orgId, deletedAt: null },
+    select: {
+      id: true, fullName: true, gender: true, dob: true, nationality: true, occupation: true,
+      addressLine: true, city: true, state: true, country: true, pincode: true,
+      companyName: true, gstNumber: true, purposeOfVisit: true, specialRequests: true,
+      foodPreference: true, medicalNotes: true, mobile: true, whatsapp: true, email: true,
+    },
+  });
+  if (!g) return null;
+  return {
+    id: g.id,
+    fullName: g.fullName,
+    gender: g.gender,
+    dob: g.dob ? g.dob.toISOString().slice(0, 10) : null,
+    nationality: g.nationality,
+    occupation: g.occupation,
+    addressLine: g.addressLine,
+    city: g.city,
+    state: g.state,
+    country: g.country,
+    pincode: g.pincode,
+    companyName: g.companyName,
+    gstNumber: g.gstNumber,
+    purposeOfVisit: g.purposeOfVisit,
+    specialRequests: g.specialRequests,
+    foodPreference: g.foodPreference,
+    medicalNotes: g.medicalNotes,
+    maskedMobile: maskContact(decryptOptional(g.mobile), "mobile"),
+    maskedWhatsapp: maskContact(decryptOptional(g.whatsapp), "mobile"),
+    maskedEmail: maskContact(decryptOptional(g.email), "email"),
   };
 }
 

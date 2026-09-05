@@ -15,7 +15,7 @@
  */
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
-import { createGuest } from "./actions";
+import { createGuest, updateGuest } from "./actions";
 import { addGuestId } from "./id-actions";
 import { findGuestDuplicates, type DuplicateCandidate } from "./queries";
 
@@ -78,6 +78,54 @@ export async function createGuestFormAction(
     if (candidates.length > 0) return { status: "duplicate", candidates, draft };
   }
 
+  return {
+    status: "error",
+    message: result.error.message,
+    fieldErrors: result.error.fieldErrors,
+  };
+}
+
+/**
+ * Edit an existing guest (FR-2) — correct any detail, including after check-in
+ * (a guest is a permanent record, not gated by reservation status). Non-contact
+ * fields are sent as typed (blank clears an optional field); contact fields are
+ * sent ONLY when re-typed, so a blank mobile/email/whatsapp keeps the current
+ * value (the form shows it masked). On success we return to the profile.
+ */
+export async function updateGuestFormAction(
+  _prev: GuestFormState,
+  formData: FormData,
+): Promise<GuestFormState> {
+  const id = field(formData, "id");
+  const mobile = field(formData, "mobile");
+  const email = field(formData, "email");
+  const whatsapp = field(formData, "whatsapp");
+
+  const result = await updateGuest({
+    id,
+    fullName: field(formData, "fullName"),
+    gender: field(formData, "gender") || null,
+    dob: field(formData, "dob"), // "" → schema coerces to null (clears DOB)
+    nationality: field(formData, "nationality") || null,
+    occupation: field(formData, "occupation") || null,
+    addressLine: field(formData, "addressLine") || null,
+    city: field(formData, "city") || null,
+    state: field(formData, "state") || null,
+    country: field(formData, "country") || null,
+    pincode: field(formData, "pincode") || null,
+    companyName: field(formData, "companyName") || null,
+    gstNumber: field(formData, "gstNumber") || null,
+    purposeOfVisit: field(formData, "purposeOfVisit") || null,
+    specialRequests: field(formData, "specialRequests") || null,
+    foodPreference: field(formData, "foodPreference") || null,
+    medicalNotes: field(formData, "medicalNotes") || null,
+    // Contact only when re-typed — blank keeps the stored value unchanged.
+    ...(mobile ? { mobile } : {}),
+    ...(email ? { email } : {}),
+    ...(whatsapp ? { whatsapp } : {}),
+  });
+
+  if (result.ok) redirect(`/guests/${id}`);
   return {
     status: "error",
     message: result.error.message,
