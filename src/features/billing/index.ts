@@ -84,3 +84,7 @@ export {
   bookingExtraLineData,
   type BillingPostTx,
 } from "./tx-post";
+
+/** Auto-issue the GST tax invoice for a stay at check-out (best-effort, idempotent).
+ *  03's check-out calls this AFTER its transaction commits. */
+export { autoIssueInvoiceOnCheckout } from "./invoice-actions";

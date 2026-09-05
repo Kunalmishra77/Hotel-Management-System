@@ -12,7 +12,7 @@
  * renumber.
  */
 import { requireUser } from "@/lib/auth";
-import { authorize } from "@/lib/permissions";
+import { authorize, hasPermission } from "@/lib/permissions";
 import { writeAudit } from "@/lib/audit";
 import { emitEvent } from "@/lib/events";
 import { NotFoundError } from "@/lib/errors";
@@ -132,6 +132,42 @@ async function attachInvoicePdf(
   } catch (e) {
     // Non-fatal: the invoice is valid; the render is retried by a follow-up job.
     void e;
+  }
+}
+
+/**
+ * Auto-issue the GST tax invoice for a reservation's folio at check-out.
+ *
+ * Room-nights are posted at check-out, so this is the correct moment to raise the
+ * statutory invoice — previously it was only ever created by the manual folio
+ * button, so a checked-out + paid stay left no invoice in the register (the
+ * reported "billing not appearing" bug). Best-effort + idempotent: never throws
+ * (check-out must not depend on it), skips folios that are empty or already
+ * invoiced, and no-ops when the caller lacks `invoice:generate` — the manual
+ * button stays available as the fallback.
+ */
+export async function autoIssueInvoiceOnCheckout(reservationId: string): Promise<void> {
+  try {
+    const user = await requireUser();
+    const folio = await billingDb(user).folio.findFirst({
+      where: { reservationId },
+      select: {
+        id: true,
+        lines: { select: { id: true }, take: 1 },
+        invoices: { where: { type: "TAX_INVOICE" }, select: { id: true }, take: 1 },
+        reservation: { select: { guest: { select: { fullName: true, gstNumber: true } } } },
+      },
+    });
+    if (!folio || folio.lines.length === 0 || folio.invoices.length > 0) return;
+    if (!hasPermission(user, "invoice:generate")) return;
+    const guest = folio.reservation?.guest;
+    await generateInvoice({
+      folioId: folio.id,
+      customerName: guest?.fullName ?? "Guest",
+      customerGstin: guest?.gstNumber ?? undefined,
+    });
+  } catch {
+    // Non-fatal — the manual "Generate GST invoice" action remains the fallback.
   }
 }
 

@@ -99,6 +99,70 @@ export async function getBalance(user: SessionClaims, reservationId: string): Pr
   return Number(folioBalance(folio.lines, folio.payments));
 }
 
+export type BillingFolioRow = {
+  folioId: string;
+  reservationId: string | null;
+  code: string;
+  guestName: string;
+  status: string;
+  chargesPaise: number;
+  paidPaise: number;
+  balancePaise: number;
+};
+
+/**
+ * Open / recent folios for the Billing home. This is the fix for "a checked-in +
+ * paid booking doesn't appear in Billing": that stay creates a Folio + Payment
+ * but no Invoice yet, and the invoice register lists only Invoices. Listing the
+ * FOLIOS themselves (guest, charges, paid, derived balance) makes every stay with
+ * money on it visible immediately — open accounts (balance due) ranked first.
+ * `folio:view`, property-scoped. Balance uses the canonical `folioBalance`.
+ */
+export async function listBillingFolios(
+  user: SessionClaims,
+  input: { propertyId: string; limit?: number },
+): Promise<BillingFolioRow[]> {
+  authorize(user, "folio:view", input.propertyId);
+  const limit = input.limit ?? 50;
+  const folios = await db.scoped(user).folio.findMany({
+    where: { propertyId: input.propertyId },
+    select: {
+      id: true,
+      reservationId: true,
+      kind: true,
+      reservation: { select: { code: true, status: true, guest: { select: { fullName: true } } } },
+      lines: { select: { amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true } },
+      payments: { select: { amountPaise: true, isRefund: true } },
+      createdAt: true,
+    },
+    orderBy: { createdAt: "desc" },
+    take: limit * 2, // over-fetch; drop empty folios and re-rank open-first below
+  });
+
+  const rows = folios
+    .filter((f) => f.lines.length > 0 || f.payments.length > 0)
+    .map((f) => {
+      let charges = 0n;
+      for (const l of f.lines) charges += BigInt(l.amountPaise) + BigInt(l.cgstPaise) + BigInt(l.sgstPaise) + BigInt(l.igstPaise);
+      let paid = 0n;
+      for (const p of f.payments) paid += p.isRefund ? -BigInt(p.amountPaise) : BigInt(p.amountPaise);
+      return {
+        folioId: f.id,
+        reservationId: f.reservationId,
+        code: f.reservation?.code ?? "Walk-in / POS",
+        guestName: f.reservation?.guest?.fullName ?? "Direct sale",
+        status: f.reservation?.status ?? f.kind,
+        chargesPaise: Number(charges),
+        paidPaise: Number(paid),
+        balancePaise: Number(folioBalance(f.lines, f.payments)),
+      };
+    });
+
+  // Stable partition: open accounts (balance due) first, then most-recent order.
+  rows.sort((a, b) => (b.balancePaise > 0 ? 1 : 0) - (a.balancePaise > 0 ? 1 : 0));
+  return rows.slice(0, limit);
+}
+
 /** Revenue by charge category — net of discount, TAX-EXCLUDED (FR-24, AC-24). */
 export async function revenueByCategory(
   user: SessionClaims,

@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import { ReceiptText, Wallet, HandCoins, FileText } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
-import { billingOverview, searchInvoices } from "@/features/billing/queries";
+import { billingOverview, searchInvoices, listBillingFolios } from "@/features/billing/queries";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { PageHeader } from "@/components/ui/page-header";
 import { InvoicesTable } from "@/features/billing/components/invoices-table";
+import { OpenFoliosTable } from "@/features/billing/components/open-folios-table";
 import { formatINR } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Billing" };
@@ -27,9 +28,10 @@ export default async function BillingPage() {
     );
   }
 
-  const [overview, { invoices }] = await Promise.all([
+  const [overview, { invoices }, folios] = await Promise.all([
     billingOverview(user, propertyId),
     searchInvoices(user, { propertyId, limit: 25 }),
+    listBillingFolios(user, { propertyId, limit: 50 }),
   ]);
 
   return (
@@ -48,6 +50,12 @@ export default async function BillingPage() {
         <KpiCard label="Collected today" value={formatINR(overview.collectedTodayPaise)} icon={<HandCoins />} hint="Payments received" />
         <KpiCard label="Invoices this month" value={String(overview.invoicesThisMonth)} icon={<FileText />} hint="GST invoices issued" href="#invoices" />
       </div>
+
+      <section className="mt-6">
+        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Guest accounts &amp; folios</h2>
+        <p className="mb-2 text-xs text-muted-foreground">Every checked-in or charged stay, open balances first. Tap a row to open its folio.</p>
+        <OpenFoliosTable folios={folios} />
+      </section>
 
       <section id="invoices" className="mt-6 scroll-mt-20">
         <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">GST invoices</h2>

@@ -20,6 +20,7 @@ import {
   postBookingExtrasTx,
   postPaymentTx,
   postRoomChargeTx,
+  autoIssueInvoiceOnCheckout,
   type BillingPostTx,
 } from "@/features/billing";
 import { canTransition } from "./domain/transitions";
@@ -230,7 +231,7 @@ export async function checkOut(input: unknown): Promise<Result<LifecycleResult>>
     // payment OR a racing night-audit room-night insert serializes behind us. Then
     // post any un-accrued room-nights, derive the LIVE balance under the lock, gate,
     // and compare-and-swap the status.
-    return withReservationContext(user, () =>
+    const result = await withReservationContext(user, () =>
       client.$transaction(async (tx) => {
         // 19 addendum (FR-17): un-accepted/un-settled POS orders (incl. guest QR
         // REQUESTED ones) are pending charges that can't be deferred — a REQUESTED
@@ -324,6 +325,12 @@ export async function checkOut(input: unknown): Promise<Result<LifecycleResult>>
         return { id: r.id, status: "CHECKED_OUT" };
       }),
     );
+
+    // After the check-out commits, raise the GST tax invoice for the completed
+    // stay (room-nights are now posted). Best-effort + idempotent — a failure
+    // here never fails the check-out; the manual folio button remains available.
+    await autoIssueInvoiceOnCheckout(r.id);
+    return result;
   });
 }
 
