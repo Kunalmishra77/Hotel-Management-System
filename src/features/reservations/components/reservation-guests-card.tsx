@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { addReservationGuest, removeReservationGuest, updateReservationOccupancy } from "../guest-actions";
+import { addReservationGuest, removeReservationGuest, updateReservationOccupancy, updateReservationDetails } from "../guest-actions";
 
 type Guest = { id: string; fullName: string; age: number | null; gender: string | null; relation: string | null };
 
@@ -25,6 +25,8 @@ export function ReservationGuestsCard({
   adults,
   childCount,
   guests,
+  notes,
+  expectedArrival,
   canManage,
 }: {
   reservationId: string;
@@ -32,12 +34,15 @@ export function ReservationGuestsCard({
   adults: number;
   childCount: number;
   guests: Guest[];
+  notes: string | null;
+  expectedArrival: string | null;
   canManage: boolean;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [editOcc, setEditOcc] = useState(false);
+  const [editDetails, setEditDetails] = useState(false);
   const [adForm, setAdForm] = useState({ fullName: "", age: "", gender: "", relation: "" });
   const editable = canManage && ACTIVE.has(status);
 
@@ -166,6 +171,40 @@ export function ReservationGuestsCard({
             </Button>
           </form>
         )}
+
+        {/* Booking notes & expected arrival — editable any time */}
+        <div className="border-t pt-3">
+          {!editDetails ? (
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Notes &amp; arrival</p>
+                <p className="mt-1">
+                  {expectedArrival ? <span className="text-muted-foreground">ETA: {expectedArrival}. </span> : null}
+                  {notes || <span className="text-muted-foreground">No notes.</span>}
+                </p>
+              </div>
+              {canManage && <Button variant="outline" size="sm" onClick={() => setEditDetails(true)}>Edit</Button>}
+            </div>
+          ) : (
+            <form
+              className="space-y-2"
+              action={(fd) =>
+                run(
+                  () => updateReservationDetails({ reservationId, notes: String(fd.get("notes") ?? ""), expectedArrival: String(fd.get("expectedArrival") ?? "") }),
+                  () => setEditDetails(false),
+                )
+              }
+            >
+              <Input name="expectedArrival" defaultValue={expectedArrival ?? ""} placeholder="Expected arrival (e.g. 6 PM, late evening)" />
+              <textarea name="notes" defaultValue={notes ?? ""} rows={2} placeholder="Booking notes / special instructions"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+              <div className="flex gap-2">
+                <Button type="submit" size="sm" disabled={pending}>Save</Button>
+                <Button type="button" variant="ghost" size="sm" onClick={() => setEditDetails(false)}>Cancel</Button>
+              </div>
+            </form>
+          )}
+        </div>
 
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       </CardContent>

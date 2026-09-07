@@ -147,6 +147,8 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
           adults={guestPanel.adults}
           childCount={guestPanel.children}
           guests={guestPanel.guests}
+          notes={guestPanel.notes}
+          expectedArrival={guestPanel.expectedArrival}
           canManage={canManageGuests}
         />
       ) : null}

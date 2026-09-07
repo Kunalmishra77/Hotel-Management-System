@@ -94,6 +94,13 @@ export const updateOccupancySchema = z.object({
   children: z.coerce.number().int().min(0).max(30),
 });
 
+/** Correct free-text booking details (notes, expected arrival) any time. */
+export const updateReservationDetailsSchema = z.object({
+  reservationId: z.string().min(1),
+  notes: z.string().trim().max(1000).optional().nullable().or(z.literal("").transform(() => null)),
+  expectedArrival: z.string().trim().max(40).optional().nullable().or(z.literal("").transform(() => null)),
+});
+
 export const reallocateRoomSchema = z.object({
   reservationId: z.string().min(1),
   toRoomId: z.string().min(1).optional(),

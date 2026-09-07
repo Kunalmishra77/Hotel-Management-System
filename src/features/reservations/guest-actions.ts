@@ -19,6 +19,7 @@ import {
   addReservationGuestSchema,
   removeReservationGuestSchema,
   updateOccupancySchema,
+  updateReservationDetailsSchema,
 } from "./schema";
 
 /** Bookings that can still take occupant changes (not terminal). */
@@ -104,6 +105,45 @@ export async function removeReservationGuest(input: unknown): Promise<Result<{ i
         });
         revalidatePath(`/bookings/${rg.reservationId}`);
         return { id: rg.id };
+      }),
+    );
+  });
+}
+
+/** Correct booking notes + expected arrival any time (not gated to a status). */
+export async function updateReservationDetails(input: unknown): Promise<Result<{ id: string }>> {
+  return toResult(async () => {
+    const data = updateReservationDetailsSchema.parse(input);
+    const user = await requireUser();
+    const client = reservationDb(user);
+    const r = await client.reservation.findFirst({
+      where: { id: data.reservationId },
+      select: { id: true, propertyId: true },
+    });
+    if (!r) throw new NotFoundError("Reservation not found.");
+    authorize(user, "reservation:modify", r.propertyId);
+
+    return withReservationContext(user, () =>
+      client.$transaction(async (tx) => {
+        await tx.reservation.update({
+          where: { id: r.id },
+          data: { notes: data.notes ?? null, expectedArrival: data.expectedArrival ?? null },
+        });
+        await emitEvent(tx, {
+          type: "ReservationModified",
+          aggregateId: r.id,
+          propertyId: r.propertyId,
+          payload: { reservationId: r.id, change: "details" },
+        });
+        await writeAudit(tx, {
+          action: "reservation:update-details",
+          entityType: "Reservation",
+          entityId: r.id,
+          propertyId: r.propertyId,
+          after: { notes: data.notes ?? null, expectedArrival: data.expectedArrival ?? null },
+        });
+        revalidatePath(`/bookings/${r.id}`);
+        return { id: r.id };
       }),
     );
   });

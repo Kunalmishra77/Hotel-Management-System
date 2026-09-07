@@ -499,6 +499,8 @@ export async function reservationCalendar(
 export type ReservationGuestPanel = {
   adults: number;
   children: number;
+  notes: string | null;
+  expectedArrival: string | null;
   guests: { id: string; fullName: string; age: number | null; gender: string | null; relation: string | null }[];
 };
 
@@ -516,6 +518,8 @@ export async function getReservationGuestPanel(
     select: {
       adults: true,
       children: true,
+      notes: true,
+      expectedArrival: true,
       accompanyingGuests: {
         select: { id: true, fullName: true, age: true, gender: true, relation: true },
         orderBy: { createdAt: "asc" },
@@ -523,5 +527,5 @@ export async function getReservationGuestPanel(
     },
   });
   if (!r) return null;
-  return { adults: r.adults, children: r.children, guests: r.accompanyingGuests };
+  return { adults: r.adults, children: r.children, notes: r.notes, expectedArrival: r.expectedArrival, guests: r.accompanyingGuests };
 }
