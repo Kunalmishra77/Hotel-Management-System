@@ -70,7 +70,14 @@ export function FolioScreen({
             <Row key={l.id} label={`${l.type} · ${l.description}`} value={rupees(l.amountPaise + l.cgstPaise + l.sgstPaise + l.igstPaise)} />
           ))}
           {folio.payments.map((p) => (
-            <Row key={p.id} label={`Payment · ${p.mode}${p.isRefund ? " (refund)" : ""}`} value={`${p.isRefund ? "+" : "−"} ${rupees(p.amountPaise)}`} />
+            <div key={p.id} className="flex items-center justify-between gap-2">
+              <span className="text-muted-foreground">
+                Payment · {p.mode}{p.isRefund ? " (refund)" : ""}
+                <a href={`/api/receipts/${p.id}`} target="_blank" rel="noopener noreferrer"
+                  className="ml-2 text-xs text-primary underline underline-offset-2" data-testid="receipt-link">receipt</a>
+              </span>
+              <span>{p.isRefund ? "+" : "−"} {rupees(p.amountPaise)}</span>
+            </div>
           ))}
           <div className="mt-2 flex justify-between border-t pt-2 text-base font-semibold">
             <span>Balance due</span><span data-testid="folio-balance">{rupees(folio.balancePaise)}</span>
