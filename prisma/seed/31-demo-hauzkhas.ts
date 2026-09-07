@@ -361,7 +361,13 @@ for (const p of PROPS) {
 // ===========================================================================
 // Seed
 // ===========================================================================
-export async function seedDemoHauzKhas(prisma: PrismaClient): Promise<void> {
+/**
+ * Structure only — the 4 Hauz Khas properties, their floors/categories/rooms, and
+ * staff scope. NO guests/bookings/folios. Used by the CLEAN production seed
+ * (`prisma/seed/clean.ts`) so the client starts with real inventory and empty
+ * books. `cleanStatuses` forces every room VACANT (no demo occupancy).
+ */
+export async function seedHauzKhasStructure(prisma: PrismaClient, opts: { cleanStatuses?: boolean } = {}): Promise<void> {
   // --- Properties ---------------------------------------------------------
   for (const p of PROPS) {
     const common = {
@@ -423,7 +429,7 @@ export async function seedDemoHauzKhas(prisma: PrismaClient): Promise<void> {
     }
     // Rooms
     for (const r of p.rooms) {
-      const status = roomStatusById.get(r.id) ?? "VACANT";
+      const status = opts.cleanStatuses ? "VACANT" : (roomStatusById.get(r.id) ?? "VACANT");
       await prisma.room.upsert({
         where: { id: r.id },
         create: { id: r.id, propertyId: p.id, floorId: r.floorId, categoryId: r.catId, number: r.number, status, isActive: true },
@@ -449,6 +455,11 @@ export async function seedDemoHauzKhas(prisma: PrismaClient): Promise<void> {
   ] as const) {
     await prisma.roleAssignment.updateMany({ where: { userId, role }, data: { propertyIds: allPropIds } });
   }
+}
+
+/** Full demo — structure + a small realistic book of guests/bookings/folios. */
+export async function seedDemoHauzKhas(prisma: PrismaClient): Promise<void> {
+  await seedHauzKhasStructure(prisma);
 
   // --- Guests + tier snapshots --------------------------------------------
   for (let i = 0; i < GUESTS.length; i++) {
