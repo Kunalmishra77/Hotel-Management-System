@@ -4,8 +4,10 @@
  * recent-bookings feed, over a selectable period. Read-only; reuses the canonical
  * booking-count queries. `report:view-financial`.
  */
-import { CalendarCheck, XCircle, UserX, Percent, IndianRupee } from "lucide-react";
+import Link from "next/link";
+import { CalendarCheck, XCircle, UserX, Percent, IndianRupee, UserCheck } from "lucide-react";
 import type { SessionClaims } from "@/lib/auth/claims";
+import { Button } from "@/components/ui/button";
 import { parsePeriod, periodRange } from "@/features/command-center/domain/period";
 import {
   portfolioBookingCounts,
@@ -46,7 +48,16 @@ export async function SuperAdminBookings({
 
   return (
     <div className="mx-auto w-full max-w-6xl">
-      <PageHeader title="Bookings" description={`Every property · ${win.label}`} />
+      <PageHeader
+        title="Bookings"
+        description={`Every property · ${win.label}`}
+        actions={
+          <Button asChild size="sm" data-testid="front-desk-link">
+            <Link href="/bookings?desk=1"><UserCheck className="mr-1.5 size-4" />Front desk</Link>
+          </Button>
+        }
+      />
+      <p className="mt-1 text-xs text-muted-foreground">This is the portfolio view. Use <span className="font-medium">Front desk</span> to check guests in / out and manage today&apos;s arrivals for your active property.</p>
 
       <div className="mt-1">
         <PeriodFilter period={period} from={iso(win.from)} to={iso(win.to)} />

@@ -4,9 +4,9 @@ import { Layers } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
 import { can } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
-import { db } from "@/lib/db";
 import { roomBoard } from "@/features/rooms/queries";
 import { RoomBoard } from "@/features/rooms/components/room-board";
+import { NoProperty } from "@/features/platform/components/no-property";
 
 export const metadata: Metadata = { title: "Rooms" };
 
@@ -15,7 +15,9 @@ export default async function RoomsPage() {
   const user = await requirePermission("room:view-status");
 
   // The board is per-property; use the switched active property (00 FR-27).
-  const propertyId = db.activeProperty(user);
+  // Graceful when none is active — never crash to the error boundary.
+  const propertyId = user.activePropertyId;
+  if (!propertyId) return <NoProperty what="The room board" canCreate={can(user, "property:manage", null)} />;
   const board = await roomBoard(user, { propertyId });
 
   return (

@@ -10,6 +10,7 @@ import { SuperAdminBookings } from "@/features/command-center/components/super-a
 import { parseBoardView, BOARD_VIEW_LABEL } from "@/features/reservations/domain/board-view";
 import { ReservationBoard } from "@/features/reservations/components/reservation-board";
 import { ManagerBookings } from "@/features/reservations/components/manager-bookings";
+import { NoProperty } from "@/features/platform/components/no-property";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
@@ -53,16 +54,21 @@ const STATUS_STEPS: { key: string; label: string; tone: string }[] = [
 export default async function BookingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string; period?: string; from?: string; to?: string }>;
+  searchParams: Promise<{ view?: string; period?: string; from?: string; to?: string; desk?: string }>;
 }) {
   const user = await requirePermission("reservation:view");
   const sp = await searchParams;
   const portal = resolvePortal(user.roleAssignments.map((r) => r.role));
 
+  // `?desk=1` lets an admin/manager open the actual FRONT-DESK board (arrivals,
+  // check-in, in-house) for their active property — otherwise the same route
+  // shows them the portfolio/insights view and the operational tools look absent.
+  const deskMode = sp.desk === "1";
+
   // Super-Admin reads Bookings as a portfolio: totals + per-property outcomes +
   // a recent-bookings feed across EVERY property — not a single-property board,
   // so it runs before the activePropertyId guard.
-  if (portal === "SUPER_ADMIN" && hasPermission(user, "report:view-financial")) {
+  if (portal === "SUPER_ADMIN" && !deskMode && hasPermission(user, "report:view-financial")) {
     return <SuperAdminBookings user={user} sp={sp} />;
   }
 
@@ -70,13 +76,13 @@ export default async function BookingsPage({
   const view = parseBoardView(sp.view);
 
   if (!propertyId) {
-    return <div className="p-4"><p className="text-sm text-muted-foreground">Select a property to see its bookings.</p></div>;
+    return <NoProperty what="The bookings board" canCreate={hasPermission(user, "property:manage")} />;
   }
 
   // Page-level portal identity: a Manager reads Bookings as performance & insights
   // (volume, funnel, occupancy trend, source mix) — NOT the front desk's
   // operational check-in board. Same route, completely different page.
-  if (portal === "MANAGER") {
+  if (portal === "MANAGER" && !deskMode) {
     const now = new Date();
     const trendFrom = new Date(now.getTime() - 13 * 86_400_000);
     const [mgrOverview, occTrend] = await Promise.all([
@@ -111,6 +117,9 @@ export default async function BookingsPage({
         description={`Front desk · ${dateLabel}`}
         actions={
           <div className="flex items-center gap-2">
+            {deskMode ? (
+              <Button asChild variant="ghost" size="sm"><Link href="/bookings">← Portfolio</Link></Button>
+            ) : null}
             <Button asChild variant="outline" size="sm"><Link href="/bookings/calendar"><CalendarRange className="mr-1.5 size-4" />Calendar</Link></Button>
             <Button asChild variant="outline" size="sm"><Link href="/bookings/form-c"><FileCheck2 className="mr-1.5 size-4" />Form C</Link></Button>
             <Button asChild variant="outline" size="sm"><Link href="/search"><Search className="mr-1.5 size-4" />Search</Link></Button>
