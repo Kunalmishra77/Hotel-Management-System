@@ -6,6 +6,14 @@ portal/module, prioritised. Work it top-down; each item becomes a small phase (b
 
 Priority: **P1** = correctness / blocks a core workflow · **P2** = important UX/feature · **P3** = polish.
 
+## Flow-audit fix pass (2026-09-07) — DONE
+A full nav/route/click audit found the app is well-wired (no dead routes); the confusion was behavioural. Fixed:
+- ✅ `/rooms` no longer crashes with no active property (graceful `NoProperty` state).
+- ✅ Admin/Manager can reach the **front-desk board** via `/bookings?desk=1` ("Front desk" button on the portfolio view) — check-in was hidden behind the role-branched route.
+- ✅ Occupied/reserved rooms link to their **booking** (guest + folio) from the action sheet.
+- ✅ Every per-property page (22) shows an actionable **NoProperty** empty state instead of a bare "Select a property" dead-end.
+- Remaining (minor, visual — do with the client's eyes): P2-3 KPI click-affordance consistency, P3-1 direct-sale folio row cue.
+
 ---
 
 ## Cross-cutting (all portals)
