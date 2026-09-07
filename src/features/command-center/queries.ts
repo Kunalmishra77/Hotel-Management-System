@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { authorize } from "@/lib/permissions";
 import { perPropertyStats } from "@/features/analytics/queries";
 import { profitReport } from "@/features/reports/queries";
+import { billingOverview } from "@/features/billing/queries";
 import type { SessionClaims } from "@/lib/auth/claims";
 
 export type PortfolioProperty = {
@@ -210,4 +211,54 @@ export async function recentPortfolioBookings(
     checkInDate: r.checkInDate,
     checkOutDate: r.checkOutDate,
   }));
+}
+
+export type PropertyBillingStat = {
+  propertyId: string;
+  name: string;
+  outstandingPaise: number;
+  unsettledFolios: number;
+  collectedTodayPaise: number;
+  invoicesThisMonth: number;
+};
+
+export type PortfolioBilling = {
+  rows: PropertyBillingStat[];
+  totals: { outstandingPaise: number; unsettledFolios: number; collectedTodayPaise: number; invoicesThisMonth: number };
+};
+
+/**
+ * Portfolio billing rollup for Super-Admin — per-property dues, unsettled folios,
+ * cash collected today, and invoices this month. Reuses the canonical
+ * `billingOverview` per property so the figures reconcile with each property's own
+ * Billing page. `report:view-financial`.
+ */
+export async function perPropertyBillingRollup(
+  user: SessionClaims,
+  propertyIds: string[],
+): Promise<PortfolioBilling> {
+  authorize(user, "report:view-financial", user.activePropertyId);
+  const zero = { outstandingPaise: 0, unsettledFolios: 0, collectedTodayPaise: 0, invoicesThisMonth: 0 };
+  if (propertyIds.length === 0) return { rows: [], totals: zero };
+  const props = await db.scoped(user).property.findMany({
+    where: { id: { in: propertyIds }, deletedAt: null },
+    select: { id: true, name: true },
+    orderBy: { code: "asc" },
+  });
+  const rows = await Promise.all(
+    props.map(async (p) => {
+      const o = await billingOverview(user, p.id);
+      return { propertyId: p.id, name: p.name, ...o };
+    }),
+  );
+  const totals = rows.reduce(
+    (a, r) => ({
+      outstandingPaise: a.outstandingPaise + r.outstandingPaise,
+      unsettledFolios: a.unsettledFolios + r.unsettledFolios,
+      collectedTodayPaise: a.collectedTodayPaise + r.collectedTodayPaise,
+      invoicesThisMonth: a.invoicesThisMonth + r.invoicesThisMonth,
+    }),
+    zero,
+  );
+  return { rows, totals };
 }

@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { ReceiptText, Wallet, HandCoins, FileText } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
 import { billingOverview, searchInvoices, listBillingFolios } from "@/features/billing/queries";
+import { resolvePortal } from "@/features/platform/portals";
+import { perPropertyBillingRollup } from "@/features/command-center/queries";
+import { PortfolioBilling } from "@/features/command-center/components/portfolio-billing";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { PageHeader } from "@/components/ui/page-header";
 import { InvoicesTable } from "@/features/billing/components/invoices-table";
@@ -18,6 +21,14 @@ export const metadata: Metadata = { title: "Billing" };
  */
 export default async function BillingPage() {
   const user = await requirePermission("folio:view");
+
+  // Super-Admin reads Billing as a portfolio rollup (dues/collections per
+  // property), not one property's folio list.
+  if (resolvePortal(user.roleAssignments.map((r) => r.role)) === "SUPER_ADMIN") {
+    const rollup = await perPropertyBillingRollup(user, [...user.accessiblePropertyIds]);
+    return <PortfolioBilling rollup={rollup} />;
+  }
+
   const propertyId = user.activePropertyId;
 
   if (!propertyId) {
