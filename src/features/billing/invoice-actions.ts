@@ -21,7 +21,7 @@ import { resolveStorageAdapter } from "@/lib/storage";
 import { db } from "@/lib/db";
 import { financialYearOf } from "./domain/money";
 import { formatInvoiceNumber } from "./domain/invoice-number";
-import { amountInWords } from "./domain/words";
+import { renderInvoicePdf } from "./invoice-pdf";
 import { billingDb, withBillingContext } from "./internal";
 import { generateInvoiceSchema, voidInvoiceSchema } from "./schema";
 
@@ -93,41 +93,71 @@ export async function generateInvoice(input: unknown): Promise<Result<InvoiceRes
       }),
     );
 
-    // AFTER commit: render + store the document, then attach the key (retryable;
+    // AFTER commit: render + store the styled PDF, then attach the key (retryable;
     // a failure here leaves a valid invoice with pdfObjectKey null — no gap).
-    await attachInvoicePdf(result.invoiceId, {
-      number: result.number, gstin: property.gstin, customerName: data.customerName,
-      customerGstin: data.customerGstin, placeOfSupply,
-      taxablePaise: Number(taxable), cgst, sgst, igst, totalPaise: Number(totalPaise),
+    await attachInvoicePdf(result.invoiceId, folio.id, {
+      number: result.number, issuedAt: new Date(),
+      customerName: data.customerName, customerGstin: data.customerGstin ?? null, placeOfSupply,
+      taxablePaise: Number(taxable), cgstPaise: cgst, sgstPaise: sgst, igstPaise: igst, totalPaise: Number(totalPaise),
     });
 
     return { invoiceId: result.invoiceId, number: result.number, totalPaise: Number(totalPaise) };
   });
 }
 
-/** Render a document to storage and set pdfObjectKey (the only updatable column). */
+/** Render the styled GST invoice to storage and set pdfObjectKey (the only column
+ *  the invoice_immutable trigger permits to change). Best-effort — a failure leaves
+ *  a valid invoice with a null key, retried by a follow-up. */
 async function attachInvoicePdf(
   invoiceId: string,
-  inv: { number: string; gstin: string | null; customerName: string; customerGstin?: string; placeOfSupply: string; taxablePaise: number; cgst: number; sgst: number; igst: number; totalPaise: number },
+  folioId: string,
+  meta: {
+    number: string; issuedAt: Date; customerName: string; customerGstin?: string | null; placeOfSupply: string;
+    taxablePaise: number; cgstPaise: number; sgstPaise: number; igstPaise: number; totalPaise: number;
+  },
 ): Promise<void> {
   try {
-    // NOTE: a plain-text document for now; a @react-pdf/renderer styled PDF is a
-    // follow-up (see 06 review F-1). All AC-16 fields are present and correct.
-    const rupees = (p: number) => (p / 100).toFixed(2);
-    const taxLine = inv.igst > 0 ? `IGST: ${rupees(inv.igst)}` : `CGST: ${rupees(inv.cgst)}  SGST: ${rupees(inv.sgst)}`;
-    const doc = [
-      `TAX INVOICE  ${inv.number}`,
-      `Property GSTIN: ${inv.gstin ?? "-"}`,
-      `Customer: ${inv.customerName}${inv.customerGstin ? ` (GSTIN ${inv.customerGstin})` : ""}`,
-      `Place of supply: ${inv.placeOfSupply}`,
-      `Taxable value: ${rupees(inv.taxablePaise)}`,
-      taxLine,
-      `Grand total: ${rupees(inv.totalPaise)}`,
-      amountInWords(inv.totalPaise),
-    ].join("\n");
-    const key = `invoices/${invoiceId}.txt`;
-    await resolveStorageAdapter().put(key, Buffer.from(doc, "utf8"), { contentType: "text/plain" });
-    // pdfObjectKey is the only column the invoice_immutable trigger permits to change.
+    const folio = await db.unscoped().folio.findFirst({
+      where: { id: folioId },
+      select: {
+        propertyId: true,
+        lines: {
+          select: { description: true, hsnSac: true, quantity: true, unitPaise: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true },
+          orderBy: { createdAt: "asc" },
+        },
+      },
+    });
+    if (!folio) return;
+    const property = await db.unscoped().property.findFirst({
+      where: { id: folio.propertyId },
+      select: { name: true, addressLine1: true, city: true, state: true, pincode: true, gstin: true },
+    });
+    if (!property) return;
+    const bytes = await renderInvoicePdf({
+      number: meta.number,
+      issuedAt: meta.issuedAt,
+      property,
+      customerName: meta.customerName,
+      customerGstin: meta.customerGstin ?? null,
+      placeOfSupply: meta.placeOfSupply,
+      lines: folio.lines.map((l) => ({
+        description: l.description,
+        hsnSac: l.hsnSac,
+        quantity: l.quantity,
+        unitPaise: l.unitPaise,
+        amountPaise: Number(l.amountPaise),
+        cgstPaise: l.cgstPaise,
+        sgstPaise: l.sgstPaise,
+        igstPaise: l.igstPaise,
+      })),
+      taxablePaise: meta.taxablePaise,
+      cgstPaise: meta.cgstPaise,
+      sgstPaise: meta.sgstPaise,
+      igstPaise: meta.igstPaise,
+      totalPaise: meta.totalPaise,
+    });
+    const key = `invoices/${invoiceId}.pdf`;
+    await resolveStorageAdapter().put(key, bytes, { contentType: "application/pdf" });
     await db.unscoped().invoice.update({ where: { id: invoiceId }, data: { pdfObjectKey: key } });
   } catch (e) {
     // Non-fatal: the invoice is valid; the render is retried by a follow-up job.
