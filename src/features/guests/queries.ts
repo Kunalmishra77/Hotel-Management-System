@@ -254,8 +254,16 @@ export async function guestsOverview(user: SessionClaims): Promise<GuestsOvervie
 export type GuestProfile = GuestListItem & {
   state: string | null;
   gstNumber: string | null;
+  dob: string | null; // yyyy-mm-dd
+  gender: string | null;
+  nationality: string | null;
+  occupation: string | null;
+  addressLine: string | null;
+  country: string | null;
+  pincode: string | null;
   purposeOfVisit: string | null;
   foodPreference: string | null;
+  specialRequests: string | null;
   ids: { id: string; type: string; maskedValue: string | null; hasScan: boolean }[];
 };
 
@@ -276,8 +284,16 @@ export async function getGuestProfile(
       state: true,
       companyName: true,
       gstNumber: true,
+      dob: true,
+      gender: true,
+      nationality: true,
+      occupation: true,
+      addressLine: true,
+      country: true,
+      pincode: true,
       purposeOfVisit: true,
       foodPreference: true,
+      specialRequests: true,
       ids: {
         select: { id: true, type: true, maskedValue: true, scanObjectKey: true },
       },
@@ -294,8 +310,16 @@ export async function getGuestProfile(
     state: guest.state,
     companyName: guest.companyName,
     gstNumber: guest.gstNumber,
+    dob: guest.dob ? guest.dob.toISOString().slice(0, 10) : null,
+    gender: guest.gender,
+    nationality: guest.nationality,
+    occupation: guest.occupation,
+    addressLine: guest.addressLine,
+    country: guest.country,
+    pincode: guest.pincode,
     purposeOfVisit: guest.purposeOfVisit,
     foodPreference: guest.foodPreference,
+    specialRequests: guest.specialRequests,
     ids: guest.ids.map((id) => ({
       id: id.id,
       type: id.type,

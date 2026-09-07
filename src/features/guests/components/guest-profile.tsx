@@ -77,11 +77,41 @@ export function GuestProfile({
             onReveal={() => setReveal({ field: "mobile", label: "mobile" })} testid="mobile" />
           <ContactRow label="Email" value={guest.maskedEmail} canReveal={canRevealPii && !!guest.maskedEmail}
             onReveal={() => setReveal({ field: "email", label: "email" })} testid="email" />
-          <Detail label="City" value={guest.city} />
-          <Detail label="State" value={guest.state} />
+          <Detail label="Address" value={guest.addressLine} />
+          <div className="grid grid-cols-2 gap-3">
+            <Detail label="City" value={guest.city} />
+            <Detail label="State" value={guest.state} />
+            <Detail label="Country" value={guest.country} />
+            <Detail label="PIN code" value={guest.pincode} />
+          </div>
           {guest.gstNumber && <Detail label="GSTIN" value={guest.gstNumber} />}
         </CardContent>
       </Card>
+
+      {(guest.dob || guest.gender || guest.nationality || guest.occupation) && (
+        <Card>
+          <CardHeader className="pb-3"><CardTitle className="text-base">Guest details</CardTitle></CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-3">
+              {guest.dob && <Detail label="Age" value={ageLabel(guest.dob)} />}
+              <Detail label="Gender" value={guest.gender} />
+              <Detail label="Nationality" value={guest.nationality} />
+              <Detail label="Occupation" value={guest.occupation} />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {(guest.purposeOfVisit || guest.foodPreference || guest.specialRequests) && (
+        <Card>
+          <CardHeader className="pb-3"><CardTitle className="text-base">Stay preferences</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            <Detail label="Purpose of visit" value={guest.purposeOfVisit} />
+            <Detail label="Food preference" value={guest.foodPreference} />
+            <Detail label="Special requests" value={guest.specialRequests} />
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader className="pb-3"><CardTitle className="text-base">Identity documents</CardTitle></CardHeader>
@@ -161,6 +191,17 @@ function Detail({ label, value }: { label: string; value: string | null }) {
       <p>{value}</p>
     </div>
   );
+}
+
+/** Derive a readable age from a yyyy-mm-dd date of birth. */
+function ageLabel(dob: string): string {
+  const d = new Date(dob);
+  if (Number.isNaN(d.getTime())) return dob;
+  const now = new Date();
+  let age = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
+  return age >= 0 && age < 130 ? `${age} years` : dob;
 }
 
 const ADD_INITIAL: AddIdFormState = { status: "idle" };
