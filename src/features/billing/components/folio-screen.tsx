@@ -39,13 +39,13 @@ export function FolioScreen({
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<"none" | "charge" | "pay" | "discount" | "addon">("none");
-  const [invoiceNumber, setInvoiceNumber] = useState<string | null>(null);
+  const [invoice, setInvoice] = useState<{ id: string; number: string } | null>(null);
 
   const generate = () => {
     setError(null);
     start(async () => {
       const res = await generateInvoice({ folioId: folio.id, customerName: guestName });
-      if (res.ok) { setInvoiceNumber(res.data.number); router.refresh(); }
+      if (res.ok) { setInvoice({ id: res.data.invoiceId, number: res.data.number }); router.refresh(); }
       else setError(res.error.message);
     });
   };
@@ -79,7 +79,12 @@ export function FolioScreen({
       </Card>
 
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-      {invoiceNumber && <p className="rounded-md border bg-muted/40 p-3 text-sm" data-testid="invoice-number">Invoice generated: {invoiceNumber}</p>}
+      {invoice && (
+        <p className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 p-3 text-sm" data-testid="invoice-number">
+          <span>Invoice generated: <span className="font-mono font-medium">{invoice.number}</span></span>
+          <a href={`/api/invoices/${invoice.id}`} target="_blank" rel="noopener noreferrer" className="font-medium text-primary underline underline-offset-4">View PDF</a>
+        </p>
+      )}
 
       {mode === "charge" && <ChargeForm pending={pending} onSubmit={(type, desc, rupeeAmt) => run(() => postFolioCharge({ folioId: folio.id, type, description: desc, unitPaise: toPaise(rupeeAmt) }))} onCancel={() => setMode("none")} />}
       {mode === "discount" && <DiscountForm pending={pending} onSubmit={(reason, rupeeAmt) => run(() => applyDiscount({ folioId: folio.id, reason, amountPaise: toPaise(rupeeAmt) }))} onCancel={() => setMode("none")} />}

@@ -22,7 +22,12 @@ export function InvoicesTable({ invoices }: { invoices: InvoiceRow[] }) {
     {
       key: "number",
       header: "Invoice",
-      cell: (i) => <span className="font-mono text-sm font-medium">{i.number}</span>,
+      cell: (i) => (
+        <a href={`/api/invoices/${i.id}`} target="_blank" rel="noopener noreferrer"
+          className="font-mono text-sm font-medium text-primary underline-offset-4 hover:underline">
+          {i.number}
+        </a>
+      ),
       sortValue: (i) => i.number,
     },
     {
