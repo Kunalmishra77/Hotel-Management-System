@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { hasPermission } from "@/lib/permissions";
+import { NoProperty } from "@/features/platform/components/no-property";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, LayoutGrid } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
@@ -28,7 +30,7 @@ export default async function BookingsCalendarPage({
   const user = await requirePermission("reservation:view");
   const propertyId = user.activePropertyId;
   if (!propertyId) {
-    return <div className="p-4"><p className="text-sm text-muted-foreground">Select a property to see the calendar.</p></div>;
+    return <NoProperty what="This page" canCreate={hasPermission(user, "property:manage")} />;
   }
 
   const today = utcMidnight(new Date());

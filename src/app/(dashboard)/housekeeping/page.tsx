@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { hasPermission } from "@/lib/permissions";
+import { NoProperty } from "@/features/platform/components/no-property";
 import { requirePermission } from "@/lib/auth/guard";
 import { listTasks, housekeepingOverview } from "@/features/housekeeping/queries";
 import { HousekeepingBoard } from "@/features/housekeeping/components/housekeeping-board";
@@ -10,7 +12,7 @@ export default async function HousekeepingPage() {
   const user = await requirePermission("housekeeping:update");
   const propertyId = user.activePropertyId;
   if (!propertyId) {
-    return <div className="p-4"><p className="text-sm text-muted-foreground">Select a property to see housekeeping tasks.</p></div>;
+    return <NoProperty what="This page" canCreate={hasPermission(user, "property:manage")} />;
   }
   const [tasks, overview] = await Promise.all([
     listTasks(user, propertyId),

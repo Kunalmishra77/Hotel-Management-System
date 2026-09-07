@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { hasPermission } from "@/lib/permissions";
+import { NoProperty } from "@/features/platform/components/no-property";
 import Link from "next/link";
 import { AlertTriangle, ArrowRight, BedDouble, CalendarClock, IndianRupee, LineChart, Percent, Receipt, TrendingUp, Wallet } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
@@ -26,11 +28,7 @@ export default async function OwnerHomePage() {
   const propertyId = user.activePropertyId;
 
   if (!propertyId) {
-    return (
-      <div className="p-4">
-        <p className="text-sm text-muted-foreground">Select a property to see its performance.</p>
-      </div>
-    );
+    return <NoProperty what="This page" canCreate={hasPermission(user, "property:manage")} />;
   }
 
   const today = new Date();

@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { hasPermission } from "@/lib/permissions";
+import { NoProperty } from "@/features/platform/components/no-property";
 import { requirePermission } from "@/lib/auth/guard";
 import { db } from "@/lib/db";
 import { channelHealth, needsAttentionQueue, listMappings } from "@/features/channels/queries";
@@ -11,11 +13,7 @@ export default async function ChannelsPage() {
   const user = await requirePermission("integration:manage");
   const propertyId = user.activePropertyId;
   if (!propertyId) {
-    return (
-      <div className="p-4">
-        <p className="text-sm text-muted-foreground">Select a property to manage channels.</p>
-      </div>
-    );
+    return <NoProperty what="This page" canCreate={hasPermission(user, "property:manage")} />;
   }
 
   const [health, attention, categories] = await Promise.all([

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import { NoProperty } from "@/features/platform/components/no-property";
 import { requirePermission } from "@/lib/auth/guard";
-import { can } from "@/lib/permissions";
+import { can, hasPermission } from "@/lib/permissions";
 import { listOwnerDocuments } from "@/features/owner-portal/queries";
 import { DocumentVault } from "@/features/owner-portal/components/document-vault";
 
@@ -12,11 +13,7 @@ export default async function OwnerDocumentsPage() {
   const propertyId = user.activePropertyId;
 
   if (!propertyId) {
-    return (
-      <div className="p-4">
-        <p className="text-sm text-muted-foreground">Select a property to see its documents.</p>
-      </div>
-    );
+    return <NoProperty what="This page" canCreate={hasPermission(user, "property:manage")} />;
   }
 
   const documents = await listOwnerDocuments(user, { propertyId });

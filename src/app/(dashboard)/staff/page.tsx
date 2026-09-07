@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import { NoProperty } from "@/features/platform/components/no-property";
 import { requirePermission } from "@/lib/auth/guard";
-import { can } from "@/lib/permissions";
+import { can, hasPermission } from "@/lib/permissions";
 import { listStaff } from "@/features/staff/queries";
 import { StaffScreen } from "@/features/staff/components/staff-screen";
 
@@ -15,7 +16,7 @@ export default async function StaffPage() {
   const user = await requirePermission("attendance:record");
   const propertyId = user.activePropertyId;
   if (!propertyId) {
-    return <div className="p-4"><p className="text-sm text-muted-foreground">Select a property to manage staff.</p></div>;
+    return <NoProperty what="This page" canCreate={hasPermission(user, "property:manage")} />;
   }
   const staff = await listStaff(user, propertyId);
   const canManage = can(user, "staff:manage", propertyId);

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { requirePermission } from "@/lib/auth/guard";
+import { hasPermission } from "@/lib/permissions";
+import { NoProperty } from "@/features/platform/components/no-property";
 import { profitReport, revenueSegments } from "@/features/reports/queries";
 import { listAccessibleProperties } from "@/features/platform/actions";
 import { ProfitReportView } from "@/features/reports/components/profit-report-view";
@@ -24,11 +26,7 @@ export default async function ReportsPage({
   const user = await requirePermission("report:view-financial");
   const properties = await listAccessibleProperties();
   if (properties.length === 0) {
-    return (
-      <div className="p-4">
-        <p className="text-sm text-muted-foreground">No properties are assigned to you.</p>
-      </div>
-    );
+    return <NoProperty what="This page" canCreate={hasPermission(user, "property:manage")} />;
   }
   const accessibleIds = properties.map((p) => p.id);
 

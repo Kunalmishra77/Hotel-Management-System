@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { NoProperty } from "@/features/platform/components/no-property";
 import { hasPermission } from "@/lib/permissions";
 import { requirePermission } from "@/lib/auth/guard";
 import {
@@ -20,11 +21,7 @@ export default async function PricingPage({
   const user = await requirePermission("pricing:approve");
   const propertyId = user.activePropertyId;
   if (!propertyId) {
-    return (
-      <div className="p-4">
-        <p className="text-sm text-muted-foreground">Select a property to manage pricing.</p>
-      </div>
-    );
+    return <NoProperty what="This page" canCreate={hasPermission(user, "property:manage")} />;
   }
 
   const categories = await listCategoriesWithGuardrails(user, propertyId);

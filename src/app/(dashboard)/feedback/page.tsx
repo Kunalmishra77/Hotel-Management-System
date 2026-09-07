@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { hasPermission } from "@/lib/permissions";
+import { NoProperty } from "@/features/platform/components/no-property";
 import Link from "next/link";
 import { Star, MessageSquare, Smile, Meh, Frown } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
@@ -37,7 +39,7 @@ export default async function FeedbackPage({
   const user = await requirePermission("guest:view");
   const propertyId = user.activePropertyId;
   if (!propertyId) {
-    return <div className="p-4"><p className="text-sm text-muted-foreground">Select a property to see guest feedback.</p></div>;
+    return <NoProperty what="This page" canCreate={hasPermission(user, "property:manage")} />;
   }
 
   const sp = await searchParams;

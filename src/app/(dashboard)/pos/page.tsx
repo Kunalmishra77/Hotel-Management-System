@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { hasPermission } from "@/lib/permissions";
+import { NoProperty } from "@/features/platform/components/no-property";
 import { requirePermission } from "@/lib/auth/guard";
 import { listOutlets, listMenu, listOpenOrders, getOrder, roomOrderInbox } from "@/features/pos/queries";
 import { PosScreen } from "@/features/pos/components/pos-screen";
@@ -15,7 +17,7 @@ export default async function PosPage({
   const user = await requirePermission("pos:order-create");
   const propertyId = user.activePropertyId;
   if (!propertyId) {
-    return <div className="p-4"><p className="text-sm text-muted-foreground">Select a property to use the POS.</p></div>;
+    return <NoProperty what="This page" canCreate={hasPermission(user, "property:manage")} />;
   }
 
   const sp = await searchParams;

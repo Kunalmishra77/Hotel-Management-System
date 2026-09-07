@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { hasPermission } from "@/lib/permissions";
+import { NoProperty } from "@/features/platform/components/no-property";
 import { requirePermission } from "@/lib/auth/guard";
 import { listStaff } from "@/features/staff/queries";
 import { listFieldStaffLocations } from "@/features/staff/field-queries";
@@ -11,7 +13,7 @@ export default async function FieldStaffPage() {
   const user = await requirePermission("staff:manage");
   const propertyId = user.activePropertyId;
   if (!propertyId) {
-    return <div className="p-4"><p className="text-sm text-muted-foreground">Select a property to see field staff.</p></div>;
+    return <NoProperty what="This page" canCreate={hasPermission(user, "property:manage")} />;
   }
 
   const [tracked, all] = await Promise.all([

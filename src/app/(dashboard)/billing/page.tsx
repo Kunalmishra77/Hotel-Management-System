@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { ReceiptText, Wallet, HandCoins, FileText } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
+import { hasPermission } from "@/lib/permissions";
+import { NoProperty } from "@/features/platform/components/no-property";
 import { billingOverview, searchInvoices, listBillingFolios } from "@/features/billing/queries";
 import { resolvePortal } from "@/features/platform/portals";
 import { perPropertyBillingRollup } from "@/features/command-center/queries";
@@ -32,11 +34,7 @@ export default async function BillingPage() {
   const propertyId = user.activePropertyId;
 
   if (!propertyId) {
-    return (
-      <div className="p-4">
-        <p className="text-sm text-muted-foreground">Select a property to see its billing.</p>
-      </div>
-    );
+    return <NoProperty what="This page" canCreate={hasPermission(user, "property:manage")} />;
   }
 
   const [overview, { invoices }, folios] = await Promise.all([
