@@ -51,7 +51,7 @@ const PORTAL_NAV: Record<PortalId, readonly string[]> = {
   SUPER_ADMIN: [
     "overview", "insights", "bookings", "properties", "approvals", "reports",
     "channels", "pricing", "corporate", "booking-site",
-    "communications", "users", "accounting", "data-import", "settings",
+    "communications", "users", "accounting", "data-import", "data-entry", "settings",
   ],
   // Read-mostly property-owner portal (merges into Super Admin in a later phase).
   OWNER: ["owner", "owner-documents", "owner-schedule", "owner-payouts"],

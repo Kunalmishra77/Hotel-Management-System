@@ -326,6 +326,13 @@ export const NAV_ITEMS: readonly NavItem[] = [
     permission: "data:import",
   },
   {
+    key: "data-entry",
+    label: "Data Entry",
+    href: "/data-entry",
+    icon: "ClipboardList",
+    permission: "guest:create",
+  },
+  {
     key: "communications",
     label: "Communications",
     href: "/communications",
