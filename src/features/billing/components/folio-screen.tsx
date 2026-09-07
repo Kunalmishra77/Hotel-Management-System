@@ -14,18 +14,31 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { postFolioCharge, applyDiscount } from "../charge-actions";
 import { recordPayment } from "../payment-actions";
 import { generateInvoice } from "../invoice-actions";
+import { addAddOnToReservation } from "@/features/add-ons/actions";
 import type { FolioView } from "../queries";
+
+type AddOnOption = { id: string; name: string; pricePaise: number };
 
 const rupees = (p: number) => `₹${(p / 100).toLocaleString("en-IN")}`;
 const toPaise = (r: number) => Math.round(r * 100);
 
 type Tender = { mode: string; amountPaise: number };
 
-export function FolioScreen({ folio, guestName }: { folio: FolioView; guestName: string }) {
+export function FolioScreen({
+  folio,
+  guestName,
+  reservationId,
+  addOns = [],
+}: {
+  folio: FolioView;
+  guestName: string;
+  reservationId?: string;
+  addOns?: AddOnOption[];
+}) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [mode, setMode] = useState<"none" | "charge" | "pay" | "discount">("none");
+  const [mode, setMode] = useState<"none" | "charge" | "pay" | "discount" | "addon">("none");
   const [invoiceNumber, setInvoiceNumber] = useState<string | null>(null);
 
   const generate = () => {
@@ -70,11 +83,15 @@ export function FolioScreen({ folio, guestName }: { folio: FolioView; guestName:
 
       {mode === "charge" && <ChargeForm pending={pending} onSubmit={(type, desc, rupeeAmt) => run(() => postFolioCharge({ folioId: folio.id, type, description: desc, unitPaise: toPaise(rupeeAmt) }))} onCancel={() => setMode("none")} />}
       {mode === "discount" && <DiscountForm pending={pending} onSubmit={(reason, rupeeAmt) => run(() => applyDiscount({ folioId: folio.id, reason, amountPaise: toPaise(rupeeAmt) }))} onCancel={() => setMode("none")} />}
+      {mode === "addon" && reservationId && <AddOnForm addOns={addOns} pending={pending} onSubmit={(addOnId, qty) => run(() => addAddOnToReservation({ reservationId, addOnId, quantity: qty }))} onCancel={() => setMode("none")} />}
       {mode === "pay" && <PaymentForm balancePaise={folio.balancePaise} pending={pending} onSubmit={(tenders) => run(() => recordPayment({ folioId: folio.id, tenders, expectedTotalPaise: tenders.reduce((s, t) => s + t.amountPaise, 0) }))} onCancel={() => setMode("none")} />}
 
       {mode === "none" && (
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           <Button size="lg" variant="outline" onClick={() => setMode("charge")} data-testid="add-charge">+ Charge</Button>
+          {reservationId && addOns.length > 0 && (
+            <Button size="lg" variant="outline" onClick={() => setMode("addon")} data-testid="add-addon">+ Add-on</Button>
+          )}
           <Button size="lg" variant="outline" onClick={() => setMode("discount")} data-testid="apply-discount">− Discount</Button>
           <Button size="lg" onClick={() => setMode("pay")} data-testid="take-payment" disabled={folio.balancePaise <= 0}>Take payment</Button>
           <Button size="lg" variant="outline" disabled={pending} onClick={generate} data-testid="generate-invoice">Generate GST invoice</Button>
@@ -101,6 +118,29 @@ function ChargeForm({ onSubmit, onCancel, pending }: { onSubmit: (type: string, 
       <Input type="number" inputMode="numeric" placeholder="Amount ₹" value={amt} onChange={(e) => setAmt(Number(e.target.value))} data-testid="charge-amount" />
       <div className="flex gap-2">
         <Button size="lg" disabled={pending || !desc || amt <= 0} onClick={() => onSubmit(type, desc, amt)} data-testid="charge-submit">Add</Button>
+        <Button size="lg" variant="outline" onClick={onCancel}>Cancel</Button>
+      </div>
+    </CardContent></Card>
+  );
+}
+
+function AddOnForm({ addOns, onSubmit, onCancel, pending }: { addOns: AddOnOption[]; onSubmit: (addOnId: string, qty: number) => void; onCancel: () => void; pending: boolean }) {
+  const [addOnId, setAddOnId] = useState(addOns[0]?.id ?? "");
+  const [qty, setQty] = useState(1);
+  const selected = addOns.find((a) => a.id === addOnId);
+  return (
+    <Card><CardContent className="space-y-3 p-4">
+      <p className="text-sm text-muted-foreground">Post a catalogue add-on (airport pickup, extra service…) straight to the folio — GST is applied from the item.</p>
+      <select value={addOnId} onChange={(e) => setAddOnId(e.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" data-testid="addon-select">
+        {addOns.map((a) => <option key={a.id} value={a.id}>{a.name} — {rupees(a.pricePaise)}</option>)}
+      </select>
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-muted-foreground">Qty</span>
+        <Input type="number" inputMode="numeric" min={1} max={50} value={qty} onChange={(e) => setQty(Math.max(1, Number(e.target.value)))} className="w-24" data-testid="addon-qty" />
+        {selected && <span className="text-sm">= {rupees(selected.pricePaise * qty)}</span>}
+      </div>
+      <div className="flex gap-2">
+        <Button size="lg" disabled={pending || !addOnId} onClick={() => onSubmit(addOnId, qty)} data-testid="addon-submit">Add to folio</Button>
         <Button size="lg" variant="outline" onClick={onCancel}>Cancel</Button>
       </div>
     </CardContent></Card>

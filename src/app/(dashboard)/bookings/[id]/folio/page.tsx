@@ -5,6 +5,7 @@ import { requirePermission } from "@/lib/auth/guard";
 import { db } from "@/lib/db";
 import { getReservation } from "@/features/reservations/queries";
 import { getFolio } from "@/features/billing/queries";
+import { listActiveAddOns } from "@/features/add-ons/queries";
 import { FolioScreen } from "@/features/billing/components/folio-screen";
 import { Button } from "@/components/ui/button";
 
@@ -17,7 +18,7 @@ export default async function FolioPage({ params }: { params: Promise<{ id: stri
   const reservation = await getReservation(user, id);
   if (!reservation) notFound();
 
-  const folioRow = await db.scoped(user).folio.findFirst({ where: { reservationId: id }, select: { id: true } });
+  const folioRow = await db.scoped(user).folio.findFirst({ where: { reservationId: id }, select: { id: true, propertyId: true } });
   if (!folioRow) {
     return (
       <div className="mx-auto w-full max-w-2xl space-y-4 p-4">
@@ -30,5 +31,13 @@ export default async function FolioPage({ params }: { params: Promise<{ id: stri
 
   const folio = await getFolio(user, folioRow.id);
   if (!folio) notFound();
-  return <FolioScreen folio={folio} guestName={reservation.guestName} />;
+  const addOns = await listActiveAddOns(folioRow.propertyId);
+  return (
+    <FolioScreen
+      folio={folio}
+      guestName={reservation.guestName}
+      reservationId={id}
+      addOns={addOns.map((a) => ({ id: a.id, name: a.name, pricePaise: a.pricePaise }))}
+    />
+  );
 }

@@ -19,11 +19,63 @@ import { authorize } from "@/lib/permissions";
 import { writeAudit } from "@/lib/audit";
 import { emitEvent } from "@/lib/events";
 import { runWithContext, newRequestId } from "@/lib/context";
+import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { ensureFolio } from "@/features/billing";
 import { postFolioCharge } from "@/features/billing/charge-actions";
+import { getAddOn } from "./queries";
 import { canDecide, canPostAddOnCharge } from "./domain/upsell";
 
 export type DecideAddOnResult = { status: "ACCEPTED" | "DECLINED" };
+
+const addAddOnSchema = z.object({
+  reservationId: z.string().min(1),
+  addOnId: z.string().min(1),
+  quantity: z.coerce.number().int().min(1).max(50).default(1),
+});
+
+/**
+ * Reception-initiated add-on (walk-up upsell) — staff post a catalog add-on
+ * straight to a stay's folio, no guest request needed. Reuses billing's
+ * `postFolioCharge` and passes the catalog item's HSN/tax overrides so GST is
+ * correct. Gate `folio:charge`; only for an in-house stay.
+ */
+export async function addAddOnToReservation(input: unknown): Promise<Result<{ lineId: string }>> {
+  return toResult(async () => {
+    const data = addAddOnSchema.parse(input);
+    const user = await requireUser();
+    const reservation = await db.unscoped().reservation.findFirst({
+      where: { id: data.reservationId, property: { orgId: user.orgId } },
+      select: { id: true, status: true, propertyId: true },
+    });
+    if (!reservation) throw new NotFoundError("Reservation not found.");
+    authorize(user, "folio:charge", reservation.propertyId);
+
+    const addOn = await getAddOn(data.addOnId);
+    if (!addOn || !addOn.active || addOn.propertyId !== reservation.propertyId) {
+      throw new NotFoundError("Add-on not found for this property.");
+    }
+    if (!canPostAddOnCharge(reservation.status)) {
+      throw new DomainError(ErrorCode.FOLIO_TARGET_INVALID, undefined, {
+        publicMessage: "Add-ons post once the guest is checked in.",
+      });
+    }
+
+    const folioId = await ensureFolio(db.unscoped(), { reservationId: reservation.id, propertyId: reservation.propertyId });
+    const charge = await postFolioCharge({
+      folioId,
+      type: addOn.chargeType,
+      description: `Add-on: ${addOn.name}`,
+      quantity: data.quantity,
+      unitPaise: addOn.pricePaise,
+      ...(addOn.hsnSac ? { hsnSac: addOn.hsnSac } : {}),
+      ...(addOn.taxRateBps != null ? { taxRateBps: addOn.taxRateBps } : {}),
+    });
+    if (!charge.ok) throw new DomainError(ErrorCode.FOLIO_TARGET_INVALID, charge.error.message, { publicMessage: charge.error.message });
+    revalidatePath(`/bookings/${reservation.id}/folio`);
+    return { lineId: charge.data.lineId };
+  });
+}
 
 export async function decideAddOnRequest(id: string, decision: "ACCEPT" | "DECLINE"): Promise<Result<DecideAddOnResult>> {
   return toResult(async () => {
@@ -35,6 +87,7 @@ export async function decideAddOnRequest(id: string, decision: "ACCEPT" | "DECLI
         id: true, status: true, propertyId: true, reservationId: true,
         nameSnapshot: true, unitPaise: true, quantity: true, chargeType: true,
         reservation: { select: { status: true } },
+        addOn: { select: { hsnSac: true, taxRateBps: true } },
       },
     });
     if (!req) throw new NotFoundError("Add-on request not found.");
@@ -87,9 +140,10 @@ export async function decideAddOnRequest(id: string, decision: "ACCEPT" | "DECLI
         description: `Add-on: ${req.nameSnapshot}`,
         quantity: req.quantity,
         unitPaise: req.unitPaise,
-        // GST is derived from the charge type (the seeded catalog rates match the
-        // type defaults). Per-add-on rate/HSN overrides aren't snapshotted onto the
-        // request yet — a documented future increment.
+        // Honour the catalog item's GST/HSN overrides (read from the linked AddOn),
+        // falling back to the charge-type defaults when it doesn't override.
+        ...(req.addOn?.hsnSac ? { hsnSac: req.addOn.hsnSac } : {}),
+        ...(req.addOn?.taxRateBps != null ? { taxRateBps: req.addOn.taxRateBps } : {}),
       });
       if (!charge.ok) throw new DomainError(ErrorCode.FOLIO_TARGET_INVALID, charge.error.message, { publicMessage: charge.error.message });
 
