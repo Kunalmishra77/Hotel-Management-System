@@ -7,6 +7,8 @@ import {
   CalendarCheck, XCircle, UserX,
 } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
+import { hasPermission } from "@/lib/permissions";
+import { Button } from "@/components/ui/button";
 import {
   parsePeriod, periodRange, previousWindow, deltaPct,
 } from "@/features/command-center/domain/period";
@@ -113,6 +115,19 @@ export default async function OverviewPage({
       <PageHeader
         title="Command centre"
         description={isPortfolio ? `${t.count} properties · one dashboard · ${win.label}` : win.label}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            {hasPermission(user, "reservation:view") ? (
+              <Button asChild variant="outline" size="sm"><Link href="/bookings?desk=1">Front desk</Link></Button>
+            ) : null}
+            {hasPermission(user, "guest:create") ? (
+              <Button asChild variant="outline" size="sm"><Link href="/guests/new">Add guest</Link></Button>
+            ) : null}
+            {hasPermission(user, "reservation:create") ? (
+              <Button asChild size="sm"><Link href="/bookings/new">New booking</Link></Button>
+            ) : null}
+          </div>
+        }
       />
 
       <div className="mt-1">
