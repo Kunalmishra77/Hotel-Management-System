@@ -13,7 +13,8 @@ Each phase lists what already exists so we don't rebuild, and what's actually mi
 - ✅ **Phase 4** (2026-09-05) — `ReservationGuest` model + migration (applied to live). Add/remove accompanying guests on a booking (no new booking) + occupancy (adults/children) edit, on the booking detail; active-booking gated, `reservation:modify`, audited. Build green, pushed. *Extra-bed-as-charge → Phase 5.*
 - ✅ **Phase 5** (2026-09-05) — Dynamic bill adjustments on the folio: wired the built-but-hidden **Discount** action into the UI, and added **ROOM** to the charge types (room-price increase / upgrade / extra night). With existing +Charge (EXTRA_BED / services) and Phase-4 extra guests, staff can now increase/decrease price, discount, add extra bed/services — balance auto-recalculates (derived). Append-only + audited. Build green, pushed.
 - ✅ **Phase 6** (2026-09-05) — Super-Admin **Bookings** section (`/bookings` portal-branched): portfolio KPIs (bookings/cancellations/no-shows/cancel-rate/revenue) + per-property outcomes + recent-bookings feed, with the period filter; wired into the Super-Admin nav. Booking detail now shows a **complete Bill** (every folio line, payments, taxable/GST/paid/balance). Build green, pushed.
-- ⏳ **Phase 7** — next: Import/Export hub redesign.
+- ✅ **Phase 7** (2026-09-05) — Unified Data hub at `/data-import` ("Import & Export"): one page with per-entity **Export** (Customers/Bookings/Billing/Expenses/Staff → Excel/CSV/PDF via the canonical export, PII-gated) above the existing validate→commit→rollback **Import**. Nav relabeled. Build green, pushed. *(Rooms/services aren't in the search index — noted, left to their modules.)*
+- ⏳ **Phase 8** — next: Data Entry (photo/PDF upload + optional AI-assist → module-26 import).
 
 ---
 

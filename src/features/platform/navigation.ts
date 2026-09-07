@@ -320,7 +320,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   },
   {
     key: "data-import",
-    label: "Data import",
+    label: "Import & Export",
     href: "/data-import",
     icon: "Upload",
     permission: "data:import",
