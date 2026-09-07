@@ -7,6 +7,7 @@ import { hasPermission, type Permission } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
+import { redirect } from "next/navigation";
 import { portalNavItems, resolvePortal } from "@/features/platform/portals";
 import { NavIcon } from "@/features/platform/components/nav-icon";
 import { liveTiles, trend } from "@/features/analytics/queries";
@@ -49,6 +50,10 @@ export default async function DashboardPage() {
   // (actions + live ops KPIs + today's board), NOT the generic dashboard. This is
   // the pattern that gives every portal its own identity (redesign Wave 1).
   const portal = resolvePortal(claims.roleAssignments.map((r) => r.role));
+  // Super-Admin's real home is the Command Centre; never strand them on the
+  // generic dashboard if a link/redirect lands here.
+  if (portal === "SUPER_ADMIN") redirect("/overview");
+  if (portal === "OWNER") redirect("/owner");
   if (portal === "RECEPTION" && propertyId) {
     const now = new Date();
     const [tiles, overview, ad] = await Promise.all([
