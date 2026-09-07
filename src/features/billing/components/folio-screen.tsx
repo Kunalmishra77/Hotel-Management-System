@@ -11,7 +11,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { postFolioCharge, applyDiscount } from "../charge-actions";
+import { postFolioCharge, applyDiscount, reverseFolioLine } from "../charge-actions";
 import { recordPayment } from "../payment-actions";
 import { generateInvoice } from "../invoice-actions";
 import { addAddOnToReservation } from "@/features/add-ons/actions";
@@ -40,6 +40,7 @@ export function FolioScreen({
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<"none" | "charge" | "pay" | "discount" | "addon">("none");
   const [invoice, setInvoice] = useState<{ id: string; number: string } | null>(null);
+  const [reverseTarget, setReverseTarget] = useState<{ id: string; description: string } | null>(null);
 
   const generate = () => {
     setError(null);
@@ -66,9 +67,23 @@ export function FolioScreen({
       <Card>
         <CardHeader className="pb-3"><CardTitle className="text-base">Charges & payments</CardTitle></CardHeader>
         <CardContent className="space-y-1 text-sm" data-testid="folio-lines">
-          {folio.lines.map((l) => (
-            <Row key={l.id} label={`${l.type} · ${l.description}`} value={rupees(l.amountPaise + l.cgstPaise + l.sgstPaise + l.igstPaise)} />
-          ))}
+          {folio.lines.map((l) => {
+            const canReverse = l.type !== "TAX" && l.type !== "REVERSAL";
+            return (
+              <div key={l.id} className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground">{l.type} · {l.description}</span>
+                <span className="flex items-center gap-2">
+                  <span className="tabular">{rupees(l.amountPaise + l.cgstPaise + l.sgstPaise + l.igstPaise)}</span>
+                  {canReverse && (
+                    <button type="button" onClick={() => setReverseTarget({ id: l.id, description: l.description })}
+                      className="text-xs text-muted-foreground underline-offset-2 hover:text-destructive hover:underline" data-testid="reverse-line">
+                      reverse
+                    </button>
+                  )}
+                </span>
+              </div>
+            );
+          })}
           {folio.payments.map((p) => (
             <div key={p.id} className="flex items-center justify-between gap-2">
               <span className="text-muted-foreground">
@@ -79,9 +94,22 @@ export function FolioScreen({
               <span>{p.isRefund ? "+" : "−"} {rupees(p.amountPaise)}</span>
             </div>
           ))}
-          <div className="mt-2 flex justify-between border-t pt-2 text-base font-semibold">
-            <span>Balance due</span><span data-testid="folio-balance">{rupees(folio.balancePaise)}</span>
-          </div>
+          {(() => {
+            const taxable = folio.lines.reduce((a, l) => a + l.amountPaise, 0);
+            const tax = folio.lines.reduce((a, l) => a + l.cgstPaise + l.sgstPaise + l.igstPaise, 0);
+            const paid = folio.payments.reduce((a, p) => a + (p.isRefund ? -p.amountPaise : p.amountPaise), 0);
+            return (
+              <div className="mt-2 space-y-1 border-t pt-2">
+                <div className="flex justify-between text-muted-foreground"><span>Taxable value</span><span className="tabular">{rupees(taxable)}</span></div>
+                <div className="flex justify-between text-muted-foreground"><span>GST</span><span className="tabular">{rupees(tax)}</span></div>
+                <div className="flex justify-between font-medium"><span>Total</span><span className="tabular">{rupees(taxable + tax)}</span></div>
+                <div className="flex justify-between text-muted-foreground"><span>Paid</span><span className="tabular">− {rupees(paid)}</span></div>
+                <div className="mt-1 flex justify-between border-t pt-1.5 text-base font-semibold">
+                  <span>Balance due</span><span data-testid="folio-balance">{rupees(folio.balancePaise)}</span>
+                </div>
+              </div>
+            );
+          })()}
         </CardContent>
       </Card>
 
@@ -93,6 +121,11 @@ export function FolioScreen({
         </p>
       )}
 
+      {reverseTarget && (
+        <ReverseForm description={reverseTarget.description} pending={pending}
+          onSubmit={(reason) => { const id = reverseTarget.id; setReverseTarget(null); run(() => reverseFolioLine({ lineId: id, reason })); }}
+          onCancel={() => setReverseTarget(null)} />
+      )}
       {mode === "charge" && <ChargeForm pending={pending} onSubmit={(type, desc, rupeeAmt) => run(() => postFolioCharge({ folioId: folio.id, type, description: desc, unitPaise: toPaise(rupeeAmt) }))} onCancel={() => setMode("none")} />}
       {mode === "discount" && <DiscountForm pending={pending} onSubmit={(reason, rupeeAmt) => run(() => applyDiscount({ folioId: folio.id, reason, amountPaise: toPaise(rupeeAmt) }))} onCancel={() => setMode("none")} />}
       {mode === "addon" && reservationId && <AddOnForm addOns={addOns} pending={pending} onSubmit={(addOnId, qty) => run(() => addAddOnToReservation({ reservationId, addOnId, quantity: qty }))} onCancel={() => setMode("none")} />}
@@ -111,10 +144,6 @@ export function FolioScreen({
       )}
     </div>
   );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return <div className="flex justify-between"><span className="text-muted-foreground">{label}</span><span>{value}</span></div>;
 }
 
 function ChargeForm({ onSubmit, onCancel, pending }: { onSubmit: (type: string, desc: string, amt: number) => void; onCancel: () => void; pending: boolean }) {
@@ -153,6 +182,20 @@ function AddOnForm({ addOns, onSubmit, onCancel, pending }: { addOns: AddOnOptio
       </div>
       <div className="flex gap-2">
         <Button size="lg" disabled={pending || !addOnId} onClick={() => onSubmit(addOnId, qty)} data-testid="addon-submit">Add to folio</Button>
+        <Button size="lg" variant="outline" onClick={onCancel}>Cancel</Button>
+      </div>
+    </CardContent></Card>
+  );
+}
+
+function ReverseForm({ description, onSubmit, onCancel, pending }: { description: string; onSubmit: (reason: string) => void; onCancel: () => void; pending: boolean }) {
+  const [reason, setReason] = useState("");
+  return (
+    <Card className="border-destructive/40"><CardContent className="space-y-3 p-4">
+      <p className="text-sm">Reverse <span className="font-medium">{description}</span>? A reversing entry is appended (the original line is never edited) and the balance recalculates.</p>
+      <Input placeholder="Reason (e.g. wrong amount, duplicate)" value={reason} onChange={(e) => setReason(e.target.value)} data-testid="reverse-reason" />
+      <div className="flex gap-2">
+        <Button size="lg" variant="destructive" disabled={pending || !reason} onClick={() => onSubmit(reason)} data-testid="reverse-submit">Reverse charge</Button>
         <Button size="lg" variant="outline" onClick={onCancel}>Cancel</Button>
       </div>
     </CardContent></Card>
