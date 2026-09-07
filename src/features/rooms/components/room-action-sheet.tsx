@@ -14,11 +14,12 @@
  * A bottom sheet rather than a dialog: mobile-first.md puts primary actions in
  * thumb reach, and this is used one-handed while walking a corridor.
  */
-import { useState, useTransition } from "react";
-import { QrCode, X } from "lucide-react";
+import { useEffect, useState, useTransition } from "react";
+import Link from "next/link";
+import { QrCode, X, ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { changeRoomStatus } from "../status-actions";
+import { changeRoomStatus, getRoomCurrentBooking, type RoomBooking } from "../status-actions";
 import { getRoomOrderQr } from "../order-qr-actions";
 import type { BoardRoom } from "../queries";
 import { STATUS_LABEL } from "./room-chip";
@@ -37,6 +38,21 @@ export function RoomActionSheet({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [qr, setQr] = useState<{ url: string; qrDataUrl: string; number: string } | null>(null);
+  const [booking, setBooking] = useState<RoomBooking | null>(null);
+
+  // For an occupied/reserved room, resolve the guest + booking so the sheet can
+  // link to it (returns null for roles without reservation:view).
+  const roomId = room?.id;
+  const roomStatus = room?.status;
+  useEffect(() => {
+    setBooking(null);
+    if (!roomId || (roomStatus !== "OCCUPIED" && roomStatus !== "RESERVED")) return;
+    let active = true;
+    getRoomCurrentBooking(roomId).then((res) => {
+      if (active && res.ok) setBooking(res.data);
+    });
+    return () => { active = false; };
+  }, [roomId, roomStatus]);
 
   if (!room) return null;
 
@@ -109,6 +125,20 @@ export function RoomActionSheet({
             <X className="size-4" />
           </Button>
         </div>
+
+        {booking && (
+          <Link
+            href={`/bookings/${booking.reservationId}`}
+            className="mb-3 flex items-center justify-between gap-2 rounded-md border bg-muted/40 p-3 text-sm hover:bg-muted"
+            data-testid="room-view-booking"
+          >
+            <span className="min-w-0">
+              <span className="font-medium">{booking.guestName}</span>
+              <span className="text-muted-foreground"> · {booking.code}</span>
+            </span>
+            <span className="inline-flex shrink-0 items-center gap-1 text-primary">View booking <ArrowUpRight className="size-3.5" /></span>
+          </Link>
+        )}
 
         {room.allowedTransitions.length === 0 ? (
           <p className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">

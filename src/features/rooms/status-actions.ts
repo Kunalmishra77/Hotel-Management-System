@@ -16,7 +16,7 @@
 import { revalidatePath } from "next/cache";
 import type { RoomStatus } from "@prisma/client";
 import { requireUser } from "@/lib/auth";
-import { authorize } from "@/lib/permissions";
+import { authorize, hasPermission } from "@/lib/permissions";
 import { writeAudit } from "@/lib/audit";
 import { emitEvent } from "@/lib/events";
 import { ConflictError, ForbiddenError, NotFoundError } from "@/lib/errors";
@@ -24,6 +24,40 @@ import { toResult, type Result } from "@/lib/result";
 import { canTransition, canTransitionAsRole } from "./domain/transitions";
 import { changeRoomStatusSchema } from "./schema";
 import { ROOM_SELECT, rolesOf, roomDb, withRoomContext } from "./internal";
+
+export type RoomBooking = { reservationId: string; code: string; guestName: string; status: string };
+
+/**
+ * The booking currently occupying/holding a room — so the board can link an
+ * OCCUPIED/RESERVED room to its guest + folio (audit P2-2). Returns null when
+ * the caller can't view reservations (e.g. housekeeping), so the link only
+ * appears for roles that may see guest details.
+ */
+export async function getRoomCurrentBooking(roomId: string): Promise<Result<RoomBooking | null>> {
+  return toResult(async () => {
+    const user = await requireUser();
+    if (!hasPermission(user, "reservation:view")) return null;
+    const now = new Date();
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const alloc = await roomDb(user).roomAllocation.findFirst({
+      where: {
+        roomId,
+        startDate: { lte: today },
+        endDate: { gte: today },
+        reservation: { status: { in: ["IN_HOUSE", "CONFIRMED"] } },
+      },
+      select: { reservation: { select: { id: true, code: true, status: true, guest: { select: { fullName: true } } } } },
+      orderBy: { startDate: "desc" },
+    });
+    if (!alloc?.reservation) return null;
+    return {
+      reservationId: alloc.reservation.id,
+      code: alloc.reservation.code,
+      guestName: alloc.reservation.guest?.fullName ?? "Guest",
+      status: alloc.reservation.status,
+    };
+  });
+}
 
 export type StatusChangeResult = {
   id: string;
