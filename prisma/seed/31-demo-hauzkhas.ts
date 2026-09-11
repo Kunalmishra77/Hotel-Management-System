@@ -41,8 +41,6 @@ import {
   USER_ACCOUNTS_ID,
   USER_MANAGER_ID,
   USER_OWNER_AB_ID,
-  FLOOR_A_1_ID,
-  FLOOR_A_2_ID,
 } from "./fixtures";
 
 // --- date helpers -----------------------------------------------------------
@@ -106,17 +104,19 @@ interface PropCfg {
   rooms: RoomCfg[];
 }
 
-// D-1/17 — the flagship: 3 units × 3BHK = 9 rooms (6 attached-bath, 3 shared).
-// Reuses PROP-A's existing rooms/floors (re-pointed to Hauz-Khas categories).
+// The client's real layout (WhatsApp, Sunil Aggarwal):
+// D-1/17 — Ground + 2nd + 3rd floor, each: Room 1 (attached), Room 2 (attached),
+//          Room 3 (outside bath) = 9 rooms (6 attached + 3 outside).
 const HKD17_ATTACHED = "cat_hkd17_attached";
-const HKD17_SHARED = "cat_hkd17_shared";
-const d17Room = (n: string, floorId: string, catId: string, ratePaise: number): RoomCfg => ({
-  id: `room_wmg_${n}`,
-  number: n,
-  floorId,
-  catId,
-  ratePaise,
-});
+const HKD17_OUTSIDE = "cat_hkd17_outside";
+const D17_ATTACHED = 350_000; // ₹3,500
+const D17_OUTSIDE = 250_000; // ₹2,500
+/** One D-1/17 floor: Room 1 & 2 attached-bath, Room 3 outside-bath. */
+const d17Floor = (floorId: string, prefix: string): RoomCfg[] => [
+  { id: `room_hkd17_${prefix}1`, number: `${prefix}-1`, floorId, catId: HKD17_ATTACHED, ratePaise: D17_ATTACHED },
+  { id: `room_hkd17_${prefix}2`, number: `${prefix}-2`, floorId, catId: HKD17_ATTACHED, ratePaise: D17_ATTACHED },
+  { id: `room_hkd17_${prefix}3`, number: `${prefix}-3`, floorId, catId: HKD17_OUTSIDE, ratePaise: D17_OUTSIDE },
+];
 
 const PROPS: PropCfg[] = [
   {
@@ -126,21 +126,19 @@ const PROPS: PropCfg[] = [
     addressLine1: "D-1/17, Hauz Khas",
     gstin: delhiGstin("1"),
     existing: true,
-    floors: [], // reuse PROP-A floors
+    floors: [
+      { id: "floor_hkd17_gf", name: "Ground Floor", sortOrder: 0 },
+      { id: "floor_hkd17_2f", name: "2nd Floor", sortOrder: 2 },
+      { id: "floor_hkd17_3f", name: "3rd Floor", sortOrder: 3 },
+    ],
     cats: [
-      { id: HKD17_ATTACHED, name: "3BHK · Attached Bath", ratePaise: 350_000, maxAdults: 3, maxChildren: 2 },
-      { id: HKD17_SHARED, name: "3BHK · Shared Bath", ratePaise: 250_000, maxAdults: 2, maxChildren: 1 },
+      { id: HKD17_ATTACHED, name: "Attached Bath", ratePaise: D17_ATTACHED, maxAdults: 3, maxChildren: 2 },
+      { id: HKD17_OUTSIDE, name: "Outside Bath", ratePaise: D17_OUTSIDE, maxAdults: 2, maxChildren: 1 },
     ],
     rooms: [
-      d17Room("101", FLOOR_A_1_ID, HKD17_ATTACHED, 350_000),
-      d17Room("102", FLOOR_A_1_ID, HKD17_ATTACHED, 350_000),
-      d17Room("103", FLOOR_A_1_ID, HKD17_ATTACHED, 350_000),
-      d17Room("104", FLOOR_A_1_ID, HKD17_ATTACHED, 350_000),
-      d17Room("105", FLOOR_A_1_ID, HKD17_ATTACHED, 350_000),
-      d17Room("201", FLOOR_A_2_ID, HKD17_ATTACHED, 350_000),
-      d17Room("202", FLOOR_A_2_ID, HKD17_SHARED, 250_000),
-      d17Room("203", FLOOR_A_2_ID, HKD17_SHARED, 250_000),
-      d17Room("204", FLOOR_A_2_ID, HKD17_SHARED, 250_000),
+      ...d17Floor("floor_hkd17_gf", "GF"),
+      ...d17Floor("floor_hkd17_2f", "2F"),
+      ...d17Floor("floor_hkd17_3f", "3F"),
     ],
   },
   {
@@ -150,12 +148,12 @@ const PROPS: PropCfg[] = [
     addressLine1: "D-1/3, Hauz Khas",
     gstin: delhiGstin("2"),
     existing: true,
-    floors: [{ id: "floor_hkd3_1", name: "1", sortOrder: 1 }],
+    floors: [{ id: "floor_hkd3_gf", name: "Ground Floor", sortOrder: 0 }],
     cats: [{ id: "cat_hkd3", name: "Serviced Room", ratePaise: 280_000, maxAdults: 2, maxChildren: 1 }],
     rooms: [
-      { id: "room_hkd3_1", number: "101", floorId: "floor_hkd3_1", catId: "cat_hkd3", ratePaise: 280_000 },
-      { id: "room_hkd3_2", number: "102", floorId: "floor_hkd3_1", catId: "cat_hkd3", ratePaise: 280_000 },
-      { id: "room_hkd3_3", number: "103", floorId: "floor_hkd3_1", catId: "cat_hkd3", ratePaise: 280_000 },
+      { id: "room_hkd3_1", number: "R1", floorId: "floor_hkd3_gf", catId: "cat_hkd3", ratePaise: 280_000 },
+      { id: "room_hkd3_2", number: "R2", floorId: "floor_hkd3_gf", catId: "cat_hkd3", ratePaise: 280_000 },
+      { id: "room_hkd3_3", number: "R3", floorId: "floor_hkd3_gf", catId: "cat_hkd3", ratePaise: 280_000 },
     ],
   },
   {
@@ -165,11 +163,11 @@ const PROPS: PropCfg[] = [
     addressLine1: "D-1/30, Hauz Khas",
     gstin: delhiGstin("3"),
     existing: false,
-    floors: [{ id: "floor_hkd30_1", name: "1", sortOrder: 1 }],
+    floors: [{ id: "floor_hkd30_1", name: "1st Floor", sortOrder: 1 }],
     cats: [{ id: "cat_hkd30", name: "2BHK Apartment", ratePaise: 320_000, maxAdults: 4, maxChildren: 2 }],
     rooms: [
-      { id: "room_hkd30_1", number: "201", floorId: "floor_hkd30_1", catId: "cat_hkd30", ratePaise: 320_000 },
-      { id: "room_hkd30_2", number: "202", floorId: "floor_hkd30_1", catId: "cat_hkd30", ratePaise: 320_000 },
+      { id: "room_hkd30_1", number: "R1", floorId: "floor_hkd30_1", catId: "cat_hkd30", ratePaise: 320_000 },
+      { id: "room_hkd30_2", number: "R2", floorId: "floor_hkd30_1", catId: "cat_hkd30", ratePaise: 320_000 },
     ],
   },
   {
@@ -179,11 +177,11 @@ const PROPS: PropCfg[] = [
     addressLine1: "D-1/23, Hauz Khas",
     gstin: delhiGstin("4"),
     existing: false,
-    floors: [{ id: "floor_hkd23_1", name: "1", sortOrder: 1 }],
+    floors: [{ id: "floor_hkd23_1", name: "1st Floor", sortOrder: 1 }],
     cats: [{ id: "cat_hkd23", name: "2BHK Apartment", ratePaise: 300_000, maxAdults: 4, maxChildren: 2 }],
     rooms: [
-      { id: "room_hkd23_1", number: "301", floorId: "floor_hkd23_1", catId: "cat_hkd23", ratePaise: 300_000 },
-      { id: "room_hkd23_2", number: "302", floorId: "floor_hkd23_1", catId: "cat_hkd23", ratePaise: 300_000 },
+      { id: "room_hkd23_1", number: "R1", floorId: "floor_hkd23_1", catId: "cat_hkd23", ratePaise: 300_000 },
+      { id: "room_hkd23_2", number: "R2", floorId: "floor_hkd23_1", catId: "cat_hkd23", ratePaise: 300_000 },
     ],
   },
 ];
