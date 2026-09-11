@@ -94,6 +94,32 @@ export const updateOccupancySchema = z.object({
   children: z.coerce.number().int().min(0).max(30),
 });
 
+/** Historical stay import (go-live data entry) — a past guest stay for a property. */
+const histDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date like 2026-09-01.");
+export const historicalStaySchema = z
+  .object({
+    propertyId: z.string().min(1, "Select the property where the guest stayed."),
+    checkInDate: histDate,
+    checkOutDate: histDate,
+    fullName: z.string().trim().min(1, "Guest name is required.").max(120),
+    mobile: z.string().trim().min(1, "Mobile number is required."),
+    address: z.string().trim().max(200).optional().nullable(),
+    city: z.string().trim().max(80).optional().nullable(),
+    country: z.string().trim().max(80).optional().nullable(),
+    dob: histDate.optional().nullable().or(z.literal("").transform(() => null)),
+    idType: z.enum(["AADHAAR", "PASSPORT", "DRIVING_LICENCE", "VOTER_ID", "PAN", "VISA"]).optional().nullable(),
+    idNumber: z.string().trim().max(60).optional().nullable(),
+    scanBase64: z.string().optional().nullable(),
+    scanContentType: z.string().optional().nullable(),
+    ratePaise: z.coerce.number().int().min(0).max(100_000_000).optional().default(0),
+    amountPaidPaise: z.coerce.number().int().min(0).max(100_000_000).optional().default(0),
+  })
+  .refine((d) => d.checkOutDate >= d.checkInDate, {
+    message: "Check-out must be the same day or after check-in.",
+    path: ["checkOutDate"],
+  });
+export type HistoricalStayInput = z.input<typeof historicalStaySchema>;
+
 /** Correct free-text booking details (notes, expected arrival) any time. */
 export const updateReservationDetailsSchema = z.object({
   reservationId: z.string().min(1),
