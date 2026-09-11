@@ -18,16 +18,19 @@ export default async function DataEntryPage() {
   const user = await requirePermission("reservation:create");
   const [properties, roomRows] = await Promise.all([
     listAccessibleProperties(),
+    // NOTE: no `orderBy: { propertyId }` — the scope extension reads a propertyId
+    // literal ("asc") in the args as a property to validate → OutOfScopeError.
     db.scoped(user).room.findMany({
       where: { isActive: true },
-      select: { id: true, number: true, propertyId: true, category: { select: { name: true } } },
-      orderBy: [{ propertyId: "asc" }, { number: "asc" }],
+      select: { id: true, number: true, propertyId: true, category: { select: { name: true, baseRatePaise: true } } },
+      orderBy: { number: "asc" },
     }),
   ]);
   const rooms = roomRows.map((r) => ({
     id: r.id,
     propertyId: r.propertyId,
     label: `${r.number}${r.category ? ` · ${r.category.name}` : ""}`,
+    ratePaise: r.category?.baseRatePaise ?? 0,
   }));
 
   return (

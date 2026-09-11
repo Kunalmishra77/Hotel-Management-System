@@ -18,7 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createHistoricalStay } from "../historical-actions";
 
 type Property = { id: string; name: string };
-type Room = { id: string; propertyId: string; label: string };
+type Room = { id: string; propertyId: string; label: string; ratePaise: number };
 const ID_TYPES = ["", "AADHAAR", "PASSPORT", "DRIVING_LICENCE", "VOTER_ID", "PAN", "VISA"] as const;
 
 const blank = {
@@ -104,7 +104,13 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="roomId">Room</Label>
-              <select id="roomId" value={roomId} onChange={(e) => setRoomId(e.target.value)}
+              <select id="roomId" value={roomId}
+                onChange={(e) => {
+                  const rid = e.target.value;
+                  setRoomId(rid);
+                  const r = rooms.find((x) => x.id === rid);
+                  if (r && r.ratePaise > 0) set("rate", String(r.ratePaise / 100)); // auto-fill tariff; still editable for a discount
+                }}
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" data-testid="hist-room">
                 <option value="">Any available room</option>
                 {propertyRooms.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
@@ -164,9 +170,9 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
       <Card>
         <CardHeader className="pb-3"><CardTitle className="text-base">Bill (optional)</CardTitle></CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
-          <Fld label="Room rate per night (₹)"><Input type="number" inputMode="numeric" min={0} value={f.rate} onChange={(e) => set("rate", e.target.value)} placeholder="e.g. 3000" /></Fld>
+          <Fld label="Room rate per night (₹)"><Input type="number" inputMode="numeric" min={0} value={f.rate} onChange={(e) => set("rate", e.target.value)} placeholder="Auto-fills from the room" /></Fld>
           <Fld label="Amount collected (₹)"><Input type="number" inputMode="numeric" min={0} value={f.paid} onChange={(e) => set("paid", e.target.value)} placeholder="e.g. 6000" /></Fld>
-          <p className="text-xs text-muted-foreground sm:col-span-2">Leave blank if you only need the stay history. If a rate is given, a folio + GST bill is created for the stay.</p>
+          <p className="text-xs text-muted-foreground sm:col-span-2">Pick a room and the nightly rate fills in automatically — <span className="font-medium">edit it</span> if the guest was given a discount or a special price. A folio + GST bill is created for the stay from this rate. Leave blank for history only.</p>
         </CardContent>
       </Card>
 
