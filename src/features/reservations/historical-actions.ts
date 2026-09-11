@@ -73,12 +73,26 @@ export async function createHistoricalStay(input: unknown): Promise<Result<{ res
     const ratePaise = data.ratePaise ?? 0;
     const amountPaid = data.amountPaidPaise ?? 0;
 
-    // 4. A room free for the whole range (for occupancy). None free → no hard
-    //    allocation, but the stay is still recorded.
-    const freeRoom = await reservationDb(user).room.findFirst({
-      where: { propertyId: data.propertyId, isActive: true, allocations: { none: overlapWhere(ci, co) } },
-      select: { id: true, number: true },
-    });
+    // 4. The room: the one the staff picked, else a room free for the range.
+    //    Occupancy needs an allocation, but only if the room is actually free for
+    //    the dates — checked up-front so a clash can't poison the transaction.
+    const room = data.roomId
+      ? await reservationDb(user).room.findFirst({
+          where: { id: data.roomId, propertyId: data.propertyId, isActive: true },
+          select: { id: true, number: true },
+        })
+      : await reservationDb(user).room.findFirst({
+          where: { propertyId: data.propertyId, isActive: true, allocations: { none: overlapWhere(ci, co) } },
+          select: { id: true, number: true },
+        });
+    let allocate = false;
+    if (room) {
+      const clash = await reservationDb(user).roomAllocation.findFirst({
+        where: { roomId: room.id, ...overlapWhere(ci, co) },
+        select: { id: true },
+      });
+      allocate = !clash;
+    }
 
     const code = generateReservationCode();
 
@@ -106,9 +120,9 @@ export async function createHistoricalStay(input: unknown): Promise<Result<{ res
           select: { id: true },
         });
 
-        if (freeRoom) {
+        if (room && allocate) {
           await tx.roomAllocation.create({
-            data: { propertyId: data.propertyId, reservationId: reservation.id, roomId: freeRoom.id, startDate: ci, endDate: co },
+            data: { propertyId: data.propertyId, reservationId: reservation.id, roomId: room.id, startDate: ci, endDate: co },
           });
         }
 
@@ -124,7 +138,7 @@ export async function createHistoricalStay(input: unknown): Promise<Result<{ res
                 ratePaise,
                 businessDate,
                 postedById: user.userId,
-                description: `Room ${freeRoom?.number ?? ""} · night (historical)`.trim(),
+                description: `Room ${room?.number ?? ""} · night (historical)`.trim(),
               });
             }
           }

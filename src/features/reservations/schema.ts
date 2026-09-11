@@ -99,6 +99,7 @@ const histDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date like 2026-0
 export const historicalStaySchema = z
   .object({
     propertyId: z.string().min(1, "Select the property where the guest stayed."),
+    roomId: z.string().optional().nullable(),
     checkInDate: histDate,
     checkOutDate: histDate,
     fullName: z.string().trim().min(1, "Guest name is required.").max(120),

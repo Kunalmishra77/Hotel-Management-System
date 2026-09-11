@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requirePermission } from "@/lib/auth/guard";
+import { db } from "@/lib/db";
 import { listAccessibleProperties } from "@/features/platform/actions";
 import { HistoricalStayForm } from "@/features/reservations/components/historical-stay-form";
 import { PageHeader } from "@/components/ui/page-header";
@@ -14,8 +15,20 @@ export const metadata: Metadata = { title: "Data Entry" };
  * `reservation:create`, server-side.
  */
 export default async function DataEntryPage() {
-  await requirePermission("reservation:create");
-  const properties = await listAccessibleProperties();
+  const user = await requirePermission("reservation:create");
+  const [properties, roomRows] = await Promise.all([
+    listAccessibleProperties(),
+    db.scoped(user).room.findMany({
+      where: { isActive: true },
+      select: { id: true, number: true, propertyId: true, category: { select: { name: true } } },
+      orderBy: [{ propertyId: "asc" }, { number: "asc" }],
+    }),
+  ]);
+  const rooms = roomRows.map((r) => ({
+    id: r.id,
+    propertyId: r.propertyId,
+    label: `${r.number}${r.category ? ` · ${r.category.name}` : ""}`,
+  }));
 
   return (
     <div className="mx-auto w-full max-w-3xl p-4">
@@ -26,7 +39,7 @@ export default async function DataEntryPage() {
       <p className="mb-4 text-sm text-muted-foreground">
         Have a spreadsheet of old records? Use <Link href="/data-import" className="text-primary underline underline-offset-4">Import &amp; Export</Link> for bulk upload. Use this form for one stay at a time.
       </p>
-      <HistoricalStayForm properties={properties.map((p) => ({ id: p.id, name: p.name }))} />
+      <HistoricalStayForm properties={properties.map((p) => ({ id: p.id, name: p.name }))} rooms={rooms} />
     </div>
   );
 }

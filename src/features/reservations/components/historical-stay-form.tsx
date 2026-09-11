@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createHistoricalStay } from "../historical-actions";
 
 type Property = { id: string; name: string };
+type Room = { id: string; propertyId: string; label: string };
 const ID_TYPES = ["", "AADHAAR", "PASSPORT", "DRIVING_LICENCE", "VOTER_ID", "PAN", "VISA"] as const;
 
 const blank = {
@@ -37,9 +38,11 @@ function fileToParts(file: File): Promise<{ base64: string; contentType: string;
   });
 }
 
-export function HistoricalStayForm({ properties }: { properties: Property[] }) {
+export function HistoricalStayForm({ properties, rooms }: { properties: Property[]; rooms: Room[] }) {
   const [propertyId, setPropertyId] = useState(properties[0]?.id ?? "");
+  const [roomId, setRoomId] = useState("");
   const [f, setF] = useState({ ...blank });
+  const propertyRooms = rooms.filter((r) => r.propertyId === propertyId);
   const [scan, setScan] = useState<{ base64: string; contentType: string; preview: string } | null>(null);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -72,6 +75,7 @@ export function HistoricalStayForm({ properties }: { properties: Property[] }) {
         scanContentType: scan?.contentType,
         ratePaise: f.rate ? Math.round(Number(f.rate) * 100) : 0,
         amountPaidPaise: f.paid ? Math.round(Number(f.paid) * 100) : 0,
+        roomId: roomId || undefined,
       });
       if (!res.ok) { setError(res.error.message); return; }
       setSaved(f.fullName);
@@ -90,12 +94,22 @@ export function HistoricalStayForm({ properties }: { properties: Property[] }) {
       <Card className="border-primary/30">
         <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><CalendarClock className="size-4" /> Stay &amp; property (required)</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="propertyId">Property <span className="text-destructive">*</span></Label>
-            <select id="propertyId" value={propertyId} onChange={(e) => setPropertyId(e.target.value)} required
-              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" data-testid="hist-property">
-              {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="propertyId">Property <span className="text-destructive">*</span></Label>
+              <select id="propertyId" value={propertyId} onChange={(e) => { setPropertyId(e.target.value); setRoomId(""); }} required
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" data-testid="hist-property">
+                {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="roomId">Room</Label>
+              <select id="roomId" value={roomId} onChange={(e) => setRoomId(e.target.value)}
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" data-testid="hist-room">
+                <option value="">Any available room</option>
+                {propertyRooms.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
+              </select>
+            </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <Fld label="Check-in date" req><Input type="date" required value={f.checkInDate} onChange={(e) => set("checkInDate", e.target.value)} data-testid="hist-checkin" /></Fld>
