@@ -21,6 +21,7 @@ import { toResult, type Result } from "@/lib/result";
 import { revalidatePath } from "next/cache";
 import { ensureFolio, postRoomChargeTx, postPaymentTx, autoIssueInvoiceOnCheckout, type BillingPostTx } from "@/features/billing";
 import { roomGstBps } from "@/lib/constants/gst";
+import { recomputeHistoricalSnapshot } from "@/features/analytics/night-audit";
 import { createGuest } from "@/features/guests/actions";
 import { addGuestId } from "@/features/guests/id-actions";
 import { reservationDb, withReservationContext, generateReservationCode, overlapWhere } from "./internal";
@@ -215,9 +216,25 @@ export async function createHistoricalStay(input: unknown): Promise<Result<{ res
       await autoIssueInvoiceOnCheckout(result.reservationId);
     }
 
+    // Backfill each night's stats snapshot so this past stay shows in occupancy,
+    // ADR, RevPAR and the revenue trend/property league — not just the money KPIs.
+    // Best-effort: the stay + folio are already committed; a snapshot hiccup must
+    // not fail the import (the nightly audit would rebuild it anyway).
+    if (room && allocate) {
+      for (const businessDate of nightDates) {
+        try {
+          await recomputeHistoricalSnapshot(data.propertyId, businessDate);
+        } catch {
+          // Non-fatal — occupancy/ADR just lag until the next audit for that date.
+        }
+      }
+    }
+
     revalidatePath("/guests");
     revalidatePath("/bookings");
     revalidatePath("/billing");
+    revalidatePath("/overview");
+    revalidatePath("/insights");
     return result;
   });
 }

@@ -24,7 +24,7 @@ import { dayBounds } from "./internal";
 export type NightAuditResult = { status: "COMPLETED" | "ALREADY_RUN" | "IN_PROGRESS" | "FAILED"; snapshotId?: string };
 
 /** Live inputs for a business date's snapshot (all via this module's reads). */
-async function computeInputs(propertyId: string, date: Date) {
+export async function computeInputs(propertyId: string, date: Date) {
   const prisma = db.unscoped();
   const { start, next } = dayBounds(date);
 
@@ -46,6 +46,39 @@ async function computeInputs(propertyId: string, date: Date) {
     totalRevenuePaise: BigInt(totalRev._sum.amountPaise ?? 0n),
     expensePaise: BigInt(expenses._sum.amountPaise ?? 0), // 07-only; 08 adds apportioned staff cost
   };
+}
+
+/**
+ * Backfill (or refresh) the DailyStatSnapshot for a PAST business date from the
+ * current folio + allocation state, WITHOUT rolling the business date or creating
+ * an audit run. The go-live historical import calls this per night of a back-dated
+ * stay so occupancy / ADR / RevPAR and the revenue trend + property league reflect
+ * it — the same snapshot the night audit would have produced from the same rows.
+ * A genuinely closed day (a COMPLETED night audit) is left untouched (immutable).
+ */
+export async function recomputeHistoricalSnapshot(propertyId: string, businessDate: Date): Promise<void> {
+  const prisma = db.unscoped();
+  const run = await prisma.nightAuditRun.findUnique({
+    where: { propertyId_businessDate: { propertyId, businessDate } },
+    select: { status: true },
+  });
+  if (run?.status === "COMPLETED") return;
+  const stats = snapshotFrom(await computeInputs(propertyId, businessDate));
+  const data = {
+    availableRoomNights: stats.availableRoomNights,
+    occupiedRoomNights: stats.occupiedRoomNights,
+    roomRevenuePaise: stats.roomRevenuePaise,
+    totalRevenuePaise: stats.totalRevenuePaise,
+    expensePaise: stats.expensePaise,
+    adrPaise: stats.adrPaise,
+    revparPaise: stats.revparPaise,
+    occupancyBps: stats.occupancyBps,
+  };
+  await prisma.dailyStatSnapshot.upsert({
+    where: { propertyId_businessDate: { propertyId, businessDate } },
+    create: { propertyId, businessDate, ...data },
+    update: data,
+  });
 }
 
 export async function runNightAudit(propertyId: string, businessDate: Date): Promise<NightAuditResult> {
