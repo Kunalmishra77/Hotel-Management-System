@@ -15,7 +15,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { COUNTRIES } from "@/lib/constants/countries";
 import { createHistoricalStay } from "../historical-actions";
+
+/** Dial code for a country name (auto-fills the mobile prefix). India by default. */
+function dialFor(country: string): string {
+  return COUNTRIES.find((c) => c.name === country)?.dial ?? "+91";
+}
 
 type Property = { id: string; name: string };
 type Room = { id: string; propertyId: string; label: string; ratePaise: number };
@@ -71,7 +77,8 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
         checkInDate: f.checkInDate,
         checkOutDate: f.checkOutDate,
         fullName: f.fullName,
-        mobile: f.mobile,
+        // Country's dial code + the local number the staff typed.
+        mobile: `${dialFor(f.country)} ${f.mobile.trim()}`.trim(),
         email: f.email || undefined,
         gender: f.gender || undefined,
         nationality: f.nationality || undefined,
@@ -151,7 +158,14 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <Fld label="Full name" req><Input required value={f.fullName} onChange={(e) => set("fullName", e.target.value)} data-testid="hist-name" /></Fld>
-            <Fld label="Mobile" req><Input inputMode="tel" required value={f.mobile} onChange={(e) => set("mobile", e.target.value)} data-testid="hist-mobile" /></Fld>
+            <Fld label="Mobile" req>
+              <div className="flex">
+                <span className="inline-flex h-10 min-w-14 items-center justify-center rounded-l-md border border-r-0 border-input bg-muted px-2 text-sm text-muted-foreground" title={`Country code for ${f.country || "India"}`} data-testid="hist-dial">
+                  {dialFor(f.country)}
+                </span>
+                <Input inputMode="tel" required value={f.mobile} onChange={(e) => set("mobile", e.target.value)} placeholder="Number without country code" className="rounded-l-none" data-testid="hist-mobile" />
+              </div>
+            </Fld>
             <Fld label="Email"><Input type="email" inputMode="email" value={f.email} onChange={(e) => set("email", e.target.value)} data-testid="hist-email" /></Fld>
             <Fld label="Date of birth"><Input type="date" value={f.dob} onChange={(e) => set("dob", e.target.value)} /></Fld>
             <Fld label="Gender"><Input value={f.gender} onChange={(e) => set("gender", e.target.value)} /></Fld>
@@ -160,7 +174,14 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
           <Fld label="Address"><Input value={f.address} onChange={(e) => set("address", e.target.value)} /></Fld>
           <div className="grid gap-4 sm:grid-cols-2">
             <Fld label="City"><Input value={f.city} onChange={(e) => set("city", e.target.value)} /></Fld>
-            <Fld label="Country"><Input value={f.country} onChange={(e) => set("country", e.target.value)} /></Fld>
+            <div className="space-y-1.5">
+              <Label htmlFor="country">Country</Label>
+              <select id="country" value={f.country} onChange={(e) => set("country", e.target.value)}
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" data-testid="hist-country">
+                {COUNTRIES.map((c) => <option key={c.iso2} value={c.name}>{c.name}</option>)}
+              </select>
+              <p className="text-xs text-muted-foreground">Sets the mobile country code automatically.</p>
+            </div>
           </div>
         </CardContent>
       </Card>

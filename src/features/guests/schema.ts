@@ -5,17 +5,18 @@
  * email/GSTIN, is rejected at the boundary and nothing persists.
  */
 import { z } from "zod";
-import { isValidIndianMobile, normalizeEmail } from "./domain/normalize";
+import { isValidPhone, normalizeEmail } from "./domain/normalize";
 
 const optionalString = (max: number) =>
   z.string().trim().max(max).optional().nullable().or(z.literal("").transform(() => null));
 
-/** FR-6: mobile is required and must be a valid Indian mobile. */
+/** FR-6: mobile is required. Accepts Indian or international numbers (foreign
+ *  guests are common) — see isValidPhone. Include the country code for overseas. */
 const mobileSchema = z
   .string()
   .trim()
   .min(1, "Mobile number is required.")
-  .refine(isValidIndianMobile, "Enter a valid 10-digit Indian mobile number.");
+  .refine(isValidPhone, "Enter a valid mobile number (with country code for international).");
 
 const emailSchema = z
   .string()

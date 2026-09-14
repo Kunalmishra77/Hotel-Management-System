@@ -48,6 +48,21 @@ export function isValidIndianMobile(input: string | null | undefined): boolean {
 }
 
 /**
+ * Accept any plausible phone number, Indian or international. A serviced-apartment
+ * hosts many foreign guests, so demanding a 10-digit Indian mobile turns real
+ * bookings away (same reasoning as the deliberately-permissive email pattern). A
+ * valid Indian mobile passes; otherwise 7–15 significant digits (E.164 range,
+ * incl. a country code) is accepted. Dedupe still keys only on Indian numbers
+ * (`normalizePhone`); a foreign number simply has a null `mobileHash`.
+ */
+export function isValidPhone(input: string | null | undefined): boolean {
+  if (!input) return false;
+  const digits = input.replace(/\D/g, "");
+  if (INDIAN_MOBILE.test(digits)) return true;
+  return digits.length >= 7 && digits.length <= 15;
+}
+
+/**
  * Lowercase + trim only.
  *
  * Deliberately does NOT strip Gmail dots or `+tags`: only some providers treat

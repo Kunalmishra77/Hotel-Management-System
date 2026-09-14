@@ -53,7 +53,16 @@ export async function createHistoricalStay(input: unknown): Promise<Result<{ res
       dob: data.dob ?? undefined,
       confirmDuplicate: true,
     });
-    if (!guest.ok) throw new DomainError(ErrorCode.VALIDATION_FAILED, guest.error.message, { publicMessage: guest.error.message });
+    if (!guest.ok) {
+      // Surface the specific field problem (e.g. "Enter a valid mobile number")
+      // instead of the generic "check the highlighted fields" so the staff know
+      // exactly what to correct on this backfill row.
+      const firstFieldError = guest.error.fieldErrors
+        ? Object.values(guest.error.fieldErrors)[0]?.[0]
+        : undefined;
+      const msg = firstFieldError ?? guest.error.message;
+      throw new DomainError(ErrorCode.VALIDATION_FAILED, msg, { publicMessage: msg });
+    }
     const guestId = guest.data.id;
 
     // 2. Optional ID document/number.
