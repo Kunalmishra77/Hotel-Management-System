@@ -80,6 +80,7 @@ export {
   postRoomChargeTx,
   postPaymentTx,
   postBookingExtrasTx,
+  postServiceChargeTx,
   roomChargeLineData,
   bookingExtraLineData,
   type BillingPostTx,

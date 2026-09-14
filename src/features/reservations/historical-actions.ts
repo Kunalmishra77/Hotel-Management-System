@@ -1,16 +1,21 @@
 "use server";
 
 /**
- * Historical stay import (go-live data entry). The client is entering PAST stays
- * for each property so their guest history, occupancy and revenue are complete
- * from day one. This creates, in one audited transaction, a CHECKED_OUT
- * reservation + folio + per-night room charge (+ optional payment) tied to the
- * chosen property and dates — the same money path as check-out, so the stay flows
- * everywhere (guest 360, billing, reports) exactly like a live one.
+ * Historical / current stay import (go-live data entry). The client backfills
+ * their guest book so history, occupancy and revenue are complete from day one.
+ * In one audited transaction it creates a reservation + folio + per-night room
+ * charge + any extra charges (meals/laundry/…) + optional payment tied to the
+ * chosen property and dates — the same money path as a live stay.
  *
- * It does NOT run the live availability engine (these are past dates): it picks a
- * room that is free for the range and allocates it for occupancy; if none is free
- * the stay is still recorded (dates + folio) without a hard allocation.
+ * Status follows the dates against the property's local today:
+ *   check-out in the past  → CHECKED_OUT (invoiced now)
+ *   still staying          → IN_HOUSE (no invoice yet; room posts up to today)
+ *   check-in in the future → CONFIRMED (no room posted yet)
+ *
+ * GST mode (inclusive/exclusive) says whether the rate/charges the staff type
+ * already include GST or add it on top. It does NOT run the live availability
+ * engine: it picks a room free for the range and allocates it; if none is free the
+ * stay is still recorded (dates + folio) without a hard allocation.
  */
 import { requireUser } from "@/lib/auth";
 import { authorize } from "@/lib/permissions";
@@ -19,8 +24,8 @@ import { writeAudit } from "@/lib/audit";
 import { DomainError, ErrorCode, NotFoundError } from "@/lib/errors";
 import { toResult, type Result } from "@/lib/result";
 import { revalidatePath } from "next/cache";
-import { ensureFolio, postRoomChargeTx, postPaymentTx, autoIssueInvoiceOnCheckout, type BillingPostTx } from "@/features/billing";
-import { roomGstBps } from "@/lib/constants/gst";
+import { ensureFolio, postRoomChargeTx, postServiceChargeTx, postPaymentTx, autoIssueInvoiceOnCheckout, type BillingPostTx } from "@/features/billing";
+import { roomGstBps, gstBpsForCharge } from "@/lib/constants/gst";
 import { recomputeHistoricalSnapshot } from "@/features/analytics/night-audit";
 import { createGuest } from "@/features/guests/actions";
 import { addGuestId } from "@/features/guests/id-actions";
@@ -37,7 +42,7 @@ export async function createHistoricalStay(input: unknown): Promise<Result<{ res
 
     const property = await reservationDb(user).property.findFirst({
       where: { id: data.propertyId, deletedAt: null },
-      select: { id: true, state: true },
+      select: { id: true, state: true, timezone: true },
     });
     if (!property) throw new NotFoundError("Property not found.");
 
@@ -87,13 +92,30 @@ export async function createHistoricalStay(input: unknown): Promise<Result<{ res
     const ratePaise = data.ratePaise ?? 0;
     const amountPaid = data.amountPaidPaise ?? 0;
 
-    // The rate the client enters is the ALL-IN price the guest actually paid (GST
-    // inclusive) — confirmed with the client. Back out the taxable value at the
-    // room's tariff band so the folio line's taxable + GST equals the entered rate
-    // exactly; then rate × nights is the bill total and the same amount collected
-    // settles the stay to a ₹0 balance (no phantom tax due on a paid past stay).
+    // Property-local "today" (calendar date). Decides the reservation status and
+    // which nights are already consumed (only those post now; the night audit
+    // handles future nights of a still-staying guest — its partial-unique index
+    // makes a same-date re-post a no-op, so there is no double count).
+    const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: property.timezone });
+    const todayDate = new Date(`${todayStr}T00:00:00.000Z`);
+    const status: "CHECKED_OUT" | "IN_HOUSE" | "CONFIRMED" =
+      data.checkOutDate <= todayStr ? "CHECKED_OUT" : data.checkInDate > todayStr ? "CONFIRMED" : "IN_HOUSE";
+    const postableNights = nightDates.filter((d) => d.getTime() <= todayDate.getTime());
+
+    // GST mode: "inclusive" → the entered amount is the all-in price the guest
+    // paid; back out the taxable value at the applicable band so taxable + GST
+    // equals what was typed (a paid stay settles to ₹0). "exclusive" → the amount
+    // is pre-tax and GST is added on top (like a live booking).
+    const toTaxable = (amountPaise: number, bps: number): number =>
+      data.gstMode === "exclusive" ? amountPaise : Math.round((amountPaise * 10_000) / (10_000 + bps));
     const roomBps = ratePaise > 0 ? roomGstBps(ratePaise) : 0;
-    const taxableRatePaise = ratePaise > 0 ? Math.round((ratePaise * 10_000) / (10_000 + roomBps)) : 0;
+    const taxableRatePaise = ratePaise > 0 ? toTaxable(ratePaise, roomBps) : 0;
+    const extraCharges = data.extraCharges.map((c) => ({
+      type: c.type,
+      description: c.description ?? null,
+      taxablePaise: toTaxable(c.amountPaise, gstBpsForCharge(c.type)),
+    }));
+    const hasBill = ratePaise > 0 || amountPaid > 0 || extraCharges.length > 0;
 
     // 4. The room: the one the staff picked, else a room free for the range.
     //    Occupancy needs an allocation, but only if the room is actually free for
@@ -125,17 +147,21 @@ export async function createHistoricalStay(input: unknown): Promise<Result<{ res
             propertyId: data.propertyId,
             code,
             guestId,
-            status: "CHECKED_OUT",
+            status,
             source: "DIRECT",
             settlementIntent: amountPaid > 0 ? "ALREADY_PAID" : "PAY_AT_HOTEL",
             checkInDate: ci,
             checkOutDate: co,
-            checkInAt: at(ci, 14),
-            checkOutAt: at(co, 11),
+            // Timestamps match the lifecycle: a future booking isn't checked in;
+            // a still-staying guest has no check-out yet.
+            checkInAt: status === "CONFIRMED" ? null : at(ci, 14),
+            checkOutAt: status === "CHECKED_OUT" ? at(co, 11) : null,
             nights,
             adults: 1 + data.accompanyingGuests.length,
             children: 0,
-            ratePaise,
+            // Tariff is stored pre-tax (glossary): the taxable rate the night audit
+            // also adds GST to, so a still-staying guest's future nights match.
+            ratePaise: taxableRatePaise,
             taxPaise: 0, // the folio carries the authoritative tax
             advancePaise: 0,
           },
@@ -164,11 +190,11 @@ export async function createHistoricalStay(input: unknown): Promise<Result<{ res
           });
         }
 
-        // Folio + one ROOM line per night (GST from the tariff band) + payment.
-        if (ratePaise > 0 || amountPaid > 0) {
+        // Folio + one ROOM line per consumed night + extra charges + payment.
+        if (hasBill) {
           const folioId = await ensureFolio(tx, { reservationId: reservation.id, propertyId: data.propertyId });
-          if (ratePaise > 0) {
-            for (const businessDate of nightDates) {
+          if (taxableRatePaise > 0) {
+            for (const businessDate of postableNights) {
               await postRoomChargeTx(tx as unknown as BillingPostTx, {
                 folioId,
                 propertyId: data.propertyId,
@@ -176,7 +202,24 @@ export async function createHistoricalStay(input: unknown): Promise<Result<{ res
                 ratePaise: taxableRatePaise,
                 businessDate,
                 postedById: user.userId,
-                description: `Room ${room?.number ?? ""} · night (historical)`.trim(),
+                description: `Room ${room?.number ?? ""} · night`.trim(),
+              });
+            }
+          }
+          // Extra services (meals, laundry, cab…) — on the same folio + bill, dated
+          // to the stay (clamped to today so they land in current revenue).
+          if (extraCharges.length > 0) {
+            const extrasDate = ci.getTime() <= todayDate.getTime() ? ci : todayDate;
+            for (const c of extraCharges) {
+              await postServiceChargeTx(tx as unknown as BillingPostTx, {
+                folioId,
+                propertyId: data.propertyId,
+                propertyState: property.state,
+                type: c.type,
+                description: c.description,
+                amountPaise: c.taxablePaise,
+                businessDate: extrasDate,
+                postedById: user.userId,
               });
             }
           }
@@ -209,19 +252,19 @@ export async function createHistoricalStay(input: unknown): Promise<Result<{ res
       }),
     );
 
-    // Mandatory bill: raise the statutory GST invoice for the stay now that the
-    // room-nights are posted (same moment as check-out). Best-effort + idempotent
-    // — the folio already carries the authoritative charges either way.
-    if (ratePaise > 0) {
+    // Mandatory bill: raise the statutory GST invoice once the stay is complete
+    // (checked out). A still-staying (IN_HOUSE) or future (CONFIRMED) guest is not
+    // invoiced yet — that happens at their real check-out. Best-effort + idempotent.
+    if (status === "CHECKED_OUT" && hasBill) {
       await autoIssueInvoiceOnCheckout(result.reservationId);
     }
 
-    // Backfill each night's stats snapshot so this past stay shows in occupancy,
+    // Backfill each consumed night's stats snapshot so the stay shows in occupancy,
     // ADR, RevPAR and the revenue trend/property league — not just the money KPIs.
     // Best-effort: the stay + folio are already committed; a snapshot hiccup must
     // not fail the import (the nightly audit would rebuild it anyway).
     if (room && allocate) {
-      for (const businessDate of nightDates) {
+      for (const businessDate of postableNights) {
         try {
           await recomputeHistoricalSnapshot(data.propertyId, businessDate);
         } catch {

@@ -117,6 +117,22 @@ export const historicalStaySchema = z
     scanContentType: z.string().optional().nullable(),
     ratePaise: z.coerce.number().int().min(0).max(100_000_000).optional().default(0),
     amountPaidPaise: z.coerce.number().int().min(0).max(100_000_000).optional().default(0),
+    // Whether the rate/charges the staff enter already include GST (all-in price
+    // the guest paid) or GST is added on top. Applies to the room + every extra.
+    gstMode: z.enum(["inclusive", "exclusive"]).optional().default("inclusive"),
+    // Extra services on the same bill — meals, laundry, cab, etc. Each posts its
+    // own GST-correct folio line. Amount follows the same gstMode as the room.
+    extraCharges: z
+      .array(
+        z.object({
+          type: z.enum(["FOOD", "LAUNDRY", "AIRPORT_TRANSFER", "TAXI", "EXTRA_BED", "MISC"]),
+          description: z.string().trim().max(80).optional().nullable(),
+          amountPaise: z.coerce.number().int().min(1).max(100_000_000),
+        }),
+      )
+      .max(20)
+      .optional()
+      .default([]),
     // Accompanying guests sharing the SAME room + bill (each with their own details).
     accompanyingGuests: z
       .array(

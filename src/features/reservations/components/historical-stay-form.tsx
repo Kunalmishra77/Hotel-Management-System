@@ -10,7 +10,7 @@
  * repeated entry.
  */
 import { useEffect, useState, useTransition } from "react";
-import { CalendarClock, IdCard, Users } from "lucide-react";
+import { CalendarClock, IdCard, Receipt, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,18 +31,28 @@ const blank = {
   fullName: "", mobile: "", email: "", gender: "", nationality: "",
   address: "", city: "", country: "India", dob: "",
   checkInDate: "", checkOutDate: "", idType: "", idNumber: "", rate: "", paid: "",
+  gstMode: "inclusive", // "inclusive" (rate incl. GST) | "exclusive" (add GST on top)
 };
 
 type Person = { fullName: string; age: string; gender: string; relation: string; idType: string; idNumber: string };
 const blankPerson: Person = { fullName: "", age: "", gender: "", relation: "", idType: "", idNumber: "" };
 const ID_OPTS = ["", "AADHAAR", "PASSPORT", "DRIVING_LICENCE", "VOTER_ID", "PAN", "VISA"] as const;
 
+// Extra services on the same bill (meals, laundry, cab…).
+type Extra = { type: string; description: string; amount: string };
+const blankExtra: Extra = { type: "FOOD", description: "", amount: "" };
+const CHARGE_TYPES = ["FOOD", "LAUNDRY", "AIRPORT_TRANSFER", "TAXI", "EXTRA_BED", "MISC"] as const;
+const CHARGE_LABEL: Record<string, string> = {
+  FOOD: "Food / Meals", LAUNDRY: "Laundry", AIRPORT_TRANSFER: "Airport transfer",
+  TAXI: "Taxi / Cab", EXTRA_BED: "Extra bed", MISC: "Other",
+};
+
 // Auto-saved draft: what the staff typed survives switching tabs / leaving the
 // page and coming back. The uploaded photo is intentionally NOT kept (it can be
 // several MB — too big for localStorage); everything typed is. Bump the version
 // suffix if the shape below ever changes.
 const DRAFT_KEY = "wp-data-entry-draft-v1";
-type Draft = { propertyId: string; roomId: string; f: typeof blank; people: Person[] };
+type Draft = { propertyId: string; roomId: string; f: typeof blank; people: Person[]; extras: Extra[] };
 
 function fileToParts(file: File): Promise<{ base64: string; contentType: string; preview: string }> {
   return new Promise((resolve, reject) => {
@@ -61,6 +71,7 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
   const [roomId, setRoomId] = useState("");
   const [f, setF] = useState({ ...blank });
   const [people, setPeople] = useState<Person[]>([]);
+  const [extras, setExtras] = useState<Extra[]>([]);
   const propertyRooms = rooms.filter((r) => r.propertyId === propertyId);
   const [scan, setScan] = useState<{ base64: string; contentType: string; preview: string } | null>(null);
   const [pending, start] = useTransition();
@@ -68,7 +79,10 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
   const [saved, setSaved] = useState<string | null>(null);
   const set = (k: keyof typeof blank, v: string) => setF((s) => ({ ...s, [k]: v }));
   const setPerson = (i: number, k: keyof Person, v: string) => setPeople((ps) => ps.map((p, j) => (j === i ? { ...p, [k]: v } : p)));
+  const setExtra = (i: number, k: keyof Extra, v: string) => setExtras((xs) => xs.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
   const [hydrated, setHydrated] = useState(false);
+  // A checkout date in the future means the guest is still staying (in-house).
+  const stillStaying = f.checkOutDate !== "" && f.checkInDate !== "" && f.checkOutDate > new Date().toLocaleDateString("en-CA");
 
   // Restore any in-progress draft on mount (client only — localStorage is not
   // available during SSR). Runs once; `hydrated` then gates the save effect so we
@@ -82,6 +96,7 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
         if (typeof d.roomId === "string") setRoomId(d.roomId);
         if (d.f) setF((s) => ({ ...s, ...d.f }));
         if (Array.isArray(d.people)) setPeople(d.people);
+        if (Array.isArray(d.extras)) setExtras(d.extras);
       }
     } catch {
       // Ignore corrupt/blocked storage — the form just starts empty.
@@ -93,11 +108,11 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
   useEffect(() => {
     if (!hydrated) return;
     try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify({ propertyId, roomId, f, people } satisfies Draft));
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ propertyId, roomId, f, people, extras } satisfies Draft));
     } catch {
       // Storage full/blocked (private mode) — persistence is a convenience, not critical.
     }
-  }, [hydrated, propertyId, roomId, f, people]);
+  }, [hydrated, propertyId, roomId, f, people, extras]);
 
   async function onPhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -129,6 +144,7 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
         scanContentType: scan?.contentType,
         ratePaise: f.rate ? Math.round(Number(f.rate) * 100) : 0,
         amountPaidPaise: f.paid ? Math.round(Number(f.paid) * 100) : 0,
+        gstMode: f.gstMode,
         roomId: roomId || undefined,
         accompanyingGuests: people
           .filter((pp) => pp.fullName.trim())
@@ -140,11 +156,19 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
             idType: pp.idType || null,
             idNumber: pp.idNumber || null,
           })),
+        extraCharges: extras
+          .filter((x) => x.amount && Number(x.amount) > 0)
+          .map((x) => ({
+            type: x.type,
+            description: x.description || null,
+            amountPaise: Math.round(Number(x.amount) * 100),
+          })),
       });
       if (!res.ok) { setError(res.error.message); return; }
       setSaved(f.fullName);
-      setF({ ...blank, country: "India", checkInDate: f.checkInDate }); // keep last check-in for a run of same-day entries
+      setF({ ...blank, country: "India", checkInDate: f.checkInDate, gstMode: f.gstMode }); // keep last check-in + GST mode for a run of entries
       setPeople([]);
+      setExtras([]);
       setScan(null);
     });
   }
@@ -186,6 +210,11 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
             <Fld label="Check-in date" req><Input type="date" required value={f.checkInDate} onChange={(e) => set("checkInDate", e.target.value)} data-testid="hist-checkin" /></Fld>
             <Fld label="Check-out date" req><Input type="date" required value={f.checkOutDate} onChange={(e) => set("checkOutDate", e.target.value)} data-testid="hist-checkout" /></Fld>
           </div>
+          {stillStaying && (
+            <p className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-primary" data-testid="hist-instay">
+              Check-out is in the future — this guest is recorded as <span className="font-medium">currently staying (in-house)</span>. Nights up to today are billed; the rest post automatically as the stay continues.
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -275,13 +304,46 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
         </CardContent>
       </Card>
 
+      {/* Extra charges — meals, laundry, cab… on the same bill */}
+      <Card>
+        <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><Receipt className="size-4" /> Extra charges</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">Did the guest also have meals, laundry, a cab, etc.? Add each one — it goes on the same bill with the correct GST.</p>
+          {extras.map((x, i) => (
+            <div key={i} className="grid gap-2 sm:grid-cols-[minmax(0,10rem)_1fr_minmax(0,8rem)_auto] sm:items-center">
+              <select value={x.type} onChange={(e) => setExtra(i, "type", e.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" data-testid={`extra-type-${i}`}>
+                {CHARGE_TYPES.map((t) => <option key={t} value={t}>{CHARGE_LABEL[t]}</option>)}
+              </select>
+              <Input placeholder="Note (optional, e.g. Dinner)" value={x.description} onChange={(e) => setExtra(i, "description", e.target.value)} />
+              <Input type="number" inputMode="numeric" min={0} placeholder="Amount ₹" value={x.amount} onChange={(e) => setExtra(i, "amount", e.target.value)} data-testid={`extra-amount-${i}`} />
+              <Button type="button" variant="ghost" size="sm" className="h-9 text-muted-foreground hover:text-destructive" onClick={() => setExtras((xs) => xs.filter((_, j) => j !== i))}>Remove</Button>
+            </div>
+          ))}
+          <Button type="button" variant="outline" size="sm" onClick={() => setExtras((xs) => [...xs, { ...blankExtra }])} data-testid="add-extra">+ Add charge</Button>
+        </CardContent>
+      </Card>
+
       {/* Money (optional) */}
       <Card>
         <CardHeader className="pb-3"><CardTitle className="text-base">Bill (optional)</CardTitle></CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>GST on the prices you enter</Label>
+            <div className="flex flex-wrap gap-4 text-sm">
+              <label className="flex items-center gap-2">
+                <input type="radio" name="gstMode" value="inclusive" checked={f.gstMode === "inclusive"} onChange={() => set("gstMode", "inclusive")} data-testid="gst-inclusive" />
+                Price includes GST (all-in)
+              </label>
+              <label className="flex items-center gap-2">
+                <input type="radio" name="gstMode" value="exclusive" checked={f.gstMode === "exclusive"} onChange={() => set("gstMode", "exclusive")} data-testid="gst-exclusive" />
+                Add GST on top
+              </label>
+            </div>
+            <p className="text-xs text-muted-foreground">Applies to the room rate <span className="font-medium">and</span> every extra charge above.</p>
+          </div>
           <Fld label="Room rate per night (₹)"><Input type="number" inputMode="numeric" min={0} value={f.rate} onChange={(e) => set("rate", e.target.value)} placeholder="Auto-fills from the room" /></Fld>
-          <Fld label="Amount collected (₹)"><Input type="number" inputMode="numeric" min={0} value={f.paid} onChange={(e) => set("paid", e.target.value)} placeholder="e.g. 6000" /></Fld>
-          <p className="text-xs text-muted-foreground sm:col-span-2">Pick a room and the nightly rate fills in automatically — <span className="font-medium">edit it</span> if the guest was given a discount or a special price. A folio + GST bill is created for the stay from this rate. Leave blank for history only.</p>
+          <Fld label="Amount collected (₹)"><Input type="number" inputMode="numeric" min={0} value={f.paid} onChange={(e) => set("paid", e.target.value)} placeholder="Room + extras total, or what they paid" /></Fld>
+          <p className="text-xs text-muted-foreground sm:col-span-2">Pick a room and the nightly rate fills in automatically — <span className="font-medium">edit it</span> if the guest got a discount or special price. A folio + GST bill is created from the room rate + extras. Leave everything blank for history only.</p>
         </CardContent>
       </Card>
 

@@ -13,7 +13,7 @@
  * dates already posted so a unique violation can't poison the enclosing tx.
  */
 import { randomUUID } from "node:crypto";
-import type { PaymentMode, Prisma } from "@prisma/client";
+import type { ChargeType, PaymentMode, Prisma } from "@prisma/client";
 import { emitEvent, type EventCapableTx } from "@/lib/events";
 import { writeAudit } from "@/lib/audit";
 import { roomGstBps, gstBpsForCharge, hsnSacForCharge } from "@/lib/constants/gst";
@@ -95,6 +95,65 @@ export async function postRoomChargeTx(tx: BillingPostTx, input: RoomChargeInput
     entityId: line.id,
     propertyId: input.propertyId,
     after: { amountPaise: input.ratePaise },
+  });
+  return line.id;
+}
+
+export type ServiceChargeInput = {
+  folioId: string;
+  propertyId: string;
+  /** On-premise supply: place-of-supply = the property's state (IGST Act §12). */
+  propertyState: string;
+  /** A non-ROOM charge type (FOOD, LAUNDRY, AIRPORT_TRANSFER, TAXI, EXTRA_BED, MISC). */
+  type: string;
+  description?: string | null;
+  /** Taxable amount in paise; GST is computed on top from the type's SAC band. */
+  amountPaise: number;
+  businessDate: Date;
+  postedById?: string | null;
+};
+
+/**
+ * PURE: one non-room service line (meal, laundry, cab…) with GST from its SAC
+ * band, split intra-state (on-premise). Used by the go-live data-entry backfill so
+ * a past/current stay's extra charges land on the same folio + bill as the room.
+ */
+export function serviceChargeLineData(input: ServiceChargeInput): Prisma.FolioLineUncheckedCreateInput {
+  const bps = gstBpsForCharge(input.type);
+  const gst = computeGst(input.amountPaise, bps, input.propertyState, input.propertyState);
+  return {
+    folioId: input.folioId,
+    type: input.type as ChargeType,
+    description: input.description?.trim() || input.type.replace(/_/g, " "),
+    quantity: 1,
+    unitPaise: input.amountPaise,
+    amountPaise: BigInt(input.amountPaise),
+    taxRateBps: bps,
+    cgstPaise: gst.cgstPaise,
+    sgstPaise: gst.sgstPaise,
+    igstPaise: gst.igstPaise,
+    hsnSac: hsnSacForCharge(input.type),
+    placeOfSupplyState: input.propertyState,
+    businessDate: input.businessDate,
+    postedById: input.postedById ?? null,
+  };
+}
+
+/** Post one non-room service charge. */
+export async function postServiceChargeTx(tx: BillingPostTx, input: ServiceChargeInput): Promise<string> {
+  const line = await tx.folioLine.create({ data: serviceChargeLineData(input), select: { id: true } });
+  await emitEvent(tx, {
+    type: "FolioCharged",
+    aggregateId: input.folioId,
+    propertyId: input.propertyId,
+    payload: { lineId: line.id, type: input.type, amountPaise: input.amountPaise, businessDate: input.businessDate.toISOString().slice(0, 10) },
+  });
+  await writeAudit(tx, {
+    action: "folio:service-charge",
+    entityType: "FolioLine",
+    entityId: line.id,
+    propertyId: input.propertyId,
+    after: { type: input.type, amountPaise: input.amountPaise },
   });
   return line.id;
 }
