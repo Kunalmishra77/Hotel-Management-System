@@ -43,6 +43,9 @@ export async function createHistoricalStay(input: unknown): Promise<Result<{ res
     const guest = await createGuest({
       fullName: data.fullName,
       mobile: data.mobile,
+      email: data.email ?? undefined,
+      gender: data.gender ?? undefined,
+      nationality: data.nationality ?? undefined,
       addressLine: data.address ?? undefined,
       city: data.city ?? undefined,
       country: data.country ?? undefined,
@@ -111,7 +114,7 @@ export async function createHistoricalStay(input: unknown): Promise<Result<{ res
             checkInAt: at(ci, 14),
             checkOutAt: at(co, 11),
             nights,
-            adults: 1,
+            adults: 1 + data.accompanyingGuests.length,
             children: 0,
             ratePaise,
             taxPaise: 0, // the folio carries the authoritative tax
@@ -123,6 +126,22 @@ export async function createHistoricalStay(input: unknown): Promise<Result<{ res
         if (room && allocate) {
           await tx.roomAllocation.create({
             data: { propertyId: data.propertyId, reservationId: reservation.id, roomId: room.id, startDate: ci, endDate: co },
+          });
+        }
+
+        // Accompanying guests — same room + same bill, each with their own details.
+        if (data.accompanyingGuests.length > 0) {
+          await tx.reservationGuest.createMany({
+            data: data.accompanyingGuests.map((ag) => ({
+              propertyId: data.propertyId,
+              reservationId: reservation.id,
+              fullName: ag.fullName,
+              age: ag.age ?? null,
+              gender: ag.gender ?? null,
+              relation: ag.relation ?? null,
+              idType: ag.idType ?? null,
+              idNumber: ag.idNumber ?? null,
+            })),
           });
         }
 

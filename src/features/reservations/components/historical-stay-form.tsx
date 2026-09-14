@@ -10,7 +10,7 @@
  * repeated entry.
  */
 import { useState, useTransition } from "react";
-import { CalendarClock, IdCard } from "lucide-react";
+import { CalendarClock, IdCard, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,9 +22,14 @@ type Room = { id: string; propertyId: string; label: string; ratePaise: number }
 const ID_TYPES = ["", "AADHAAR", "PASSPORT", "DRIVING_LICENCE", "VOTER_ID", "PAN", "VISA"] as const;
 
 const blank = {
-  fullName: "", mobile: "", address: "", city: "", country: "India", dob: "",
+  fullName: "", mobile: "", email: "", gender: "", nationality: "",
+  address: "", city: "", country: "India", dob: "",
   checkInDate: "", checkOutDate: "", idType: "", idNumber: "", rate: "", paid: "",
 };
+
+type Person = { fullName: string; age: string; gender: string; relation: string; idType: string; idNumber: string };
+const blankPerson: Person = { fullName: "", age: "", gender: "", relation: "", idType: "", idNumber: "" };
+const ID_OPTS = ["", "AADHAAR", "PASSPORT", "DRIVING_LICENCE", "VOTER_ID", "PAN", "VISA"] as const;
 
 function fileToParts(file: File): Promise<{ base64: string; contentType: string; preview: string }> {
   return new Promise((resolve, reject) => {
@@ -42,12 +47,14 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
   const [propertyId, setPropertyId] = useState(properties[0]?.id ?? "");
   const [roomId, setRoomId] = useState("");
   const [f, setF] = useState({ ...blank });
+  const [people, setPeople] = useState<Person[]>([]);
   const propertyRooms = rooms.filter((r) => r.propertyId === propertyId);
   const [scan, setScan] = useState<{ base64: string; contentType: string; preview: string } | null>(null);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const set = (k: keyof typeof blank, v: string) => setF((s) => ({ ...s, [k]: v }));
+  const setPerson = (i: number, k: keyof Person, v: string) => setPeople((ps) => ps.map((p, j) => (j === i ? { ...p, [k]: v } : p)));
 
   async function onPhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -65,6 +72,9 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
         checkOutDate: f.checkOutDate,
         fullName: f.fullName,
         mobile: f.mobile,
+        email: f.email || undefined,
+        gender: f.gender || undefined,
+        nationality: f.nationality || undefined,
         address: f.address || undefined,
         city: f.city || undefined,
         country: f.country || undefined,
@@ -76,10 +86,21 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
         ratePaise: f.rate ? Math.round(Number(f.rate) * 100) : 0,
         amountPaidPaise: f.paid ? Math.round(Number(f.paid) * 100) : 0,
         roomId: roomId || undefined,
+        accompanyingGuests: people
+          .filter((pp) => pp.fullName.trim())
+          .map((pp) => ({
+            fullName: pp.fullName,
+            age: pp.age ? Number(pp.age) : null,
+            gender: pp.gender || null,
+            relation: pp.relation || null,
+            idType: pp.idType || null,
+            idNumber: pp.idNumber || null,
+          })),
       });
       if (!res.ok) { setError(res.error.message); return; }
       setSaved(f.fullName);
       setF({ ...blank, country: "India", checkInDate: f.checkInDate }); // keep last check-in for a run of same-day entries
+      setPeople([]);
       setScan(null);
     });
   }
@@ -131,12 +152,15 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
           <div className="grid gap-4 sm:grid-cols-2">
             <Fld label="Full name" req><Input required value={f.fullName} onChange={(e) => set("fullName", e.target.value)} data-testid="hist-name" /></Fld>
             <Fld label="Mobile" req><Input inputMode="tel" required value={f.mobile} onChange={(e) => set("mobile", e.target.value)} data-testid="hist-mobile" /></Fld>
+            <Fld label="Email"><Input type="email" inputMode="email" value={f.email} onChange={(e) => set("email", e.target.value)} data-testid="hist-email" /></Fld>
+            <Fld label="Date of birth"><Input type="date" value={f.dob} onChange={(e) => set("dob", e.target.value)} /></Fld>
+            <Fld label="Gender"><Input value={f.gender} onChange={(e) => set("gender", e.target.value)} /></Fld>
+            <Fld label="Nationality"><Input value={f.nationality} onChange={(e) => set("nationality", e.target.value)} /></Fld>
           </div>
           <Fld label="Address"><Input value={f.address} onChange={(e) => set("address", e.target.value)} /></Fld>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2">
             <Fld label="City"><Input value={f.city} onChange={(e) => set("city", e.target.value)} /></Fld>
             <Fld label="Country"><Input value={f.country} onChange={(e) => set("country", e.target.value)} /></Fld>
-            <Fld label="Date of birth"><Input type="date" value={f.dob} onChange={(e) => set("dob", e.target.value)} /></Fld>
           </div>
         </CardContent>
       </Card>
@@ -163,6 +187,33 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
               <img src={scan.preview} alt="ID preview" className="mt-2 max-h-40 rounded-md border" />
             )}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Accompanying guests — same room + same bill */}
+      <Card>
+        <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><Users className="size-4" /> Accompanying guests</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">If more than one guest shared this room, add each person here — they share the same stay, room and bill. Each person can have their own ID.</p>
+          {people.map((pp, i) => (
+            <div key={i} className="space-y-2 rounded-md border p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground">Guest {i + 2}</span>
+                <Button type="button" variant="ghost" size="sm" className="h-7 text-muted-foreground hover:text-destructive" onClick={() => setPeople((ps) => ps.filter((_, j) => j !== i))}>Remove</Button>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Input placeholder="Full name *" value={pp.fullName} onChange={(e) => setPerson(i, "fullName", e.target.value)} data-testid={`person-name-${i}`} />
+                <Input placeholder="Relation (e.g. Spouse, Colleague)" value={pp.relation} onChange={(e) => setPerson(i, "relation", e.target.value)} />
+                <Input type="number" inputMode="numeric" placeholder="Age" value={pp.age} onChange={(e) => setPerson(i, "age", e.target.value)} />
+                <Input placeholder="Gender" value={pp.gender} onChange={(e) => setPerson(i, "gender", e.target.value)} />
+                <select value={pp.idType} onChange={(e) => setPerson(i, "idType", e.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                  {ID_OPTS.map((t) => <option key={t || "none"} value={t}>{t ? t.replace(/_/g, " ") : "ID type…"}</option>)}
+                </select>
+                <Input placeholder="ID number" value={pp.idNumber} onChange={(e) => setPerson(i, "idNumber", e.target.value)} />
+              </div>
+            </div>
+          ))}
+          <Button type="button" variant="outline" size="sm" onClick={() => setPeople((ps) => [...ps, { ...blankPerson }])} data-testid="add-person">+ Add person</Button>
         </CardContent>
       </Card>
 

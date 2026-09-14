@@ -625,6 +625,8 @@ model ReservationGuest {
   age           Int?
   gender        String?
   relation      String? // relationship to the primary guest (e.g. Spouse, Child, Colleague)
+  idType        String? // optional ID type for the accompanying guest (AADHAAR, PASSPORT…)
+  idNumber      String? // optional ID number (kept light — no encrypted scan here)
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 

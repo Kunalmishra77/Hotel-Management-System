@@ -104,6 +104,9 @@ export const historicalStaySchema = z
     checkOutDate: histDate,
     fullName: z.string().trim().min(1, "Guest name is required.").max(120),
     mobile: z.string().trim().min(1, "Mobile number is required."),
+    email: z.string().trim().max(120).optional().nullable(),
+    gender: z.string().trim().max(20).optional().nullable(),
+    nationality: z.string().trim().max(60).optional().nullable(),
     address: z.string().trim().max(200).optional().nullable(),
     city: z.string().trim().max(80).optional().nullable(),
     country: z.string().trim().max(80).optional().nullable(),
@@ -114,6 +117,21 @@ export const historicalStaySchema = z
     scanContentType: z.string().optional().nullable(),
     ratePaise: z.coerce.number().int().min(0).max(100_000_000).optional().default(0),
     amountPaidPaise: z.coerce.number().int().min(0).max(100_000_000).optional().default(0),
+    // Accompanying guests sharing the SAME room + bill (each with their own details).
+    accompanyingGuests: z
+      .array(
+        z.object({
+          fullName: z.string().trim().min(1).max(120),
+          age: z.coerce.number().int().min(0).max(120).optional().nullable(),
+          gender: z.string().trim().max(20).optional().nullable(),
+          relation: z.string().trim().max(40).optional().nullable(),
+          idType: z.string().trim().max(30).optional().nullable(),
+          idNumber: z.string().trim().max(60).optional().nullable(),
+        }),
+      )
+      .max(15)
+      .optional()
+      .default([]),
   })
   .refine((d) => d.checkOutDate >= d.checkInDate, {
     message: "Check-out must be the same day or after check-in.",
