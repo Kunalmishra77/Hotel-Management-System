@@ -9,7 +9,7 @@
  * keeps the property selected and clears the rest after each save for fast
  * repeated entry.
  */
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { CalendarClock, IdCard, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +37,13 @@ type Person = { fullName: string; age: string; gender: string; relation: string;
 const blankPerson: Person = { fullName: "", age: "", gender: "", relation: "", idType: "", idNumber: "" };
 const ID_OPTS = ["", "AADHAAR", "PASSPORT", "DRIVING_LICENCE", "VOTER_ID", "PAN", "VISA"] as const;
 
+// Auto-saved draft: what the staff typed survives switching tabs / leaving the
+// page and coming back. The uploaded photo is intentionally NOT kept (it can be
+// several MB — too big for localStorage); everything typed is. Bump the version
+// suffix if the shape below ever changes.
+const DRAFT_KEY = "wp-data-entry-draft-v1";
+type Draft = { propertyId: string; roomId: string; f: typeof blank; people: Person[] };
+
 function fileToParts(file: File): Promise<{ base64: string; contentType: string; preview: string }> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -61,6 +68,36 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
   const [saved, setSaved] = useState<string | null>(null);
   const set = (k: keyof typeof blank, v: string) => setF((s) => ({ ...s, [k]: v }));
   const setPerson = (i: number, k: keyof Person, v: string) => setPeople((ps) => ps.map((p, j) => (j === i ? { ...p, [k]: v } : p)));
+  const [hydrated, setHydrated] = useState(false);
+
+  // Restore any in-progress draft on mount (client only — localStorage is not
+  // available during SSR). Runs once; `hydrated` then gates the save effect so we
+  // never overwrite the saved draft with the initial blank values before restore.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        const d = JSON.parse(raw) as Partial<Draft>;
+        if (d.propertyId && properties.some((p) => p.id === d.propertyId)) setPropertyId(d.propertyId);
+        if (typeof d.roomId === "string") setRoomId(d.roomId);
+        if (d.f) setF((s) => ({ ...s, ...d.f }));
+        if (Array.isArray(d.people)) setPeople(d.people);
+      }
+    } catch {
+      // Ignore corrupt/blocked storage — the form just starts empty.
+    }
+    setHydrated(true);
+  }, [properties]);
+
+  // Persist the draft on every change (after hydration). Best-effort.
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ propertyId, roomId, f, people } satisfies Draft));
+    } catch {
+      // Storage full/blocked (private mode) — persistence is a convenience, not critical.
+    }
+  }, [hydrated, propertyId, roomId, f, people]);
 
   async function onPhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
