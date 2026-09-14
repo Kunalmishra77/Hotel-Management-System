@@ -19,7 +19,8 @@ import { writeAudit } from "@/lib/audit";
 import { DomainError, ErrorCode, NotFoundError } from "@/lib/errors";
 import { toResult, type Result } from "@/lib/result";
 import { revalidatePath } from "next/cache";
-import { ensureFolio, postRoomChargeTx, postPaymentTx, type BillingPostTx } from "@/features/billing";
+import { ensureFolio, postRoomChargeTx, postPaymentTx, autoIssueInvoiceOnCheckout, type BillingPostTx } from "@/features/billing";
+import { roomGstBps } from "@/lib/constants/gst";
 import { createGuest } from "@/features/guests/actions";
 import { addGuestId } from "@/features/guests/id-actions";
 import { reservationDb, withReservationContext, generateReservationCode, overlapWhere } from "./internal";
@@ -75,6 +76,14 @@ export async function createHistoricalStay(input: unknown): Promise<Result<{ res
     for (let i = 0; i < nights; i++) nightDates.push(new Date(ci.getTime() + i * dayMs));
     const ratePaise = data.ratePaise ?? 0;
     const amountPaid = data.amountPaidPaise ?? 0;
+
+    // The rate the client enters is the ALL-IN price the guest actually paid (GST
+    // inclusive) — confirmed with the client. Back out the taxable value at the
+    // room's tariff band so the folio line's taxable + GST equals the entered rate
+    // exactly; then rate × nights is the bill total and the same amount collected
+    // settles the stay to a ₹0 balance (no phantom tax due on a paid past stay).
+    const roomBps = ratePaise > 0 ? roomGstBps(ratePaise) : 0;
+    const taxableRatePaise = ratePaise > 0 ? Math.round((ratePaise * 10_000) / (10_000 + roomBps)) : 0;
 
     // 4. The room: the one the staff picked, else a room free for the range.
     //    Occupancy needs an allocation, but only if the room is actually free for
@@ -154,7 +163,7 @@ export async function createHistoricalStay(input: unknown): Promise<Result<{ res
                 folioId,
                 propertyId: data.propertyId,
                 propertyState: property.state,
-                ratePaise,
+                ratePaise: taxableRatePaise,
                 businessDate,
                 postedById: user.userId,
                 description: `Room ${room?.number ?? ""} · night (historical)`.trim(),
@@ -190,8 +199,16 @@ export async function createHistoricalStay(input: unknown): Promise<Result<{ res
       }),
     );
 
+    // Mandatory bill: raise the statutory GST invoice for the stay now that the
+    // room-nights are posted (same moment as check-out). Best-effort + idempotent
+    // — the folio already carries the authoritative charges either way.
+    if (ratePaise > 0) {
+      await autoIssueInvoiceOnCheckout(result.reservationId);
+    }
+
     revalidatePath("/guests");
     revalidatePath("/bookings");
+    revalidatePath("/billing");
     return result;
   });
 }
