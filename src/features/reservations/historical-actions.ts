@@ -19,6 +19,7 @@
  */
 import { requireUser } from "@/lib/auth";
 import { authorize } from "@/lib/permissions";
+import { db } from "@/lib/db";
 import { emitEvent } from "@/lib/events";
 import { writeAudit } from "@/lib/audit";
 import { DomainError, ErrorCode, NotFoundError } from "@/lib/errors";
@@ -29,8 +30,53 @@ import { roomGstBps, gstBpsForCharge } from "@/lib/constants/gst";
 import { recomputeHistoricalSnapshot } from "@/features/analytics/night-audit";
 import { createGuest } from "@/features/guests/actions";
 import { addGuestId } from "@/features/guests/id-actions";
+import { mobileToken } from "@/features/guests/internal";
+import { normalizePhone } from "@/features/guests/domain/normalize";
 import { reservationDb, withReservationContext, generateReservationCode, overlapWhere } from "./internal";
 import { historicalStaySchema } from "./schema";
+
+export type ReturningGuest = { id: string; fullName: string; city: string | null; country: string | null; lastStay: string | null };
+
+/**
+ * Find existing guests matching a name or mobile, so the Data Entry form can offer
+ * a returning guest for one-click reuse (no duplicate record). Returns only
+ * non-sensitive fields (name/city/country + last stay date) — never the masked
+ * contact, and no PII reveal. Requires reservation:create on the active property.
+ */
+export async function searchGuestsForEntry(query: string): Promise<Result<ReturningGuest[]>> {
+  return toResult(async () => {
+    const q = (query ?? "").trim();
+    const user = await requireUser();
+    authorize(user, "reservation:create", user.activePropertyId);
+    if (q.length < 2) return [];
+
+    const phone = normalizePhone(q);
+    const hash = phone ? mobileToken(phone) : null;
+    const rows = await db.unscoped().guest.findMany({
+      where: {
+        orgId: user.orgId,
+        deletedAt: null,
+        OR: [
+          { fullName: { contains: q, mode: "insensitive" } },
+          ...(hash ? [{ mobileHash: hash }] : []),
+        ],
+      },
+      select: {
+        id: true, fullName: true, city: true, country: true,
+        reservations: { select: { checkOutDate: true }, orderBy: { checkOutDate: "desc" }, take: 1 },
+      },
+      orderBy: { fullName: "asc" },
+      take: 6,
+    });
+    return rows.map((g) => ({
+      id: g.id,
+      fullName: g.fullName,
+      city: g.city,
+      country: g.country,
+      lastStay: g.reservations[0]?.checkOutDate.toISOString().slice(0, 10) ?? null,
+    }));
+  });
+}
 
 const at = (date: Date, hour: number) => new Date(date.getTime() + hour * 3_600_000);
 
@@ -46,30 +92,40 @@ export async function createHistoricalStay(input: unknown): Promise<Result<{ res
     });
     if (!property) throw new NotFoundError("Property not found.");
 
-    // 1. Guest — reuse the audited create (lenient dedupe for a bulk backfill).
-    const guest = await createGuest({
-      fullName: data.fullName,
-      mobile: data.mobile,
-      email: data.email ?? undefined,
-      gender: data.gender ?? undefined,
-      nationality: data.nationality ?? undefined,
-      addressLine: data.address ?? undefined,
-      city: data.city ?? undefined,
-      country: data.country ?? undefined,
-      dob: data.dob ?? undefined,
-      confirmDuplicate: true,
-    });
-    if (!guest.ok) {
-      // Surface the specific field problem (e.g. "Enter a valid mobile number")
-      // instead of the generic "check the highlighted fields" so the staff know
-      // exactly what to correct on this backfill row.
-      const firstFieldError = guest.error.fieldErrors
-        ? Object.values(guest.error.fieldErrors)[0]?.[0]
-        : undefined;
-      const msg = firstFieldError ?? guest.error.message;
-      throw new DomainError(ErrorCode.VALIDATION_FAILED, msg, { publicMessage: msg });
+    // 1. Guest — a returning guest is REUSED (no duplicate); otherwise create one.
+    let guestId: string;
+    if (data.guestId) {
+      const existing = await db.unscoped().guest.findFirst({
+        where: { id: data.guestId, orgId: user.orgId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!existing) throw new NotFoundError("Selected guest not found.");
+      guestId = existing.id;
+    } else {
+      const guest = await createGuest({
+        fullName: data.fullName,
+        mobile: data.mobile,
+        email: data.email ?? undefined,
+        gender: data.gender ?? undefined,
+        nationality: data.nationality ?? undefined,
+        addressLine: data.address ?? undefined,
+        city: data.city ?? undefined,
+        country: data.country ?? undefined,
+        dob: data.dob ?? undefined,
+        confirmDuplicate: true,
+      });
+      if (!guest.ok) {
+        // Surface the specific field problem (e.g. "Enter a valid mobile number")
+        // instead of the generic "check the highlighted fields" so the staff know
+        // exactly what to correct on this backfill row.
+        const firstFieldError = guest.error.fieldErrors
+          ? Object.values(guest.error.fieldErrors)[0]?.[0]
+          : undefined;
+        const msg = firstFieldError ?? guest.error.message;
+        throw new DomainError(ErrorCode.VALIDATION_FAILED, msg, { publicMessage: msg });
+      }
+      guestId = guest.data.id;
     }
-    const guestId = guest.data.id;
 
     // 2. ID documents — one per person sharing the room. Legacy single-ID fields
     //    are still honoured; the form now sends the `ids` array. Sequential so a
@@ -161,7 +217,7 @@ export async function createHistoricalStay(input: unknown): Promise<Result<{ res
             code,
             guestId,
             status,
-            source: "DIRECT",
+            source: data.source,
             settlementIntent: amountPaid > 0 ? "ALREADY_PAID" : "PAY_AT_HOTEL",
             checkInDate: ci,
             checkOutDate: co,

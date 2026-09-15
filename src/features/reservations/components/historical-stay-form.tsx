@@ -16,7 +16,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { COUNTRIES } from "@/lib/constants/countries";
-import { createHistoricalStay } from "../historical-actions";
+import { createHistoricalStay, searchGuestsForEntry, type ReturningGuest } from "../historical-actions";
+
+/** Booking sources the staff can pick (matches the reservation source enum). */
+const SOURCES: { value: string; label: string }[] = [
+  { value: "DIRECT", label: "Direct" },
+  { value: "WALK_IN", label: "Walk-in" },
+  { value: "PHONE", label: "Phone / enquiry" },
+  { value: "WEBSITE", label: "Website" },
+  { value: "MAKEMYTRIP", label: "MakeMyTrip" },
+  { value: "BOOKING_COM", label: "Booking.com" },
+  { value: "AGODA", label: "Agoda" },
+  { value: "GOIBIBO", label: "Goibibo" },
+  { value: "AIRBNB", label: "Airbnb" },
+  { value: "CORPORATE", label: "Corporate" },
+  { value: "TRAVEL_AGENT", label: "Travel agent" },
+];
 
 /** Dial code for a country name (auto-fills the mobile prefix). India by default. */
 function dialFor(country: string): string {
@@ -31,6 +46,7 @@ const blank = {
   address: "", city: "", country: "India", dob: "",
   checkInDate: "", checkOutDate: "", rate: "", paid: "",
   gstMode: "inclusive", // "inclusive" (rate incl. GST) | "exclusive" (add GST on top)
+  source: "DIRECT",
 };
 
 type Person = { fullName: string; age: string; gender: string; relation: string; idType: string; idNumber: string };
@@ -57,7 +73,7 @@ const CHARGE_LABEL: Record<string, string> = {
 // suffix if the shape below ever changes.
 const DRAFT_KEY = "wp-data-entry-draft-v2";
 type IdDocLite = { type: string; value: string };
-type Draft = { propertyId: string; roomId: string; f: typeof blank; people: Person[]; extras: Extra[]; idDocs: IdDocLite[] };
+type Draft = { propertyId: string; roomId: string; f: typeof blank; people: Person[]; extras: Extra[]; idDocs: IdDocLite[]; guestId: string | null };
 
 function fileToParts(file: File): Promise<{ base64: string; contentType: string; preview: string }> {
   return new Promise((resolve, reject) => {
@@ -78,6 +94,9 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
   const [people, setPeople] = useState<Person[]>([]);
   const [extras, setExtras] = useState<Extra[]>([]);
   const [idDocs, setIdDocs] = useState<IdDoc[]>([]);
+  const [guestId, setGuestId] = useState<string | null>(null); // set when reusing a returning guest
+  const [guestQuery, setGuestQuery] = useState("");
+  const [matches, setMatches] = useState<ReturningGuest[]>([]);
   const propertyRooms = rooms.filter((r) => r.propertyId === propertyId);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -106,6 +125,7 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
         // IDs restore type + number only (photos are too large for localStorage —
         // re-attach the photo if needed).
         if (Array.isArray(d.idDocs)) setIdDocs(d.idDocs.map((x) => ({ ...blankIdDoc, type: x.type, value: x.value })));
+        if (typeof d.guestId === "string") setGuestId(d.guestId);
       }
     } catch {
       // Ignore corrupt/blocked storage — the form just starts empty.
@@ -118,11 +138,44 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
     if (!hydrated) return;
     try {
       const idDocsLite = idDocs.map((d) => ({ type: d.type, value: d.value })); // no photos in storage
-      localStorage.setItem(DRAFT_KEY, JSON.stringify({ propertyId, roomId, f, people, extras, idDocs: idDocsLite } satisfies Draft));
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ propertyId, roomId, f, people, extras, idDocs: idDocsLite, guestId } satisfies Draft));
     } catch {
       // Storage full/blocked (private mode) — persistence is a convenience, not critical.
     }
-  }, [hydrated, propertyId, roomId, f, people, extras, idDocs]);
+  }, [hydrated, propertyId, roomId, f, people, extras, idDocs, guestId]);
+
+  // Returning-guest lookup: while typing a name/mobile (and not already linked),
+  // search existing guests so staff can reuse one in a click. Debounced.
+  useEffect(() => {
+    if (guestId) { setMatches([]); return; }
+    const q = guestQuery.trim();
+    if (q.length < 2) { setMatches([]); return; }
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      const res = await searchGuestsForEntry(q);
+      if (!cancelled) setMatches(res.ok ? res.data : []);
+    }, 350);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [guestQuery, guestId]);
+
+  function pickExistingGuest(g: ReturningGuest) {
+    setGuestId(g.id);
+    setF((s) => ({ ...s, fullName: g.fullName, city: g.city ?? s.city, country: g.country ?? s.country }));
+    setMatches([]);
+    setGuestQuery(g.fullName);
+  }
+
+  function clearForm() {
+    setF({ ...blank });
+    setPeople([]);
+    setExtras([]);
+    setIdDocs([]);
+    setGuestId(null);
+    setGuestQuery("");
+    setMatches([]);
+    setRoomId("");
+    try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
+  }
 
   async function onIdPhoto(i: number, e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -139,6 +192,8 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
     start(async () => {
       const res = await createHistoricalStay({
         propertyId,
+        guestId: guestId || undefined,
+        source: f.source,
         checkInDate: f.checkInDate,
         checkOutDate: f.checkOutDate,
         fullName: f.fullName,
@@ -183,10 +238,13 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
       });
       if (!res.ok) { setError(res.error.message); return; }
       setSaved(f.fullName);
-      setF({ ...blank, country: "India", checkInDate: f.checkInDate, gstMode: f.gstMode }); // keep last check-in + GST mode for a run of entries
+      setF({ ...blank, country: "India", checkInDate: f.checkInDate, gstMode: f.gstMode, source: f.source }); // keep last check-in + GST mode + source for a run of entries
       setPeople([]);
       setExtras([]);
       setIdDocs([]);
+      setGuestId(null);
+      setGuestQuery("");
+      setMatches([]);
     });
   }
 
@@ -232,6 +290,16 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
               Check-out is in the future — this guest is recorded as <span className="font-medium">currently staying (in-house)</span>. Nights up to today are billed; the rest post automatically as the stay continues.
             </p>
           )}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="source">Booking source</Label>
+              <select id="source" value={f.source} onChange={(e) => set("source", e.target.value)}
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" data-testid="hist-source">
+                {SOURCES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
+              <p className="text-xs text-muted-foreground">Where the booking came from (Direct, MakeMyTrip, Booking.com…).</p>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -240,7 +308,30 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
         <CardHeader className="pb-3"><CardTitle className="text-base">Guest details</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Fld label="Full name" req><Input required value={f.fullName} onChange={(e) => set("fullName", e.target.value)} data-testid="hist-name" /></Fld>
+            <div className="space-y-1.5">
+              <Label>Full name <span className="text-destructive">*</span></Label>
+              {guestId ? (
+                <div className="flex items-center justify-between gap-2 rounded-md border border-emerald-600/40 bg-emerald-500/10 px-3 py-2 text-sm" data-testid="guest-linked">
+                  <span className="truncate">Returning guest: <span className="font-medium">{f.fullName}</span></span>
+                  <button type="button" className="shrink-0 text-xs text-muted-foreground underline" onClick={() => setGuestId(null)}>change</button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <Input required value={f.fullName} onChange={(e) => { set("fullName", e.target.value); setGuestQuery(e.target.value); }} autoComplete="off" data-testid="hist-name" />
+                  {matches.length > 0 && (
+                    <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-md border bg-background shadow-lg" data-testid="guest-matches">
+                      <p className="border-b px-3 py-1.5 text-xs text-muted-foreground">Already in the system — click to reuse (no duplicate)</p>
+                      {matches.map((m) => (
+                        <button key={m.id} type="button" onClick={() => pickExistingGuest(m)} className="block w-full px-3 py-2 text-left text-sm hover:bg-muted" data-testid={`guest-match-${m.id}`}>
+                          <span className="font-medium">{m.fullName}</span>
+                          <span className="text-muted-foreground"> · {[m.city, m.country].filter(Boolean).join(", ") || "—"}{m.lastStay ? ` · last stay ${m.lastStay}` : ""}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
             <Fld label="Mobile" req>
               <div className="flex">
                 <span className="inline-flex h-10 min-w-14 items-center justify-center rounded-l-md border border-r-0 border-input bg-muted px-2 text-sm text-muted-foreground" title={`Country code for ${f.country || "India"}`} data-testid="hist-dial">
@@ -370,9 +461,13 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       {saved && <p className="rounded-md border border-emerald-600/30 bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-400" data-testid="hist-saved">✔ Saved {saved}&apos;s stay. Enter the next one.</p>}
 
-      <div className="flex flex-col gap-2 sm:flex-row-reverse">
+      <div className="flex flex-col gap-2 sm:flex-row-reverse sm:items-center">
         <Button type="submit" size="lg" disabled={pending || !propertyId || !f.fullName.trim() || !f.checkInDate || !f.checkOutDate} className="sm:min-w-44" data-testid="hist-submit">
           {pending ? "Saving…" : "Save historical stay"}
+        </Button>
+        <Button type="button" variant="ghost" disabled={pending} className="text-muted-foreground" data-testid="hist-clear"
+          onClick={() => { if (window.confirm("Clear all the details you've entered?")) clearForm(); }}>
+          Clear form
         </Button>
       </div>
     </form>

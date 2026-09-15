@@ -7,6 +7,7 @@ import { hasPermission } from "@/lib/permissions";
 import { getReservation, getReservationGuestPanel } from "@/features/reservations/queries";
 import { ConfirmBookingButton } from "@/features/reservations/components/confirm-booking-button";
 import { ReservationGuestsCard } from "@/features/reservations/components/reservation-guests-card";
+import { ExtendStayCard } from "@/features/reservations/components/extend-stay-card";
 import { getBalance } from "@/features/billing";
 import { getReservationFolio } from "@/features/billing/queries";
 import { BookingBillSummary } from "@/features/reservations/components/booking-bill-summary";
@@ -135,6 +136,10 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
           </Card>
         ) : null}
       </div>
+
+      {(r.status === "IN_HOUSE" || r.status === "CONFIRMED") && canManageGuests ? (
+        <ExtendStayCard reservationId={r.id} checkOutDate={r.checkOutDate.toISOString().slice(0, 10)} />
+      ) : null}
 
       {billFolio ? (
         <BookingBillSummary folio={billFolio} reservationId={r.id} canManageFolio={hasPermission(user, "folio:charge")} />

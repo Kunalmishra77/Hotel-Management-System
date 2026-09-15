@@ -19,6 +19,7 @@ import { writeAudit } from "@/lib/audit";
 import { emitEvent } from "@/lib/events";
 import { DomainError, ErrorCode, NotFoundError } from "@/lib/errors";
 import { toResult, type Result } from "@/lib/result";
+import { ensureFolio, postRoomChargeTx, type BillingPostTx } from "@/features/billing";
 import { nights as computeNights } from "./domain/nights";
 import { freeRoomIdsFor, findFreeRooms, type RoomFinder } from "./availability";
 import {
@@ -27,7 +28,7 @@ import {
   reservationDb,
   withReservationContext,
 } from "./internal";
-import { modifyReservationSchema, reallocateRoomSchema } from "./schema";
+import { modifyReservationSchema, reallocateRoomSchema, extendStaySchema } from "./schema";
 
 export type MoveResult = { id: string; status: string; roomId: string };
 
@@ -95,6 +96,113 @@ export async function modifyReservation(input: unknown): Promise<Result<MoveResu
               after: { roomId: newRoomId, checkInDate, checkOutDate },
             });
             return { id: r.id, status: r.status, roomId: newRoomId };
+          },
+          { isolationLevel: "Serializable", maxWait: 10_000, timeout: 15_000 },
+        ),
+      ),
+    );
+  });
+}
+
+/**
+ * Extend an in-house (or confirmed) guest's stay to a later check-out date.
+ *
+ * `modifyReservation` only handles CONFIRMED bookings; a guest who has already
+ * checked in and wants to stay longer needs this. It stretches the same room's
+ * allocation to the new range (re-checking the room is free for the added nights),
+ * updates the dates/nights, and bills the extra nights that have already elapsed
+ * (property-local) onto the folio now — future nights post via the night audit.
+ */
+export async function extendStay(input: unknown): Promise<Result<MoveResult>> {
+  return toResult(async () => {
+    const data = extendStaySchema.parse(input);
+    const user = await requireUser();
+    const client = reservationDb(user);
+
+    const r = await client.reservation.findFirst({
+      where: { id: data.reservationId },
+      select: {
+        id: true, propertyId: true, status: true, checkInDate: true, checkOutDate: true, ratePaise: true,
+        allocations: { select: { id: true, roomId: true, room: { select: { number: true } } } },
+        folio: { select: { id: true } },
+        property: { select: { timezone: true, state: true, dayUseEnabled: true } },
+      },
+    });
+    if (!r) throw new NotFoundError("Reservation not found.");
+    authorize(user, "reservation:modify", r.propertyId);
+
+    if (r.status !== "IN_HOUSE" && r.status !== "CONFIRMED") {
+      throw new DomainError(ErrorCode.ILLEGAL_TRANSITION, "Only a confirmed or in-house stay can be extended.", {
+        publicMessage: "Only a confirmed or in-house stay can be extended.",
+      });
+    }
+    if (r.allocations.length !== 1) {
+      throw new DomainError(ErrorCode.VALIDATION_FAILED, "Group bookings can't be extended in one step.", {
+        publicMessage: "Group bookings can't be extended in one step.",
+      });
+    }
+    const newCheckOut = data.newCheckOutDate;
+    if (newCheckOut.getTime() <= r.checkOutDate.getTime()) {
+      throw new DomainError(ErrorCode.VALIDATION_FAILED, "The new check-out must be after the current one.", {
+        publicMessage: "The new check-out must be after the current one.",
+      });
+    }
+    assertBookingDatesValid({
+      checkInDate: r.checkInDate, checkOutDate: newCheckOut,
+      dayUseEnabled: r.property.dayUseEnabled, tz: r.property.timezone,
+    });
+    const nights = computeNights(r.checkInDate, newCheckOut, r.property.timezone);
+    const roomId = r.allocations[0]!.roomId;
+
+    // Extra nights already elapsed (property-local) get billed now; the rest post
+    // via the night audit as they pass.
+    const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: r.property.timezone });
+    const todayMs = new Date(`${todayStr}T00:00:00.000Z`).getTime();
+    const dayMs = 86_400_000;
+    const extraNights: Date[] = [];
+    for (let t = r.checkOutDate.getTime(); t < newCheckOut.getTime(); t += dayMs) {
+      if (t <= todayMs) extraNights.push(new Date(t));
+    }
+
+    return withReservationContext(user, () =>
+      bookingAttempt(() =>
+        client.$transaction(
+          async (tx) => {
+            // Re-stretch the allocation: drop + recreate for the new range, checking
+            // the room is free for the added nights (its own old allocation is gone).
+            await tx.roomAllocation.deleteMany({ where: { id: r.allocations[0]!.id } });
+            const free = await freeRoomIdsFor(tx as unknown as RoomFinder, r.propertyId, [roomId], r.checkInDate, newCheckOut);
+            if (!free.has(roomId)) throw new DomainError(ErrorCode.ROOM_UNAVAILABLE);
+            await tx.roomAllocation.create({
+              data: { propertyId: r.propertyId, reservationId: r.id, roomId, startDate: r.checkInDate, endDate: newCheckOut },
+            });
+            await tx.reservation.updateMany({
+              where: { id: r.id },
+              data: { checkOutDate: newCheckOut, nights },
+            });
+
+            // Bill the elapsed extra nights now (idempotent per folio+date).
+            if (extraNights.length > 0 && r.ratePaise > 0) {
+              const folioId = r.folio?.id ?? (await ensureFolio(tx, { reservationId: r.id, propertyId: r.propertyId }));
+              for (const businessDate of extraNights) {
+                await postRoomChargeTx(tx as unknown as BillingPostTx, {
+                  folioId,
+                  propertyId: r.propertyId,
+                  propertyState: r.property.state,
+                  ratePaise: r.ratePaise,
+                  businessDate,
+                  postedById: user.userId,
+                  description: `Room ${r.allocations[0]!.room?.number ?? ""} · night (extended)`.trim(),
+                });
+              }
+            }
+
+            await emitEvent(tx, { type: "ReservationModified", aggregateId: r.id, propertyId: r.propertyId, payload: { checkOutDate: newCheckOut, extended: true } });
+            await writeAudit(tx, {
+              action: "reservation:extend", entityType: "Reservation", entityId: r.id, propertyId: r.propertyId,
+              before: { checkOutDate: r.checkOutDate }, after: { checkOutDate: newCheckOut, nights },
+            });
+            return { id: r.id, status: r.status, roomId };
           },
           { isolationLevel: "Serializable", maxWait: 10_000, timeout: 15_000 },
         ),

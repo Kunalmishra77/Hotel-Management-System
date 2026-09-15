@@ -100,6 +100,17 @@ export const historicalStaySchema = z
   .object({
     propertyId: z.string().min(1, "Select the property where the guest stayed."),
     roomId: z.string().optional().nullable(),
+    // A returning guest — reuse this existing guest instead of creating a duplicate.
+    guestId: z.string().optional().nullable(),
+    // Where the booking came from (Direct, MakeMyTrip, Booking.com, …).
+    source: z
+      .enum([
+        "DIRECT", "WEBSITE", "PHONE", "WALK_IN",
+        "AIRBNB", "BOOKING_COM", "AGODA", "MAKEMYTRIP", "GOIBIBO",
+        "CORPORATE", "TRAVEL_AGENT",
+      ])
+      .optional()
+      .default("DIRECT"),
     checkInDate: histDate,
     checkOutDate: histDate,
     fullName: z.string().trim().min(1, "Guest name is required.").max(120),
@@ -180,6 +191,13 @@ export const reallocateRoomSchema = z.object({
   reservationId: z.string().min(1),
   toRoomId: z.string().min(1).optional(),
 });
+
+/** Extend an in-house guest's stay to a later check-out date (03 FR-8). */
+export const extendStaySchema = z.object({
+  reservationId: z.string().min(1),
+  newCheckOutDate: dateInput,
+});
+export type ExtendStayInput = z.infer<typeof extendStaySchema>;
 
 export const checkInSchema = z.object({ reservationId: z.string().min(1) });
 export const checkOutSchema = z.object({
