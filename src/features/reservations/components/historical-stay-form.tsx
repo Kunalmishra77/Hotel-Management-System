@@ -25,18 +25,22 @@ function dialFor(country: string): string {
 
 type Property = { id: string; name: string };
 type Room = { id: string; propertyId: string; label: string; ratePaise: number };
-const ID_TYPES = ["", "AADHAAR", "PASSPORT", "DRIVING_LICENCE", "VOTER_ID", "PAN", "VISA"] as const;
 
 const blank = {
   fullName: "", mobile: "", email: "", gender: "", nationality: "",
   address: "", city: "", country: "India", dob: "",
-  checkInDate: "", checkOutDate: "", idType: "", idNumber: "", rate: "", paid: "",
+  checkInDate: "", checkOutDate: "", rate: "", paid: "",
   gstMode: "inclusive", // "inclusive" (rate incl. GST) | "exclusive" (add GST on top)
 };
 
 type Person = { fullName: string; age: string; gender: string; relation: string; idType: string; idNumber: string };
 const blankPerson: Person = { fullName: "", age: "", gender: "", relation: "", idType: "", idNumber: "" };
 const ID_OPTS = ["", "AADHAAR", "PASSPORT", "DRIVING_LICENCE", "VOTER_ID", "PAN", "VISA"] as const;
+
+// One ID document per person sharing the room (each with its own photo/number).
+type IdDoc = { type: string; value: string; scanBase64: string; contentType: string; preview: string };
+const blankIdDoc: IdDoc = { type: "PASSPORT", value: "", scanBase64: "", contentType: "", preview: "" };
+const ID_DOC_TYPES = ["AADHAAR", "PASSPORT", "DRIVING_LICENCE", "VOTER_ID", "PAN", "VISA"] as const;
 
 // Extra services on the same bill (meals, laundry, cab…).
 type Extra = { type: string; description: string; amount: string };
@@ -51,8 +55,9 @@ const CHARGE_LABEL: Record<string, string> = {
 // page and coming back. The uploaded photo is intentionally NOT kept (it can be
 // several MB — too big for localStorage); everything typed is. Bump the version
 // suffix if the shape below ever changes.
-const DRAFT_KEY = "wp-data-entry-draft-v1";
-type Draft = { propertyId: string; roomId: string; f: typeof blank; people: Person[]; extras: Extra[] };
+const DRAFT_KEY = "wp-data-entry-draft-v2";
+type IdDocLite = { type: string; value: string };
+type Draft = { propertyId: string; roomId: string; f: typeof blank; people: Person[]; extras: Extra[]; idDocs: IdDocLite[] };
 
 function fileToParts(file: File): Promise<{ base64: string; contentType: string; preview: string }> {
   return new Promise((resolve, reject) => {
@@ -72,14 +77,15 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
   const [f, setF] = useState({ ...blank });
   const [people, setPeople] = useState<Person[]>([]);
   const [extras, setExtras] = useState<Extra[]>([]);
+  const [idDocs, setIdDocs] = useState<IdDoc[]>([]);
   const propertyRooms = rooms.filter((r) => r.propertyId === propertyId);
-  const [scan, setScan] = useState<{ base64: string; contentType: string; preview: string } | null>(null);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const set = (k: keyof typeof blank, v: string) => setF((s) => ({ ...s, [k]: v }));
   const setPerson = (i: number, k: keyof Person, v: string) => setPeople((ps) => ps.map((p, j) => (j === i ? { ...p, [k]: v } : p)));
   const setExtra = (i: number, k: keyof Extra, v: string) => setExtras((xs) => xs.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
+  const setIdDoc = (i: number, patch: Partial<IdDoc>) => setIdDocs((ds) => ds.map((d, j) => (j === i ? { ...d, ...patch } : d)));
   const [hydrated, setHydrated] = useState(false);
   // A checkout date in the future means the guest is still staying (in-house).
   const stillStaying = f.checkOutDate !== "" && f.checkInDate !== "" && f.checkOutDate > new Date().toLocaleDateString("en-CA");
@@ -97,6 +103,9 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
         if (d.f) setF((s) => ({ ...s, ...d.f }));
         if (Array.isArray(d.people)) setPeople(d.people);
         if (Array.isArray(d.extras)) setExtras(d.extras);
+        // IDs restore type + number only (photos are too large for localStorage —
+        // re-attach the photo if needed).
+        if (Array.isArray(d.idDocs)) setIdDocs(d.idDocs.map((x) => ({ ...blankIdDoc, type: x.type, value: x.value })));
       }
     } catch {
       // Ignore corrupt/blocked storage — the form just starts empty.
@@ -108,15 +117,19 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
   useEffect(() => {
     if (!hydrated) return;
     try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify({ propertyId, roomId, f, people, extras } satisfies Draft));
+      const idDocsLite = idDocs.map((d) => ({ type: d.type, value: d.value })); // no photos in storage
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ propertyId, roomId, f, people, extras, idDocs: idDocsLite } satisfies Draft));
     } catch {
       // Storage full/blocked (private mode) — persistence is a convenience, not critical.
     }
-  }, [hydrated, propertyId, roomId, f, people, extras]);
+  }, [hydrated, propertyId, roomId, f, people, extras, idDocs]);
 
-  async function onPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+  async function onIdPhoto(i: number, e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (file) setScan(await fileToParts(file));
+    if (file) {
+      const parts = await fileToParts(file);
+      setIdDoc(i, { scanBase64: parts.base64, contentType: parts.contentType, preview: parts.preview });
+    }
   }
 
   function submit(e: React.FormEvent) {
@@ -138,10 +151,14 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
         city: f.city || undefined,
         country: f.country || undefined,
         dob: f.dob || "",
-        idType: f.idType || undefined,
-        idNumber: f.idNumber || undefined,
-        scanBase64: scan?.base64,
-        scanContentType: scan?.contentType,
+        ids: idDocs
+          .filter((d) => d.value.trim() || d.scanBase64)
+          .map((d) => ({
+            type: d.type,
+            value: d.value || null,
+            scanBase64: d.scanBase64 || undefined,
+            scanContentType: d.contentType || undefined,
+          })),
         ratePaise: f.rate ? Math.round(Number(f.rate) * 100) : 0,
         amountPaidPaise: f.paid ? Math.round(Number(f.paid) * 100) : 0,
         gstMode: f.gstMode,
@@ -169,7 +186,7 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
       setF({ ...blank, country: "India", checkInDate: f.checkInDate, gstMode: f.gstMode }); // keep last check-in + GST mode for a run of entries
       setPeople([]);
       setExtras([]);
-      setScan(null);
+      setIdDocs([]);
     });
   }
 
@@ -252,28 +269,31 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
         </CardContent>
       </Card>
 
-      {/* ID — upload OR type */}
+      {/* IDs — one per person; upload a photo and/or type the number */}
       <Card>
-        <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><IdCard className="size-4" /> ID (upload or type — optional)</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="idType">ID type</Label>
-              <select id="idType" value={f.idType} onChange={(e) => set("idType", e.target.value)}
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-                {ID_TYPES.map((t) => <option key={t || "none"} value={t}>{t ? t.replace(/_/g, " ") : "Select…"}</option>)}
-              </select>
+        <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><IdCard className="size-4" /> ID documents (optional)</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">Add an ID for each person — upload a photo and/or type the number. Use <span className="font-medium">+ Add ID</span> for more (e.g. all guests sharing the room).</p>
+          {idDocs.map((d, i) => (
+            <div key={i} className="space-y-2 rounded-md border p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground">ID {i + 1}</span>
+                <Button type="button" variant="ghost" size="sm" className="h-7 text-muted-foreground hover:text-destructive" onClick={() => setIdDocs((ds) => ds.filter((_, j) => j !== i))}>Remove</Button>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <select value={d.type} onChange={(e) => setIdDoc(i, { type: e.target.value })} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" data-testid={`id-type-${i}`}>
+                  {ID_DOC_TYPES.map((t) => <option key={t} value={t}>{t.replace(/_/g, " ")}</option>)}
+                </select>
+                <Input placeholder="ID number (or just upload)" value={d.value} onChange={(e) => setIdDoc(i, { value: e.target.value })} data-testid={`id-number-${i}`} />
+              </div>
+              <input type="file" accept="image/*,application/pdf" capture="environment" onChange={(e) => onIdPhoto(i, e)} className="block w-full text-sm" data-testid={`id-photo-${i}`} />
+              {d.preview.startsWith("data:image") && (
+                // eslint-disable-next-line @next/next/no-img-element -- local data-URL preview
+                <img src={d.preview} alt="ID preview" className="mt-1 max-h-40 rounded-md border" />
+              )}
             </div>
-            <Fld label="ID number"><Input value={f.idNumber} onChange={(e) => set("idNumber", e.target.value)} placeholder="Or upload the document below" /></Fld>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Upload ID document / photo</Label>
-            <input type="file" accept="image/*,application/pdf" capture="environment" onChange={onPhoto} className="block w-full text-sm" data-testid="hist-photo" />
-            {scan?.preview?.startsWith("data:image") && (
-              // eslint-disable-next-line @next/next/no-img-element -- local data-URL preview
-              <img src={scan.preview} alt="ID preview" className="mt-2 max-h-40 rounded-md border" />
-            )}
-          </div>
+          ))}
+          <Button type="button" variant="outline" size="sm" onClick={() => setIdDocs((ds) => [...ds, { ...blankIdDoc }])} data-testid="add-id">+ Add ID</Button>
         </CardContent>
       </Card>
 

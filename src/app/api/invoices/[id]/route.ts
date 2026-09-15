@@ -8,6 +8,7 @@ import { getCurrentSession } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { resolveStorageAdapter } from "@/lib/storage";
+import { ensureInvoicePdf } from "@/features/billing/invoice-pdf-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,9 +24,13 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     where: { id },
     select: { id: true, number: true, pdfObjectKey: true },
   });
-  if (!invoice || !invoice.pdfObjectKey) return new Response("Not found", { status: 404 });
+  if (!invoice) return new Response("Not found", { status: 404 });
 
-  const bytes = await resolveStorageAdapter().get(invoice.pdfObjectKey);
+  // Render lazily on first view for invoices whose PDF was deferred (bulk import).
+  const key = invoice.pdfObjectKey ?? (await ensureInvoicePdf(invoice.id));
+  if (!key) return new Response("Not found", { status: 404 });
+
+  const bytes = await resolveStorageAdapter().get(key);
   const safeName = invoice.number.replace(/[^\w.-]/g, "_");
   return new Response(new Uint8Array(bytes), {
     status: 200,

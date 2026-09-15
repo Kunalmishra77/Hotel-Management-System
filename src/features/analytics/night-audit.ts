@@ -29,14 +29,18 @@ export async function computeInputs(propertyId: string, date: Date) {
   const { start, next } = dayBounds(date);
 
   // Available = active, non-maintenance rooms with no block overlapping the date.
-  const [activeRooms, blockedRoomIds, occupied, roomRev, totalRev, expenses] = await Promise.all([
-    prisma.room.count({ where: { propertyId, isActive: true, status: { not: "UNDER_MAINTENANCE" } } }),
-    prisma.roomBlock.findMany({ where: { propertyId, startDate: { lte: date }, endDate: { gt: date } }, select: { roomId: true } }),
-    prisma.roomAllocation.count({ where: { propertyId, startDate: { lte: date }, endDate: { gt: date }, reservation: { status: { in: ["IN_HOUSE", "CHECKED_OUT"] } } } }),
-    prisma.folioLine.aggregate({ where: { folio: { propertyId }, businessDate: date, type: "ROOM" }, _sum: { amountPaise: true } }),
-    prisma.folioLine.aggregate({ where: { folio: { propertyId }, businessDate: date, type: { notIn: ["TAX"] } }, _sum: { amountPaise: true } }),
-    prisma.expense.aggregate({ where: { propertyId, status: "APPROVED", spentOn: { gte: start, lt: next } }, _sum: { amountPaise: true } }),
-  ]);
+  // Run SEQUENTIALLY (not Promise.all): the go-live import calls this once per
+  // night, and a 6-way concurrent burst per night exhausted the connection pool
+  // on a run of long stays — which surfaced as random "Something went wrong" +
+  // re-login on the staff's very next request. One connection at a time keeps the
+  // pool free for other requests; the night audit runs off-peak so the extra
+  // round-trip latency is immaterial.
+  const activeRooms = await prisma.room.count({ where: { propertyId, isActive: true, status: { not: "UNDER_MAINTENANCE" } } });
+  const blockedRoomIds = await prisma.roomBlock.findMany({ where: { propertyId, startDate: { lte: date }, endDate: { gt: date } }, select: { roomId: true } });
+  const occupied = await prisma.roomAllocation.count({ where: { propertyId, startDate: { lte: date }, endDate: { gt: date }, reservation: { status: { in: ["IN_HOUSE", "CHECKED_OUT"] } } } });
+  const roomRev = await prisma.folioLine.aggregate({ where: { folio: { propertyId }, businessDate: date, type: "ROOM" }, _sum: { amountPaise: true } });
+  const totalRev = await prisma.folioLine.aggregate({ where: { folio: { propertyId }, businessDate: date, type: { notIn: ["TAX"] } }, _sum: { amountPaise: true } });
+  const expenses = await prisma.expense.aggregate({ where: { propertyId, status: "APPROVED", spentOn: { gte: start, lt: next } }, _sum: { amountPaise: true } });
   const blocked = new Set(blockedRoomIds.map((b) => b.roomId)).size;
 
   return {

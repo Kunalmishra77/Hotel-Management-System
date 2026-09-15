@@ -17,18 +17,21 @@ import { writeAudit } from "@/lib/audit";
 import { emitEvent } from "@/lib/events";
 import { NotFoundError } from "@/lib/errors";
 import { toResult, type Result } from "@/lib/result";
-import { resolveStorageAdapter } from "@/lib/storage";
 import { db } from "@/lib/db";
 import { financialYearOf } from "./domain/money";
 import { formatInvoiceNumber } from "./domain/invoice-number";
-import { renderInvoicePdf } from "./invoice-pdf";
+import { attachInvoicePdf } from "./invoice-pdf-store";
 import { billingDb, withBillingContext } from "./internal";
 import { generateInvoiceSchema, voidInvoiceSchema } from "./schema";
 
 export type InvoiceResult = { invoiceId: string; number: string; totalPaise: number };
 
-/** Generate a GST tax invoice for a folio (FR-12/13/16, AC-13/14/16). */
-export async function generateInvoice(input: unknown): Promise<Result<InvoiceResult>> {
+/** Generate a GST tax invoice for a folio (FR-12/13/16, AC-13/14/16).
+ *  `renderPdf` (default true) renders + stores the styled PDF inline; the go-live
+ *  bulk import passes false so the CPU-heavy render doesn't block the request — the
+ *  PDF then renders lazily on first download. */
+export async function generateInvoice(input: unknown, opts: { renderPdf?: boolean } = {}): Promise<Result<InvoiceResult>> {
+  const renderPdf = opts.renderPdf !== false;
   return toResult(async () => {
     const data = generateInvoiceSchema.parse(input);
     const user = await requireUser();
@@ -93,76 +96,19 @@ export async function generateInvoice(input: unknown): Promise<Result<InvoiceRes
       }),
     );
 
-    // AFTER commit: render + store the styled PDF, then attach the key (retryable;
-    // a failure here leaves a valid invoice with pdfObjectKey null — no gap).
-    await attachInvoicePdf(result.invoiceId, folio.id, {
-      number: result.number, issuedAt: new Date(),
-      customerName: data.customerName, customerGstin: data.customerGstin ?? null, placeOfSupply,
-      taxablePaise: Number(taxable), cgstPaise: cgst, sgstPaise: sgst, igstPaise: igst, totalPaise: Number(totalPaise),
-    });
+    // AFTER commit: render + store the styled PDF (retryable; a failure leaves a
+    // valid invoice with pdfObjectKey null — it renders on first download). Skipped
+    // for bulk import so the CPU-heavy render never blocks the request.
+    if (renderPdf) {
+      await attachInvoicePdf(result.invoiceId, folio.id, {
+        number: result.number, issuedAt: new Date(),
+        customerName: data.customerName, customerGstin: data.customerGstin ?? null, placeOfSupply,
+        taxablePaise: Number(taxable), cgstPaise: cgst, sgstPaise: sgst, igstPaise: igst, totalPaise: Number(totalPaise),
+      });
+    }
 
     return { invoiceId: result.invoiceId, number: result.number, totalPaise: Number(totalPaise) };
   });
-}
-
-/** Render the styled GST invoice to storage and set pdfObjectKey (the only column
- *  the invoice_immutable trigger permits to change). Best-effort — a failure leaves
- *  a valid invoice with a null key, retried by a follow-up. */
-async function attachInvoicePdf(
-  invoiceId: string,
-  folioId: string,
-  meta: {
-    number: string; issuedAt: Date; customerName: string; customerGstin?: string | null; placeOfSupply: string;
-    taxablePaise: number; cgstPaise: number; sgstPaise: number; igstPaise: number; totalPaise: number;
-  },
-): Promise<void> {
-  try {
-    const folio = await db.unscoped().folio.findFirst({
-      where: { id: folioId },
-      select: {
-        propertyId: true,
-        lines: {
-          select: { description: true, hsnSac: true, quantity: true, unitPaise: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true },
-          orderBy: { createdAt: "asc" },
-        },
-      },
-    });
-    if (!folio) return;
-    const property = await db.unscoped().property.findFirst({
-      where: { id: folio.propertyId },
-      select: { name: true, addressLine1: true, city: true, state: true, pincode: true, gstin: true },
-    });
-    if (!property) return;
-    const bytes = await renderInvoicePdf({
-      number: meta.number,
-      issuedAt: meta.issuedAt,
-      property,
-      customerName: meta.customerName,
-      customerGstin: meta.customerGstin ?? null,
-      placeOfSupply: meta.placeOfSupply,
-      lines: folio.lines.map((l) => ({
-        description: l.description,
-        hsnSac: l.hsnSac,
-        quantity: l.quantity,
-        unitPaise: l.unitPaise,
-        amountPaise: Number(l.amountPaise),
-        cgstPaise: l.cgstPaise,
-        sgstPaise: l.sgstPaise,
-        igstPaise: l.igstPaise,
-      })),
-      taxablePaise: meta.taxablePaise,
-      cgstPaise: meta.cgstPaise,
-      sgstPaise: meta.sgstPaise,
-      igstPaise: meta.igstPaise,
-      totalPaise: meta.totalPaise,
-    });
-    const key = `invoices/${invoiceId}.pdf`;
-    await resolveStorageAdapter().put(key, bytes, { contentType: "application/pdf" });
-    await db.unscoped().invoice.update({ where: { id: invoiceId }, data: { pdfObjectKey: key } });
-  } catch (e) {
-    // Non-fatal: the invoice is valid; the render is retried by a follow-up job.
-    void e;
-  }
 }
 
 /**
@@ -176,7 +122,7 @@ async function attachInvoicePdf(
  * invoiced, and no-ops when the caller lacks `invoice:generate` — the manual
  * button stays available as the fallback.
  */
-export async function autoIssueInvoiceOnCheckout(reservationId: string): Promise<void> {
+export async function autoIssueInvoiceOnCheckout(reservationId: string, opts: { renderPdf?: boolean } = {}): Promise<void> {
   try {
     const user = await requireUser();
     const folio = await billingDb(user).folio.findFirst({
@@ -195,7 +141,7 @@ export async function autoIssueInvoiceOnCheckout(reservationId: string): Promise
       folioId: folio.id,
       customerName: guest?.fullName ?? "Guest",
       customerGstin: guest?.gstNumber ?? undefined,
-    });
+    }, { renderPdf: opts.renderPdf !== false });
   } catch {
     // Non-fatal — the manual "Generate GST invoice" action remains the fallback.
   }

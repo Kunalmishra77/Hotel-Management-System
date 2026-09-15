@@ -115,6 +115,20 @@ export const historicalStaySchema = z
     idNumber: z.string().trim().max(60).optional().nullable(),
     scanBase64: z.string().optional().nullable(),
     scanContentType: z.string().optional().nullable(),
+    // Multiple ID documents (one per person sharing the room) — each becomes a
+    // GuestId with its own type/number and optional photo.
+    ids: z
+      .array(
+        z.object({
+          type: z.enum(["AADHAAR", "PASSPORT", "DRIVING_LICENCE", "VOTER_ID", "PAN", "VISA"]),
+          value: z.string().trim().max(60).optional().nullable(),
+          scanBase64: z.string().optional().nullable(),
+          scanContentType: z.string().optional().nullable(),
+        }),
+      )
+      .max(10)
+      .optional()
+      .default([]),
     ratePaise: z.coerce.number().int().min(0).max(100_000_000).optional().default(0),
     amountPaidPaise: z.coerce.number().int().min(0).max(100_000_000).optional().default(0),
     // Whether the rate/charges the staff enter already include GST (all-in price

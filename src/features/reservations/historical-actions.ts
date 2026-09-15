@@ -71,7 +71,9 @@ export async function createHistoricalStay(input: unknown): Promise<Result<{ res
     }
     const guestId = guest.data.id;
 
-    // 2. Optional ID document/number.
+    // 2. ID documents — one per person sharing the room. Legacy single-ID fields
+    //    are still honoured; the form now sends the `ids` array. Sequential so a
+    //    few uploads don't burst the connection pool.
     if (data.idType && (data.idNumber || data.scanBase64)) {
       await addGuestId({
         guestId,
@@ -80,6 +82,17 @@ export async function createHistoricalStay(input: unknown): Promise<Result<{ res
         scanBase64: data.scanBase64 ?? undefined,
         scanContentType: data.scanContentType ?? undefined,
       });
+    }
+    for (const idDoc of data.ids) {
+      if (idDoc.value || idDoc.scanBase64) {
+        await addGuestId({
+          guestId,
+          type: idDoc.type,
+          value: idDoc.value ?? undefined,
+          scanBase64: idDoc.scanBase64 ?? undefined,
+          scanContentType: idDoc.scanContentType ?? undefined,
+        });
+      }
     }
 
     // 3. Dates → nights.
@@ -256,7 +269,10 @@ export async function createHistoricalStay(input: unknown): Promise<Result<{ res
     // (checked out). A still-staying (IN_HOUSE) or future (CONFIRMED) guest is not
     // invoiced yet — that happens at their real check-out. Best-effort + idempotent.
     if (status === "CHECKED_OUT" && hasBill) {
-      await autoIssueInvoiceOnCheckout(result.reservationId);
+      // Skip the inline PDF render — it is CPU-heavy and, on a run of bulk entries,
+      // stalled the next request enough to bounce staff to the login screen. The
+      // invoice row is created now; its PDF renders on first download.
+      await autoIssueInvoiceOnCheckout(result.reservationId, { renderPdf: false });
     }
 
     // Backfill each consumed night's stats snapshot so the stay shows in occupancy,
