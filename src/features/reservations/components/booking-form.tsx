@@ -7,14 +7,14 @@
  * money). Mobile-first: numeric keypads, ≥44px actions. Amounts are entered in ₹
  * and submitted as integer paise in hidden fields.
  */
-import { useMemo, useState, useTransition, useActionState } from "react";
+import { useState, useTransition, useActionState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { priceReservation } from "../domain/pricing";
+import { roomGstBps } from "@/lib/constants/gst";
 import { nights as computeNights } from "../domain/nights";
 import { searchAvailability } from "../availability-action";
 import {
@@ -97,6 +97,7 @@ export function BookingForm({
   const [discount, setDiscount] = useState(0);
   const [extraBed, setExtraBed] = useState(0);
   const [advance, setAdvance] = useState(0);
+  const [gstInclusive, setGstInclusive] = useState(false);
 
   const [state, submit, pending] = useActionState(createReservationFormAction, INITIAL);
 
@@ -105,22 +106,26 @@ export function BookingForm({
       ? computeNights(new Date(`${checkInDate}T00:00:00Z`), new Date(`${checkOutDate}T00:00:00Z`), timezone)
       : 0;
 
-  // Deluxe/Suite GST is 12% here; 06 owns the authoritative GST — this is the
-  // preview estimate so the receptionist sees the out-the-door number.
-  const taxable = toPaise(rate) * nights - toPaise(discount) + toPaise(extraBed);
-  const taxPaise = Math.round(Math.max(0, taxable) * 0.12);
-  const bill = useMemo(
-    () =>
-      priceReservation({
-        ratePaise: toPaise(rate),
-        nights: Math.max(1, nights),
-        discountPaise: toPaise(discount),
-        extraBedPaise: toPaise(extraBed),
-        taxPaise,
-        advancePaise: toPaise(advance),
-      }),
-    [rate, nights, discount, extraBed, taxPaise, advance],
-  );
+  // GST inclusive vs exclusive (mirrors Data Entry). "Inclusive" → the rate the
+  // receptionist typed already contains GST, so we back out the pre-tax value we
+  // submit (the server/night-audit adds GST from the band → total = what was
+  // typed). "Exclusive" → the rate is pre-tax and GST is added on top. 06 owns the
+  // authoritative GST; this is the out-the-door preview.
+  const EB_BPS = 1200; // extra bed follows the room slab (12%)
+  const roomBps = roomGstBps(toPaise(rate) || 1);
+  const toTaxable = (enteredPaise: number, bps: number) =>
+    gstInclusive ? Math.round((enteredPaise * 10_000) / (10_000 + bps)) : enteredPaise;
+  const ratePaiseSubmit = toTaxable(toPaise(rate), roomBps);
+  const extraBedPaiseSubmit = toTaxable(toPaise(extraBed), EB_BPS);
+  const discountPaise = toPaise(discount);
+  const advancePaise = toPaise(advance);
+  const roomTaxable = ratePaiseSubmit * nights;
+  const roomGst = Math.round((roomTaxable * roomBps) / 10_000);
+  const ebGst = Math.round((extraBedPaiseSubmit * EB_BPS) / 10_000);
+  const taxPaise = roomGst + ebGst;
+  const totalPaise = roomTaxable + extraBedPaiseSubmit + taxPaise - discountPaise;
+  const balancePaise = totalPaise - advancePaise;
+  const roomEnteredPaise = toPaise(rate) * nights; // what reception typed (all-in if inclusive)
 
   const runSearch = () => {
     startSearch(async () => {
@@ -144,11 +149,11 @@ export function BookingForm({
       <input type="hidden" name="children" value={children} />
       <input type="hidden" name="roomId" value={room?.id ?? ""} />
       <input type="hidden" name="guestId" value={guest?.id ?? ""} />
-      <input type="hidden" name="ratePaise" value={toPaise(rate)} />
-      <input type="hidden" name="discountPaise" value={toPaise(discount)} />
-      <input type="hidden" name="extraBedPaise" value={toPaise(extraBed)} />
+      <input type="hidden" name="ratePaise" value={ratePaiseSubmit} />
+      <input type="hidden" name="discountPaise" value={discountPaise} />
+      <input type="hidden" name="extraBedPaise" value={extraBedPaiseSubmit} />
       <input type="hidden" name="taxPaise" value={taxPaise} />
-      <input type="hidden" name="advancePaise" value={toPaise(advance)} />
+      <input type="hidden" name="advancePaise" value={advancePaise} />
 
       <Card>
         <CardHeader className="pb-3"><CardTitle className="text-base">Property, dates & occupancy</CardTitle></CardHeader>
@@ -276,6 +281,16 @@ export function BookingForm({
         <Card>
           <CardHeader className="pb-3"><CardTitle className="text-base">Charges</CardTitle></CardHeader>
           <CardContent className="space-y-3">
+            <Labeled label="GST on the rate you enter">
+              <div className="flex flex-wrap gap-4 text-sm">
+                <label className="flex items-center gap-2">
+                  <input type="radio" name="gstMode" checked={!gstInclusive} onChange={() => setGstInclusive(false)} data-testid="gst-exclusive" /> Add GST on top
+                </label>
+                <label className="flex items-center gap-2">
+                  <input type="radio" name="gstMode" checked={gstInclusive} onChange={() => setGstInclusive(true)} data-testid="gst-inclusive" /> Price includes GST
+                </label>
+              </div>
+            </Labeled>
             <div className="grid gap-3 sm:grid-cols-2">
               <Labeled label="Rate/night (₹)"><Input type="number" inputMode="numeric" value={rate} onChange={(e) => setRate(Number(e.target.value))} data-testid="rate" /></Labeled>
               <Labeled label="Discount (₹)"><Input type="number" inputMode="numeric" value={discount} onChange={(e) => setDiscount(Number(e.target.value))} /></Labeled>
@@ -304,13 +319,13 @@ export function BookingForm({
             </Labeled>
 
             <dl className="space-y-1 rounded-md border bg-muted/40 p-3 text-sm" data-testid="bill-preview">
-              <Row label={`Room (${nights} × ${rupees(toPaise(rate))})`} value={rupees(bill.breakdown.roomPaise)} />
-              <Row label="Discount" value={`− ${rupees(bill.breakdown.discountPaise)}`} />
-              <Row label="Extra bed" value={`+ ${rupees(bill.breakdown.extraBedPaise)}`} />
-              <Row label="Tax (est. 12%)" value={`+ ${rupees(taxPaise)}`} />
-              <Row label="Total" value={rupees(bill.totalPaise)} strong testid="bill-total" />
-              <Row label="Advance" value={`− ${rupees(bill.breakdown.advancePaise)}`} />
-              <Row label="Balance due" value={rupees(bill.balancePaise)} strong testid="bill-balance" />
+              <Row label={`Room (${nights} × ${rupees(toPaise(rate))})`} value={rupees(roomEnteredPaise)} />
+              <Row label="Discount" value={`− ${rupees(discountPaise)}`} />
+              <Row label="Extra bed" value={`+ ${rupees(toPaise(extraBed))}`} />
+              <Row label={gstInclusive ? "GST (included)" : "GST"} value={gstInclusive ? `incl. ${rupees(taxPaise)}` : `+ ${rupees(taxPaise)}`} />
+              <Row label="Total" value={rupees(totalPaise)} strong testid="bill-total" />
+              <Row label="Advance" value={`− ${rupees(advancePaise)}`} />
+              <Row label="Balance due" value={rupees(balancePaise)} strong testid="bill-balance" />
             </dl>
           </CardContent>
         </Card>
