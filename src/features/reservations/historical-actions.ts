@@ -159,7 +159,10 @@ export async function createHistoricalStay(input: unknown): Promise<Result<{ res
     const nightDates: Date[] = [];
     for (let i = 0; i < nights; i++) nightDates.push(new Date(ci.getTime() + i * dayMs));
     const ratePaise = data.ratePaise ?? 0;
-    const amountPaid = data.amountPaidPaise ?? 0;
+    // Payments: the `payments` array (multiple, each with a method/date/ref), plus
+    // the legacy single "amount collected" (posted as one CASH payment).
+    const legacyPaid = data.amountPaidPaise ?? 0;
+    const amountPaid = legacyPaid + data.payments.reduce((s, p) => s + p.amountPaise, 0);
 
     // Property-local "today" (calendar date). Decides the reservation status and
     // which nights are already consumed (only those post now; the night audit
@@ -292,14 +295,27 @@ export async function createHistoricalStay(input: unknown): Promise<Result<{ res
               });
             }
           }
-          if (amountPaid > 0) {
+          // Payments — the legacy single "amount collected" (as CASH), then each
+          // recorded payment with its own method / reference / date.
+          if (legacyPaid > 0) {
             await postPaymentTx(tx as unknown as BillingPostTx, {
               folioId,
               propertyId: data.propertyId,
               mode: "CASH",
-              amountPaise: amountPaid,
+              amountPaise: legacyPaid,
               reference: `HIST-${code}`,
               receivedById: user.userId,
+            });
+          }
+          for (const p of data.payments) {
+            await postPaymentTx(tx as unknown as BillingPostTx, {
+              folioId,
+              propertyId: data.propertyId,
+              mode: p.mode,
+              amountPaise: p.amountPaise,
+              reference: p.reference ?? `HIST-${code}`,
+              receivedById: user.userId,
+              receivedAt: p.receivedAt ? new Date(`${p.receivedAt}T12:00:00.000Z`) : null,
             });
           }
         }

@@ -121,10 +121,25 @@ export function GuestProfile({
           ) : (
             <ul className="divide-y rounded-md border" data-testid="guest-ids">
               {guest.ids.map((id) => (
-                <li key={id.id} className="flex items-center justify-between p-3 text-sm">
+                <li key={id.id} className="flex items-center justify-between gap-2 p-3 text-sm">
                   <span>{ID_LABEL[id.type] ?? id.type}</span>
-                  <span className="font-mono text-muted-foreground" data-testid="masked-id">
-                    {id.maskedValue ?? "Image on file"}{id.hasScan ? " · scan" : ""}
+                  <span className="flex items-center gap-2">
+                    <span className="font-mono text-muted-foreground" data-testid="masked-id">
+                      {id.maskedValue ?? "Image on file"}
+                    </span>
+                    {id.hasScan && canRevealPii && (
+                      <a href={`/api/guest-ids/${id.id}/scan`} target="_blank" rel="noopener noreferrer"
+                        className="rounded-md border px-2 py-1 text-xs font-medium text-primary hover:bg-muted" data-testid="view-id-scan">
+                        View
+                      </a>
+                    )}
+                    {id.hasBackScan && canRevealPii && (
+                      <a href={`/api/guest-ids/${id.id}/scan?side=back`} target="_blank" rel="noopener noreferrer"
+                        className="rounded-md border px-2 py-1 text-xs font-medium text-primary hover:bg-muted" data-testid="view-id-back">
+                        Back
+                      </a>
+                    )}
+                    {id.hasScan && !canRevealPii && <span className="text-xs text-muted-foreground">scan on file</span>}
                   </span>
                 </li>
               ))}

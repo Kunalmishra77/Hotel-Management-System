@@ -263,6 +263,8 @@ export type PaymentInput = {
   reference?: string | null;
   settlementBatchId?: string | null;
   receivedById?: string | null;
+  /** When the money was received — defaults to now; set for a back-dated (historical) payment. */
+  receivedAt?: Date | null;
 };
 
 /** Post one payment tender to a folio (positive amount; `isRefund` refunds only). */
@@ -278,6 +280,7 @@ export async function postPaymentTx(tx: BillingPostTx, input: PaymentInput): Pro
       settlementBatchId,
       isRefund: false,
       receivedById: input.receivedById ?? null,
+      ...(input.receivedAt ? { receivedAt: input.receivedAt } : {}),
     },
     select: { id: true },
   });

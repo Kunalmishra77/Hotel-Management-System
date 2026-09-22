@@ -44,10 +44,23 @@ type Room = { id: string; propertyId: string; label: string; ratePaise: number }
 const blank = {
   fullName: "", mobile: "", email: "", gender: "", nationality: "",
   address: "", city: "", country: "India", dob: "",
-  checkInDate: "", checkOutDate: "", rate: "", paid: "",
+  checkInDate: "", checkOutDate: "", rate: "",
   gstMode: "inclusive", // "inclusive" (rate incl. GST) | "exclusive" (add GST on top)
   source: "DIRECT",
 };
+
+// Payments — a guest may pay in parts, each by its own method / date / reference.
+type Pay = { mode: string; amount: string; reference: string; date: string };
+const blankPay: Pay = { mode: "CASH", amount: "", reference: "", date: "" };
+const PAY_MODES: { value: string; label: string }[] = [
+  { value: "CASH", label: "Cash" },
+  { value: "UPI", label: "UPI" },
+  { value: "CREDIT_CARD", label: "Credit card" },
+  { value: "DEBIT_CARD", label: "Debit card" },
+  { value: "BANK_TRANSFER", label: "Bank transfer" },
+  { value: "ONLINE", label: "Online" },
+  { value: "CORPORATE_CREDIT", label: "Corporate credit" },
+];
 
 type Person = { fullName: string; age: string; gender: string; relation: string; idType: string; idNumber: string };
 const blankPerson: Person = { fullName: "", age: "", gender: "", relation: "", idType: "", idNumber: "" };
@@ -71,9 +84,9 @@ const CHARGE_LABEL: Record<string, string> = {
 // page and coming back. The uploaded photo is intentionally NOT kept (it can be
 // several MB — too big for localStorage); everything typed is. Bump the version
 // suffix if the shape below ever changes.
-const DRAFT_KEY = "wp-data-entry-draft-v2";
+const DRAFT_KEY = "wp-data-entry-draft-v3";
 type IdDocLite = { type: string; value: string };
-type Draft = { propertyId: string; roomId: string; f: typeof blank; people: Person[]; extras: Extra[]; idDocs: IdDocLite[]; guestId: string | null };
+type Draft = { propertyId: string; roomId: string; f: typeof blank; people: Person[]; extras: Extra[]; idDocs: IdDocLite[]; guestId: string | null; payments: Pay[] };
 
 function fileToParts(file: File): Promise<{ base64: string; contentType: string; preview: string }> {
   return new Promise((resolve, reject) => {
@@ -94,6 +107,7 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
   const [people, setPeople] = useState<Person[]>([]);
   const [extras, setExtras] = useState<Extra[]>([]);
   const [idDocs, setIdDocs] = useState<IdDoc[]>([]);
+  const [payments, setPayments] = useState<Pay[]>([]);
   const [guestId, setGuestId] = useState<string | null>(null); // set when reusing a returning guest
   const [guestQuery, setGuestQuery] = useState("");
   const [matches, setMatches] = useState<ReturningGuest[]>([]);
@@ -105,6 +119,7 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
   const setPerson = (i: number, k: keyof Person, v: string) => setPeople((ps) => ps.map((p, j) => (j === i ? { ...p, [k]: v } : p)));
   const setExtra = (i: number, k: keyof Extra, v: string) => setExtras((xs) => xs.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
   const setIdDoc = (i: number, patch: Partial<IdDoc>) => setIdDocs((ds) => ds.map((d, j) => (j === i ? { ...d, ...patch } : d)));
+  const setPay = (i: number, k: keyof Pay, v: string) => setPayments((ps) => ps.map((p, j) => (j === i ? { ...p, [k]: v } : p)));
   const [hydrated, setHydrated] = useState(false);
   // A checkout date in the future means the guest is still staying (in-house).
   const stillStaying = f.checkOutDate !== "" && f.checkInDate !== "" && f.checkOutDate > new Date().toLocaleDateString("en-CA");
@@ -125,6 +140,7 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
         // IDs restore type + number only (photos are too large for localStorage —
         // re-attach the photo if needed).
         if (Array.isArray(d.idDocs)) setIdDocs(d.idDocs.map((x) => ({ ...blankIdDoc, type: x.type, value: x.value })));
+        if (Array.isArray(d.payments)) setPayments(d.payments);
         if (typeof d.guestId === "string") setGuestId(d.guestId);
       }
     } catch {
@@ -138,11 +154,11 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
     if (!hydrated) return;
     try {
       const idDocsLite = idDocs.map((d) => ({ type: d.type, value: d.value })); // no photos in storage
-      localStorage.setItem(DRAFT_KEY, JSON.stringify({ propertyId, roomId, f, people, extras, idDocs: idDocsLite, guestId } satisfies Draft));
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ propertyId, roomId, f, people, extras, idDocs: idDocsLite, guestId, payments } satisfies Draft));
     } catch {
       // Storage full/blocked (private mode) — persistence is a convenience, not critical.
     }
-  }, [hydrated, propertyId, roomId, f, people, extras, idDocs, guestId]);
+  }, [hydrated, propertyId, roomId, f, people, extras, idDocs, guestId, payments]);
 
   // Returning-guest lookup: while typing a name/mobile (and not already linked),
   // search existing guests so staff can reuse one in a click. Debounced.
@@ -170,6 +186,7 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
     setPeople([]);
     setExtras([]);
     setIdDocs([]);
+    setPayments([]);
     setGuestId(null);
     setGuestQuery("");
     setMatches([]);
@@ -215,7 +232,14 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
             scanContentType: d.contentType || undefined,
           })),
         ratePaise: f.rate ? Math.round(Number(f.rate) * 100) : 0,
-        amountPaidPaise: f.paid ? Math.round(Number(f.paid) * 100) : 0,
+        payments: payments
+          .filter((p) => p.amount && Number(p.amount) > 0)
+          .map((p) => ({
+            mode: p.mode,
+            amountPaise: Math.round(Number(p.amount) * 100),
+            reference: p.reference || null,
+            receivedAt: p.date || "",
+          })),
         gstMode: f.gstMode,
         roomId: roomId || undefined,
         accompanyingGuests: people
@@ -242,6 +266,7 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
       setPeople([]);
       setExtras([]);
       setIdDocs([]);
+      setPayments([]);
       setGuestId(null);
       setGuestQuery("");
       setMatches([]);
@@ -269,12 +294,7 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
             <div className="space-y-1.5">
               <Label htmlFor="roomId">Room</Label>
               <select id="roomId" value={roomId}
-                onChange={(e) => {
-                  const rid = e.target.value;
-                  setRoomId(rid);
-                  const r = rooms.find((x) => x.id === rid);
-                  if (r && r.ratePaise > 0) set("rate", String(r.ratePaise / 100)); // auto-fill tariff; still editable for a discount
-                }}
+                onChange={(e) => setRoomId(e.target.value)}
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" data-testid="hist-room">
                 <option value="">Any available room</option>
                 {propertyRooms.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
@@ -452,9 +472,33 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
             </div>
             <p className="text-xs text-muted-foreground">Applies to the room rate <span className="font-medium">and</span> every extra charge above.</p>
           </div>
-          <Fld label="Room rate per night (₹)"><Input type="number" inputMode="numeric" min={0} value={f.rate} onChange={(e) => set("rate", e.target.value)} placeholder="Auto-fills from the room" /></Fld>
-          <Fld label="Amount collected (₹)"><Input type="number" inputMode="numeric" min={0} value={f.paid} onChange={(e) => set("paid", e.target.value)} placeholder="Room + extras total, or what they paid" /></Fld>
-          <p className="text-xs text-muted-foreground sm:col-span-2">Pick a room and the nightly rate fills in automatically — <span className="font-medium">edit it</span> if the guest got a discount or special price. A folio + GST bill is created from the room rate + extras. Leave everything blank for history only.</p>
+          <Fld label="Room rate per night (₹)"><Input type="number" inputMode="numeric" min={0} value={f.rate} onChange={(e) => set("rate", e.target.value)} placeholder="Enter the nightly rate" data-testid="hist-rate" /></Fld>
+          <p className="text-xs text-muted-foreground sm:col-span-2">Enter the nightly rate for <span className="font-medium">this</span> guest (rates can differ per customer). A folio + GST bill is created from the room rate + extras. Leave the rate blank for history only.</p>
+        </CardContent>
+      </Card>
+
+      {/* Payments — one or many, each with its own method */}
+      <Card>
+        <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><Receipt className="size-4" /> Payments</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">Record each payment separately — a guest may pay in parts (e.g. part cash, part UPI) on different dates. Add one row per payment.</p>
+          {payments.map((p, i) => (
+            <div key={i} className="space-y-2 rounded-md border p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground">Payment {i + 1}</span>
+                <Button type="button" variant="ghost" size="sm" className="h-7 text-muted-foreground hover:text-destructive" onClick={() => setPayments((ps) => ps.filter((_, j) => j !== i))}>Remove</Button>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <select value={p.mode} onChange={(e) => setPay(i, "mode", e.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" data-testid={`pay-mode-${i}`}>
+                  {PAY_MODES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+                </select>
+                <Input type="number" inputMode="numeric" min={0} placeholder="Amount ₹" value={p.amount} onChange={(e) => setPay(i, "amount", e.target.value)} data-testid={`pay-amount-${i}`} />
+                <Input placeholder="Reference / txn no. (optional)" value={p.reference} onChange={(e) => setPay(i, "reference", e.target.value)} />
+                <div className="space-y-1"><span className="text-xs text-muted-foreground">Payment date (optional)</span><Input type="date" value={p.date} onChange={(e) => setPay(i, "date", e.target.value)} /></div>
+              </div>
+            </div>
+          ))}
+          <Button type="button" variant="outline" size="sm" onClick={() => setPayments((ps) => [...ps, { ...blankPay }])} data-testid="add-payment">+ Add payment</Button>
         </CardContent>
       </Card>
 

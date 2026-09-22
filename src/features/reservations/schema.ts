@@ -142,6 +142,20 @@ export const historicalStaySchema = z
       .default([]),
     ratePaise: z.coerce.number().int().min(0).max(100_000_000).optional().default(0),
     amountPaidPaise: z.coerce.number().int().min(0).max(100_000_000).optional().default(0),
+    // Multiple payments — a guest may pay in parts, each by a different method
+    // (e.g. part cash + part UPI), on different dates.
+    payments: z
+      .array(
+        z.object({
+          mode: z.enum(["CASH", "UPI", "CREDIT_CARD", "DEBIT_CARD", "BANK_TRANSFER", "ONLINE", "CORPORATE_CREDIT"]),
+          amountPaise: z.coerce.number().int().min(1).max(100_000_000),
+          reference: z.string().trim().max(80).optional().nullable(),
+          receivedAt: histDate.optional().nullable().or(z.literal("").transform(() => null)),
+        }),
+      )
+      .max(20)
+      .optional()
+      .default([]),
     // Whether the rate/charges the staff enter already include GST (all-in price
     // the guest paid) or GST is added on top. Applies to the room + every extra.
     gstMode: z.enum(["inclusive", "exclusive"]).optional().default("inclusive"),
