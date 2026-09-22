@@ -26,28 +26,41 @@ import {
 } from "../form-actions";
 import type { AvailableRoom } from "../availability";
 
-type Category = { id: string; name: string };
+type Category = { id: string; name: string; propertyId: string };
+type PropertyOpt = { id: string; name: string; timezone: string };
 const rupees = (paise: number) => `₹${(paise / 100).toLocaleString("en-IN")}`;
 const toPaise = (r: number) => Math.round(r * 100);
 const INITIAL: BookingFormState = { status: "idle" };
 
 export function BookingForm({
-  propertyId,
+  properties,
   categories,
-  timezone,
+  defaultPropertyId,
 }: {
-  propertyId: string;
+  properties: PropertyOpt[];
   categories: Category[];
-  timezone: string;
+  defaultPropertyId: string;
 }) {
+  const [propertyId, setPropertyId] = useState(defaultPropertyId);
+  const propertyCategories = categories.filter((c) => c.propertyId === propertyId);
+  const timezone = properties.find((p) => p.id === propertyId)?.timezone ?? "Asia/Kolkata";
   const [checkInDate, setCheckIn] = useState("");
   const [checkOutDate, setCheckOut] = useState("");
   const [adults, setAdults] = useState(2);
   const [children, setChildren] = useState(0);
-  const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "");
+  const [categoryId, setCategoryId] = useState(propertyCategories[0]?.id ?? "");
   const [rooms, setRooms] = useState<AvailableRoom[] | null>(null);
   const [room, setRoom] = useState<AvailableRoom | null>(null);
   const [searching, startSearch] = useTransition();
+
+  // Switching property resets the property-dependent picks.
+  function onPropertyChange(pid: string) {
+    setPropertyId(pid);
+    const firstCat = categories.find((c) => c.propertyId === pid);
+    setCategoryId(firstCat?.id ?? "");
+    setRooms(null);
+    setRoom(null);
+  }
 
   const [source, setSource] = useState("WALK_IN");
   const [settlement, setSettlement] = useState("PAY_AT_HOTEL");
@@ -138,8 +151,14 @@ export function BookingForm({
       <input type="hidden" name="advancePaise" value={toPaise(advance)} />
 
       <Card>
-        <CardHeader className="pb-3"><CardTitle className="text-base">Dates & occupancy</CardTitle></CardHeader>
+        <CardHeader className="pb-3"><CardTitle className="text-base">Property, dates & occupancy</CardTitle></CardHeader>
         <CardContent className="space-y-3">
+          <Labeled label="Property">
+            <select value={propertyId} onChange={(e) => onPropertyChange(e.target.value)}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" data-testid="property-select">
+              {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </Labeled>
           <div className="grid gap-3 sm:grid-cols-2">
             <Labeled label="Check-in"><Input type="date" value={checkInDate} onChange={(e) => setCheckIn(e.target.value)} data-testid="checkin-date" /></Labeled>
             <Labeled label="Check-out"><Input type="date" value={checkOutDate} onChange={(e) => setCheckOut(e.target.value)} data-testid="checkout-date" /></Labeled>
@@ -147,10 +166,11 @@ export function BookingForm({
           <div className="grid gap-3 sm:grid-cols-3">
             <Labeled label="Adults"><Input type="number" inputMode="numeric" min={1} value={adults} onChange={(e) => setAdults(Number(e.target.value))} /></Labeled>
             <Labeled label="Children"><Input type="number" inputMode="numeric" min={0} value={children} onChange={(e) => setChildren(Number(e.target.value))} /></Labeled>
-            <Labeled label="Category">
+            <Labeled label="Room category">
               <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" data-testid="category-select">
-                {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                {propertyCategories.length === 0 ? <option value="">No categories</option> : null}
+                {propertyCategories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </Labeled>
           </div>

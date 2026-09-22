@@ -10,6 +10,7 @@
  */
 import { db } from "@/lib/db";
 import { resolveStorageAdapter } from "@/lib/storage";
+import { BOOKING_SOURCE_LABEL, PAYMENT_MODE_LABEL } from "@/lib/constants/company";
 import { renderInvoicePdf } from "./invoice-pdf";
 
 type PdfMeta = {
@@ -37,25 +38,44 @@ export async function attachInvoicePdf(invoiceId: string, folioId: string, meta:
       select: {
         propertyId: true,
         lines: {
-          select: { description: true, hsnSac: true, quantity: true, unitPaise: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true },
+          select: { type: true, description: true, hsnSac: true, quantity: true, unitPaise: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, taxRateBps: true },
           orderBy: { createdAt: "asc" },
+        },
+        payments: { where: { isRefund: false }, select: { mode: true } },
+        reservation: {
+          select: {
+            checkInDate: true, checkOutDate: true, source: true,
+            allocations: { select: { room: { select: { number: true } } } },
+          },
         },
       },
     });
     if (!folio) return null;
     const property = await db.unscoped().property.findFirst({
       where: { id: folio.propertyId },
-      select: { name: true, addressLine1: true, city: true, state: true, pincode: true, gstin: true },
+      select: { name: true, addressLine1: true, city: true, state: true, pincode: true },
     });
     if (!property) return null;
+
+    const rooms = folio.reservation?.allocations.map((a) => a.room.number).filter(Boolean).join(", ") ?? "";
+    const stayLabel = `Stay of Guest ${meta.customerName}${rooms ? ` in Room ${rooms}` : ""} at ${property.name}${property.city ? `, ${property.city}` : ""}`;
+    const source = folio.reservation?.source ?? null;
+    const modes = [...new Set(folio.payments.map((p) => PAYMENT_MODE_LABEL[p.mode] ?? p.mode))];
+
     const bytes = await renderInvoicePdf({
       number: meta.number,
       issuedAt: meta.issuedAt,
-      property,
+      branch: property,
+      checkInDate: folio.reservation?.checkInDate ?? null,
+      checkOutDate: folio.reservation?.checkOutDate ?? null,
+      bookingSource: source ? (BOOKING_SOURCE_LABEL[source] ?? source) : null,
+      paymentMethods: modes.length > 0 ? modes.join(", ") : null,
       customerName: meta.customerName,
       customerGstin: meta.customerGstin ?? null,
       placeOfSupply: meta.placeOfSupply,
+      stayLabel,
       lines: folio.lines.map((l) => ({
+        type: l.type,
         description: l.description,
         hsnSac: l.hsnSac,
         quantity: l.quantity,
@@ -64,6 +84,7 @@ export async function attachInvoicePdf(invoiceId: string, folioId: string, meta:
         cgstPaise: l.cgstPaise,
         sgstPaise: l.sgstPaise,
         igstPaise: l.igstPaise,
+        taxRateBps: l.taxRateBps,
       })),
       taxablePaise: meta.taxablePaise,
       cgstPaise: meta.cgstPaise,
