@@ -4,11 +4,12 @@ import { KpiCard } from "@/components/ui/kpi-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { formatINR } from "@/lib/utils";
+import { InvoiceSearch } from "@/features/billing/components/invoice-search";
 import type { PortfolioBilling as PortfolioBillingData } from "../queries";
 
 /** Super-Admin portfolio billing — consolidated dues/collections + a per-property
- *  breakdown. Figures reuse each property's canonical billingOverview. */
-export function PortfolioBilling({ rollup }: { rollup: PortfolioBillingData }) {
+ *  breakdown + a searchable/filterable invoice list across every property. */
+export function PortfolioBilling({ rollup, properties }: { rollup: PortfolioBillingData; properties: { id: string; name: string }[] }) {
   const t = rollup.totals;
   return (
     <div className="mx-auto w-full max-w-6xl">
@@ -55,6 +56,8 @@ export function PortfolioBilling({ rollup }: { rollup: PortfolioBillingData }) {
           <p className="mt-3 text-xs text-muted-foreground">Open a property to see its folios and issue invoices. <Link href="/overview" className="underline underline-offset-4">Portfolio overview →</Link></p>
         </CardContent>
       </Card>
+
+      <InvoiceSearch properties={properties} />
     </div>
   );
 }

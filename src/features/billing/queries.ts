@@ -59,6 +59,7 @@ export type InvoiceListItem = {
   id: string;
   number: string;
   customerName: string;
+  propertyName: string;
   totalPaise: number;
   issuedAt: Date;
 };
@@ -71,13 +72,17 @@ export type InvoiceListItem = {
  */
 export async function searchInvoices(
   user: SessionClaims,
-  input: { keyword?: string; propertyId?: string; cursor?: string; limit?: number },
+  input: { keyword?: string; propertyId?: string; from?: Date; to?: Date; cursor?: string; limit?: number },
 ): Promise<{ invoices: InvoiceListItem[]; nextCursor: string | null }> {
   const limit = input.limit ?? 25;
   const kw = input.keyword?.trim();
+  const dateFilter = input.from || input.to
+    ? { issuedAt: { ...(input.from ? { gte: input.from } : {}), ...(input.to ? { lte: input.to } : {}) } }
+    : {};
   const rows = await db.scoped(user).invoice.findMany({
     where: {
       ...(input.propertyId ? { propertyId: input.propertyId } : {}),
+      ...dateFilter,
       ...(kw
         ? {
             OR: [
@@ -87,7 +92,7 @@ export async function searchInvoices(
           }
         : {}),
     },
-    select: { id: true, number: true, customerName: true, totalPaise: true, issuedAt: true },
+    select: { id: true, number: true, customerName: true, totalPaise: true, issuedAt: true, propertyId: true },
     orderBy: [{ issuedAt: "desc" }, { id: "asc" }],
     take: limit + 1,
     ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
@@ -95,11 +100,20 @@ export async function searchInvoices(
 
   const hasMore = rows.length > limit;
   const page = hasMore ? rows.slice(0, limit) : rows;
+
+  // Property names in one lookup (Invoice has no property relation).
+  const propIds = [...new Set(page.map((r) => r.propertyId))];
+  const props = propIds.length
+    ? await db.scoped(user).property.findMany({ where: { id: { in: propIds } }, select: { id: true, name: true } })
+    : [];
+  const nameById = new Map(props.map((p) => [p.id, p.name]));
+
   return {
     invoices: page.map((r) => ({
       id: r.id,
       number: r.number,
       customerName: r.customerName,
+      propertyName: nameById.get(r.propertyId) ?? "—",
       totalPaise: Number(r.totalPaise),
       issuedAt: r.issuedAt,
     })),

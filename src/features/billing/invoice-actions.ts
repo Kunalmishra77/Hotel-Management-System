@@ -22,9 +22,37 @@ import { financialYearOf } from "./domain/money";
 import { formatInvoiceNumber } from "./domain/invoice-number";
 import { attachInvoicePdf } from "./invoice-pdf-store";
 import { billingDb, withBillingContext } from "./internal";
+import { searchInvoices, type InvoiceListItem } from "./queries";
 import { generateInvoiceSchema, voidInvoiceSchema } from "./schema";
 
 export type InvoiceResult = { invoiceId: string; number: string; totalPaise: number };
+
+/**
+ * Searchable/filterable invoice list for the Billing page (Super-Admin sees it
+ * across every accessible property). Search by customer name or invoice number;
+ * filter by property and issue-date range. Property scope is enforced by
+ * `db.scoped` inside `searchInvoices`; `folio:view` gates the read.
+ */
+export async function searchBillingInvoices(input: {
+  keyword?: string;
+  propertyId?: string;
+  from?: string;
+  to?: string;
+  cursor?: string;
+}): Promise<Result<{ invoices: InvoiceListItem[]; nextCursor: string | null }>> {
+  return toResult(async () => {
+    const user = await requireUser();
+    authorize(user, "folio:view", user.activePropertyId);
+    return searchInvoices(user, {
+      keyword: input.keyword?.trim() || undefined,
+      propertyId: input.propertyId || undefined,
+      from: input.from ? new Date(`${input.from}T00:00:00.000Z`) : undefined,
+      to: input.to ? new Date(`${input.to}T23:59:59.999Z`) : undefined,
+      cursor: input.cursor || undefined,
+      limit: 30,
+    });
+  });
+}
 
 /** Generate a GST tax invoice for a folio (FR-12/13/16, AC-13/14/16).
  *  `renderPdf` (default true) renders + stores the styled PDF inline; the go-live
