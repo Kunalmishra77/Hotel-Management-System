@@ -128,17 +128,23 @@ export function assertBookingDatesValid(input: {
   const ci = utcEpochDay(input.checkInDate);
   const co = utcEpochDay(input.checkOutDate);
 
+  // publicMessage on each throw so the receptionist sees the real reason, not the
+  // generic "check the highlighted fields" (the past-date case is the common one:
+  // staff using New Booking to backfill a stay that belongs in Data Entry).
   if (co < ci) {
-    throw new DomainError(ErrorCode.VALIDATION_FAILED, "Check-out cannot be before check-in.");
+    throw new DomainError(ErrorCode.VALIDATION_FAILED, "Check-out cannot be before check-in.", {
+      publicMessage: "Check-out cannot be before check-in.",
+    });
   }
   if (co === ci && !input.dayUseEnabled) {
-    throw new DomainError(
-      ErrorCode.VALIDATION_FAILED,
-      "Check-out must be after check-in (day-use is not enabled for this property).",
-    );
+    throw new DomainError(ErrorCode.VALIDATION_FAILED, "Check-out must be after check-in.", {
+      publicMessage: "Check-out must be after check-in (at least one night).",
+    });
   }
   if (!input.allowPast && ci < todayLocalEpochDay(input.tz)) {
-    throw new DomainError(ErrorCode.VALIDATION_FAILED, "Check-in date is in the past.");
+    throw new DomainError(ErrorCode.VALIDATION_FAILED, "Check-in date is in the past.", {
+      publicMessage: "Check-in date is in the past. New Booking is for guests arriving today or later — for a past or current stay, use Data Entry instead.",
+    });
   }
 }
 
