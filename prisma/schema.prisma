@@ -1081,6 +1081,18 @@ model InvoiceSeries {
   @@unique([propertyId, financialYear])
 }
 
+// Company-wide (org-level) gap-free invoice series — one running number across all
+// properties per financial year, prefixed "WASPL" (client's single-series format).
+model CompanyInvoiceSeries {
+  id            String @id @default(cuid())
+  orgId         String
+  financialYear String // "2026-27"
+  prefix        String @default("WASPL")
+  nextNumber    Int    @default(1)
+
+  @@unique([orgId, financialYear])
+}
+
 enum InvoiceType {
   TAX_INVOICE
   CREDIT_NOTE

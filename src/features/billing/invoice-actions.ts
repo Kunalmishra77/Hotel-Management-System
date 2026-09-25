@@ -95,14 +95,15 @@ export async function generateInvoice(input: unknown, opts: { renderPdf?: boolea
     // folio's property, and every write below pins propertyId explicitly.
     const result = await withBillingContext(user, () =>
       db.unscoped().$transaction(async (tx) => {
-        // Get-or-create the series, then allocate under a row lock (increment).
-        await tx.invoiceSeries.upsert({
-          where: { propertyId_financialYear: { propertyId: folio.propertyId, financialYear: fy } },
-          create: { propertyId: folio.propertyId, financialYear: fy, prefix: property.code, nextNumber: 1 },
+        // One company-wide (org-level) gap-free series — a single running number
+        // across all properties, prefixed "WASPL". Allocated under a row lock.
+        await tx.companyInvoiceSeries.upsert({
+          where: { orgId_financialYear: { orgId: user.orgId, financialYear: fy } },
+          create: { orgId: user.orgId, financialYear: fy, prefix: "WASPL", nextNumber: 1 },
           update: {},
         });
-        const series = await tx.invoiceSeries.update({
-          where: { propertyId_financialYear: { propertyId: folio.propertyId, financialYear: fy } },
+        const series = await tx.companyInvoiceSeries.update({
+          where: { orgId_financialYear: { orgId: user.orgId, financialYear: fy } },
           data: { nextNumber: { increment: 1 } },
           select: { prefix: true, nextNumber: true },
         });
@@ -195,8 +196,14 @@ export async function voidInvoice(input: unknown): Promise<Result<InvoiceResult>
 
     return withBillingContext(user, () =>
       db.unscoped().$transaction(async (tx) => {
-        const series = await tx.invoiceSeries.update({
-          where: { propertyId_financialYear: { propertyId: original.propertyId, financialYear: original.financialYear } },
+        // Credit note draws from the SAME company-wide series as the invoice.
+        await tx.companyInvoiceSeries.upsert({
+          where: { orgId_financialYear: { orgId: user.orgId, financialYear: original.financialYear } },
+          create: { orgId: user.orgId, financialYear: original.financialYear, prefix: "WASPL", nextNumber: 1 },
+          update: {},
+        });
+        const series = await tx.companyInvoiceSeries.update({
+          where: { orgId_financialYear: { orgId: user.orgId, financialYear: original.financialYear } },
           data: { nextNumber: { increment: 1 } },
           select: { prefix: true, nextNumber: true },
         });
