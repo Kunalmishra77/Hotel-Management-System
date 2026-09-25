@@ -20,6 +20,7 @@
  */
 import { verifyWebhookSignature } from "@/lib/integrations/inbox";
 import type { Channel } from "@prisma/client";
+import { smtpEmailProvider } from "./smtp";
 import type { MessagingAccountConfig, MessagingProvider, OutboundMessage, SendResult } from "./types";
 
 /** The external prerequisite each channel needs before it can go live. */
@@ -39,6 +40,13 @@ export function liveProvider(
   provider: string,
   config: MessagingAccountConfig,
 ): MessagingProvider {
+  // Email over SMTP (e.g. the client's Gmail / Workspace mailbox) IS wired — the
+  // one live channel that needs no BSP/DLT certification, only SMTP credentials
+  // in the environment. See ADR 0001-smtp-email.
+  if (channel === "EMAIL" && provider === "smtp") {
+    return smtpEmailProvider(config);
+  }
+
   const notImplemented = async (_message: OutboundMessage): Promise<SendResult> => ({
     ok: false,
     error: `LIVE ${channel} via "${provider}" not wired — blocker: ${LIVE_BLOCKERS[channel]}`,

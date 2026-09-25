@@ -68,9 +68,12 @@ export async function seedCommunications(prisma: PrismaClient): Promise<void> {
     create: { orgId: ORG_ID, channel: "WHATSAPP", provider: "mock", mode: "sandbox", config: {} },
     update: { mode: "sandbox" },
   });
+  // Email account uses the "smtp" adapter: it stays sandbox (mock) until the
+  // operator flips mode→"live" AND sets SMTP_* env (e.g. a Gmail app password) —
+  // then it sends for real over SMTP with no code change. See ADR 0001-smtp-email.
   await prisma.messagingAccount.upsert({
-    where: { orgId_channel_provider: { orgId: ORG_ID, channel: "EMAIL", provider: "mock" } },
-    create: { orgId: ORG_ID, channel: "EMAIL", provider: "mock", mode: "sandbox", config: {} },
+    where: { orgId_channel_provider: { orgId: ORG_ID, channel: "EMAIL", provider: "smtp" } },
+    create: { orgId: ORG_ID, channel: "EMAIL", provider: "smtp", mode: "sandbox", config: {} },
     update: { mode: "sandbox" },
   });
 

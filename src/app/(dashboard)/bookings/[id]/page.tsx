@@ -97,6 +97,13 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                 </Link>
               </Button>
             ) : null}
+            {/* Client req #4 — guest details stay editable AFTER check-in, so a
+                mistake made while filling can be corrected any time. */}
+            {hasPermission(user, "guest:manage") ? (
+              <Button asChild variant="outline" size="sm">
+                <Link href={`/guests/${r.guestId}/edit`} data-testid="edit-guest-details">Edit guest details</Link>
+              </Button>
+            ) : null}
             <Button asChild variant="outline" size="sm">
               <Link href="/bookings">Back</Link>
             </Button>
