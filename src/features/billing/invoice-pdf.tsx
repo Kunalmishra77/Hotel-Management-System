@@ -54,6 +54,13 @@ const INK = "#111827";
 const MUTED = "#4b5563";
 const BORDER = "#000000";
 
+/** OTA-sourced booking? Drives the "(MakeMyTrip)" consignee tag (client MMT sample).
+ *  `bookingSource` is already the human label (BOOKING_SOURCE_LABEL). */
+const OTA_LABELS = new Set(["MakeMyTrip", "Booking.com", "Agoda", "Goibibo", "Airbnb"]);
+function isOtaSource(bookingSource: string | null): boolean {
+  return bookingSource !== null && OTA_LABELS.has(bookingSource);
+}
+
 const s = StyleSheet.create({
   page: { paddingTop: 24, paddingBottom: 30, paddingHorizontal: 28, fontSize: 8.5, color: INK, fontFamily: "Helvetica", lineHeight: 1.35 },
   title: { textAlign: "center", fontSize: 11, fontFamily: "Helvetica-Bold", letterSpacing: 1, marginBottom: 4 },
@@ -70,6 +77,7 @@ const s = StyleSheet.create({
   consignee: { padding: 6, borderTopWidth: 1, borderTopColor: BORDER },
   cLabel: { fontSize: 7, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5 },
   cName: { fontSize: 9.5, fontFamily: "Helvetica-Bold", marginTop: 1 },
+  otaTag: { fontSize: 8, fontFamily: "Helvetica", color: MUTED },
   // Description table
   thead: { flexDirection: "row", borderTopWidth: 1, borderColor: BORDER, backgroundColor: "#f3f4f6" },
   trow: { flexDirection: "row", borderTopWidth: 1, borderColor: BORDER },
@@ -193,7 +201,12 @@ function InvoiceDoc({ data }: { data: InvoicePdfData }) {
           {/* Consignee */}
           <View style={s.consignee}>
             <Text style={s.cLabel}>Consignee (Bill to)</Text>
-            <Text style={s.cName}>{data.customerName}</Text>
+            <Text style={s.cName}>
+              {data.customerName}
+              {/* OTA tag next to the consignee, matching the client's MMT sample:
+                  "(Make My Trip)". Shown only for OTA-sourced bookings. */}
+              {isOtaSource(data.bookingSource) ? <Text style={s.otaTag}>{"  "}({data.bookingSource})</Text> : null}
+            </Text>
             {(data.customerMobile || data.customerEmail) ? (
               <Text style={s.small}>
                 {data.customerMobile ? `Mobile: ${data.customerMobile}` : ""}

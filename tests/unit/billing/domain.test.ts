@@ -130,8 +130,11 @@ describe("amountInWords (T-7, FR-16, AC-16)", () => {
 });
 
 describe("formatInvoiceNumber", () => {
-  it("zero-pads the sequence within a prefixed FY series", () => {
-    expect(formatInvoiceNumber({ prefix: "WMG", financialYear: "2026-27", nextNumber: 42 })).toBe("WMG/2026-27/00042");
+  it("matches the client's real GST format exactly: 'WASPL :730/ 25-26'", () => {
+    expect(formatInvoiceNumber({ prefix: "WASPL", financialYear: "2025-26", nextNumber: 730 })).toBe("WASPL :730/ 25-26");
+  });
+  it("shortens the financial year to two-digit-each and does not zero-pad the sequence", () => {
+    expect(formatInvoiceNumber({ prefix: "WASPL", financialYear: "2026-27", nextNumber: 1 })).toBe("WASPL :1/ 26-27");
   });
 });
 
