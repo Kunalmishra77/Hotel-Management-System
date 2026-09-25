@@ -97,7 +97,7 @@ export function StaffScreen({
                   <div className="flex shrink-0 items-center gap-2">
                     {s.isActive && (
                       <Button size="sm" variant="outline" disabled={pending}
-                        onClick={() => run(() => recordAttendance({ staffId: s.id, day: today(), checkInAt: `${today()}T09:00:00+05:30`, checkOutAt: `${today()}T17:30:00+05:30` }), () => setNote(`Marked ${s.name} present today.`))}
+                        onClick={() => run(() => recordAttendance({ staffId: s.id, day: today(), checkInAt: new Date().toISOString() }), () => setNote(`Marked ${s.name} present (checked in now).`))}
                         data-testid={`present-${s.id}`}>Mark present</Button>
                     )}
                     {canUpdateSalary && s.isActive && (

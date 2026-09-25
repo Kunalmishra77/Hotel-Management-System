@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { requirePermission } from "@/lib/auth/guard";
 import { can } from "@/lib/permissions";
-import { db } from "@/lib/db";
 import { listCategories } from "@/features/rooms/queries";
 import { listFloors } from "@/features/properties/queries";
 import { CategoryManager } from "@/features/rooms/components/category-manager";
+import { NoProperty } from "@/features/platform/components/no-property";
 
 export const metadata: Metadata = { title: "Room categories" };
 
@@ -13,7 +13,12 @@ export default async function CategoriesPage() {
   // Viewing is open to anyone who works the board; creating needs room:manage,
   // which the manager flag below gates — and the action re-checks (AC-12).
   const user = await requirePermission("room:view-status");
-  const propertyId = db.activeProperty(user);
+  // Graceful in "All hotels" mode — categories are per property; never crash to the
+  // error boundary (mirrors the rooms page).
+  const propertyId = user.activePropertyId;
+  if (!propertyId) {
+    return <NoProperty what="Room categories" canCreate={can(user, "property:manage", null)} />;
+  }
 
   const [categories, floors] = await Promise.all([
     listCategories(user, propertyId),

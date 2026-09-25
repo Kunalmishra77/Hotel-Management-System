@@ -21,7 +21,10 @@ const isToday = (d: Date): boolean => new Date(d).toDateString() === new Date().
  */
 export default async function InHousePage() {
   const user = await requirePermission("reservation:view");
-  const { rows, total, byProperty } = await inHousePortfolio(user, [...user.accessiblePropertyIds]);
+  // Honor the header property picker: a focused property shows only its in-house
+  // guests; "All hotels" shows the whole portfolio.
+  const scope = user.activePropertyId ? [user.activePropertyId] : [...user.accessiblePropertyIds];
+  const { rows, total, byProperty } = await inHousePortfolio(user, scope);
   const leavingToday = rows.filter((r) => isToday(r.checkOutDate)).length;
   const duePaise = rows.reduce((n, r) => n + Math.max(0, r.balancePaise), 0);
 

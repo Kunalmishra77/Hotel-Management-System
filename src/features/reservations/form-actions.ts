@@ -36,10 +36,16 @@ export async function createReservationFormAction(
   formData: FormData,
 ): Promise<BookingFormState> {
   const propertyId = str(formData, "propertyId");
-  const roomId = str(formData, "roomId");
+  // One or more rooms — a single room OR the whole 2/3 BHK unit (client req #5).
+  // The form submits a comma-separated list in the hidden `roomIds` field, falling
+  // back to the legacy single `roomId`.
+  const roomIdsRaw = str(formData, "roomIds");
+  const roomIds = (roomIdsRaw ? roomIdsRaw.split(",") : [str(formData, "roomId")])
+    .map((s) => s.trim())
+    .filter(Boolean);
   const guestId = str(formData, "guestId");
-  if (!propertyId || !roomId || !guestId) {
-    return { status: "error", message: "Pick a room and a guest before confirming." };
+  if (!propertyId || roomIds.length === 0 || !guestId) {
+    return { status: "error", message: "Pick at least one room and a guest before confirming." };
   }
 
   const sourceRaw = str(formData, "source");
@@ -57,7 +63,7 @@ export async function createReservationFormAction(
     propertyId,
     guestId,
     source,
-    roomIds: [roomId],
+    roomIds,
     checkInDate: str(formData, "checkInDate"),
     checkOutDate: str(formData, "checkOutDate"),
     adults: num(formData, "adults") || 1,

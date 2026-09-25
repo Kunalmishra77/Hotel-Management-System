@@ -80,7 +80,8 @@ export function BookingBillSummary({
         {/* Totals */}
         <div className="space-y-1 border-t pt-3">
           <Row label="Taxable value" value={formatINR(taxable)} muted />
-          <Row label="GST (CGST + SGST + IGST)" value={formatINR(tax)} muted />
+          {/* On-premise supplies are always intra-state (business-rules §10) → CGST+SGST. */}
+          <Row label="GST (CGST + SGST)" value={formatINR(tax)} muted />
           <Row label="Total" value={formatINR(total)} />
           <Row label="Paid" value={formatINR(paid)} muted />
           <div className="flex justify-between border-t pt-2 text-base font-semibold">

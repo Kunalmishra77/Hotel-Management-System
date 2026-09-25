@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { roomGstBps } from "@/lib/constants/gst";
+import { roomGstBps, gstBpsForCharge } from "@/lib/constants/gst";
 import { nights as computeNights } from "../domain/nights";
 import { searchAvailability } from "../availability-action";
 import {
@@ -50,7 +50,9 @@ export function BookingForm({
   const [children, setChildren] = useState(0);
   const [categoryId, setCategoryId] = useState(propertyCategories[0]?.id ?? "");
   const [rooms, setRooms] = useState<AvailableRoom[] | null>(null);
-  const [room, setRoom] = useState<AvailableRoom | null>(null);
+  // Multi-room: a guest can book a single room OR the whole 2/3 BHK unit (all rooms).
+  const [selectedRooms, setSelectedRooms] = useState<AvailableRoom[]>([]);
+  const [rateTouched, setRateTouched] = useState(false);
   const [searching, startSearch] = useTransition();
 
   // Switching property resets the property-dependent picks.
@@ -59,8 +61,25 @@ export function BookingForm({
     const firstCat = categories.find((c) => c.propertyId === pid);
     setCategoryId(firstCat?.id ?? "");
     setRooms(null);
-    setRoom(null);
+    setSelectedRooms([]);
+    setRateTouched(false);
   }
+
+  // Default the nightly rate to the SUM of the selected rooms' base rates (the whole
+  // unit costs the sum of its rooms) until the user overrides it.
+  function applySelection(next: AvailableRoom[]) {
+    setSelectedRooms(next);
+    if (!rateTouched) {
+      const sum = next.reduce((n, r) => n + r.baseRatePaise, 0);
+      setRate(sum / 100);
+    }
+  }
+  const toggleRoom = (r: AvailableRoom) => {
+    const has = selectedRooms.some((x) => x.id === r.id);
+    applySelection(has ? selectedRooms.filter((x) => x.id !== r.id) : [...selectedRooms, r]);
+  };
+  const selectAll = () => applySelection(rooms ?? []);
+  const isSelected = (id: string) => selectedRooms.some((x) => x.id === id);
 
   const [source, setSource] = useState("WALK_IN");
   const [settlement, setSettlement] = useState("PAY_AT_HOTEL");
@@ -111,7 +130,7 @@ export function BookingForm({
   // submit (the server/night-audit adds GST from the band → total = what was
   // typed). "Exclusive" → the rate is pre-tax and GST is added on top. 06 owns the
   // authoritative GST; this is the out-the-door preview.
-  const EB_BPS = 1200; // extra bed follows the room slab (12%)
+  const EB_BPS = gstBpsForCharge("EXTRA_BED"); // extra bed GST, config-driven (flat 5%)
   const roomBps = roomGstBps(toPaise(rate) || 1);
   const toTaxable = (enteredPaise: number, bps: number) =>
     gstInclusive ? Math.round((enteredPaise * 10_000) / (10_000 + bps)) : enteredPaise;
@@ -129,7 +148,8 @@ export function BookingForm({
 
   const runSearch = () => {
     startSearch(async () => {
-      setRoom(null);
+      setSelectedRooms([]);
+      setRateTouched(false);
       const res = await searchAvailability({ propertyId, checkInDate, checkOutDate, categoryId, adults, children });
       setRooms(res.ok ? res.data.rooms : []);
     });
@@ -147,7 +167,7 @@ export function BookingForm({
       <input type="hidden" name="checkOutDate" value={checkOutDate} />
       <input type="hidden" name="adults" value={adults} />
       <input type="hidden" name="children" value={children} />
-      <input type="hidden" name="roomId" value={room?.id ?? ""} />
+      <input type="hidden" name="roomIds" value={selectedRooms.map((r) => r.id).join(",")} />
       <input type="hidden" name="guestId" value={guest?.id ?? ""} />
       <input type="hidden" name="ratePaise" value={ratePaiseSubmit} />
       <input type="hidden" name="discountPaise" value={discountPaise} />
@@ -200,28 +220,53 @@ export function BookingForm({
 
       {rooms !== null && (
         <Card>
-          <CardHeader className="pb-3"><CardTitle className="text-base">Free rooms</CardTitle></CardHeader>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Free rooms</CardTitle>
+          </CardHeader>
           <CardContent>
             {rooms.length === 0 ? (
               <p className="text-sm text-muted-foreground" data-testid="no-availability">No rooms free for those dates.</p>
             ) : (
-              <ul className="space-y-2" data-testid="room-options">
-                {rooms.map((r) => (
-                  <li key={r.id}>
-                    <Button type="button" block variant={room?.id === r.id ? "default" : "outline"} size="lg"
-                      onClick={() => { setRoom(r); setRate(r.baseRatePaise / 100); }}
-                      data-testid={`room-option-${r.number}`}>
-                      {r.number} · {r.categoryName} · {rupees(r.baseRatePaise)}/night
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Tap a room to book it. Tap more than one — or use <b>Book the whole unit</b> — to book the full {rooms.length}-room ({rooms.length} BHK) apartment together.
+                </p>
+                <ul className="space-y-2" data-testid="room-options">
+                  {rooms.map((r) => (
+                    <li key={r.id}>
+                      <Button type="button" block variant={isSelected(r.id) ? "default" : "outline"} size="lg"
+                        onClick={() => toggleRoom(r)}
+                        data-testid={`room-option-${r.number}`}>
+                        {isSelected(r.id) ? "✓ " : ""}{r.number} · {r.categoryName} · {rupees(r.baseRatePaise)}/night
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+                {rooms.length > 1 && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button type="button" variant="secondary" size="sm" onClick={selectAll} data-testid="book-whole-unit">
+                      Book the whole unit ({rooms.length} BHK — all {rooms.length} rooms)
                     </Button>
-                  </li>
-                ))}
-              </ul>
+                    {selectedRooms.length > 0 && (
+                      <button type="button" className="text-xs text-muted-foreground underline" onClick={() => applySelection([])}>Clear</button>
+                    )}
+                  </div>
+                )}
+                {selectedRooms.length > 0 && (
+                  <p className="rounded-md border bg-muted/40 p-2 text-sm" data-testid="rooms-selected">
+                    {selectedRooms.length === 1
+                      ? `1 room selected · ${selectedRooms[0]!.number}`
+                      : `${selectedRooms.length} rooms selected (whole unit) · ${selectedRooms.map((r) => r.number).join(", ")}`}
+                    {" · "}<span className="font-medium">{rupees(selectedRooms.reduce((n, r) => n + r.baseRatePaise, 0))}/night</span>
+                  </p>
+                )}
+              </div>
             )}
           </CardContent>
         </Card>
       )}
 
-      {room && (
+      {selectedRooms.length > 0 && (
         <Card>
           <CardHeader className="pb-3"><CardTitle className="text-base">Guest</CardTitle></CardHeader>
           <CardContent className="space-y-3">
@@ -277,7 +322,7 @@ export function BookingForm({
         </Card>
       )}
 
-      {room && guest && (
+      {selectedRooms.length > 0 && guest && (
         <Card>
           <CardHeader className="pb-3"><CardTitle className="text-base">Charges</CardTitle></CardHeader>
           <CardContent className="space-y-3">
@@ -292,7 +337,7 @@ export function BookingForm({
               </div>
             </Labeled>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Labeled label="Rate/night (₹)"><Input type="number" inputMode="numeric" value={rate} onChange={(e) => setRate(Number(e.target.value))} data-testid="rate" /></Labeled>
+              <Labeled label="Rate/night (₹)"><Input type="number" inputMode="numeric" value={rate} onChange={(e) => { setRateTouched(true); setRate(Number(e.target.value)); }} data-testid="rate" /></Labeled>
               <Labeled label="Discount (₹)"><Input type="number" inputMode="numeric" value={discount} onChange={(e) => setDiscount(Number(e.target.value))} /></Labeled>
               <Labeled label="Extra bed (₹)"><Input type="number" inputMode="numeric" value={extraBed} onChange={(e) => setExtraBed(Number(e.target.value))} /></Labeled>
               <Labeled label="Advance (₹)"><Input type="number" inputMode="numeric" value={advance} onChange={(e) => setAdvance(Number(e.target.value))} data-testid="advance" /></Labeled>
@@ -334,7 +379,7 @@ export function BookingForm({
       {state.status === "error" && <p role="alert" className="text-sm text-destructive">{state.message}</p>}
 
       <div className="flex flex-col gap-2 sm:flex-row-reverse">
-        <Button type="submit" size="lg" className="sm:min-w-40" disabled={!room || !guest || pending} data-testid="confirm-booking">
+        <Button type="submit" size="lg" className="sm:min-w-40" disabled={selectedRooms.length === 0 || !guest || pending} data-testid="confirm-booking">
           {pending ? "Confirming…" : "Confirm booking"}
         </Button>
         <Button
@@ -343,7 +388,7 @@ export function BookingForm({
           value="true"
           variant="secondary"
           size="lg"
-          disabled={!room || !guest || pending}
+          disabled={selectedRooms.length === 0 || !guest || pending}
           data-testid="confirm-checkin-now"
         >
           Book &amp; check in now

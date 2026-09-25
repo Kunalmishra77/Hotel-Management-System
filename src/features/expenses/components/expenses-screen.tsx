@@ -116,7 +116,10 @@ export function ExpensesScreen({
                   {canApprove && e.status === "DRAFT" && (
                     <div className="flex gap-2">
                       <Button size="sm" disabled={pending} onClick={() => run(() => approveExpense({ expenseId: e.id }))} data-testid={`approve-${e.id}`}>Approve</Button>
-                      <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => rejectExpense({ expenseId: e.id, reason: "rejected" }))}>Reject</Button>
+                      <Button size="sm" variant="outline" disabled={pending} onClick={() => {
+                        const reason = window.prompt("Reason for rejecting this expense?")?.trim();
+                        if (reason) run(() => rejectExpense({ expenseId: e.id, reason }));
+                      }}>Reject</Button>
                     </div>
                   )}
                 </li>

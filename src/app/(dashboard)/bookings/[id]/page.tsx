@@ -12,6 +12,7 @@ import { ConfirmBookingButton } from "@/features/reservations/components/confirm
 import { ReservationGuestsCard } from "@/features/reservations/components/reservation-guests-card";
 import { ExtendStayCard } from "@/features/reservations/components/extend-stay-card";
 import { CancelBookingButton } from "@/features/reservations/components/cancel-booking-button";
+import { CheckOutButton } from "@/features/reservations/components/check-out-button";
 import { getBalance } from "@/features/billing";
 import { getReservationFolio } from "@/features/billing/queries";
 import { BookingBillSummary } from "@/features/reservations/components/booking-bill-summary";
@@ -43,8 +44,11 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
   const canFolio = hasPermission(user, "folio:view");
   const canConfirm = r.status === "ENQUIRY" && hasPermission(user, "reservation:create");
   const canCheckIn = r.status === "CONFIRMED" && hasPermission(user, "checkin:perform");
+  const canCheckOut = r.status === "IN_HOUSE" && hasPermission(user, "checkout:perform");
   const canManageGuests = hasPermission(user, "reservation:modify");
-  const canCancel = hasPermission(user, "reservation:cancel") && ["ENQUIRY", "CONFIRMED", "IN_HOUSE"].includes(r.status);
+  // Cancellation is a PRE-ARRIVAL action only (domain: IN_HOUSE → only CHECKED_OUT).
+  // An in-house guest is checked out / recorded as early departure — never cancelled.
+  const canCancel = hasPermission(user, "reservation:cancel") && ["ENQUIRY", "CONFIRMED"].includes(r.status);
   const [balancePaise, guestPanel, billFolio, guestProfile] = await Promise.all([
     canFolio ? getBalance(user, id) : Promise.resolve(null),
     getReservationGuestPanel(user, id),
@@ -90,6 +94,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                 </Link>
               </Button>
             ) : null}
+            {canCheckOut ? <CheckOutButton reservationId={r.id} /> : null}
             {canFolio ? (
               <Button asChild variant={canCheckIn ? "outline" : "default"} size="sm">
                 <Link href={`/bookings/${r.id}/folio`} data-testid="open-folio">

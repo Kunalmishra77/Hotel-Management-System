@@ -136,7 +136,9 @@ export function InventoryScreen({ propertyId, items, overview }: { propertyId: s
                     <Button size="sm" disabled={pending || (qty[it.id] ?? 0) <= 0}
                       onClick={() => run(() => recordMovement({ itemId: it.id, delta: qty[it.id] ?? 0, reason: "PURCHASE" }), () => setQty((q) => ({ ...q, [it.id]: 0 })))}
                       data-testid={`stockin-${it.id}`}>+ In</Button>
-                    <Button size="sm" variant="outline" disabled={pending || (qty[it.id] ?? 0) === 0}
+                    {/* A stock-take can legitimately be zero (item fully depleted), so
+                        "Set count" allows 0 — only a negative/blank count is blocked. */}
+                    <Button size="sm" variant="outline" disabled={pending || (qty[it.id] ?? -1) < 0}
                       onClick={() => run(() => adjustStock({ itemId: it.id, countedQuantity: qty[it.id] ?? 0 }), () => setQty((q) => ({ ...q, [it.id]: 0 })))}
                       data-testid={`count-${it.id}`}>Set count</Button>
                   </div>
