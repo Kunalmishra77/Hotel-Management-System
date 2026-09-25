@@ -13,38 +13,44 @@
  * (`placeOfSupply`), NOT here — this file only says "what rate".
  */
 
-/** Room-tariff GST bands (per-night tariff → rate). Post-2022 hotel slabs. */
+/**
+ * Room-tariff GST bands (per-night tariff → rate).
+ *
+ * Woodpecker bills accommodation + all on-premise services at a FLAT 5% GST
+ * (2.5% CGST + 2.5% SGST) per the client's tax setup and their invoice format —
+ * not the post-2022 12/18% slabs. Config-driven: change the bps here to change it
+ * everywhere (never hard-coded elsewhere).
+ */
 export const ROOM_TARIFF_BANDS: readonly { uptoPaise: number; bps: number }[] = [
-  { uptoPaise: 750_000, bps: 1200 }, // ≤ ₹7,500/night → 12%
-  { uptoPaise: Number.POSITIVE_INFINITY, bps: 1800 }, // > ₹7,500 → 18%
+  { uptoPaise: Number.POSITIVE_INFINITY, bps: 500 }, // flat 5% (2.5% + 2.5%)
 ];
 
 /** GST rate for a room-night given its tariff (§11 — band-driven, not hard-coded). */
 export function roomGstBps(tariffPaise: number): number {
-  return ROOM_TARIFF_BANDS.find((b) => tariffPaise <= b.uptoPaise)?.bps ?? 1800;
+  return ROOM_TARIFF_BANDS.find((b) => tariffPaise <= b.uptoPaise)?.bps ?? 500;
 }
 
-/** Default SAC GST rate for each on-premise charge type (bps). */
+/** SAC GST rate per on-premise charge type — flat 5% across the board (client setup). */
 const CHARGE_GST_BPS: Record<string, number> = {
-  ROOM: 1200, // overridden by roomGstBps when a tariff is known
-  FOOD: 500, // restaurant service 5% (no ITC)
+  ROOM: 500,
+  FOOD: 500,
   KITCHEN: 500,
-  LAUNDRY: 1800,
+  LAUNDRY: 500,
   AIRPORT_TRANSFER: 500,
   TAXI: 500,
-  EXTRA_BED: 1200, // follows the room slab
-  POS: 1800,
-  MISC: 1800,
+  EXTRA_BED: 500,
+  POS: 500,
+  MISC: 500,
 };
 
-/** SAC/HSN codes per charge type (printed on the GST invoice). */
+/** SAC/HSN codes per charge type (printed on the GST invoice; client-provided). */
 export const HSN_SAC: Record<string, string> = {
-  ROOM: "996311",
-  FOOD: "996331",
+  ROOM: "996311", // room / unit accommodation
+  FOOD: "996331", // food / restaurant service
   KITCHEN: "996331",
   LAUNDRY: "999711",
   AIRPORT_TRANSFER: "996412",
-  TAXI: "996412",
+  TAXI: "996601", // car rent / vehicle hire
   EXTRA_BED: "996311",
   POS: "996311",
   MISC: "999799",

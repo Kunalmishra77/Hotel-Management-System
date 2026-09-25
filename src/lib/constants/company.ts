@@ -13,8 +13,19 @@ export const COMPANY_INFO = {
   gstin: "07AAACW8105D1ZM",
   stateName: "Delhi",
   stateCode: "07",
-  cin: "U74140DL2009PTC181581",
+  // NOTE: the client's official invoice template shows U45400DL2008PTC181581 —
+  // using that as authoritative; correct here if it differs on the CIN certificate.
+  cin: "U45400DL2008PTC181581",
   email: "info@woodpecker4me.com",
+} as const;
+
+/** Company bank details printed on the invoice (client-confirmed, HDFC). */
+export const COMPANY_BANK = {
+  accountName: "Woodpecker Apartments & Suites Pvt. Ltd.",
+  bankName: "HDFC Bank",
+  accountNo: "50200052888170",
+  ifsc: "HDFC0000467",
+  branch: "A-24, Hauz Khas, New Delhi",
 } as const;
 
 /** Booking-source enum → the label shown on the invoice ("Booking source"). */

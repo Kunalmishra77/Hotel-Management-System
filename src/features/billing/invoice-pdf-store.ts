@@ -10,6 +10,7 @@
  */
 import { db } from "@/lib/db";
 import { resolveStorageAdapter } from "@/lib/storage";
+import { decryptOptional } from "@/lib/crypto/encryption";
 import { BOOKING_SOURCE_LABEL, PAYMENT_MODE_LABEL } from "@/lib/constants/company";
 import { renderInvoicePdf } from "./invoice-pdf";
 
@@ -46,6 +47,7 @@ export async function attachInvoicePdf(invoiceId: string, folioId: string, meta:
           select: {
             checkInDate: true, checkOutDate: true, source: true,
             allocations: { select: { room: { select: { number: true } } } },
+            guest: { select: { mobile: true, email: true } },
           },
         },
       },
@@ -61,6 +63,9 @@ export async function attachInvoicePdf(invoiceId: string, folioId: string, meta:
     const stayLabel = `Stay of Guest ${meta.customerName}${rooms ? ` in Room ${rooms}` : ""} at ${property.name}${property.city ? `, ${property.city}` : ""}`;
     const source = folio.reservation?.source ?? null;
     const modes = [...new Set(folio.payments.map((p) => PAYMENT_MODE_LABEL[p.mode] ?? p.mode))];
+    // Guest contact for the consignee block (stored encrypted; shown to the guest on their own bill).
+    const customerMobile = decryptOptional(folio.reservation?.guest?.mobile ?? null);
+    const customerEmail = decryptOptional(folio.reservation?.guest?.email ?? null);
 
     const bytes = await renderInvoicePdf({
       number: meta.number,
@@ -72,6 +77,8 @@ export async function attachInvoicePdf(invoiceId: string, folioId: string, meta:
       paymentMethods: modes.length > 0 ? modes.join(", ") : null,
       customerName: meta.customerName,
       customerGstin: meta.customerGstin ?? null,
+      customerEmail,
+      customerMobile,
       placeOfSupply: meta.placeOfSupply,
       stayLabel,
       lines: folio.lines.map((l) => ({

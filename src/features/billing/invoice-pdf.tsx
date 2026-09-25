@@ -8,10 +8,11 @@
  * (the default PDF font can't draw the ₹ glyph). All figures come from the
  * folio/invoice in paise; this only formats them.
  */
-import { Document, Page, Text, View, StyleSheet, renderToBuffer } from "@react-pdf/renderer";
+import { Document, Page, Text, View, Image, StyleSheet, renderToBuffer } from "@react-pdf/renderer";
 import React from "react";
 import { amountInWords } from "./domain/words";
-import { COMPANY_INFO } from "@/lib/constants/company";
+import { COMPANY_INFO, COMPANY_BANK } from "@/lib/constants/company";
+import { PAYMENT_QR_DATA_URI } from "./assets/payment-qr";
 
 export type InvoicePdfLine = {
   type: string; // ROOM, FOOD, LAUNDRY, …
@@ -36,6 +37,8 @@ export type InvoicePdfData = {
   paymentMethods: string | null;
   customerName: string;
   customerGstin: string | null;
+  customerEmail: string | null;
+  customerMobile: string | null;
   placeOfSupply: string;
   /** e.g. "Stay of Guest Mr Suresh Sharma in Room GF-1 at Hauz Khas D-1/17, New Delhi". */
   stayLabel: string;
@@ -90,8 +93,15 @@ const s = StyleSheet.create({
   txTaxable: { width: "16%", borderRightWidth: 1, borderColor: BORDER, textAlign: "right" },
   txQuad: { width: "12%", borderRightWidth: 1, borderColor: BORDER, textAlign: "right" },
   txTotal: { width: "20%", textAlign: "right" },
+  bank: { flexDirection: "row", justifyContent: "space-between", borderTopWidth: 1, borderColor: BORDER },
+  bankL: { width: "70%", padding: 6, borderRightWidth: 1, borderColor: BORDER },
+  bankR: { width: "30%", padding: 6, alignItems: "center", justifyContent: "center" },
+  bankHead: { fontSize: 8, fontFamily: "Helvetica-Bold", marginBottom: 2 },
+  qr: { width: 74, height: 74, objectFit: "contain" },
+  qrCap: { fontSize: 6.5, color: MUTED, marginTop: 2, textAlign: "center" },
   decl: { padding: 6, borderTopWidth: 1, borderColor: BORDER, flexDirection: "row", justifyContent: "space-between" },
-  declText: { fontSize: 7.2, color: MUTED, width: "58%" },
+  declText: { fontSize: 7.2, color: MUTED },
+  noSign: { fontSize: 8, fontFamily: "Helvetica-Bold", marginTop: 4 },
   sign: { width: "40%", alignItems: "flex-end", justifyContent: "space-between" },
   signFor: { fontSize: 8, fontFamily: "Helvetica-Bold", textAlign: "right" },
   signAuth: { fontSize: 7.5, color: MUTED, marginTop: 26 },
@@ -184,6 +194,13 @@ function InvoiceDoc({ data }: { data: InvoicePdfData }) {
           <View style={s.consignee}>
             <Text style={s.cLabel}>Consignee (Bill to)</Text>
             <Text style={s.cName}>{data.customerName}</Text>
+            {(data.customerMobile || data.customerEmail) ? (
+              <Text style={s.small}>
+                {data.customerMobile ? `Mobile: ${data.customerMobile}` : ""}
+                {data.customerMobile && data.customerEmail ? "   " : ""}
+                {data.customerEmail ? `E-Mail: ${data.customerEmail}` : ""}
+              </Text>
+            ) : null}
             <Text style={s.small}>
               {data.customerGstin ? `GSTIN: ${data.customerGstin}   ` : ""}Place of supply: {data.placeOfSupply}
               {"   "}{intra ? "(Intra-state · CGST + SGST)" : "(Inter-state · IGST)"}
@@ -284,11 +301,30 @@ function InvoiceDoc({ data }: { data: InvoicePdfData }) {
             <Text style={[s.txD, s.txTotal, { color: "#fff", fontFamily: "Helvetica-Bold" }]}>{money(data.totalPaise)}</Text>
           </View>
 
+          {/* Bank details + payment QR */}
+          <View style={s.bank}>
+            <View style={s.bankL}>
+              <Text style={s.bankHead}>Company&apos;s Bank Details</Text>
+              <Text style={s.small}>A/c Holder: {COMPANY_BANK.accountName}</Text>
+              <Text style={s.small}>Bank: {COMPANY_BANK.bankName}</Text>
+              <Text style={s.small}>A/C No.: {COMPANY_BANK.accountNo}</Text>
+              <Text style={s.small}>Branch &amp; IFSC: {COMPANY_BANK.branch} · {COMPANY_BANK.ifsc}</Text>
+            </View>
+            <View style={s.bankR}>
+              {/* eslint-disable-next-line jsx-a11y/alt-text -- @react-pdf Image has no alt */}
+              <Image src={PAYMENT_QR_DATA_URI} style={s.qr} />
+              <Text style={s.qrCap}>Scan &amp; Pay (UPI / Cards)</Text>
+            </View>
+          </View>
+
           {/* Declaration + signatory */}
           <View style={s.decl}>
-            <Text style={s.declText}>
-              Declaration: We declare that this invoice shows the actual price of the particulars described and that all the particulars are true and correct.
-            </Text>
+            <View style={{ width: "58%" }}>
+              <Text style={s.declText}>
+                Declaration: We declare that this invoice shows the actual price of the particulars described and that all the particulars are true and correct.
+              </Text>
+              <Text style={s.noSign}>No Signature or Stamp Required.</Text>
+            </View>
             <View style={s.sign}>
               <Text style={s.signFor}>for {COMPANY_INFO.legalName}</Text>
               <Text style={s.signAuth}>Authorised Signatory</Text>
