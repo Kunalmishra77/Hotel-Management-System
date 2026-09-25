@@ -29,13 +29,31 @@ export type PortalId =
   | "OUTLET"
   | "STORE";
 
-/** Role → portal, highest privilege first; the first match wins for a multi-role user. */
+/**
+ * Role → portal, highest privilege first; the first match wins for a multi-role user.
+ *
+ * Client directive (Sep 2026): there is ONE manager who runs the whole business
+ * from a SINGLE portal that has everything A-to-Z — the client does not want
+ * separate staff portals. So every business-running role (Administrator, Manager,
+ * Assistant-Manager, Accounts) lands on the one comprehensive SUPER_ADMIN portal.
+ * These four all hold `report:view-financial`, so the portal's financial home
+ * (/overview) and portfolio billing/bookings views work for each of them.
+ *
+ * Two exceptions, deliberately kept:
+ *  - OWNER is an EXTERNAL property-owner audience (read-only financials, MoM
+ *    2026-08-03) — not a staff portal; it stays its own thing.
+ *  - The narrow specialist consoles (Reception/Housekeeping/Maintenance/Outlet/
+ *    Store) remain for their low-privilege roles: those roles lack
+ *    `report:view-financial`, so routing them to SUPER_ADMIN (whose home redirects
+ *    to /overview) would strand them. The client won't use these logins; they do
+ *    no harm left in place.
+ */
 const ROLE_PORTAL_PRIORITY: readonly { role: RoleName; portal: PortalId }[] = [
   { role: "ADMINISTRATOR", portal: "SUPER_ADMIN" },
   { role: "OWNER", portal: "OWNER" },
-  { role: "MANAGER", portal: "MANAGER" },
-  { role: "ASSISTANT_MANAGER", portal: "MANAGER" },
-  { role: "ACCOUNTS", portal: "ACCOUNTS" },
+  { role: "MANAGER", portal: "SUPER_ADMIN" },
+  { role: "ASSISTANT_MANAGER", portal: "SUPER_ADMIN" },
+  { role: "ACCOUNTS", portal: "SUPER_ADMIN" },
   { role: "POS_MANAGER", portal: "OUTLET" },
   { role: "INVENTORY_MANAGER", portal: "STORE" },
   { role: "PURCHASE_MANAGER", portal: "STORE" },
@@ -47,17 +65,26 @@ const ROLE_PORTAL_PRIORITY: readonly { role: RoleName; portal: PortalId }[] = [
 
 /** Portal → ordered nav keys (blueprint order; existing routes only). */
 const PORTAL_NAV: Record<PortalId, readonly string[]> = {
-  // Chain-owner command centre. Revenue & Distribution = channels + pricing + corporate + booking-site.
-  // ONE centralized admin workspace (client req #17–20): the single manager runs
-  // everything from here — front-desk ops included — so housekeeping + maintenance
-  // live here too, not in separate portals.
+  // THE single, comprehensive workspace (client req #17–20): one manager runs the
+  // whole business from here, A-to-Z. Every module the app has appears in one nav,
+  // grouped by workflow and intersected with the caller's permissions. Nothing is
+  // split into a separate staff portal.
   SUPER_ADMIN: [
-    "overview", "insights", "bookings", "in-house", "rooms", "guests",
-    "billing", "gst-claims", "expenses",
-    "housekeeping", "maintenance",
-    "properties", "approvals", "reports",
-    "channels", "pricing", "corporate", "booking-site",
-    "communications", "users", "accounting", "data-import", "data-entry", "settings",
+    // Command & insight
+    "overview", "insights",
+    // Front desk & guests
+    "bookings", "in-house", "rooms", "guests", "requests", "messages", "add-ons", "form-c", "feedback",
+    // Money
+    "billing", "gst-claims", "expenses", "payroll", "accounting", "corporate", "reports", "approvals", "pricing",
+    // Rooms readiness & upkeep
+    "housekeeping", "inspection", "lost-found", "maintenance", "assets",
+    // F&B and stores
+    "pos", "kitchen", "inventory", "laundry",
+    // People
+    "staff", "field-staff",
+    // Property, distribution & configuration
+    "properties", "channels", "booking-site", "communications", "ai",
+    "data-import", "data-entry", "users", "settings",
   ],
   // Read-mostly property-owner portal (merges into Super Admin in a later phase).
   OWNER: ["owner", "owner-documents", "owner-schedule", "owner-payouts"],

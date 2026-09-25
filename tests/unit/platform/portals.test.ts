@@ -15,12 +15,21 @@ const ALL_PERMS = [...new Set(NAV_ITEMS.map((i) => i.permission))];
 const keysFor = (rs: string[]) => portalNavItems(roles(rs), ALL_PERMS).map((i) => i.key);
 
 describe("resolvePortal", () => {
-  it("maps each role to its portal", () => {
+  it("routes every business-running role to the ONE portal (client req #17-20)", () => {
+    // Client directive: a single manager runs everything from one A-to-Z portal.
     expect(resolvePortal(roles(["ADMINISTRATOR"]))).toBe("SUPER_ADMIN");
+    expect(resolvePortal(roles(["MANAGER"]))).toBe("SUPER_ADMIN");
+    expect(resolvePortal(roles(["ASSISTANT_MANAGER"]))).toBe("SUPER_ADMIN");
+    expect(resolvePortal(roles(["ACCOUNTS"]))).toBe("SUPER_ADMIN");
+  });
+
+  it("keeps OWNER (external property owner) separate — not a staff portal", () => {
     expect(resolvePortal(roles(["OWNER"]))).toBe("OWNER");
-    expect(resolvePortal(roles(["MANAGER"]))).toBe("MANAGER");
-    expect(resolvePortal(roles(["ASSISTANT_MANAGER"]))).toBe("MANAGER");
-    expect(resolvePortal(roles(["ACCOUNTS"]))).toBe("ACCOUNTS");
+  });
+
+  it("keeps the narrow specialist consoles for their low-privilege roles", () => {
+    // These roles lack report:view-financial; the single portal's home redirects to
+    // /overview, so they retain their own console instead of being stranded.
     expect(resolvePortal(roles(["POS_MANAGER"]))).toBe("OUTLET");
     expect(resolvePortal(roles(["INVENTORY_MANAGER"]))).toBe("STORE");
     expect(resolvePortal(roles(["PURCHASE_MANAGER"]))).toBe("STORE");
@@ -32,7 +41,7 @@ describe("resolvePortal", () => {
 
   it("a multi-role user gets the highest-priority portal", () => {
     expect(resolvePortal(roles(["RECEPTION", "ADMINISTRATOR"]))).toBe("SUPER_ADMIN");
-    expect(resolvePortal(roles(["HOUSEKEEPING", "MANAGER"]))).toBe("MANAGER");
+    expect(resolvePortal(roles(["HOUSEKEEPING", "MANAGER"]))).toBe("SUPER_ADMIN");
   });
 
   it("returns null for an unmapped role or none", () => {
@@ -51,12 +60,24 @@ describe("portalNavItems — role isolation", () => {
     expect(k).not.toContain("settings");
   });
 
-  it("super admin is the single admin workspace — everything incl. front-desk ops", () => {
+  it("the single portal has EVERYTHING A-to-Z (client req #17-20)", () => {
     const k = keysFor(["ADMINISTRATOR"]);
-    // Client req #17–20: one centralized portal — chain, revenue AND operations.
-    expect(k).toEqual(expect.arrayContaining(["overview", "properties", "channels", "users", "billing", "gst-claims", "expenses", "housekeeping", "maintenance"]));
-    // POS/Store outlets stay separate specialist consoles (not part of this brief).
-    expect(k).not.toContain("pos");
+    // One portal, all modules — front desk, money, ops, F&B/stores, people, config.
+    expect(k).toEqual(expect.arrayContaining([
+      "overview", "insights", "bookings", "in-house", "rooms", "guests", "requests", "form-c",
+      "billing", "gst-claims", "expenses", "payroll", "accounting", "reports",
+      "housekeeping", "inspection", "lost-found", "maintenance", "assets",
+      "pos", "kitchen", "inventory", "laundry",
+      "staff", "properties", "channels", "booking-site", "communications", "ai",
+      "data-import", "data-entry", "users", "settings",
+    ]));
+  });
+
+  it("a Manager account also gets the one comprehensive portal", () => {
+    // The client's single manager may hold MANAGER (not ADMINISTRATOR) — either way,
+    // one A-to-Z portal (intersected with permissions).
+    const k = keysFor(["MANAGER"]);
+    expect(k).toEqual(expect.arrayContaining(["bookings", "billing", "expenses", "reports", "housekeeping"]));
   });
 
   it("housekeeping sees only its console", () => {
