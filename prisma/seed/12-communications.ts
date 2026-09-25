@@ -21,6 +21,16 @@ export async function seedCommunications(prisma: PrismaClient): Promise<void> {
     { key: "PRE_ARRIVAL", channel: "WHATSAPP" as const, language: "en", body: "Hi {{guestName}}, we look forward to your arrival on {{checkInDate}}. Wi-Fi: {{wifiSsid}}.", providerTemplateId: "hsm_pre_arrival_en" },
     { key: "WELCOME_CHECKIN", channel: "WHATSAPP" as const, language: "en", body: "Welcome to {{propertyName}}, {{guestName}}! You are checked in. Wi-Fi: {{wifiSsid}}. Enjoy your stay.", providerTemplateId: "hsm_welcome_checkin_en" },
     { key: "CHECKOUT_THANKYOU", channel: "WHATSAPP" as const, language: "en", body: "Thank you for staying at {{propertyName}}, {{guestName}}! How was your stay?", providerTemplateId: "hsm_checkout_thankyou_en" },
+    // Email variants (client req #9/#16) — check-in + booking confirmations on
+    // email as well as WhatsApp. Live delivery needs domain verification (SPF/DKIM);
+    // until then these render to the sandbox outbox like every other channel.
+    { key: "BOOKING_CONFIRMATION", channel: "EMAIL" as const, language: "en", body: "Dear {{guestName}},\n\nYour booking at {{propertyName}} is confirmed for {{checkInDate}}.\n\nWe look forward to welcoming you.\n\nWarm regards,\n{{propertyName}}", providerTemplateId: null },
+    { key: "WELCOME_CHECKIN", channel: "EMAIL" as const, language: "en", body: "Dear {{guestName}},\n\nWelcome to {{propertyName}} — you are now checked in. Wi-Fi: {{wifiSsid}}.\n\nDo let our front desk know if there is anything we can arrange. Enjoy your stay!\n\nWarm regards,\n{{propertyName}}", providerTemplateId: null },
+    { key: "CHECKOUT_THANKYOU", channel: "EMAIL" as const, language: "en", body: "Dear {{guestName}},\n\nThank you for staying at {{propertyName}}. We hope you had a comfortable stay and would love to welcome you again.\n\nWarm regards,\n{{propertyName}}", providerTemplateId: null },
+    // Share-a-bill (client req #16 — "share bills on email + WhatsApp"). Reception
+    // triggers these manually from the invoice; live delivery needs BSP/domain setup.
+    { key: "INVOICE_SHARE", channel: "WHATSAPP" as const, language: "en", body: "Hi {{guestName}}, here is your invoice {{invoiceNumber}} from {{propertyName}} for {{invoiceTotal}}. Thank you for staying with us.", providerTemplateId: "hsm_invoice_share_en" },
+    { key: "INVOICE_SHARE", channel: "EMAIL" as const, language: "en", body: "Dear {{guestName}},\n\nPlease find the details of your invoice {{invoiceNumber}} from {{propertyName}}, total {{invoiceTotal}}.\n\nDo reply to this email if you need a copy of the PDF or have any question about the bill.\n\nWarm regards,\n{{propertyName}}", providerTemplateId: null },
   ];
   for (const t of templates) {
     await prisma.messageTemplate.upsert({
@@ -37,6 +47,11 @@ export async function seedCommunications(prisma: PrismaClient): Promise<void> {
     { id: "auto_welcome_checkin", category: "DURING_STAY" as const, triggerEvent: "GuestCheckedIn", scheduleOffsetMinutes: null, templateKey: "WELCOME_CHECKIN", channel: "WHATSAPP" as const },
     { id: "auto_checkout_thankyou", category: "AFTER_CHECKOUT" as const, triggerEvent: "GuestCheckedOut", scheduleOffsetMinutes: null, templateKey: "CHECKOUT_THANKYOU", channel: "WHATSAPP" as const },
     { id: "auto_festival_offer", category: "MARKETING" as const, triggerEvent: null, scheduleOffsetMinutes: null, templateKey: "FESTIVAL_OFFER", channel: "WHATSAPP" as const, isActive: false },
+    // Email automations (client req #9/#16) — fire alongside the WhatsApp ones so a
+    // guest gets both a WhatsApp and an email confirmation on booking + check-in.
+    { id: "auto_booking_confirmation_email", category: "BEFORE_ARRIVAL" as const, triggerEvent: "ReservationCreated", scheduleOffsetMinutes: null, templateKey: "BOOKING_CONFIRMATION", channel: "EMAIL" as const },
+    { id: "auto_welcome_checkin_email", category: "DURING_STAY" as const, triggerEvent: "GuestCheckedIn", scheduleOffsetMinutes: null, templateKey: "WELCOME_CHECKIN", channel: "EMAIL" as const },
+    { id: "auto_checkout_thankyou_email", category: "AFTER_CHECKOUT" as const, triggerEvent: "GuestCheckedOut", scheduleOffsetMinutes: null, templateKey: "CHECKOUT_THANKYOU", channel: "EMAIL" as const },
   ];
   for (const a of automations) {
     const { id, ...rest } = a;
@@ -51,6 +66,11 @@ export async function seedCommunications(prisma: PrismaClient): Promise<void> {
   await prisma.messagingAccount.upsert({
     where: { orgId_channel_provider: { orgId: ORG_ID, channel: "WHATSAPP", provider: "mock" } },
     create: { orgId: ORG_ID, channel: "WHATSAPP", provider: "mock", mode: "sandbox", config: {} },
+    update: { mode: "sandbox" },
+  });
+  await prisma.messagingAccount.upsert({
+    where: { orgId_channel_provider: { orgId: ORG_ID, channel: "EMAIL", provider: "mock" } },
+    create: { orgId: ORG_ID, channel: "EMAIL", provider: "mock", mode: "sandbox", config: {} },
     update: { mode: "sandbox" },
   });
 

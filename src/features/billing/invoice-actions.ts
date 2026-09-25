@@ -38,6 +38,7 @@ export async function searchBillingInvoices(input: {
   propertyId?: string;
   from?: string;
   to?: string;
+  gstOnly?: boolean;
   cursor?: string;
 }): Promise<Result<{ invoices: InvoiceListItem[]; nextCursor: string | null }>> {
   return toResult(async () => {
@@ -48,9 +49,62 @@ export async function searchBillingInvoices(input: {
       propertyId: input.propertyId || undefined,
       from: input.from ? new Date(`${input.from}T00:00:00.000Z`) : undefined,
       to: input.to ? new Date(`${input.to}T23:59:59.999Z`) : undefined,
+      gstOnly: input.gstOnly === true,
       cursor: input.cursor || undefined,
       limit: 30,
     });
+  });
+}
+
+/**
+ * Share an issued invoice with the guest over WhatsApp and/or email (client req
+ * #16). Reuses the 12-communications outbox via its public `sendManual` action —
+ * one message per channel, best-effort: a channel with no guest address is skipped
+ * and reported, never fatal. Delivery is sandbox-logged until the messaging
+ * provider is activated (integrations.md); the message copy itself is real.
+ */
+export async function shareInvoice(input: {
+  invoiceId: string;
+  channels?: ("WHATSAPP" | "EMAIL")[];
+}): Promise<Result<{ sent: string[]; skipped: string[] }>> {
+  return toResult(async () => {
+    const user = await requireUser();
+    const invoice = await billingDb(user).invoice.findFirst({
+      where: { id: input.invoiceId },
+      select: {
+        number: true, totalPaise: true, propertyId: true,
+        folio: { select: { reservation: { select: { guestId: true } } } },
+      },
+    });
+    if (!invoice) throw new NotFoundError("Invoice not found.");
+    authorize(user, "folio:view", invoice.propertyId);
+    const guestId = invoice.folio.reservation?.guestId;
+    if (!guestId) throw new NotFoundError("This invoice has no guest to share with.");
+
+    const { sendManual } = await import("@/features/communications/actions");
+    const channels = input.channels?.length ? input.channels : (["WHATSAPP", "EMAIL"] as const);
+    const context = {
+      invoiceNumber: invoice.number,
+      invoiceTotal: `₹${(Number(invoice.totalPaise) / 100).toLocaleString("en-IN")}`,
+    };
+    const sent: string[] = [];
+    const skipped: string[] = [];
+    for (const channel of channels) {
+      const res = await sendManual({
+        guestId,
+        propertyId: invoice.propertyId,
+        templateKey: "INVOICE_SHARE",
+        channel,
+        language: "en",
+        context,
+      });
+      if (res.ok) sent.push(channel);
+      else skipped.push(channel);
+    }
+    if (sent.length === 0) {
+      throw new NotFoundError("Could not share — the guest has no WhatsApp number or email on file.");
+    }
+    return { sent, skipped };
   });
 }
 

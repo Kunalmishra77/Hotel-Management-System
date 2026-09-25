@@ -51,10 +51,11 @@ describe("portalNavItems — role isolation", () => {
     expect(k).not.toContain("settings");
   });
 
-  it("super admin sees chain + revenue modules, not front-desk ops", () => {
+  it("super admin is the single admin workspace — everything incl. front-desk ops", () => {
     const k = keysFor(["ADMINISTRATOR"]);
-    expect(k).toEqual(expect.arrayContaining(["overview", "properties", "channels", "users"]));
-    expect(k).not.toContain("housekeeping");
+    // Client req #17–20: one centralized portal — chain, revenue AND operations.
+    expect(k).toEqual(expect.arrayContaining(["overview", "properties", "channels", "users", "billing", "gst-claims", "expenses", "housekeeping", "maintenance"]));
+    // POS/Store outlets stay separate specialist consoles (not part of this brief).
     expect(k).not.toContain("pos");
   });
 

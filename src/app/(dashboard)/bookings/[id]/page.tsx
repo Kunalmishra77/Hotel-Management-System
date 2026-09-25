@@ -5,9 +5,13 @@ import { CalendarDays, IndianRupee, ReceiptText, UserCheck } from "lucide-react"
 import { requirePermission } from "@/lib/auth/guard";
 import { hasPermission } from "@/lib/permissions";
 import { getReservation, getReservationGuestPanel } from "@/features/reservations/queries";
+import { getGuestProfile } from "@/features/guests/queries";
+import { pendingGuestInfo } from "@/features/reservations/domain/guest-checklist";
+import { ClipboardCheck } from "lucide-react";
 import { ConfirmBookingButton } from "@/features/reservations/components/confirm-booking-button";
 import { ReservationGuestsCard } from "@/features/reservations/components/reservation-guests-card";
 import { ExtendStayCard } from "@/features/reservations/components/extend-stay-card";
+import { CancelBookingButton } from "@/features/reservations/components/cancel-booking-button";
 import { getBalance } from "@/features/billing";
 import { getReservationFolio } from "@/features/billing/queries";
 import { BookingBillSummary } from "@/features/reservations/components/booking-bill-summary";
@@ -40,11 +44,28 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
   const canConfirm = r.status === "ENQUIRY" && hasPermission(user, "reservation:create");
   const canCheckIn = r.status === "CONFIRMED" && hasPermission(user, "checkin:perform");
   const canManageGuests = hasPermission(user, "reservation:modify");
-  const [balancePaise, guestPanel, billFolio] = await Promise.all([
+  const canCancel = hasPermission(user, "reservation:cancel") && ["ENQUIRY", "CONFIRMED", "IN_HOUSE"].includes(r.status);
+  const [balancePaise, guestPanel, billFolio, guestProfile] = await Promise.all([
     canFolio ? getBalance(user, id) : Promise.resolve(null),
     getReservationGuestPanel(user, id),
     canFolio ? getReservationFolio(user, id) : Promise.resolve(null),
+    getGuestProfile(user, r.guestId),
   ]);
+
+  // Pending guest info/documents (client req #6) — surfaced before checkout so
+  // reception collects what's missing. Only shown while the stay is still open.
+  const showChecklist = ["ENQUIRY", "CONFIRMED", "IN_HOUSE"].includes(r.status);
+  const pending = showChecklist && guestProfile
+    ? pendingGuestInfo({
+        maskedMobile: guestProfile.maskedMobile,
+        maskedEmail: guestProfile.maskedEmail,
+        companyName: guestProfile.companyName,
+        gstNumber: guestProfile.gstNumber,
+        addressLine: guestProfile.addressLine,
+        ids: guestProfile.ids,
+        balancePaise,
+      })
+    : [];
 
   return (
     <div className="mx-auto w-full max-w-2xl">
@@ -137,8 +158,44 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
         ) : null}
       </div>
 
+      {pending.length > 0 ? (
+        <Card className="mt-4 border-warning/40 bg-warning/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base [&_svg]:size-4 [&_svg]:text-warning">
+              <ClipboardCheck /> Pending information
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="mb-2 text-sm text-muted-foreground">
+              Collect these from the guest{r.status === "IN_HOUSE" ? " before checkout" : " at check-in"}:
+            </p>
+            <ul className="space-y-1.5 text-sm">
+              {pending.map((item) => (
+                <li key={item.key} className="flex items-center gap-2">
+                  <span aria-hidden="true" className={item.required ? "text-warning" : "text-muted-foreground"}>●</span>
+                  <span>{item.label}</span>
+                  {item.required ? <Badge variant="warning" className="ml-1">Required</Badge> : <span className="text-xs text-muted-foreground">optional</span>}
+                </li>
+              ))}
+            </ul>
+            {canManageGuests ? (
+              <Button asChild variant="outline" size="sm" className="mt-3">
+                <Link href={`/guests/${r.guestId}`}>Update guest details</Link>
+              </Button>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
+
       {(r.status === "IN_HOUSE" || r.status === "CONFIRMED") && canManageGuests ? (
         <ExtendStayCard reservationId={r.id} checkOutDate={r.checkOutDate.toISOString().slice(0, 10)} />
+      ) : null}
+
+      {canCancel ? (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+          <span className="text-sm text-muted-foreground">Cancel this booking (guest cancelled by phone/online).</span>
+          <CancelBookingButton reservationId={r.id} />
+        </div>
       ) : null}
 
       {billFolio ? (

@@ -48,8 +48,13 @@ const ROLE_PORTAL_PRIORITY: readonly { role: RoleName; portal: PortalId }[] = [
 /** Portal → ordered nav keys (blueprint order; existing routes only). */
 const PORTAL_NAV: Record<PortalId, readonly string[]> = {
   // Chain-owner command centre. Revenue & Distribution = channels + pricing + corporate + booking-site.
+  // ONE centralized admin workspace (client req #17–20): the single manager runs
+  // everything from here — front-desk ops included — so housekeeping + maintenance
+  // live here too, not in separate portals.
   SUPER_ADMIN: [
-    "overview", "insights", "bookings", "in-house", "rooms", "guests", "billing", "expenses",
+    "overview", "insights", "bookings", "in-house", "rooms", "guests",
+    "billing", "gst-claims", "expenses",
+    "housekeeping", "maintenance",
     "properties", "approvals", "reports",
     "channels", "pricing", "corporate", "booking-site",
     "communications", "users", "accounting", "data-import", "data-entry", "settings",

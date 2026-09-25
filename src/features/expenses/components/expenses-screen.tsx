@@ -15,16 +15,28 @@ import { createExpense, approveExpense, rejectExpense } from "../actions";
 import type { ExpenseListItem } from "../queries";
 
 const HEADS = ["HOUSEKEEPING", "KITCHEN", "MAINTENANCE", "UTILITIES", "STAFF", "ADMINISTRATION", "MISC"];
+// Payment methods (client req #14) — how the expense was actually paid.
+const PAY_MODES: { value: string; label: string }[] = [
+  { value: "CASH", label: "Cash" },
+  { value: "UPI", label: "UPI" },
+  { value: "BANK_TRANSFER", label: "Bank transfer" },
+  { value: "CREDIT_CARD", label: "Credit card" },
+  { value: "DEBIT_CARD", label: "Debit card" },
+  { value: "ONLINE", label: "Online" },
+  { value: "CORPORATE_CREDIT", label: "Corporate credit" },
+];
 const rupees = (p: number) => `₹${(p / 100).toLocaleString("en-IN")}`;
 const toPaise = (r: number) => Math.round(r * 100);
 
 export function ExpensesScreen({
   propertyId,
+  properties,
   expenses,
   canApprove,
   todayTotalPaise,
 }: {
   propertyId: string;
+  properties?: { id: string; name: string }[];
   expenses: ExpenseListItem[];
   canApprove: boolean;
   todayTotalPaise: number;
@@ -35,7 +47,10 @@ export function ExpensesScreen({
   const [head, setHead] = useState("KITCHEN");
   const [sub, setSub] = useState("");
   const [amount, setAmount] = useState(0);
+  const [paidVia, setPaidVia] = useState("CASH");
+  const [property, setProperty] = useState(propertyId);
   const [spentOn, setSpentOn] = useState(new Date().toISOString().slice(0, 10));
+  const propertyOptions = properties && properties.length > 1 ? properties : null;
 
   const run = (fn: () => Promise<{ ok: boolean; error?: { message: string } }>, onOk?: () => void) => {
     setError(null);
@@ -54,6 +69,14 @@ export function ExpensesScreen({
         <CardHeader className="pb-3"><CardTitle className="text-base">Record an expense</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
+            {propertyOptions && (
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label htmlFor="exp-prop">Property</Label>
+                <select id="exp-prop" value={property} onChange={(e) => setProperty(e.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" data-testid="expense-property">
+                  {propertyOptions.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label htmlFor="exp-head">Head</Label>
               <select id="exp-head" value={head} onChange={(e) => setHead(e.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" data-testid="expense-head">
@@ -62,11 +85,17 @@ export function ExpensesScreen({
             </div>
             <div className="space-y-1.5"><Label htmlFor="exp-sub">Sub-category</Label><Input id="exp-sub" value={sub} onChange={(e) => setSub(e.target.value)} data-testid="expense-sub" /></div>
             <div className="space-y-1.5"><Label htmlFor="exp-amt">Amount (₹)</Label><Input id="exp-amt" type="number" inputMode="numeric" value={amount} onChange={(e) => setAmount(Number(e.target.value))} data-testid="expense-amount" /></div>
+            <div className="space-y-1.5">
+              <Label htmlFor="exp-pay">Payment method</Label>
+              <select id="exp-pay" value={paidVia} onChange={(e) => setPaidVia(e.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" data-testid="expense-paidvia">
+                {PAY_MODES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+              </select>
+            </div>
             <div className="space-y-1.5"><Label htmlFor="exp-date">Date</Label><Input id="exp-date" type="date" value={spentOn} onChange={(e) => setSpentOn(e.target.value)} data-testid="expense-date" /></div>
           </div>
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
           <Button size="lg" disabled={pending || amount <= 0}
-            onClick={() => run(() => createExpense({ propertyId, head, subCategory: sub || undefined, amountPaise: toPaise(amount), spentOn, paidVia: "CASH" }), () => { setSub(""); setAmount(0); })}
+            onClick={() => run(() => createExpense({ propertyId: property, head, subCategory: sub || undefined, amountPaise: toPaise(amount), spentOn, paidVia: paidVia as never }), () => { setSub(""); setAmount(0); })}
             data-testid="expense-save">Save</Button>
         </CardContent>
       </Card>

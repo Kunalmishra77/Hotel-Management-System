@@ -8,7 +8,7 @@ import { authorize } from "@/lib/permissions";
 import { resolveStorageAdapter } from "@/lib/storage";
 import { NotFoundError } from "@/lib/errors";
 import { getGuestProfile } from "@/features/guests/queries";
-import { getBalance } from "@/features/billing";
+import { getBalance, folioBalance } from "@/features/billing";
 import { priceReservation } from "./domain/pricing";
 import { utcEpochDay } from "./internal";
 import type { SessionClaims } from "@/lib/auth/claims";
@@ -17,6 +17,7 @@ export type ReservationListItem = {
   id: string;
   code: string;
   status: string;
+  guestId: string;
   guestName: string;
   checkInDate: Date;
   checkOutDate: Date;
@@ -31,6 +32,7 @@ const LIST_SELECT = {
   id: true,
   code: true,
   status: true,
+  guestId: true,
   checkInDate: true,
   checkOutDate: true,
   checkInAt: true,
@@ -44,6 +46,7 @@ type Row = {
   id: string;
   code: string;
   status: string;
+  guestId: string;
   checkInDate: Date;
   checkOutDate: Date;
   checkInAt: Date | null;
@@ -58,6 +61,7 @@ function toItem(r: Row): ReservationListItem {
     id: r.id,
     code: r.code,
     status: r.status,
+    guestId: r.guestId,
     guestName: r.guest.fullName,
     checkInDate: r.checkInDate,
     checkOutDate: r.checkOutDate,
@@ -528,4 +532,66 @@ export async function getReservationGuestPanel(
   });
   if (!r) return null;
   return { adults: r.adults, children: r.children, notes: r.notes, expectedArrival: r.expectedArrival, guests: r.accompanyingGuests };
+}
+
+export type InHouseRow = {
+  id: string;
+  code: string;
+  guestName: string;
+  propertyId: string;
+  propertyName: string;
+  rooms: string;
+  adults: number;
+  checkInDate: Date;
+  checkOutDate: Date;
+  balancePaise: number;
+};
+
+export type InHousePortfolio = {
+  rows: InHouseRow[];
+  total: number;
+  byProperty: { propertyId: string; propertyName: string; count: number }[];
+};
+
+/**
+ * Portfolio-wide in-house guests (client req #8): every currently-staying guest
+ * across all accessible properties, with property, room(s), dates and the live
+ * folio balance (payment status). Ordered by check-in (newest first).
+ */
+export async function inHousePortfolio(user: SessionClaims, propertyIds: string[]): Promise<InHousePortfolio> {
+  authorize(user, "reservation:view", user.activePropertyId);
+  if (propertyIds.length === 0) return { rows: [], total: 0, byProperty: [] };
+
+  const rows = await db.scoped(user).reservation.findMany({
+    where: { propertyId: { in: propertyIds }, status: "IN_HOUSE" },
+    select: {
+      id: true, code: true, propertyId: true, adults: true, checkInDate: true, checkOutDate: true,
+      guest: { select: { fullName: true } },
+      property: { select: { name: true } },
+      allocations: { select: { room: { select: { number: true } } } },
+      folio: { select: { lines: { select: { amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true } }, payments: { select: { amountPaise: true, isRefund: true } } } },
+    },
+    orderBy: { checkInDate: "desc" },
+  });
+
+  const out: InHouseRow[] = rows.map((r) => ({
+    id: r.id,
+    code: r.code,
+    guestName: r.guest?.fullName ?? "—",
+    propertyId: r.propertyId,
+    propertyName: r.property?.name ?? "—",
+    rooms: r.allocations.map((a) => a.room.number).filter(Boolean).join(", ") || "—",
+    adults: r.adults,
+    checkInDate: r.checkInDate,
+    checkOutDate: r.checkOutDate,
+    balancePaise: r.folio ? Number(folioBalance(r.folio.lines, r.folio.payments)) : 0,
+  }));
+
+  const counts = new Map<string, { propertyId: string; propertyName: string; count: number }>();
+  for (const r of out) {
+    const g = counts.get(r.propertyId) ?? { propertyId: r.propertyId, propertyName: r.propertyName, count: 0 };
+    g.count += 1;
+    counts.set(r.propertyId, g);
+  }
+  return { rows: out, total: out.length, byProperty: [...counts.values()].sort((a, b) => a.propertyName.localeCompare(b.propertyName)) };
 }

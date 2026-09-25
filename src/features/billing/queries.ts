@@ -59,6 +59,7 @@ export type InvoiceListItem = {
   id: string;
   number: string;
   customerName: string;
+  customerGstin: string | null;
   propertyName: string;
   totalPaise: number;
   issuedAt: Date;
@@ -72,7 +73,7 @@ export type InvoiceListItem = {
  */
 export async function searchInvoices(
   user: SessionClaims,
-  input: { keyword?: string; propertyId?: string; from?: Date; to?: Date; cursor?: string; limit?: number },
+  input: { keyword?: string; propertyId?: string; from?: Date; to?: Date; gstOnly?: boolean; cursor?: string; limit?: number },
 ): Promise<{ invoices: InvoiceListItem[]; nextCursor: string | null }> {
   const limit = input.limit ?? 25;
   const kw = input.keyword?.trim();
@@ -82,6 +83,7 @@ export async function searchInvoices(
   const rows = await db.scoped(user).invoice.findMany({
     where: {
       ...(input.propertyId ? { propertyId: input.propertyId } : {}),
+      ...(input.gstOnly ? { customerGstin: { not: null } } : {}),
       ...dateFilter,
       ...(kw
         ? {
@@ -92,7 +94,7 @@ export async function searchInvoices(
           }
         : {}),
     },
-    select: { id: true, number: true, customerName: true, totalPaise: true, issuedAt: true, propertyId: true },
+    select: { id: true, number: true, customerName: true, customerGstin: true, totalPaise: true, issuedAt: true, propertyId: true },
     orderBy: [{ issuedAt: "desc" }, { id: "asc" }],
     take: limit + 1,
     ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
@@ -113,6 +115,7 @@ export async function searchInvoices(
       id: r.id,
       number: r.number,
       customerName: r.customerName,
+      customerGstin: r.customerGstin,
       propertyName: nameById.get(r.propertyId) ?? "—",
       totalPaise: Number(r.totalPaise),
       issuedAt: r.issuedAt,

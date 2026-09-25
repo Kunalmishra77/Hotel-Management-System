@@ -114,6 +114,109 @@ export async function expenseRollup(
   return { totals: rollup(rows, input.groupBy), totalPaise: totalPaise(rows) };
 }
 
+export type PortfolioExpenseRow = {
+  id: string;
+  propertyId: string;
+  propertyName: string;
+  head: string;
+  subCategory: string | null;
+  amountPaise: number;
+  spentOn: Date;
+  paidVia: string | null;
+  status: string;
+  vendor: string | null;
+  hasBill: boolean;
+};
+
+export type ExpensePortfolio = {
+  rows: PortfolioExpenseRow[];
+  totalPaise: number;
+  byProperty: { propertyId: string; propertyName: string; totalPaise: number }[];
+  byHead: { head: string; totalPaise: number }[];
+  byPaidVia: { paidVia: string; totalPaise: number }[];
+};
+
+/**
+ * Centralized, cross-property expense ledger (client req #15/#19) — every expense
+ * across the caller's accessible properties, filterable by property, head, payment
+ * method and date range, with per-property / per-head / per-payment-method totals.
+ * One place an owner/admin sees the whole chain's spend. Property-scoped by the
+ * caller's assignments; totals count APPROVED only (the reporting-truth rule 08/14
+ * rely on — DRAFT/REJECTED never inflate profit-side spend).
+ */
+export async function expensePortfolio(
+  user: SessionClaims,
+  input: {
+    propertyIds: string[];
+    from?: Date;
+    to?: Date;
+    head?: string;
+    paidVia?: string;
+    limit?: number;
+  },
+): Promise<ExpensePortfolio> {
+  const ids = input.propertyIds.filter((id) => user.accessiblePropertyIds.includes(id));
+  if (ids.length === 0) {
+    return { rows: [], totalPaise: 0, byProperty: [], byHead: [], byPaidVia: [] };
+  }
+  const rows = await db.scoped(user).expense.findMany({
+    where: {
+      propertyId: { in: ids },
+      ...(input.head ? { head: input.head as never } : {}),
+      ...(input.paidVia ? { paidVia: input.paidVia as never } : {}),
+      ...(input.from || input.to
+        ? { spentOn: { ...(input.from ? { gte: input.from } : {}), ...(input.to ? { lte: input.to } : {}) } }
+        : {}),
+    },
+    select: {
+      id: true, propertyId: true, head: true, subCategory: true, amountPaise: true,
+      spentOn: true, paidVia: true, status: true, vendor: true, billObjectKey: true,
+    },
+    orderBy: { spentOn: "desc" },
+    take: input.limit ?? 500,
+  });
+
+  const props = await db.unscoped().property.findMany({
+    where: { id: { in: [...new Set(rows.map((r) => r.propertyId))] } },
+    select: { id: true, name: true },
+  });
+  const nameById = new Map(props.map((p) => [p.id, p.name]));
+
+  // Totals: APPROVED only (reporting truth). DRAFT/REJECTED are shown in the ledger
+  // but excluded from the spend rollups so figures reconcile with 08/14.
+  const approved = rows.filter((r) => r.status === "APPROVED");
+  const sumBy = <K extends string>(key: (r: (typeof approved)[number]) => K) => {
+    const m = new Map<K, number>();
+    for (const r of approved) m.set(key(r), (m.get(key(r)) ?? 0) + r.amountPaise);
+    return m;
+  };
+  const byPropMap = sumBy((r) => r.propertyId);
+  const byHeadMap = sumBy((r) => r.head as string);
+  const byPaidMap = sumBy((r) => (r.paidVia ?? "UNSPECIFIED") as string);
+
+  return {
+    rows: rows.map((r) => ({
+      id: r.id,
+      propertyId: r.propertyId,
+      propertyName: nameById.get(r.propertyId) ?? r.propertyId,
+      head: r.head,
+      subCategory: r.subCategory,
+      amountPaise: r.amountPaise,
+      spentOn: r.spentOn,
+      paidVia: r.paidVia,
+      status: r.status,
+      vendor: r.vendor,
+      hasBill: r.billObjectKey !== null,
+    })),
+    totalPaise: approved.reduce((n, r) => n + r.amountPaise, 0),
+    byProperty: [...byPropMap.entries()]
+      .map(([propertyId, totalPaise]) => ({ propertyId, propertyName: nameById.get(propertyId) ?? propertyId, totalPaise }))
+      .sort((a, b) => b.totalPaise - a.totalPaise),
+    byHead: [...byHeadMap.entries()].map(([head, totalPaise]) => ({ head, totalPaise })).sort((a, b) => b.totalPaise - a.totalPaise),
+    byPaidVia: [...byPaidMap.entries()].map(([paidVia, totalPaise]) => ({ paidVia, totalPaise })).sort((a, b) => b.totalPaise - a.totalPaise),
+  };
+}
+
 /** List expenses for a property (approval queue / ledger), optionally by status. */
 export async function listExpenses(
   user: SessionClaims,
