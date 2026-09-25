@@ -138,7 +138,22 @@ export type AddIdFormState =
   | { status: "error"; message: string }
   | { status: "added"; maskedValue: string | null };
 
-/** Add a government ID to a guest (AC-4/5). Stays on the profile. */
+/** Read an uploaded file into base64 (+ content type) for the ID scan store, or
+ *  nulls when no file was chosen. Size-capped to keep the request reasonable. */
+const MAX_SCAN_BYTES = 8 * 1024 * 1024; // 8 MB per image
+async function readFile(
+  formData: FormData,
+  name: string,
+): Promise<{ base64: string | null; contentType: string | null; tooBig: boolean }> {
+  const f = formData.get(name);
+  if (!(f instanceof File) || f.size === 0) return { base64: null, contentType: null, tooBig: false };
+  if (f.size > MAX_SCAN_BYTES) return { base64: null, contentType: null, tooBig: true };
+  const buf = Buffer.from(await f.arrayBuffer());
+  return { base64: buf.toString("base64"), contentType: f.type || "application/octet-stream", tooBig: false };
+}
+
+/** Add a government ID to a guest (AC-4/5) — a typed number and/or document photos
+ *  (front + back). Scans go to encrypted storage server-side. Stays on the profile. */
 export async function addGuestIdFormAction(
   _prev: AddIdFormState,
   formData: FormData,
@@ -146,9 +161,26 @@ export async function addGuestIdFormAction(
   const guestId = field(formData, "guestId");
   const type = field(formData, "type");
   const value = field(formData, "value");
-  if (!guestId || !type || !value) return { status: "error", message: "Enter an ID type and number." };
+  if (!guestId || !type) return { status: "error", message: "Choose an ID type." };
 
-  const result = await addGuestId({ guestId, type, value });
+  const front = await readFile(formData, "scan");
+  const back = await readFile(formData, "backScan");
+  if (front.tooBig || back.tooBig) return { status: "error", message: "Each document image must be under 8 MB." };
+
+  // An ID needs at least a number OR a photo — never an empty row.
+  if (!value && !front.base64 && !back.base64) {
+    return { status: "error", message: "Enter the document number or attach a photo." };
+  }
+
+  const result = await addGuestId({
+    guestId,
+    type,
+    value: value || undefined,
+    scanBase64: front.base64,
+    scanContentType: front.contentType,
+    backScanBase64: back.base64,
+    backScanContentType: back.contentType,
+  });
   if (!result.ok) return { status: "error", message: result.error.message };
   return { status: "added", maskedValue: result.data.maskedValue };
 }

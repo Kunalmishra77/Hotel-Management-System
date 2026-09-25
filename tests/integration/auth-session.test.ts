@@ -296,6 +296,15 @@ describe("pickActiveProperty (FR-27)", () => {
   it("is null when nothing is in scope", () => {
     expect(pickActiveProperty(null, [])).toBeNull();
   });
+
+  it("defaults a multi-property user to All hotels (null) — no auto-focus", () => {
+    // Client req: every page defaults to All hotels; the header picker sets a focus.
+    expect(pickActiveProperty(null, [PROP_A_ID, PROP_B_ID])).toBeNull();
+  });
+
+  it("auto-selects the only property for a single-property user", () => {
+    expect(pickActiveProperty(null, [PROP_A_ID])).toBe(PROP_A_ID);
+  });
 });
 
 describe("session lifecycle (FR-2, security.md)", () => {

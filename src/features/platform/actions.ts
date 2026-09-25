@@ -39,7 +39,7 @@ export type PropertyOption = { id: string; name: string; code: string };
  * because "which property was this user working in" is exactly the context an
  * auditor needs to interpret later actions.
  */
-export async function switchProperty(input: unknown): Promise<Result<{ activePropertyId: string }>> {
+export async function switchProperty(input: unknown): Promise<Result<{ activePropertyId: string | null }>> {
   return toResult(async () => {
     const data = switchPropertySchema.parse(input);
     const session = await requireSession();
@@ -66,7 +66,7 @@ export async function switchProperty(input: unknown): Promise<Result<{ activePro
         );
         if (!applied) {
           throw new OutOfScopeError("Property outside caller scope", {
-            propertyId: data.propertyId,
+            propertyId: data.propertyId ?? "(all)",
           });
         }
 
@@ -75,7 +75,7 @@ export async function switchProperty(input: unknown): Promise<Result<{ activePro
             action: "session:switch-property",
             entityType: "Session",
             entityId: session.sessionId,
-            propertyId: data.propertyId,
+            propertyId: data.propertyId ?? undefined,
             before: { activePropertyId: previous },
             after: { activePropertyId: data.propertyId },
           }),

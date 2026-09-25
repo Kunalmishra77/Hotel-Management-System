@@ -52,7 +52,8 @@ const USERS: SeededUser[] = [
     // 16-access-control-security (see docs/reviews/00-platform-review.md F-4).
     id: USER_ADMIN_ID,
     email: "admin@woodpecker.example",
-    name: "Aarti Menon",
+    // The owner (Sunil Agrawal) runs the whole business from this single admin login.
+    name: "Sunil Agrawal",
     role: RoleName.ADMINISTRATOR,
     propertyIds: [], // org-wide
     twoFactor: false, // demo: frictionless password login (role 2FA enforcement is off)

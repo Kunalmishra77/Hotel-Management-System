@@ -123,8 +123,13 @@ export function pickActiveProperty(
   requested: string | null,
   accessiblePropertyIds: readonly string[],
 ): string | null {
+  // A valid explicit focus always wins.
   if (requested && accessiblePropertyIds.includes(requested)) return requested;
-  return accessiblePropertyIds[0] ?? null;
+  // Single-property users have exactly one context — auto-select it.
+  if (accessiblePropertyIds.length === 1) return accessiblePropertyIds[0] ?? null;
+  // Multi-property (group/super-admin): default to "All hotels" (no single focus).
+  // The header picker sets a focus; portfolio pages show all until one is chosen.
+  return null;
 }
 
 /**

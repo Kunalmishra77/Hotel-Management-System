@@ -66,9 +66,10 @@ export default async function BookingsPage({
   const deskMode = sp.desk === "1";
 
   // Super-Admin reads Bookings as a portfolio: totals + per-property outcomes +
-  // a recent-bookings feed across EVERY property — not a single-property board,
-  // so it runs before the activePropertyId guard.
-  if (portal === "SUPER_ADMIN" && !deskMode && hasPermission(user, "report:view-financial")) {
+  // a recent-bookings feed across EVERY property — but ONLY in "All hotels" scope.
+  // When a property is picked in the header (activePropertyId set), fall through to
+  // that property's board so the whole page scopes to the selection.
+  if (portal === "SUPER_ADMIN" && !user.activePropertyId && !deskMode && hasPermission(user, "report:view-financial")) {
     return <SuperAdminBookings user={user} sp={sp} />;
   }
 

@@ -12,12 +12,12 @@ export function NoProperty({ what, canCreate }: { what: string; canCreate: boole
   return (
     <div className="mx-auto mt-10 max-w-md rounded-lg border border-dashed p-8 text-center">
       <Building2 className="mx-auto size-8 text-muted-foreground" aria-hidden="true" />
-      <h2 className="mt-3 text-base font-semibold">No property selected</h2>
+      <h2 className="mt-3 text-base font-semibold">Pick a property</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        {what} is shown per property.{" "}
+        You&apos;re viewing <span className="font-medium">all hotels</span>. {what} is shown per property —{" "}
         {canCreate
-          ? "Create your first property to get started, or pick one from the switcher at the top of the page."
-          : "Ask an administrator to assign you to a property, then pick it from the switcher at the top of the page."}
+          ? "choose one from the selector at the top of the page (or create your first property)."
+          : "choose one from the selector at the top of the page."}
       </p>
       {canCreate && (
         <Button asChild className="mt-4">

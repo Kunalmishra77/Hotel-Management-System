@@ -26,8 +26,9 @@ export default async function BillingPage() {
   const user = await requirePermission("folio:view");
 
   // Super-Admin reads Billing as a portfolio rollup (dues/collections per
-  // property), not one property's folio list.
-  if (resolvePortal(user.roleAssignments.map((r) => r.role)) === "SUPER_ADMIN") {
+  // property) in "All hotels" scope; when a property is picked in the header it
+  // falls through to that property's folio/invoice list.
+  if (resolvePortal(user.roleAssignments.map((r) => r.role)) === "SUPER_ADMIN" && !user.activePropertyId) {
     const ids = [...user.accessiblePropertyIds];
     const [rollup, properties] = await Promise.all([
       perPropertyBillingRollup(user, ids),

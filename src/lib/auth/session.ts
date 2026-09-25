@@ -204,10 +204,12 @@ export async function revokeAllSessionsForUser(
 export async function setActiveProperty(
   db: Db,
   sessionId: string,
-  propertyId: string,
+  propertyId: string | null,
   claims: SessionClaims,
 ): Promise<boolean> {
-  if (!claims.accessiblePropertyIds.includes(propertyId)) return false;
+  // null = "All hotels" (clear the single-property focus). A non-null property must
+  // be inside the caller's scope.
+  if (propertyId !== null && !claims.accessiblePropertyIds.includes(propertyId)) return false;
   await db.session.update({ where: { id: sessionId }, data: { activePropertyId: propertyId } });
   return true;
 }

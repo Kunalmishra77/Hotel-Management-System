@@ -5,7 +5,8 @@
 import { z } from "zod";
 
 export const switchPropertySchema = z.object({
-  propertyId: z.string().min(1, "A property is required."),
+  // null = "All hotels" (clear the single-property focus for a multi-property user).
+  propertyId: z.string().min(1).nullable(),
 });
 
 export type SwitchPropertyInput = z.infer<typeof switchPropertySchema>;

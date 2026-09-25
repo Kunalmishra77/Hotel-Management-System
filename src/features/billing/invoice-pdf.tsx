@@ -346,6 +346,7 @@ function InvoiceDoc({ data }: { data: InvoicePdfData }) {
         </View>
 
         <Text style={s.foot}>This is a computer-generated tax invoice. All amounts are in Indian Rupees (INR).</Text>
+        <Text style={s.foot}>It does not require any signature and stamp.</Text>
       </Page>
     </Document>
   );

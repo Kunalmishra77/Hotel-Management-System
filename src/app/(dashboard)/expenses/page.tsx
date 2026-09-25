@@ -20,7 +20,10 @@ export default async function ExpensesPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const user = await requirePermission("expense:create");
-  const propertyId = user.activePropertyId;
+  // "All hotels" scope (activePropertyId null) still shows the centralized ledger;
+  // the entry form defaults to the first accessible property (multi-property users
+  // pick the property in the form itself).
+  const propertyId = user.activePropertyId ?? user.accessiblePropertyIds[0] ?? null;
   if (!propertyId) {
     return <NoProperty what="This page" canCreate={hasPermission(user, "property:manage")} />;
   }

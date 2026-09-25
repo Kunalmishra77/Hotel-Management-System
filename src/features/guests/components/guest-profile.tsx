@@ -231,26 +231,41 @@ function AddIdForm({ guestId }: { guestId: string }) {
   }, [state, router]);
 
   return (
-    <form action={submit} className="flex flex-col gap-2 border-t pt-3 sm:flex-row sm:items-end"
-      data-testid="add-id-form">
+    <form action={submit} className="space-y-3 border-t pt-3" data-testid="add-id-form">
       <input type="hidden" name="guestId" value={guestId} />
-      <div className="space-y-1.5">
-        <Label htmlFor="id-type">Type</Label>
-        <select id="id-type" name="type"
-          className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm sm:w-40">
-          {ID_TYPES.map((t) => <option key={t} value={t}>{ID_LABEL[t]}</option>)}
-        </select>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+        <div className="space-y-1.5">
+          <Label htmlFor="id-type">Type</Label>
+          <select id="id-type" name="type"
+            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm sm:w-40">
+            {ID_TYPES.map((t) => <option key={t} value={t}>{ID_LABEL[t]}</option>)}
+          </select>
+        </div>
+        <div className="flex-1 space-y-1.5">
+          <Label htmlFor="id-value">Number <span className="font-normal text-muted-foreground">(optional)</span></Label>
+          <Input id="id-value" name="value" placeholder="Document number" data-testid="add-id-value" />
+        </div>
       </div>
-      <div className="flex-1 space-y-1.5">
-        <Label htmlFor="id-value">Number</Label>
-        <Input id="id-value" name="value" placeholder="Document number" data-testid="add-id-value" />
+      {/* Document photos → encrypted storage (04 FR-7). A number is optional; an ID
+          can be captured as images alone. Aadhaar scans are gated by compliance. */}
+      <div className="grid gap-2 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="id-scan">Document photo — front</Label>
+          <Input id="id-scan" name="scan" type="file" accept="image/*,application/pdf" capture="environment" data-testid="add-id-scan" />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="id-back">Document photo — back <span className="font-normal text-muted-foreground">(optional)</span></Label>
+          <Input id="id-back" name="backScan" type="file" accept="image/*,application/pdf" capture="environment" />
+        </div>
       </div>
-      <Button type="submit" size="lg" disabled={pending} data-testid="add-id-submit">
-        {pending ? "Adding…" : "Add"}
-      </Button>
-      {state.status === "error" && (
-        <p role="alert" className="text-sm text-destructive sm:sr-only">{state.message}</p>
-      )}
+      <div className="flex items-center gap-3">
+        <Button type="submit" size="lg" disabled={pending} data-testid="add-id-submit">
+          {pending ? "Adding…" : "Add document"}
+        </Button>
+        {state.status === "error" && (
+          <p role="alert" className="text-sm text-destructive">{state.message}</p>
+        )}
+      </div>
     </form>
   );
 }
