@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, BedDouble, Building2, IndianRupee, LineChart, Percent, User, Wallet } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
-import { parsePeriod, periodRange, PERIODS, PERIOD_LABEL } from "@/features/command-center/domain/period";
+import { parsePeriod, periodRange, PERIOD_PRESETS, PERIOD_LABEL } from "@/features/command-center/domain/period";
 import { liveTiles, trend } from "@/features/analytics/queries";
 import { revenueSegments } from "@/features/reports/queries";
 import { getPortfolio } from "@/features/command-center/queries";
@@ -54,7 +54,7 @@ export default async function PropertyViewPage({
   const p = portfolio.properties.find((x) => x.id === propertyId);
   if (!p) notFound();
 
-  const qs = (period: string) => (period === "30d" ? `/overview/${propertyId}` : `/overview/${propertyId}?period=${period}`);
+  const qs = (period: string) => `/overview/${propertyId}?period=${period}`;
 
   return (
     <div className="mx-auto w-full max-w-6xl">
@@ -80,7 +80,7 @@ export default async function PropertyViewPage({
         }
         actions={
           <div className="inline-flex items-center rounded-lg border bg-card p-0.5 text-sm" role="group" aria-label="Date range">
-            {PERIODS.map((per) => (
+            {PERIOD_PRESETS.map((per) => (
               <Link
                 key={per}
                 href={qs(per)}

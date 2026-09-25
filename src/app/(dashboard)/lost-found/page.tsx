@@ -29,8 +29,12 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default async function LostFoundPage() {
-  await requirePermission("housekeeping:update");
-  const items = await listLostAndFound();
+  const user = await requirePermission("housekeeping:update");
+  // Lost & Found is per property (an item is stored at one hotel). In "All hotels"
+  // mode there's no store to log against, so guide the user to pick one rather than
+  // show an empty list + a form that errors on submit.
+  const activeProperty = user.activePropertyId;
+  const items = activeProperty ? await listLostAndFound() : [];
 
   const stored = items.filter((i) => i.status === "STORED").length;
   const claimed = items.filter((i) => i.status === "CLAIMED").length;
@@ -89,7 +93,13 @@ export default async function LostFoundPage() {
             <CardTitle className="text-base">Log a found item</CardTitle>
           </CardHeader>
           <CardContent>
-            <LostFoundForm />
+            {activeProperty ? (
+              <LostFoundForm />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Pick a property from the selector at the top to log and view its lost &amp; found items.
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>

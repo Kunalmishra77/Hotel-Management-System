@@ -27,8 +27,8 @@ export function PropertyGallery({ images, alt }: { images: string[]; alt: string
 
   if (!has) {
     return (
-      <div className="grid h-64 place-items-center rounded-2xl border border-dashed bg-muted/30 text-muted-foreground sm:h-80">
-        <span className="inline-flex items-center gap-2 text-sm"><Images className="size-5" aria-hidden="true" /> Photos coming soon</span>
+      <div className="grid h-64 place-items-center rounded-2xl border bg-muted/30 text-muted-foreground sm:h-80">
+        <span className="inline-flex items-center gap-2 text-center text-sm font-medium"><Images className="size-5" aria-hidden="true" /> {alt}</span>
       </div>
     );
   }

@@ -105,6 +105,7 @@ export function PayoutList({
                   <TableRow>
                     <TableHead>Period</TableHead>
                     <TableHead className="text-right">Revenue</TableHead>
+                    <TableHead className="text-right">Expenses</TableHead>
                     <TableHead className="text-right">Fee</TableHead>
                     <TableHead className="text-right">Net</TableHead>
                     <TableHead>Status</TableHead>
@@ -116,7 +117,8 @@ export function PayoutList({
                     <TableRow key={p.id}>
                       <TableCell className="font-medium">{p.period}</TableCell>
                       <TableCell className="text-right tabular">{formatINR(p.grossRevenuePaise)}</TableCell>
-                      <TableCell className="text-right tabular">{formatINR(p.managementFeePaise)}</TableCell>
+                      <TableCell className="text-right tabular">− {formatINR(p.expensePaise)}</TableCell>
+                      <TableCell className="text-right tabular">− {formatINR(p.managementFeePaise)}</TableCell>
                       <TableCell className={`text-right tabular font-medium ${p.netPayablePaise < 0 ? "text-destructive" : ""}`}>
                         {formatINR(p.netPayablePaise)}
                       </TableCell>
