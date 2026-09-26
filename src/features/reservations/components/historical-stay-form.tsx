@@ -478,7 +478,12 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
               OTA booking — enter the agreed {f.source === "MAKEMYTRIP" ? "MakeMyTrip" : f.source === "BOOKING_COM" ? "Booking.com" : "channel"} rate here, not the default room rate.
             </p>
           )}
-          <p className="text-xs text-muted-foreground sm:col-span-2">Enter the nightly rate for <span className="font-medium">this</span> guest (rates can differ per customer). A folio + GST bill is created from the room rate + extras. Leave the rate blank for history only.</p>
+          <p className="text-xs text-muted-foreground sm:col-span-2">Enter the nightly rate for <span className="font-medium">this</span> guest (rates can differ per customer). A folio + GST bill is created from the room rate + extras.</p>
+          {(!f.rate || Number(f.rate) <= 0) && (
+            <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-700 dark:text-amber-400 sm:col-span-2" data-testid="hist-no-rate-warning">
+              ⚠ No rate entered → this stay saves as <span className="font-semibold">history only</span> — no bill/folio is created, and you won&apos;t be able to add food or other charges to it. Enter the rate to create a bill. (You can still add a bill later from the booking&apos;s Folio page.)
+            </p>
+          )}
         </CardContent>
       </Card>
 

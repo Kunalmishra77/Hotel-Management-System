@@ -7,6 +7,8 @@ import { getReservation } from "@/features/reservations/queries";
 import { getFolio } from "@/features/billing/queries";
 import { listActiveAddOns } from "@/features/add-ons/queries";
 import { FolioScreen } from "@/features/billing/components/folio-screen";
+import { CreateBillButton } from "@/features/billing/components/create-bill-button";
+import { hasPermission } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = { title: "Folio" };
@@ -23,7 +25,11 @@ export default async function FolioPage({ params }: { params: Promise<{ id: stri
     return (
       <div className="mx-auto w-full max-w-2xl space-y-4 p-4">
         <h1 className="text-xl font-semibold">Folio</h1>
-        <p className="text-sm text-muted-foreground">No folio yet — it is created when the booking is confirmed or checked in.</p>
+        <p className="text-sm text-muted-foreground">
+          No bill yet for this stay. If it was saved as history only (no rate) but you need to add charges
+          the guest already paid for — e.g. food — create the bill, then add the charges.
+        </p>
+        {hasPermission(user, "folio:charge") ? <CreateBillButton reservationId={id} /> : null}
         <Button asChild variant="outline"><Link href={`/bookings/${id}`}>Back to booking</Link></Button>
       </div>
     );
