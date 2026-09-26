@@ -68,7 +68,9 @@ export default async function OverviewPage({
   searchParams: Promise<{ period?: string; from?: string; to?: string }>;
 }) {
   const user = await requirePermission("report:view-financial");
-  const propertyIds = user.accessiblePropertyIds;
+  // Filter by the top-bar selector: a focused property scopes the whole dashboard to
+  // it; "All hotels" shows the consolidated 4-property view.
+  const propertyIds = user.activePropertyId ? [user.activePropertyId] : user.accessiblePropertyIds;
 
   const today = new Date();
   const sp = await searchParams;
