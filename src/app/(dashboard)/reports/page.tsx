@@ -6,6 +6,7 @@ import { profitReport, revenueSegments } from "@/features/reports/queries";
 import { listAccessibleProperties } from "@/features/platform/actions";
 import { ProfitReportView } from "@/features/reports/components/profit-report-view";
 import { ReportsFilterBar } from "@/features/reports/components/reports-filter-bar";
+import { ExportReportButton } from "@/features/reports/components/export-report-button";
 
 export const metadata: Metadata = { title: "Reports" };
 
@@ -35,8 +36,12 @@ export default async function ReportsPage({
   const currentMonth = now.toISOString().slice(0, 7);
   const month = sp.month && MONTH_RE.test(sp.month) ? sp.month : currentMonth;
 
+  // Explicit ?properties= wins; otherwise follow the top-bar property selector
+  // (activePropertyId) so Reports scopes with the rest of the app, falling back to
+  // all accessible properties in "All hotels" mode.
   const requested = (sp.properties?.split(",").filter(Boolean) ?? []).filter((id) => accessibleIds.includes(id));
-  const propertyIds = requested.length > 0 ? requested : accessibleIds;
+  const defaultIds = user.activePropertyId && accessibleIds.includes(user.activePropertyId) ? [user.activePropertyId] : accessibleIds;
+  const propertyIds = requested.length > 0 ? requested : defaultIds;
 
   const from = new Date(`${month}-01T00:00:00.000Z`);
   const to =
@@ -47,9 +52,17 @@ export default async function ReportsPage({
     revenueSegments(user, { propertyIds, from, to }),
   ]);
 
+  const scopeLabel =
+    propertyIds.length === 1
+      ? (properties.find((p) => p.id === propertyIds[0])?.name ?? "1 property")
+      : `All properties (${propertyIds.length})`;
+
   return (
     <div className="mx-auto w-full max-w-5xl space-y-4 p-4">
-      <ReportsFilterBar properties={properties} selected={propertyIds} month={month} />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <ReportsFilterBar properties={properties} selected={propertyIds} month={month} />
+        <ExportReportButton month={month} scopeLabel={scopeLabel} report={report} segments={segments} />
+      </div>
       <ProfitReportView month={month} report={report} segments={segments} propertyCount={propertyIds.length} />
     </div>
   );
