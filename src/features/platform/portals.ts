@@ -65,26 +65,27 @@ const ROLE_PORTAL_PRIORITY: readonly { role: RoleName; portal: PortalId }[] = [
 
 /** Portal → ordered nav keys (blueprint order; existing routes only). */
 const PORTAL_NAV: Record<PortalId, readonly string[]> = {
-  // THE single, comprehensive workspace (client req #17–20): one manager runs the
-  // whole business from here, A-to-Z. Every module the app has appears in one nav,
-  // grouped by workflow and intersected with the caller's permissions. Nothing is
-  // split into a separate staff portal.
+  // THE single, comprehensive workspace (client req #17–20 + Phase-3 simplification):
+  // one manager runs the whole business from here. Trimmed to the modules this client
+  // actually uses (Phase-3 decisions, 26 Sep 2026) — removed: POS, kitchen, inventory,
+  // laundry, accounting-sync, corporate, field-staff, portfolio-insights, guest-
+  // requests, guest-messages, add-ons, approvals, room-inspection, assets; hidden:
+  // channels, booking-site (until OTA/booking-engine go live). Merges (gst-claims →
+  // Billing tab, staff+payroll → People, data-entry+import → Import/Export, messages →
+  // Communications) land in their own module steps. Intersected with held permissions.
   SUPER_ADMIN: [
-    // Command & insight
-    "overview", "insights",
+    // Command
+    "overview",
     // Front desk & guests
-    "bookings", "in-house", "rooms", "guests", "requests", "messages", "add-ons", "form-c", "feedback",
+    "bookings", "in-house", "rooms", "guests", "form-c", "feedback",
     // Money
-    "billing", "gst-claims", "expenses", "payroll", "accounting", "corporate", "reports", "approvals", "pricing",
+    "billing", "gst-claims", "expenses", "reports", "pricing",
     // Rooms readiness & upkeep
-    "housekeeping", "inspection", "lost-found", "maintenance", "assets",
-    // F&B and stores
-    "pos", "kitchen", "inventory", "laundry",
+    "housekeeping", "maintenance", "lost-found",
     // People
-    "staff", "field-staff",
-    // Property, distribution & configuration
-    "properties", "channels", "booking-site", "communications", "ai",
-    "data-import", "data-entry", "users", "settings",
+    "staff", "payroll",
+    // Property & configuration
+    "properties", "communications", "ai", "data-import", "data-entry", "users", "settings",
   ],
   // Read-mostly property-owner portal (merges into Super Admin in a later phase).
   OWNER: ["owner", "owner-documents", "owner-schedule", "owner-payouts"],

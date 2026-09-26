@@ -60,17 +60,20 @@ describe("portalNavItems — role isolation", () => {
     expect(k).not.toContain("settings");
   });
 
-  it("the single portal has EVERYTHING A-to-Z (client req #17-20)", () => {
+  it("the single portal has the Phase-3 trimmed module set (client req #17-20 + simplification)", () => {
     const k = keysFor(["ADMINISTRATOR"]);
-    // One portal, all modules — front desk, money, ops, F&B/stores, people, config.
+    // The lean set the client actually uses.
     expect(k).toEqual(expect.arrayContaining([
-      "overview", "insights", "bookings", "in-house", "rooms", "guests", "requests", "form-c",
-      "billing", "gst-claims", "expenses", "payroll", "accounting", "reports",
-      "housekeeping", "inspection", "lost-found", "maintenance", "assets",
-      "pos", "kitchen", "inventory", "laundry",
-      "staff", "properties", "channels", "booking-site", "communications", "ai",
-      "data-import", "data-entry", "users", "settings",
+      "overview", "bookings", "in-house", "rooms", "guests", "form-c", "feedback",
+      "billing", "gst-claims", "expenses", "reports", "pricing",
+      "housekeeping", "maintenance", "lost-found",
+      "staff", "payroll",
+      "properties", "communications", "ai", "data-import", "data-entry", "users", "settings",
     ]));
+    // Removed / hidden in Phase 3 — must NOT appear.
+    for (const gone of ["insights", "requests", "messages", "add-ons", "accounting", "corporate", "approvals", "inspection", "assets", "pos", "kitchen", "inventory", "laundry", "field-staff", "channels", "booking-site"]) {
+      expect(k).not.toContain(gone);
+    }
   });
 
   it("a Manager account also gets the one comprehensive portal", () => {
@@ -93,10 +96,10 @@ describe("portalNavItems — role isolation", () => {
     expect(keysFor(["POS_MANAGER"])).not.toContain("inventory");
   });
 
-  it("preserves blueprint order (super admin: overview before channels before users)", () => {
+  it("preserves nav order (super admin: overview before billing before users)", () => {
     const k = keysFor(["ADMINISTRATOR"]);
-    expect(k.indexOf("overview")).toBeLessThan(k.indexOf("channels"));
-    expect(k.indexOf("channels")).toBeLessThan(k.indexOf("users"));
+    expect(k.indexOf("overview")).toBeLessThan(k.indexOf("billing"));
+    expect(k.indexOf("billing")).toBeLessThan(k.indexOf("users"));
   });
 
   it("an unmapped role falls back to the permission-filtered flat nav (never empty)", () => {
@@ -108,33 +111,28 @@ describe("portalNavItems — role isolation", () => {
   });
 });
 
-describe("portalNavItems — SaaS plan gating", () => {
+describe("portalNavItems — Phase-3 hidden modules + SaaS plan gating", () => {
   const adminKeys = (mods?: string[]) => portalNavItems(roles(["ADMINISTRATOR"]), ALL_PERMS, mods).map((i) => i.key);
 
-  it("undefined modules = no gating (add-on modules visible)", () => {
-    const k = adminKeys(undefined);
-    expect(k).toContain("channels");
-    expect(k).toContain("booking-site");
+  it("channels + booking-site are hidden from the admin nav regardless of plan (Phase-3)", () => {
+    // Removed from the SUPER_ADMIN nav until OTA / booking-engine go live.
+    for (const mods of [undefined, [], ["channel-manager", "booking-engine"]] as (string[] | undefined)[]) {
+      const k = adminKeys(mods);
+      expect(k).not.toContain("channels");
+      expect(k).not.toContain("booking-site");
+    }
   });
 
-  it("a Core plan (no add-ons) hides channel/booking-engine/owner/ai modules", () => {
+  it("ai is plan-gated: hidden on Core, shown when the ai module is enabled", () => {
+    expect(adminKeys([])).not.toContain("ai");
+    expect(adminKeys(["ai"])).toContain("ai");
+    expect(adminKeys(undefined)).toContain("ai"); // undefined = no gating
+  });
+
+  it("core modules are always present", () => {
     const k = adminKeys([]);
-    expect(k).not.toContain("channels");
-    expect(k).not.toContain("booking-site");
-    // core modules still present
     expect(k).toContain("overview");
     expect(k).toContain("users");
-  });
-
-  it("an Enterprise plan (all add-ons) shows the gated modules", () => {
-    const k = adminKeys(["channel-manager", "booking-engine", "owner-portal", "ai"]);
-    expect(k).toContain("channels");
-    expect(k).toContain("booking-site");
-  });
-
-  it("gates only the module it requires — booking-engine shows booking-site but not channels", () => {
-    const k = adminKeys(["booking-engine"]);
-    expect(k).toContain("booking-site");
-    expect(k).not.toContain("channels");
+    expect(k).toContain("billing");
   });
 });
