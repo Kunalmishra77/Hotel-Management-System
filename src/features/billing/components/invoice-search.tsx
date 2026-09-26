@@ -18,7 +18,8 @@ import type { InvoiceListItem } from "../queries";
 type PropertyOpt = { id: string; name: string };
 const fmtDate = (d: Date) => new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 
-export function InvoiceSearch({ properties, gstOnly = false }: { properties: PropertyOpt[]; gstOnly?: boolean }) {
+export function InvoiceSearch({ properties, gstOnly: initialGst = false }: { properties: PropertyOpt[]; gstOnly?: boolean }) {
+  const [gstOnly, setGstOnly] = useState(initialGst); // tab: false = all invoices, true = GST claims
   const [keyword, setKeyword] = useState("");
   const [propertyId, setPropertyId] = useState("");
   const [from, setFrom] = useState("");
@@ -54,7 +55,18 @@ export function InvoiceSearch({ properties, gstOnly = false }: { properties: Pro
 
   return (
     <Card className="mt-6">
-      <CardHeader className="pb-3"><CardTitle className="text-base">{gstOnly ? "GST claim invoices (guest GSTIN on file)" : "Find a bill / invoice"}</CardTitle></CardHeader>
+      <CardHeader className="pb-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="text-base">{gstOnly ? "GST claim invoices" : "Bills & invoices"}</CardTitle>
+          <div className="inline-flex rounded-lg border bg-card p-0.5 text-sm" role="group" aria-label="Invoice view">
+            <button type="button" onClick={() => setGstOnly(false)} data-testid="tab-all-invoices"
+              className={!gstOnly ? "rounded-md bg-primary px-3 py-1 font-medium text-primary-foreground" : "rounded-md px-3 py-1 text-muted-foreground hover:text-foreground"}>All invoices</button>
+            <button type="button" onClick={() => setGstOnly(true)} data-testid="tab-gst-claims"
+              className={gstOnly ? "rounded-md bg-primary px-3 py-1 font-medium text-primary-foreground" : "rounded-md px-3 py-1 text-muted-foreground hover:text-foreground"}>GST claims</button>
+          </div>
+        </div>
+        {gstOnly ? <p className="mt-1 text-xs text-muted-foreground">Invoices with a guest GSTIN on file — for input-tax-credit claims.</p> : null}
+      </CardHeader>
       <CardContent className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-1.5 lg:col-span-1">

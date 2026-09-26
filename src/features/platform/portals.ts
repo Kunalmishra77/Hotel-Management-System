@@ -78,8 +78,8 @@ const PORTAL_NAV: Record<PortalId, readonly string[]> = {
     "overview",
     // Front desk & guests
     "bookings", "in-house", "rooms", "guests", "form-c", "feedback",
-    // Money
-    "billing", "gst-claims", "expenses", "reports", "pricing",
+    // Money (GST claims is a tab inside Billing now)
+    "billing", "expenses", "reports", "pricing",
     // Rooms readiness & upkeep
     "housekeeping", "maintenance", "lost-found",
     // People

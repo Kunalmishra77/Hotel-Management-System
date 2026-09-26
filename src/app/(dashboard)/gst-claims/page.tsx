@@ -1,27 +1,10 @@
-import type { Metadata } from "next";
-import { requirePermission } from "@/lib/auth/guard";
-import { db } from "@/lib/db";
-import { PageHeader } from "@/components/ui/page-header";
-import { InvoiceSearch } from "@/features/billing/components/invoice-search";
-
-export const metadata: Metadata = { title: "GST Claims" };
+import { redirect } from "next/navigation";
 
 /**
- * GST Claim register (client req #13): invoices where the guest gave a GSTIN (they
- * need the bill for a company GST claim). Search by customer/number, filter by
- * property + date; open the PDF. `folio:view` gates the route.
+ * GST claims is now a tab inside Billing (Phase-3 merge, 26 Sep 2026). This route
+ * is kept only so old links/bookmarks land on the right place: the Billing page,
+ * anchored to its invoice register where the GST-claims tab lives.
  */
-export default async function GstClaimsPage() {
-  const user = await requirePermission("folio:view");
-  const ids = [...user.accessiblePropertyIds];
-  const properties = ids.length
-    ? await db.unscoped().property.findMany({ where: { id: { in: ids }, deletedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } })
-    : [];
-
-  return (
-    <div className="mx-auto w-full max-w-6xl">
-      <PageHeader title="GST Claims" description="Invoices where the guest provided a GSTIN for a company GST claim." />
-      <InvoiceSearch properties={properties} gstOnly />
-    </div>
-  );
+export default function GstClaimsPage() {
+  redirect("/billing?tab=gst#invoices");
 }

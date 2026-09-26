@@ -253,13 +253,6 @@ export const NAV_ITEMS: readonly NavItem[] = [
     permission: "folio:view",
   },
   {
-    key: "gst-claims",
-    label: "GST Claims",
-    href: "/gst-claims",
-    icon: "FileText",
-    permission: "folio:view",
-  },
-  {
     // Architecture v2 · Manager consolidation — Finance & Approvals in one hub.
     key: "finance",
     label: "Finance & approvals",

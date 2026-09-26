@@ -65,13 +65,13 @@ describe("portalNavItems — role isolation", () => {
     // The lean set the client actually uses.
     expect(k).toEqual(expect.arrayContaining([
       "overview", "bookings", "in-house", "rooms", "guests", "form-c", "feedback",
-      "billing", "gst-claims", "expenses", "reports", "pricing",
+      "billing", "expenses", "reports", "pricing",
       "housekeeping", "maintenance", "lost-found",
       "staff", "payroll",
       "properties", "communications", "ai", "data-import", "data-entry", "users", "settings",
     ]));
-    // Removed / hidden in Phase 3 — must NOT appear.
-    for (const gone of ["insights", "requests", "messages", "add-ons", "accounting", "corporate", "approvals", "inspection", "assets", "pos", "kitchen", "inventory", "laundry", "field-staff", "channels", "booking-site"]) {
+    // Removed / hidden / merged in Phase 3 — must NOT appear (gst-claims is a Billing tab now).
+    for (const gone of ["gst-claims", "insights", "requests", "messages", "add-ons", "accounting", "corporate", "approvals", "inspection", "assets", "pos", "kitchen", "inventory", "laundry", "field-staff", "channels", "booking-site"]) {
       expect(k).not.toContain(gone);
     }
   });
