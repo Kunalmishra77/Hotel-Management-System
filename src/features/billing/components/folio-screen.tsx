@@ -144,7 +144,7 @@ export function FolioScreen({
           )}
           <Button size="lg" variant="outline" onClick={() => setMode("discount")} data-testid="apply-discount">− Discount</Button>
           <Button size="lg" onClick={() => setMode("pay")} data-testid="take-payment" disabled={folio.balancePaise <= 0}>Take payment</Button>
-          <Button size="lg" variant="outline" disabled={pending} onClick={generate} data-testid="generate-invoice">Generate GST invoice</Button>
+          <Button size="lg" variant="outline" disabled={pending || folio.lines.length === 0} onClick={generate} data-testid="generate-invoice">Generate GST invoice</Button>
         </div>
       )}
     </div>

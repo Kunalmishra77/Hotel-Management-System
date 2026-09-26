@@ -27,12 +27,16 @@ export default async function PosPage({
   }
 
   const outletId = sp.outletId && outlets.some((o) => o.id === sp.outletId) ? sp.outletId : outlets[0]!.id;
-  const [menu, openOrders, activeOrder, inbox] = await Promise.all([
+  const [menu, openOrders, loadedOrder, inbox] = await Promise.all([
     listMenu(user, outletId),
     listOpenOrders(user, { propertyId, outletId }),
     sp.orderId ? getOrder(user, sp.orderId) : Promise.resolve(null),
     roomOrderInbox(user, propertyId),
   ]);
+  // Only an OPEN order is editable (add items / KOT / settle). A settled or void
+  // order reached via a stale ?orderId link must not re-open the editable UI — drop
+  // it so the screen shows the order list instead of letting it be re-settled.
+  const activeOrder = loadedOrder && loadedOrder.status === "OPEN" ? loadedOrder : null;
 
   return (
     <div className="space-y-4">

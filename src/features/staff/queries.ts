@@ -17,6 +17,8 @@ export type StaffListItem = {
   aadhaarMasked: string | null;
   panMasked: string | null;
   isActive: boolean;
+  /** true when attendance is already recorded for today (hides a duplicate mark). */
+  presentToday: boolean;
 };
 
 function monthBounds(month: string): { start: Date; end: Date } {
@@ -30,10 +32,20 @@ export async function listStaff(user: SessionClaims, propertyId: string): Promis
     select: { id: true, name: true, department: true, mobile: true, monthlySalaryPaise: true, aadhaarMasked: true, panMasked: true, isActive: true },
     orderBy: { name: "asc" },
   });
+  // Who's already marked present today → hide a duplicate "Mark present".
+  const today = new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`);
+  const todays = rows.length
+    ? await db.scoped(user).attendance.findMany({
+        where: { staffId: { in: rows.map((s) => s.id) }, day: today },
+        select: { staffId: true },
+      })
+    : [];
+  const present = new Set(todays.map((a) => a.staffId));
   return rows.map((s) => ({
     id: s.id, name: s.name, department: s.department,
     maskedMobile: maskMobile(s.mobile), // never the raw number in a list (FR-7)
     monthlySalaryPaise: s.monthlySalaryPaise, aadhaarMasked: s.aadhaarMasked, panMasked: s.panMasked, isActive: s.isActive,
+    presentToday: present.has(s.id),
   }));
 }
 
@@ -65,6 +77,7 @@ export async function searchStaff(
       id: s.id, name: s.name, department: s.department,
       maskedMobile: maskMobile(s.mobile),
       monthlySalaryPaise: s.monthlySalaryPaise, aadhaarMasked: s.aadhaarMasked, panMasked: s.panMasked, isActive: s.isActive,
+      presentToday: false, // search shard: attendance state shown on the main staff list
     })),
     nextCursor: hasMore ? (page[page.length - 1]?.id ?? null) : null,
   };

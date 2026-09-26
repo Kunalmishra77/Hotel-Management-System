@@ -95,11 +95,13 @@ export function StaffScreen({
                     <p className="text-xs text-muted-foreground">{s.maskedMobile} · {rupees(s.monthlySalaryPaise)} · {s.aadhaarMasked ?? "no ID"}</p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    {s.isActive && (
+                    {s.isActive && (s.presentToday ? (
+                      <span className="text-xs font-medium text-success" data-testid={`present-done-${s.id}`}>✓ Present today</span>
+                    ) : (
                       <Button size="sm" variant="outline" disabled={pending}
                         onClick={() => run(() => recordAttendance({ staffId: s.id, day: today(), checkInAt: new Date().toISOString() }), () => setNote(`Marked ${s.name} present (checked in now).`))}
                         data-testid={`present-${s.id}`}>Mark present</Button>
-                    )}
+                    ))}
                     {canUpdateSalary && s.isActive && (
                       <Button size="sm" variant="ghost" disabled={pending}
                         onClick={() => {

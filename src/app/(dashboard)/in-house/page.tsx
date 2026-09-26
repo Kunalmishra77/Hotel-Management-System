@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { BedDouble, UserCheck, LogOut, Building2 } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
 import { inHousePortfolio } from "@/features/reservations/queries";
@@ -7,7 +6,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatINR, formatDayMonth } from "@/lib/utils";
+import { InHouseTable } from "@/features/reservations/components/in-house-table";
+import { formatINR } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "In-house guests" };
@@ -57,36 +57,13 @@ export default async function InHousePage() {
               <p className="mt-1 text-sm text-muted-foreground">Checked-in guests across every property will appear here.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px] text-sm">
-                <thead>
-                  <tr className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
-                    <th className="py-2 pr-3 font-medium">Guest</th>
-                    <th className="py-2 px-3 font-medium">Property</th>
-                    <th className="py-2 px-3 font-medium">Room</th>
-                    <th className="py-2 px-3 font-medium">Guests</th>
-                    <th className="py-2 px-3 font-medium">Check-in</th>
-                    <th className="py-2 px-3 font-medium">Expected check-out</th>
-                    <th className="py-2 px-3 text-right font-medium">Payment</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r) => (
-                    <tr key={r.id} className="border-b last:border-0 hover:bg-muted/40">
-                      <td className="py-2.5 pr-3 font-medium"><Link href={`/bookings/${r.id}`} className="hover:underline">{r.guestName}</Link></td>
-                      <td className="py-2.5 px-3 text-muted-foreground">{r.propertyName}</td>
-                      <td className="py-2.5 px-3 font-mono text-xs">{r.rooms}</td>
-                      <td className="py-2.5 px-3 tabular text-muted-foreground">{r.adults}</td>
-                      <td className="py-2.5 px-3 whitespace-nowrap">{formatDayMonth(r.checkInDate)}</td>
-                      <td className="py-2.5 px-3 whitespace-nowrap">{formatDayMonth(r.checkOutDate)}{isToday(r.checkOutDate) ? <span className="ml-1 text-xs text-amber-600">(today)</span> : null}</td>
-                      <td className="py-2.5 px-3 text-right tabular">
-                        {r.balancePaise > 0 ? <span className="font-semibold text-amber-700 dark:text-amber-400">{formatINR(r.balancePaise)} due</span> : <span className="text-success">Settled</span>}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <InHouseTable
+              rows={rows.map((r) => ({
+                id: r.id, guestName: r.guestName, propertyName: r.propertyName, rooms: r.rooms,
+                adults: r.adults, checkInDate: r.checkInDate.toISOString(), checkOutDate: r.checkOutDate.toISOString(),
+                balancePaise: r.balancePaise,
+              }))}
+            />
           )}
         </CardContent>
       </Card>

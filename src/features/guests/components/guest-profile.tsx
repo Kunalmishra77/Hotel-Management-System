@@ -145,7 +145,8 @@ export function GuestProfile({
               ))}
             </ul>
           )}
-          <AddIdForm guestId={guest.id} />
+          {/* ID upload only while a stay is active — view-only after checkout. */}
+          {canManage && <AddIdForm guestId={guest.id} />}
         </CardContent>
       </Card>
 

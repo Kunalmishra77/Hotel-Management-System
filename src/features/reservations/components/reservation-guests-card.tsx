@@ -119,7 +119,7 @@ export function ReservationGuestsCard({
                         : ""}
                     </span>
                   </span>
-                  {canManage && (
+                  {editable && (
                     <Button
                       variant="ghost"
                       size="sm"
