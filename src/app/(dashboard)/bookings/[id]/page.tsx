@@ -190,9 +190,9 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                 </li>
               ))}
             </ul>
-            {canManageGuests ? (
+            {hasPermission(user, "guest:manage") ? (
               <Button asChild variant="outline" size="sm" className="mt-3">
-                <Link href={`/guests/${r.guestId}`}>Update guest details</Link>
+                <Link href={`/guests/${r.guestId}/edit`}>Update guest details</Link>
               </Button>
             ) : null}
           </CardContent>
