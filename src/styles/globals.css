@@ -166,6 +166,17 @@
     font-weight: 700;
     color: hsl(var(--muted-foreground));
   }
+
+  /* Hand cursor on every interactive control. Browsers default <button>/<select>
+     to the arrow cursor, which makes clickable things look inert — a hand pointer
+     signals they're clickable. Disabled controls keep the default arrow. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  label[for],
+  select:not(:disabled),
+  summary {
+    cursor: pointer;
+  }
 }
 
 @layer components {
