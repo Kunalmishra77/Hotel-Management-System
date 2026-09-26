@@ -114,3 +114,42 @@ export async function getGuestHistory(user: SessionClaims, guestId: string): Pro
     feedback: feedback.map((f) => ({ rating: f.rating, comment: f.comment, sentiment: f.sentiment, createdAt: f.createdAt })),
   };
 }
+
+export type GuestStay = {
+  id: string;
+  code: string;
+  propertyName: string;
+  status: string;
+  checkInDate: Date;
+  checkOutDate: Date;
+  nights: number;
+  roomNumbers: string[];
+};
+
+/**
+ * Every stay for a guest across all properties — the CRM "stay history" (04 FR-6 /
+ * client req #10): previous stays, the current stay, and the booking history, newest
+ * first. Property-owner scoped by orgId.
+ */
+export async function guestStays(user: SessionClaims, guestId: string): Promise<GuestStay[]> {
+  const rows = await db.unscoped().reservation.findMany({
+    where: { guestId, property: { orgId: user.orgId } },
+    select: {
+      id: true, code: true, status: true, checkInDate: true, checkOutDate: true, nights: true,
+      property: { select: { name: true } },
+      allocations: { select: { room: { select: { number: true } } } },
+    },
+    orderBy: { checkInDate: "desc" },
+    take: 50,
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    code: r.code,
+    propertyName: r.property?.name ?? "—",
+    status: r.status,
+    checkInDate: r.checkInDate,
+    checkOutDate: r.checkOutDate,
+    nights: r.nights,
+    roomNumbers: r.allocations.map((a) => a.room.number).filter(Boolean),
+  }));
+}

@@ -5,9 +5,10 @@ import { requirePermission } from "@/lib/auth/guard";
 import { db } from "@/lib/db";
 import { getGuestProfile } from "@/features/guests/queries";
 import { GuestProfile } from "@/features/guests/components/guest-profile";
-import { getGuestHistory } from "@/features/guest-history/queries";
+import { getGuestHistory, guestStays } from "@/features/guest-history/queries";
 import { guestTier } from "@/features/guest-history/domain/tier";
 import { GuestHistorySection } from "@/features/guest-history/components/guest-history-section";
+import { GuestStaysCard } from "@/features/guest-history/components/guest-stays-card";
 
 export const metadata: Metadata = { title: "Guest" };
 
@@ -32,7 +33,7 @@ export default async function GuestProfilePage({
   });
   const canManage = hasPermission(user, "guest:manage") && activeStay !== null;
 
-  const history = await getGuestHistory(user, id);
+  const [history, stays] = await Promise.all([getGuestHistory(user, id), guestStays(user, id)]);
   const preferredCategory = history.preferredCategoryId
     ? await db.scoped(user).roomCategory.findFirst({ where: { id: history.preferredCategoryId }, select: { name: true } })
     : null;
@@ -47,6 +48,9 @@ export default async function GuestProfilePage({
         canManage={canManage}
         tier={tier}
       />
+      <div className="mx-auto w-full max-w-2xl px-4">
+        <GuestStaysCard stays={stays} />
+      </div>
       <div className="mx-auto w-full max-w-2xl px-4 pb-4">
         <GuestHistorySection history={history} preferredCategoryName={preferredCategory?.name ?? null} />
       </div>
