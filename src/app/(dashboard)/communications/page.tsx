@@ -18,7 +18,9 @@ export default async function CommunicationsPage() {
     listTemplates(user),
     listAutomations(user),
     listCampaigns(user),
-    propertyId ? listMessageLog(user, { propertyId, limit: 50 }) : Promise.resolve([]),
+    // All-hotels (no active property) → log across every accessible property, so the
+    // page is never empty; a focused property narrows it.
+    listMessageLog(user, propertyId ? { propertyId, limit: 50 } : { limit: 50 }),
     // Segments target campaigns; only fetch for managers who can launch them.
     canManage ? listSegments(user) : Promise.resolve([]),
   ]);

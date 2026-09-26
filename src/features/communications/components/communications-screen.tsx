@@ -12,7 +12,7 @@ import { CampaignBuilder } from "./campaign-builder";
 type Template = { id: string; key: string; channel: string; language: string; providerTemplateId: string | null; isActive: boolean };
 type Automation = { id: string; category: string; triggerEvent: string | null; scheduleOffsetMinutes: number | null; templateKey: string; channel: string; isActive: boolean };
 type Campaign = { id: string; templateKey: string; channel: string; status: string; createdAt: Date };
-type LogRow = { id: string; channel: string; category: string | null; templateKey: string | null; toAddress: string; status: string; error: string | null; deadLetteredAt: Date | null; createdAt: Date };
+type LogRow = { id: string; channel: string; category: string | null; templateKey: string | null; toAddress: string; status: string; error: string | null; deadLetteredAt: Date | null; createdAt: Date; propertyName?: string };
 
 type Tab = "templates" | "automations" | "campaigns" | "log";
 
@@ -47,8 +47,11 @@ export function CommunicationsScreen(props: {
   const filteredLog = statusFilter ? props.log.filter((r) => r.status === statusFilter) : props.log;
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-4 p-4">
-      <h1 className="text-xl font-semibold">Communications</h1>
+    <div className="mx-auto w-full max-w-4xl space-y-4 p-4">
+      <div>
+        <h1 className="text-xl font-semibold">Communications</h1>
+        <p className="text-sm text-muted-foreground">Guest messaging — templates, event automations, campaigns and the delivery log{props.propertyId ? " for this property" : " across all properties"}.</p>
+      </div>
 
       <div className="flex gap-1 overflow-x-auto" role="tablist">
         {tabs.map((t) => (
@@ -116,6 +119,21 @@ export function CommunicationsScreen(props: {
 
       {tab === "log" && (
         <div className="space-y-3" data-testid="message-log">
+          {/* Delivery summary — a quick read of how the last messages landed. */}
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+            {([
+              ["Total", props.log.length, "text-foreground"],
+              ["Delivered", props.log.filter((r) => r.status === "DELIVERED" || r.status === "READ").length, "text-success"],
+              ["Sent", props.log.filter((r) => r.status === "SENT").length, "text-blue-600"],
+              ["Queued", props.log.filter((r) => r.status === "QUEUED").length, "text-amber-600"],
+              ["Failed", props.log.filter((r) => r.status === "FAILED").length, "text-destructive"],
+            ] as const).map(([label, value, tone]) => (
+              <div key={label} className="rounded-lg border bg-card p-2.5 text-center">
+                <div className={`text-lg font-semibold tabular ${tone}`}>{value}</div>
+                <div className="text-[11px] text-muted-foreground">{label}</div>
+              </div>
+            ))}
+          </div>
           <div className="flex gap-1 overflow-x-auto">
             {["", "QUEUED", "SENT", "DELIVERED", "FAILED"].map((s) => (
               <button
@@ -131,7 +149,7 @@ export function CommunicationsScreen(props: {
             {filteredLog.map((r) => (
               <li key={r.id} className="flex items-center justify-between gap-3 rounded-md border p-3">
                 <div className="min-w-0">
-                  <p className="truncate font-medium">{r.templateKey ?? "—"}</p>
+                  <p className="truncate font-medium">{r.templateKey ?? "—"}{!props.propertyId && r.propertyName ? <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-[11px] font-normal text-muted-foreground">{r.propertyName}</span> : null}</p>
                   <p className="truncate text-sm text-muted-foreground">{r.channel} · {r.toAddress}{r.error ? ` · ${r.error}` : ""}</p>
                 </div>
                 <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${STATUS_STYLES[r.status] ?? "bg-muted"}`}>{r.status}</span>

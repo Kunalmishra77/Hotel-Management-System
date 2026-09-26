@@ -39,22 +39,39 @@ export async function listCampaigns(user: SessionClaims, limit = 50) {
   });
 }
 
+/**
+ * Message history. One property when `propertyId` is set, else across `propertyIds`
+ * (Phase-3 ⑩ — the all-hotels log defaults to every accessible property so the page
+ * is never empty). Property-scoped either way; recipient addresses masked (FR-15).
+ * Each row carries its property name so the all-hotels view can label the hotel.
+ */
 export async function listMessageLog(
   user: SessionClaims,
-  input: { propertyId: string; status?: string; channel?: Channel; limit?: number },
+  input: { propertyId?: string; propertyIds?: string[]; status?: string; channel?: Channel; limit?: number },
 ) {
+  const ids = input.propertyId
+    ? [input.propertyId]
+    : (input.propertyIds ?? [...user.accessiblePropertyIds]).filter((id) => user.accessiblePropertyIds.includes(id));
+  if (ids.length === 0) return [];
   const rows = await db.scoped(user).messageLog.findMany({
     where: {
-      propertyId: input.propertyId,
+      propertyId: { in: ids },
       ...(input.status ? { status: input.status } : {}),
       ...(input.channel ? { channel: input.channel } : {}),
     },
     orderBy: { createdAt: "desc" },
     take: Math.min(input.limit ?? 50, 200),
-    select: { id: true, channel: true, category: true, templateKey: true, toAddress: true, status: true, providerRef: true, error: true, deadLetteredAt: true, createdAt: true },
+    select: { id: true, propertyId: true, channel: true, category: true, templateKey: true, toAddress: true, status: true, providerRef: true, error: true, deadLetteredAt: true, createdAt: true },
   });
+  const propIds = [...new Set(rows.map((r) => r.propertyId).filter((id): id is string => id !== null))];
+  const props = await db.unscoped().property.findMany({ where: { id: { in: propIds } }, select: { id: true, name: true } });
+  const nameById = new Map(props.map((p) => [p.id, p.name]));
   // Never surface the raw recipient address to the UI (FR-15).
-  return rows.map((r) => ({ ...r, toAddress: maskAddress(r.channel, r.toAddress) }));
+  return rows.map((r) => ({
+    ...r,
+    toAddress: maskAddress(r.channel, r.toAddress),
+    propertyName: r.propertyId ? (nameById.get(r.propertyId) ?? r.propertyId) : undefined,
+  }));
 }
 
 /** Campaign builder preview: how many recipients are marketing-eligible (FR-14). */
