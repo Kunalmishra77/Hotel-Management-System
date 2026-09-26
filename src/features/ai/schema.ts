@@ -15,6 +15,10 @@ export const chatSchema = z.object({
   message: z.string().trim().min(1).max(500),
 });
 
+export const askBusinessSchema = z.object({
+  question: z.string().trim().min(1).max(300),
+});
+
 /**
  * The shape the LLM must emit for NL-search — mirrors 15's `StructuredQuery`.
  * This is only the FIRST gate: the object is then passed to

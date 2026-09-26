@@ -3,8 +3,10 @@ import { requireUser } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AskPms } from "@/features/ai/components/ask-pms";
+import { BusinessQa } from "@/features/ai/components/business-qa";
 import { InsightCards } from "@/features/ai/components/insight-cards";
 import { revenueOutlook, listSegments, type Outlook } from "@/features/ai/queries";
+import { BUSINESS_QA_SUGGESTIONS } from "@/features/ai/business-qa";
 
 export const metadata: Metadata = { title: "Ask PMS" };
 
@@ -37,14 +39,18 @@ export default async function AiPage() {
   const segments = await listSegments(user);
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-4 p-4">
+    <div className="mx-auto w-full max-w-3xl space-y-4 p-4">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">Ask PMS</h1>
+        <h1 className="text-xl font-semibold tracking-tight">AI Assistant</h1>
         <p className="text-sm text-muted-foreground">
-          Search in plain language or ask the assistant. Results are scoped to you and masked.
+          Ask about your business in plain language, or search records. Everything is scoped to you and masked.
         </p>
       </div>
-      <AskPms />
+      <BusinessQa suggestions={BUSINESS_QA_SUGGESTIONS} />
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-base">Search &amp; assistant</CardTitle></CardHeader>
+        <CardContent><AskPms /></CardContent>
+      </Card>
       <InsightCards outlook={outlook} segments={segments} />
     </div>
   );

@@ -15,12 +15,14 @@ import { toResult, type Result } from "@/lib/result";
 import {
   askSchema,
   chatSchema,
+  askBusinessSchema,
   forecastSchema,
   suggestRatesSchema,
   classifyFeedbackSchema,
 } from "./schema";
 import { nlSearch, type NlSearchResult } from "./nl-search";
 import { chat, type ChatResult } from "./chat";
+import { answerBusinessQuestion, type BusinessAnswer } from "./business-qa";
 import { forecast, type ForecastOutput } from "./forecast";
 import { suggestRates } from "./pricing";
 import { updateSegments, type SegmentSummary } from "./segments";
@@ -44,6 +46,15 @@ export async function chatWithPms(input: unknown): Promise<Result<ChatResult>> {
     const { message } = chatSchema.parse(input);
     const user = await requireUser();
     return chat(user, { message });
+  });
+}
+
+/** Grounded business Q&A — deterministic, computed from live data (Phase-3 ⑬). */
+export async function askBusiness(input: unknown): Promise<Result<BusinessAnswer>> {
+  return toResult(async () => {
+    const { question } = askBusinessSchema.parse(input);
+    const user = await requireUser();
+    return answerBusinessQuestion(user, { question });
   });
 }
 
