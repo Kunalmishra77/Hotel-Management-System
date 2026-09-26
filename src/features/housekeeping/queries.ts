@@ -33,6 +33,47 @@ export async function housekeepingOverview(user: SessionClaims, propertyId: stri
   return { toClean: c("PENDING"), inProgress: c("IN_PROGRESS"), done: c("DONE"), complaints, maintenanceRaised };
 }
 
+export type HousekeepingPropertyRow = {
+  propertyId: string;
+  propertyName: string;
+  toClean: number;
+  inProgress: number;
+  complaints: number;
+};
+
+/**
+ * Cross-property housekeeping rollup for the all-hotels landing (Phase-3 ⑨) — rooms
+ * to clean, in-progress and open complaints per property across the caller's
+ * accessible set, so the overview shows where attention is needed before drilling
+ * in. Property-scoped grouped counts; no PII/financials (operational role).
+ */
+export async function housekeepingPortfolio(
+  user: SessionClaims,
+  propertyIds: string[],
+): Promise<HousekeepingPropertyRow[]> {
+  const ids = propertyIds.filter((id) => user.accessiblePropertyIds.includes(id));
+  if (ids.length === 0) return [];
+  const scoped = db.scoped(user);
+  const [statusGroups, complaintGroups, props] = await Promise.all([
+    scoped.housekeepingTask.groupBy({ by: ["propertyId", "status"], where: { propertyId: { in: ids } }, _count: { _all: true } }),
+    scoped.housekeepingTask.groupBy({ by: ["propertyId"], where: { propertyId: { in: ids }, complaintText: { not: null } }, _count: { _all: true } }),
+    db.unscoped().property.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }),
+  ]);
+  const nameById = new Map(props.map((p) => [p.id, p.name]));
+  const complaintById = new Map(complaintGroups.map((g) => [g.propertyId, g._count._all]));
+  const count = (pid: string, status: string) =>
+    statusGroups.find((g) => g.propertyId === pid && (g.status as string) === status)?._count._all ?? 0;
+  return ids
+    .map((id) => ({
+      propertyId: id,
+      propertyName: nameById.get(id) ?? id,
+      toClean: count(id, "PENDING"),
+      inProgress: count(id, "IN_PROGRESS"),
+      complaints: complaintById.get(id) ?? 0,
+    }))
+    .sort((a, b) => b.toClean + b.complaints - (a.toClean + a.complaints));
+}
+
 export type HousekeepingTaskItem = {
   id: string;
   roomId: string;

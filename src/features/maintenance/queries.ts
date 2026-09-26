@@ -76,6 +76,50 @@ export async function maintenanceOverview(user: SessionClaims, propertyId: strin
   };
 }
 
+export type MaintenancePropertyRow = {
+  propertyId: string;
+  propertyName: string;
+  open: number;
+  inProgress: number;
+  urgent: number;
+  roomsBlocked: number;
+};
+
+/**
+ * Cross-property maintenance rollup for the all-hotels landing (Phase-3 ⑨) — open /
+ * in-progress / urgent jobs and rooms currently blocked, per property across the
+ * caller's accessible set. Property-scoped grouped counts.
+ */
+export async function maintenancePortfolio(
+  user: SessionClaims,
+  propertyIds: string[],
+): Promise<MaintenancePropertyRow[]> {
+  const ids = propertyIds.filter((id) => user.accessiblePropertyIds.includes(id));
+  if (ids.length === 0) return [];
+  const scoped = db.scoped(user);
+  const [statusGroups, urgentGroups, blockedGroups, props] = await Promise.all([
+    scoped.maintenanceJob.groupBy({ by: ["propertyId", "status"], where: { propertyId: { in: ids } }, _count: { _all: true } }),
+    scoped.maintenanceJob.groupBy({ by: ["propertyId"], where: { propertyId: { in: ids }, status: { in: ["OPEN", "IN_PROGRESS"] }, priority: { in: ["URGENT", "HIGH"] } }, _count: { _all: true } }),
+    scoped.maintenanceJob.groupBy({ by: ["propertyId"], where: { propertyId: { in: ids }, status: { not: "CLOSED" }, roomBlockId: { not: null } }, _count: { _all: true } }),
+    db.unscoped().property.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }),
+  ]);
+  const nameById = new Map(props.map((p) => [p.id, p.name]));
+  const urgentById = new Map(urgentGroups.map((g) => [g.propertyId, g._count._all]));
+  const blockedById = new Map(blockedGroups.map((g) => [g.propertyId, g._count._all]));
+  const count = (pid: string, status: string) =>
+    statusGroups.find((g) => g.propertyId === pid && (g.status as string) === status)?._count._all ?? 0;
+  return ids
+    .map((id) => ({
+      propertyId: id,
+      propertyName: nameById.get(id) ?? id,
+      open: count(id, "OPEN"),
+      inProgress: count(id, "IN_PROGRESS"),
+      urgent: urgentById.get(id) ?? 0,
+      roomsBlocked: blockedById.get(id) ?? 0,
+    }))
+    .sort((a, b) => b.open + b.urgent - (a.open + a.urgent));
+}
+
 export type MaintenanceJobItem = {
   id: string;
   roomId: string | null;
