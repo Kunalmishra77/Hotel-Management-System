@@ -11,7 +11,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { postFolioCharge, applyDiscount, reverseFolioLine } from "../charge-actions";
+import { postFolioCharge, applyDiscount, reverseFolioLine, correctRoomRate } from "../charge-actions";
 import { recordPayment } from "../payment-actions";
 import { generateInvoice } from "../invoice-actions";
 import { addAddOnToReservation } from "@/features/add-ons/actions";
@@ -38,7 +38,8 @@ export function FolioScreen({
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [mode, setMode] = useState<"none" | "charge" | "pay" | "discount" | "addon">("none");
+  const [mode, setMode] = useState<"none" | "charge" | "pay" | "discount" | "addon" | "roomrate">("none");
+  const hasRoomCharge = folio.lines.some((l) => l.type === "ROOM");
   const [invoice, setInvoice] = useState<{ id: string; number: string } | null>(null);
   const [reverseTarget, setReverseTarget] = useState<{ id: string; description: string } | null>(null);
 
@@ -126,6 +127,7 @@ export function FolioScreen({
           onSubmit={(reason) => { const id = reverseTarget.id; setReverseTarget(null); run(() => reverseFolioLine({ lineId: id, reason })); }}
           onCancel={() => setReverseTarget(null)} />
       )}
+      {mode === "roomrate" && <RoomRateForm pending={pending} onSubmit={(rate) => run(() => correctRoomRate({ folioId: folio.id, newUnitPaise: toPaise(rate), reason: "room rate correction" }))} onCancel={() => setMode("none")} />}
       {mode === "charge" && <ChargeForm pending={pending} onSubmit={(type, desc, rupeeAmt) => run(() => postFolioCharge({ folioId: folio.id, type, description: desc, unitPaise: toPaise(rupeeAmt) }))} onCancel={() => setMode("none")} />}
       {mode === "discount" && <DiscountForm pending={pending} onSubmit={(reason, rupeeAmt) => run(() => applyDiscount({ folioId: folio.id, reason, amountPaise: toPaise(rupeeAmt) }))} onCancel={() => setMode("none")} />}
       {mode === "addon" && reservationId && <AddOnForm addOns={addOns} pending={pending} onSubmit={(addOnId, qty) => run(() => addAddOnToReservation({ reservationId, addOnId, quantity: qty }))} onCancel={() => setMode("none")} />}
@@ -134,6 +136,9 @@ export function FolioScreen({
       {mode === "none" && (
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           <Button size="lg" variant="outline" onClick={() => setMode("charge")} data-testid="add-charge">+ Charge</Button>
+          {hasRoomCharge && (
+            <Button size="lg" variant="outline" onClick={() => setMode("roomrate")} data-testid="fix-room-rate">Fix room rate</Button>
+          )}
           {reservationId && addOns.length > 0 && (
             <Button size="lg" variant="outline" onClick={() => setMode("addon")} data-testid="add-addon">+ Add-on</Button>
           )}
@@ -143,6 +148,22 @@ export function FolioScreen({
         </div>
       )}
     </div>
+  );
+}
+
+function RoomRateForm({ onSubmit, onCancel, pending }: { onSubmit: (ratePerNight: number) => void; onCancel: () => void; pending: boolean }) {
+  const [rate, setRate] = useState(0);
+  return (
+    <Card><CardContent className="space-y-3 p-4">
+      <p className="text-sm text-muted-foreground">
+        Wrong room rate picked (e.g. an OTA / Booking.com booking)? Enter the <span className="font-medium">correct rate per night</span> — the current room charges are cancelled and re-posted at this rate for the same number of nights. GST (5%) is applied automatically. Works even after checkout; re-generate the invoice afterwards.
+      </p>
+      <Input type="number" inputMode="numeric" placeholder="Correct rate per night ₹" value={rate} onChange={(e) => setRate(Number(e.target.value))} data-testid="roomrate-amount" />
+      <div className="flex gap-2">
+        <Button size="lg" disabled={pending || rate <= 0} onClick={() => onSubmit(rate)} data-testid="roomrate-submit">Apply correct rate</Button>
+        <Button size="lg" variant="outline" onClick={onCancel}>Cancel</Button>
+      </div>
+    </CardContent></Card>
   );
 }
 

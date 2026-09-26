@@ -45,6 +45,16 @@ export const reverseLineSchema = z.object({
   reason: z.string().min(1).max(300),
 });
 
+/** One-step room-rate correction: reverse the wrong room-night charges and re-post
+ *  at the correct per-night rate (client req — OTA bookings that auto-picked the
+ *  wrong rate). Keeps append-only integrity (reversals + a fresh charge). */
+export const correctRoomRateSchema = z.object({
+  folioId: z.string().min(1),
+  newUnitPaise: z.coerce.number().int().min(0).max(100_000_000),
+  reason: z.string().max(300).optional(),
+});
+export type CorrectRoomRateInput = z.infer<typeof correctRoomRateSchema>;
+
 export const recordPaymentSchema = z.object({
   folioId: z.string().min(1),
   tenders: z.array(z.object({ mode: paymentMode, amountPaise: positivePaise, reference: z.string().max(100).optional() })).min(1),

@@ -21,7 +21,7 @@ import { billingDb, loadFolioContext, withBillingContext } from "./internal";
 function dayNumber(d: Date): number {
   return Math.round(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) / 86_400_000);
 }
-import { postChargeSchema, applyDiscountSchema, reverseLineSchema } from "./schema";
+import { postChargeSchema, applyDiscountSchema, reverseLineSchema, correctRoomRateSchema } from "./schema";
 
 export type ChargeResult = { lineId: string; amountPaise: number; cgstPaise: number; sgstPaise: number; igstPaise: number };
 
@@ -125,6 +125,76 @@ export async function applyDiscount(input: unknown): Promise<Result<{ lineId: st
           reason: data.reason, after: { amountPaise: draft.amountPaise, mode: data.mode, override: overThreshold },
         });
         return { lineId: line.id };
+      }),
+    );
+  });
+}
+
+/**
+ * Correct the room rate in one step (client req): a booking that auto-picked the
+ * wrong nightly rate (e.g. an OTA/Booking.com stay) is fixed by REVERSING every
+ * still-active ROOM charge and re-posting the stay's nights at the correct rate.
+ * Append-only throughout (reversals + one fresh ROOM line), works after checkout.
+ * The corrected line posts on the current business date so it never collides with
+ * the original nights' room-night uniqueness.
+ */
+export async function correctRoomRate(input: unknown): Promise<Result<{ reversed: number; nights: number; lineId: string }>> {
+  return toResult(async () => {
+    const data = correctRoomRateSchema.parse(input);
+    const user = await requireUser();
+    const client = billingDb(user);
+    const ctx = await loadFolioContext(client, data.folioId);
+    if (!ctx) throw new NotFoundError("Folio not found.");
+    authorize(user, "folio:charge", ctx.propertyId);
+
+    const lines = await client.folioLine.findMany({
+      where: { folioId: data.folioId },
+      select: { id: true, type: true, description: true, quantity: true, unitPaise: true, amountPaise: true, taxRateBps: true, cgstPaise: true, sgstPaise: true, igstPaise: true, hsnSac: true, placeOfSupplyState: true, reversalOfId: true },
+    });
+    // A ROOM line is "active" if nothing has already reversed it.
+    const reversedIds = new Set(lines.filter((l) => l.reversalOfId).map((l) => l.reversalOfId));
+    const activeRoom = lines.filter((l) => l.type === "ROOM" && !reversedIds.has(l.id));
+    if (activeRoom.length === 0) {
+      throw new DomainError(ErrorCode.VALIDATION_FAILED, "No room charges to correct on this folio.");
+    }
+    const nights = activeRoom.reduce((n, l) => n + l.quantity, 0);
+    const baseDesc = (activeRoom[0]?.description ?? "Room").split(" · ")[0] || "Room";
+
+    const businessDate = ctx.currentBusinessDate ?? new Date();
+    const amountPaise = data.newUnitPaise * nights;
+    const pos = placeOfSupply("ROOM", ctx.propertyState, ctx.billToState);
+    const rateBps = gstBpsForCharge("ROOM", data.newUnitPaise);
+    const gst = computeGst(amountPaise, rateBps, ctx.propertyState, pos);
+
+    return withBillingContext(user, () =>
+      client.$transaction(async (tx) => {
+        for (const l of activeRoom) {
+          await tx.folioLine.create({
+            data: {
+              folioId: data.folioId, type: "REVERSAL",
+              description: `Reversal: ${l.description} (rate correction)`,
+              quantity: 1, unitPaise: -l.unitPaise, amountPaise: -l.amountPaise,
+              taxRateBps: l.taxRateBps, cgstPaise: -l.cgstPaise, sgstPaise: -l.sgstPaise, igstPaise: -l.igstPaise,
+              hsnSac: l.hsnSac, placeOfSupplyState: l.placeOfSupplyState,
+              businessDate: new Date(), reversalOfId: l.id, postedById: user.userId,
+            },
+            select: { id: true },
+          });
+        }
+        const line = await tx.folioLine.create({
+          data: {
+            folioId: data.folioId, type: "ROOM",
+            description: `${baseDesc} · corrected rate × ${nights} night(s)`,
+            quantity: nights, unitPaise: data.newUnitPaise, amountPaise: BigInt(amountPaise),
+            taxRateBps: rateBps, cgstPaise: gst.cgstPaise, sgstPaise: gst.sgstPaise, igstPaise: gst.igstPaise,
+            hsnSac: hsnSacForCharge("ROOM"), placeOfSupplyState: pos,
+            businessDate, postedById: user.userId,
+          },
+          select: { id: true },
+        });
+        await emitEvent(tx, { type: "FolioCharged", aggregateId: data.folioId, propertyId: ctx.propertyId, payload: { lineId: line.id, type: "ROOM", amountPaise, rateCorrected: true } });
+        await writeAudit(tx, { action: "folio:correct-rate", entityType: "FolioLine", entityId: line.id, propertyId: ctx.propertyId, reason: data.reason ?? "room rate correction", after: { newUnitPaise: data.newUnitPaise, nights, reversed: activeRoom.length } });
+        return { reversed: activeRoom.length, nights, lineId: line.id };
       }),
     );
   });
