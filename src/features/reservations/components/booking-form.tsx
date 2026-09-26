@@ -82,6 +82,7 @@ export function BookingForm({
   const isSelected = (id: string) => selectedRooms.some((x) => x.id === id);
 
   const [source, setSource] = useState("WALK_IN");
+  const isOta = ["BOOKING_COM", "MAKEMYTRIP", "AGODA", "GOIBIBO", "AIRBNB", "TRAVEL_AGENT"].includes(source);
   const [settlement, setSettlement] = useState("PAY_AT_HOTEL");
   const [guestQuery, setGuestQuery] = useState("");
   const [guests, setGuests] = useState<GuestPick[]>([]);
@@ -210,6 +211,12 @@ export function BookingForm({
               <option value="DIRECT">Direct</option>
               <option value="PHONE">Phone / enquiry</option>
               <option value="CORPORATE">Corporate</option>
+              <option value="BOOKING_COM">Booking.com</option>
+              <option value="MAKEMYTRIP">MakeMyTrip</option>
+              <option value="AGODA">Agoda</option>
+              <option value="GOIBIBO">Goibibo</option>
+              <option value="AIRBNB">Airbnb</option>
+              <option value="TRAVEL_AGENT">Travel agent</option>
             </select>
           </Labeled>
           <Button type="button" size="lg" block disabled={!checkInDate || !checkOutDate || searching} onClick={runSearch} data-testid="check-availability">
@@ -337,7 +344,14 @@ export function BookingForm({
               </div>
             </Labeled>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Labeled label="Rate/night (₹)"><Input type="number" inputMode="numeric" value={rate} onChange={(e) => { setRateTouched(true); setRate(Number(e.target.value)); }} data-testid="rate" /></Labeled>
+              <Labeled label="Rate/night (₹)">
+                <Input type="number" inputMode="numeric" value={rate} onChange={(e) => { setRateTouched(true); setRate(Number(e.target.value)); }} data-testid="rate" />
+                {isOta && (
+                  <p className="mt-1 text-xs font-medium text-amber-700 dark:text-amber-400" data-testid="ota-rate-hint">
+                    OTA booking — enter the agreed {source === "MAKEMYTRIP" ? "MakeMyTrip" : source === "BOOKING_COM" ? "Booking.com" : "channel"} rate here, not the default room rate.
+                  </p>
+                )}
+              </Labeled>
               <Labeled label="Discount (₹)"><Input type="number" inputMode="numeric" value={discount} onChange={(e) => setDiscount(Number(e.target.value))} /></Labeled>
               <Labeled label="Extra bed (₹)"><Input type="number" inputMode="numeric" value={extraBed} onChange={(e) => setExtraBed(Number(e.target.value))} /></Labeled>
               <Labeled label="Advance (₹)"><Input type="number" inputMode="numeric" value={advance} onChange={(e) => setAdvance(Number(e.target.value))} data-testid="advance" /></Labeled>

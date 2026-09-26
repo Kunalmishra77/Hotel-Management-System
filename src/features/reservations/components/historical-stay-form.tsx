@@ -473,6 +473,11 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
             <p className="text-xs text-muted-foreground">Applies to the room rate <span className="font-medium">and</span> every extra charge above.</p>
           </div>
           <Fld label="Room rate per night (₹)"><Input type="number" inputMode="numeric" min={0} value={f.rate} onChange={(e) => set("rate", e.target.value)} placeholder="Enter the nightly rate" data-testid="hist-rate" /></Fld>
+          {["MAKEMYTRIP", "BOOKING_COM", "AGODA", "GOIBIBO", "AIRBNB", "TRAVEL_AGENT"].includes(f.source) && (
+            <p className="text-xs font-medium text-amber-700 dark:text-amber-400 sm:col-span-2" data-testid="hist-ota-rate-hint">
+              OTA booking — enter the agreed {f.source === "MAKEMYTRIP" ? "MakeMyTrip" : f.source === "BOOKING_COM" ? "Booking.com" : "channel"} rate here, not the default room rate.
+            </p>
+          )}
           <p className="text-xs text-muted-foreground sm:col-span-2">Enter the nightly rate for <span className="font-medium">this</span> guest (rates can differ per customer). A folio + GST bill is created from the room rate + extras. Leave the rate blank for history only.</p>
         </CardContent>
       </Card>
