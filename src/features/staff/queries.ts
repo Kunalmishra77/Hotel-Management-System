@@ -126,6 +126,62 @@ export async function getStaffForPayroll(
   }));
 }
 
+export type StaffPropertyOverview = {
+  propertyId: string;
+  propertyName: string;
+  headcount: number;
+  monthlySalaryPaise: number;
+  presentToday: number;
+};
+
+/**
+ * Cross-property staff rollup for the merged People overview (Phase-3 ⑧). Active
+ * headcount, committed monthly salary, and who's marked present today, per property
+ * across the caller's accessible set. Property-scoped; PII-free (counts + totals).
+ */
+export async function staffOverview(
+  user: SessionClaims,
+  propertyIds: string[],
+): Promise<StaffPropertyOverview[]> {
+  const ids = propertyIds.filter((id) => user.accessiblePropertyIds.includes(id));
+  if (ids.length === 0) return [];
+  const staff = await db.scoped(user).staff.findMany({
+    where: { propertyId: { in: ids }, deletedAt: null, isActive: true },
+    select: { id: true, propertyId: true, monthlySalaryPaise: true },
+  });
+  const today = new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`);
+  const present = staff.length
+    ? await db.scoped(user).attendance.findMany({
+        where: { staffId: { in: staff.map((s) => s.id) }, day: today },
+        select: { staffId: true, staff: { select: { propertyId: true } } },
+      })
+    : [];
+  const props = await db.unscoped().property.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, name: true },
+  });
+  const nameById = new Map(props.map((p) => [p.id, p.name]));
+  const presentByProp = new Map<string, number>();
+  for (const a of present) presentByProp.set(a.staff.propertyId, (presentByProp.get(a.staff.propertyId) ?? 0) + 1);
+
+  const byProp = new Map<string, { headcount: number; monthlySalaryPaise: number }>();
+  for (const s of staff) {
+    const cur = byProp.get(s.propertyId) ?? { headcount: 0, monthlySalaryPaise: 0 };
+    cur.headcount += 1;
+    cur.monthlySalaryPaise += s.monthlySalaryPaise;
+    byProp.set(s.propertyId, cur);
+  }
+  return ids
+    .map((id) => ({
+      propertyId: id,
+      propertyName: nameById.get(id) ?? id,
+      headcount: byProp.get(id)?.headcount ?? 0,
+      monthlySalaryPaise: byProp.get(id)?.monthlySalaryPaise ?? 0,
+      presentToday: presentByProp.get(id) ?? 0,
+    }))
+    .sort((a, b) => b.monthlySalaryPaise - a.monthlySalaryPaise);
+}
+
 /** Per-staff monthly summary — headcount/cost context for 08/14 (FR-6, AC-9). */
 export async function attendanceSummary(
   user: SessionClaims,

@@ -33,7 +33,7 @@ export function PayrollScreen({ propertyId, runs }: { propertyId: string; runs: 
   };
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-4 p-4">
+    <div className="mx-auto w-full max-w-4xl space-y-4 p-4">
       <h1 className="text-xl font-semibold">Payroll</h1>
 
       <Card>

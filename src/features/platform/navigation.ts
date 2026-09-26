@@ -298,13 +298,6 @@ export const NAV_ITEMS: readonly NavItem[] = [
     permission: "inventory:manage",
   },
   {
-    key: "payroll",
-    label: "Payroll",
-    href: "/payroll",
-    icon: "Banknote",
-    permission: "payroll:run",
-  },
-  {
     key: "accounting",
     label: "Accounting sync",
     href: "/accounting",
@@ -375,10 +368,12 @@ export const NAV_ITEMS: readonly NavItem[] = [
     permission: "report:view-financial",
   },
   {
-    key: "staff",
-    label: "Staff",
-    href: "/staff",
-    icon: "IdCard",
+    // Phase-3 ⑧ — Staff + Payroll merged into one People module (/people). Payroll
+    // is a tab inside it (payroll:run-gated); this entry reaches the whole module.
+    key: "people",
+    label: "People",
+    href: "/people",
+    icon: "Users",
     // MoM: reception logs attendance/salary, so the screen is reachable with the
     // narrow attendance permission; full staff CRUD inside stays staff:manage-gated.
     permission: "attendance:record",

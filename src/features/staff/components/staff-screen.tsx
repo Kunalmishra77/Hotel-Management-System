@@ -52,7 +52,7 @@ export function StaffScreen({
   };
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-4 p-4">
+    <div className="mx-auto w-full max-w-4xl space-y-4 p-4">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">Staff</h1>
         {canManage ? (

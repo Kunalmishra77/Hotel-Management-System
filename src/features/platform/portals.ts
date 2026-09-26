@@ -82,8 +82,8 @@ const PORTAL_NAV: Record<PortalId, readonly string[]> = {
     "billing", "expenses", "reports", "pricing",
     // Rooms readiness & upkeep
     "housekeeping", "maintenance", "lost-found",
-    // People
-    "staff", "payroll",
+    // People (Staff + Payroll merged into one module)
+    "people",
     // Property & configuration
     "properties", "communications", "ai", "data-import", "data-entry", "users", "settings",
   ],

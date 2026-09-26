@@ -89,6 +89,41 @@ export async function listRuns(user: SessionClaims, propertyId: string): Promise
   return runs.map((r) => ({ ...r, netTotalPaise: Number(r.netTotalPaise) }));
 }
 
+export type LatestRunByProperty = {
+  propertyId: string;
+  month: string | null;
+  status: string | null;
+  netTotalPaise: number | null;
+};
+
+/**
+ * The most recent payroll run per property, for the merged People overview
+ * (Phase-3 ⑧) — so the all-hotels view shows each property's payroll state at a
+ * glance. Property-scoped (`payrollDb`); `null` fields mean no run exists yet.
+ */
+export async function latestRunByProperty(
+  user: SessionClaims,
+  propertyIds: string[],
+): Promise<LatestRunByProperty[]> {
+  const ids = propertyIds.filter((id) => user.accessiblePropertyIds.includes(id));
+  if (ids.length === 0) return [];
+  const runs = await payrollDb(user).payrollRun.findMany({
+    where: { propertyId: { in: ids } },
+    orderBy: [{ month: "desc" }, { sequence: "desc" }],
+    select: { propertyId: true, month: true, status: true, netTotalPaise: true },
+  });
+  const latest = new Map<string, { month: string; status: string; netTotalPaise: number }>();
+  for (const r of runs) {
+    if (!latest.has(r.propertyId)) latest.set(r.propertyId, { month: r.month, status: r.status, netTotalPaise: Number(r.netTotalPaise) });
+  }
+  return ids.map((id) => ({
+    propertyId: id,
+    month: latest.get(id)?.month ?? null,
+    status: latest.get(id)?.status ?? null,
+    netTotalPaise: latest.get(id)?.netTotalPaise ?? null,
+  }));
+}
+
 /** Fetch a line's payslip PDF bytes (authorized). Used by the download route (FR-16). */
 export async function getPayslipBytes(
   user: SessionClaims,
