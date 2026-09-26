@@ -22,6 +22,16 @@ export default async function GuestProfilePage({
   const guest = await getGuestProfile(user, id);
   if (!guest) notFound();
 
+  // A guest record is edited / has IDs uploaded only while a stay is ACTIVE
+  // (enquiry, confirmed, or in-house). Once every stay is checked out, the profile
+  // is view-only — after checkout you view IDs, you don't add/replace them. A repeat
+  // guest with an upcoming booking is editable again.
+  const activeStay = await db.scoped(user).reservation.findFirst({
+    where: { guestId: id, status: { in: ["ENQUIRY", "CONFIRMED", "IN_HOUSE"] } },
+    select: { id: true },
+  });
+  const canManage = hasPermission(user, "guest:manage") && activeStay !== null;
+
   const history = await getGuestHistory(user, id);
   const preferredCategory = history.preferredCategoryId
     ? await db.scoped(user).roomCategory.findFirst({ where: { id: history.preferredCategoryId }, select: { name: true } })
@@ -34,7 +44,7 @@ export default async function GuestProfilePage({
       <GuestProfile
         guest={guest}
         canRevealPii={hasPermission(user, "guest:view-pii")}
-        canManage={hasPermission(user, "guest:manage")}
+        canManage={canManage}
         tier={tier}
       />
       <div className="mx-auto w-full max-w-2xl px-4 pb-4">
