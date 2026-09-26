@@ -24,6 +24,7 @@ export function KpiCard({
   icon,
   hint,
   href,
+  tooltip,
   className,
   children,
 }: {
@@ -35,6 +36,8 @@ export function KpiCard({
   icon?: React.ReactNode;
   hint?: string;
   href?: string;
+  /** Plain-language definition shown on hover (e.g. what ADR/RevPAR mean). */
+  tooltip?: string;
   className?: string;
   children?: React.ReactNode;
 }) {
@@ -44,6 +47,7 @@ export function KpiCard({
 
   const body = (
     <Card
+      title={tooltip}
       className={cn(
         "p-4",
         clickable && "u-lift group h-full transition hover:border-primary/40",
@@ -51,7 +55,10 @@ export function KpiCard({
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+        <p className="flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          {label}
+          {tooltip ? <span aria-hidden="true" className="grid size-3.5 place-items-center rounded-full border border-current text-[9px] leading-none opacity-60" title={tooltip}>i</span> : null}
+        </p>
         {clickable ? (
           <ArrowRight className="size-4 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-primary" aria-hidden="true" />
         ) : icon ? (

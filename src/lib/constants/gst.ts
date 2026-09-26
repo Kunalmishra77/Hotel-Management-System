@@ -14,18 +14,21 @@
  */
 
 /**
- * Room-tariff GST bands (per-night tariff → rate).
- *
- * Woodpecker bills accommodation + all on-premise services at a FLAT 5% GST
- * (2.5% CGST + 2.5% SGST) per the client's tax setup and their invoice format —
- * not the post-2022 12/18% slabs. Config-driven: change the bps here to change it
- * everywhere (never hard-coded elsewhere).
+ * Room-tariff GST bands (per-night tariff → rate) — the CURRENT India regime,
+ * effective 22 Sep 2025 (56th GST Council):
+ *   - up to ₹7,500/night  → 5%  (no input-tax-credit)
+ *   - above ₹7,500/night  → 18% (with ITC)
+ * Config-driven so a future rate change is a one-line edit here, never hard-coded
+ * elsewhere. Woodpecker's serviced-apartment tariffs sit in the 5% band today; the
+ * 18% band only ever applies if a room is priced above ₹7,500/night.
  */
 export const ROOM_TARIFF_BANDS: readonly { uptoPaise: number; bps: number }[] = [
-  { uptoPaise: Number.POSITIVE_INFINITY, bps: 500 }, // flat 5% (2.5% + 2.5%)
+  { uptoPaise: 750_000, bps: 500 }, // ≤ ₹7,500/night → 5% (2.5% + 2.5%), no ITC
+  { uptoPaise: Number.POSITIVE_INFINITY, bps: 1800 }, // > ₹7,500/night → 18% (9% + 9%), with ITC
 ];
 
-/** GST rate for a room-night given its tariff (§11 — band-driven, not hard-coded). */
+/** GST rate for a room-night given its tariff (§11 — band-driven, not hard-coded).
+ *  Fallback 500 keeps a mis-config safe at the lower, no-ITC rate. */
 export function roomGstBps(tariffPaise: number): number {
   return ROOM_TARIFF_BANDS.find((b) => tariffPaise <= b.uptoPaise)?.bps ?? 500;
 }

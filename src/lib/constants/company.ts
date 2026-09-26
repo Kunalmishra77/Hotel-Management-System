@@ -43,6 +43,17 @@ export const BOOKING_SOURCE_LABEL: Record<string, string> = {
   TRAVEL_AGENT: "Travel Agent",
 };
 
+/** Expense head enum → the label shown in reports/dashboard. */
+export const EXPENSE_HEAD_LABEL: Record<string, string> = {
+  HOUSEKEEPING: "Housekeeping",
+  KITCHEN: "Kitchen / Pantry",
+  MAINTENANCE: "Maintenance",
+  UTILITIES: "Utilities",
+  STAFF: "Staff",
+  ADMINISTRATION: "Administration",
+  MISC: "Miscellaneous",
+};
+
 /** Payment-mode enum → the label shown on the invoice ("Payment method"). */
 export const PAYMENT_MODE_LABEL: Record<string, string> = {
   CASH: "Cash",

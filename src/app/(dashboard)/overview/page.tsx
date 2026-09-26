@@ -15,6 +15,8 @@ import {
 import { liveTiles, trend } from "@/features/analytics/queries";
 import { revenueSegments } from "@/features/reports/queries";
 import { getPortfolio, portfolioBookingCounts } from "@/features/command-center/queries";
+import { expensePortfolio } from "@/features/expenses/queries";
+import { EXPENSE_HEAD_LABEL, PAYMENT_MODE_LABEL } from "@/lib/constants/company";
 import { PeriodFilter } from "@/features/command-center/components/period-filter";
 import { PortfolioLeague } from "@/features/command-center/components/portfolio-league";
 import { netAfterCommission } from "@/features/command-center/domain/commission";
@@ -74,13 +76,14 @@ export default async function OverviewPage({
   const win = periodRange(period, today, { from: sp.from, to: sp.to });
   const prev = previousWindow(win);
 
-  const [tiles, portfolio, prevPortfolio, revTrend, segs, bookingCounts] = await Promise.all([
+  const [tiles, portfolio, prevPortfolio, revTrend, segs, bookingCounts, expenses] = await Promise.all([
     liveTiles(user, propertyIds),
     getPortfolio(user, win.from, win.to),
     getPortfolio(user, prev.from, prev.to),
     trend(user, { metric: "revenue", from: win.from, to: win.to, propertyIds }),
     revenueSegments(user, { propertyIds, from: win.from, to: win.to }),
     portfolioBookingCounts(user, { propertyIds, from: win.from, to: win.to }),
+    expensePortfolio(user, { propertyIds: [...propertyIds], from: win.from, to: win.to }),
   ]);
 
   const t = portfolio.totals;
@@ -113,7 +116,7 @@ export default async function OverviewPage({
   return (
     <div className="mx-auto w-full max-w-6xl">
       <PageHeader
-        title="Command centre"
+        title="Dashboard"
         description={isPortfolio ? `${t.count} properties · one dashboard · ${win.label}` : win.label}
         actions={
           <div className="flex flex-wrap items-center gap-2">
@@ -136,18 +139,19 @@ export default async function OverviewPage({
 
       {/* KPI band with period-over-period deltas */}
       <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
-        <KpiCard label="Revenue" value={formatINR(t.revenuePaise)} icon={<IndianRupee />} {...deltaProps(deltaPct(t.revenuePaise, p.revenuePaise))} />
-        <KpiCard label="Profit" value={formatINR(t.profitPaise)} icon={<TrendingUp />} {...deltaProps(deltaPct(t.profitPaise, p.profitPaise))} className={t.profitPaise < 0 ? "border-destructive/40" : undefined} />
-        <KpiCard label="GOPPAR" value={formatINR(gopparNow)} icon={<CircleDollarSign />} {...deltaProps(deltaPct(gopparNow, gopparPrev))} />
-        <KpiCard label="Occupancy" value={pct(t.occupancyBps)} icon={<Percent />} {...deltaProps(deltaPct(t.occupancyBps, p.occupancyBps))} />
-        <KpiCard label="ADR" value={formatINR(t.adrPaise)} icon={<BedDouble />} {...deltaProps(deltaPct(t.adrPaise, p.adrPaise))} />
-        <KpiCard label="RevPAR" value={formatINR(t.revparPaise)} icon={<LineChart />} {...deltaProps(deltaPct(t.revparPaise, p.revparPaise))} />
-        <KpiCard label="Live occupancy" value={pct(tiles.occupancyBps)} icon={<Gauge />} hint="right now" href="/rooms" />
-        <KpiCard label="Pending dues" value={formatINR(tiles.pendingPaise ?? 0)} icon={<Wallet />} hint="unsettled folios" href="/billing" className={(tiles.pendingPaise ?? 0) > 0 ? "border-warning/40" : undefined} />
-        <KpiCard label="Bookings" value={bookingCounts.bookings} icon={<CalendarCheck />} hint="realised in range" />
-        <KpiCard label="Cancellations" value={bookingCounts.cancelled} icon={<XCircle />} hint={`${bookingCounts.cancelRatePct}% cancel/no-show`} className={bookingCounts.cancelled > 0 ? "border-destructive/30" : undefined} />
-        <KpiCard label="No-shows" value={bookingCounts.noShow} icon={<UserX />} hint="did not arrive" />
-        <KpiCard label="Net revenue" value={formatINR(netRevenue)} icon={<CircleDollarSign />} hint="after OTA commission" />
+        <KpiCard label="Revenue" value={formatINR(t.revenuePaise)} icon={<IndianRupee />} href="/reports" tooltip="Room + service income for the period, net of discounts, excluding GST." {...deltaProps(deltaPct(t.revenuePaise, p.revenuePaise))} />
+        <KpiCard label="Profit" value={formatINR(t.profitPaise)} icon={<TrendingUp />} href="/reports" tooltip="Revenue minus expenses (incl. payroll) for the period." {...deltaProps(deltaPct(t.profitPaise, p.profitPaise))} className={t.profitPaise < 0 ? "border-destructive/40" : undefined} />
+        <KpiCard label="GOPPAR" value={formatINR(gopparNow)} icon={<CircleDollarSign />} href="/reports" tooltip="Gross Operating Profit Per Available Room = (revenue − operating expenses) ÷ available rooms. Profit per room you had." {...deltaProps(deltaPct(gopparNow, gopparPrev))} />
+        <KpiCard label="Occupancy" value={pct(t.occupancyBps)} icon={<Percent />} href="/reports" tooltip="Occupied room-nights ÷ available room-nights over the period." {...deltaProps(deltaPct(t.occupancyBps, p.occupancyBps))} />
+        <KpiCard label="ADR" value={formatINR(t.adrPaise)} icon={<BedDouble />} href="/reports" tooltip="Average Daily Rate = room revenue ÷ rooms sold. The average price of a sold room (room income only)." {...deltaProps(deltaPct(t.adrPaise, p.adrPaise))} />
+        <KpiCard label="RevPAR" value={formatINR(t.revparPaise)} icon={<LineChart />} href="/reports" tooltip="Revenue Per Available Room = room revenue ÷ available rooms = ADR × occupancy." {...deltaProps(deltaPct(t.revparPaise, p.revparPaise))} />
+        <KpiCard label="Live occupancy" value={pct(tiles.occupancyBps)} icon={<Gauge />} hint="right now" tooltip="Rooms occupied right now ÷ sellable rooms — the current floor state (not the period average)." href="/rooms" />
+        <KpiCard label="Pending dues" value={formatINR(tiles.pendingPaise ?? 0)} icon={<Wallet />} hint="unsettled folios" tooltip="Money guests still owe: Σ folio balances (charges + tax − payments)." href="/billing" className={(tiles.pendingPaise ?? 0) > 0 ? "border-warning/40" : undefined} />
+        <KpiCard label="Bookings" value={bookingCounts.bookings} icon={<CalendarCheck />} hint="realised in range" tooltip="Confirmed / in-house / stayed bookings in the period." href="/bookings" />
+        <KpiCard label="Cancellations" value={bookingCounts.cancelled} icon={<XCircle />} hint={`${bookingCounts.cancelRatePct}% cancel/no-show`} tooltip="Bookings cancelled in the period, and the cancel + no-show rate." href="/bookings?view=cancelled" className={bookingCounts.cancelled > 0 ? "border-destructive/30" : undefined} />
+        <KpiCard label="No-shows" value={bookingCounts.noShow} icon={<UserX />} hint="did not arrive" tooltip="Confirmed bookings whose guest never arrived." href="/bookings" />
+        <KpiCard label="Net revenue" value={formatINR(netRevenue)} icon={<CircleDollarSign />} hint="after OTA commission" tooltip="Revenue kept after OTA commission (direct bookings keep 100%)." href="/reports" />
+        <KpiCard label="Expenses" value={formatINR(expenses.totalPaise)} icon={<Wallet />} hint="approved, this period" tooltip="Approved operating expenses across all properties for the period." href="/expenses" />
       </div>
 
       {/* Revenue trend + today's live board */}
@@ -245,9 +249,53 @@ export default async function OverviewPage({
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-base">Top corporate clients</CardTitle></CardHeader>
+          <CardHeader className="flex-row items-center justify-between gap-2 pb-2">
+            <CardTitle className="text-base">Expenses by category</CardTitle>
+            <Link href="/expenses" className="text-xs font-medium text-primary underline-offset-4 hover:underline">All expenses →</Link>
+          </CardHeader>
           <CardContent>
-            <BreakdownList items={segs.corporates.slice(0, 6).map((c) => ({ label: c.name, value: c.revenuePaise }))} emptyLabel="No corporate bookings in range." />
+            <BreakdownList items={expenses.byHead.map((h) => ({ label: EXPENSE_HEAD_LABEL[h.head] ?? h.head, value: h.totalPaise }))} emptyLabel="No approved expenses in range." />
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Property-wise expenses (client req #4) — where the money goes, per hotel. */}
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Expenses by property</CardTitle>
+            <p className="text-xs text-muted-foreground">Approved operating spend per hotel this period · total {formatINR(expenses.totalPaise)}</p>
+          </CardHeader>
+          <CardContent>
+            {expenses.byProperty.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">No approved expenses in range.</p>
+            ) : (
+              <div className="space-y-3">
+                {expenses.byProperty.map((pr) => {
+                  const share = expenses.totalPaise > 0 ? Math.round((pr.totalPaise / expenses.totalPaise) * 100) : 0;
+                  return (
+                    <div key={pr.propertyId}>
+                      <div className="mb-1 flex items-center justify-between text-sm">
+                        <span className="font-medium">{pr.propertyName}</span>
+                        <span className="tabular text-muted-foreground">{formatINR(pr.totalPaise)} · {share}%</span>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                        <div className="h-full rounded-full bg-primary" style={{ width: `${share}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex-row items-center justify-between gap-2 pb-2">
+            <CardTitle className="text-base">Expenses by payment method</CardTitle>
+            <Link href="/expenses" className="text-xs font-medium text-primary underline-offset-4 hover:underline">Manage →</Link>
+          </CardHeader>
+          <CardContent>
+            <BreakdownList items={expenses.byPaidVia.map((m) => ({ label: m.paidVia === "UNSPECIFIED" ? "Unspecified" : (PAYMENT_MODE_LABEL[m.paidVia] ?? m.paidVia), value: m.totalPaise }))} emptyLabel="No approved expenses in range." />
           </CardContent>
         </Card>
       </div>
