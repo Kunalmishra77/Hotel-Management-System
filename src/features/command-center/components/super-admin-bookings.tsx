@@ -4,7 +4,8 @@
  * recent-bookings feed, over a selectable period. Read-only; reuses the canonical
  * booking-count queries. `report:view-financial`.
  */
-import { CalendarCheck, XCircle, UserX, Percent, IndianRupee, UserCheck } from "lucide-react";
+import Link from "next/link";
+import { CalendarCheck, XCircle, UserX, IndianRupee, UserCheck } from "lucide-react";
 import type { SessionClaims } from "@/lib/auth/claims";
 import { parsePeriod, periodRange } from "@/features/command-center/domain/period";
 import {
@@ -30,19 +31,29 @@ export async function SuperAdminBookings({
   sp,
 }: {
   user: SessionClaims;
-  sp: { period?: string; from?: string; to?: string };
+  sp: { period?: string; from?: string; to?: string; status?: string };
 }) {
   const today = new Date();
   const period = parsePeriod(sp.period);
   const win = periodRange(period, today, { from: sp.from, to: sp.to });
   const propertyIds = [...user.accessiblePropertyIds];
 
+  // Clickable-card filter: a valid status narrows the list below (else recent 30).
+  const VALID_STATUS = ["CONFIRMED", "IN_HOUSE", "CHECKED_OUT", "CANCELLED", "NO_SHOW"] as const;
+  const statusFilter = VALID_STATUS.includes(sp.status as never) ? sp.status : undefined;
+
   const [counts, perProperty, recent, portfolio] = await Promise.all([
     portfolioBookingCounts(user, { propertyIds, from: win.from, to: win.to }),
     perPropertyBookingCounts(user, { propertyIds, from: win.from, to: win.to }),
-    recentPortfolioBookings(user, { propertyIds, limit: 30 }),
+    recentPortfolioBookings(user, { propertyIds, limit: statusFilter ? 200 : 30, status: statusFilter }),
     getPortfolio(user, win.from, win.to),
   ]);
+  // Preserve the period in card links so filtering doesn't reset the date window.
+  const q = (status?: string) => {
+    const parts = [sp.period ? `period=${sp.period}` : "", sp.from ? `from=${sp.from}` : "", sp.to ? `to=${sp.to}` : "", status ? `status=${status}` : ""].filter(Boolean);
+    return `/bookings${parts.length ? `?${parts.join("&")}` : ""}`;
+  };
+  const STATUS_LABEL: Record<string, string> = { CONFIRMED: "Confirmed", IN_HOUSE: "In-house", CHECKED_OUT: "Checked out", CANCELLED: "Cancelled", NO_SHOW: "No-show" };
 
   return (
     <div className="mx-auto w-full max-w-6xl">
@@ -62,11 +73,11 @@ export async function SuperAdminBookings({
       </div>
 
       <div className="mb-4 mt-4 grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5" data-testid="portfolio-booking-kpis">
-        <KpiCard label="Bookings" value={counts.bookings} icon={<CalendarCheck />} hint="Confirmed / in-house / stayed" />
-        <KpiCard label="Cancellations" value={counts.cancelled} icon={<XCircle />} hint="In this period" />
-        <KpiCard label="No-shows" value={counts.noShow} icon={<UserX />} hint="In this period" />
-        <KpiCard label="Cancel rate" value={`${counts.cancelRatePct}%`} icon={<Percent />} hint="Cancelled + no-show" trend={counts.cancelRatePct > 20 ? "down" : undefined} />
-        <KpiCard label="Revenue" value={formatINR(portfolio.totals.revenuePaise)} icon={<IndianRupee />} hint="Net of discounts, ex-tax" />
+        <KpiCard label="Bookings" value={counts.bookings} icon={<CalendarCheck />} hint="Confirmed / in-house / stayed" href={q()} tooltip="All realised bookings in the period — click to list them." />
+        <KpiCard label="In-house" value={counts.inHouse} icon={<CalendarCheck />} hint="staying now" href={q("IN_HOUSE")} tooltip="Guests currently checked in — click to list." />
+        <KpiCard label="Cancellations" value={counts.cancelled} icon={<XCircle />} hint="In this period" href={q("CANCELLED")} tooltip="Cancelled bookings — click to list." className={counts.cancelled > 0 ? "border-destructive/30" : undefined} />
+        <KpiCard label="No-shows" value={counts.noShow} icon={<UserX />} hint="In this period" href={q("NO_SHOW")} tooltip="Confirmed guests who never arrived — click to list." />
+        <KpiCard label="Revenue" value={formatINR(portfolio.totals.revenuePaise)} icon={<IndianRupee />} hint="Net of discounts, ex-tax" href="/reports" tooltip="Room + service revenue, net of discounts, excluding GST." />
       </div>
 
       <Card className="mb-4">
@@ -75,7 +86,15 @@ export async function SuperAdminBookings({
       </Card>
 
       <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-base">Recent bookings</CardTitle></CardHeader>
+        <CardHeader className="flex-row items-center justify-between gap-2 pb-2">
+          <CardTitle className="text-base">
+            {statusFilter ? `${STATUS_LABEL[statusFilter]} bookings` : "Recent bookings"}
+            <span className="ml-2 text-sm font-normal text-muted-foreground">({recent.length})</span>
+          </CardTitle>
+          {statusFilter ? (
+            <Link href={q()} className="text-xs font-medium text-primary underline-offset-4 hover:underline" data-testid="clear-booking-filter">Clear filter ✕</Link>
+          ) : null}
+        </CardHeader>
         <CardContent><RecentBookingsTable rows={recent} /></CardContent>
       </Card>
     </div>

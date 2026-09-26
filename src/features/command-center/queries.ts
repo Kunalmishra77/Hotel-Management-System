@@ -104,6 +104,8 @@ export type PortfolioBookingCounts = {
   bookings: number;
   cancelled: number;
   noShow: number;
+  /** Currently checked-in (staying now). */
+  inHouse: number;
   /** (cancelled + no-show) ÷ all bookings, as a percentage. */
   cancelRatePct: number;
 };
@@ -118,7 +120,7 @@ export async function portfolioBookingCounts(
   input: { propertyIds: string[]; from: Date; to: Date },
 ): Promise<PortfolioBookingCounts> {
   authorize(user, "report:view-financial", user.activePropertyId);
-  if (input.propertyIds.length === 0) return { bookings: 0, cancelled: 0, noShow: 0, cancelRatePct: 0 };
+  if (input.propertyIds.length === 0) return { bookings: 0, cancelled: 0, noShow: 0, inHouse: 0, cancelRatePct: 0 };
   const groups = await db.scoped(user).reservation.groupBy({
     by: ["status"],
     where: { propertyId: { in: input.propertyIds }, checkInDate: { gte: input.from, lte: input.to } },
@@ -129,7 +131,7 @@ export async function portfolioBookingCounts(
   const cancelled = count("CANCELLED");
   const noShow = count("NO_SHOW");
   const denom = bookings + cancelled + noShow;
-  return { bookings, cancelled, noShow, cancelRatePct: denom > 0 ? Math.round(((cancelled + noShow) / denom) * 100) : 0 };
+  return { bookings, cancelled, noShow, inHouse: count("IN_HOUSE"), cancelRatePct: denom > 0 ? Math.round(((cancelled + noShow) / denom) * 100) : 0 };
 }
 
 export type PropertyBookingStat = {
@@ -187,12 +189,16 @@ export type PortfolioBookingRow = {
 /** The most-recent bookings across every accessible property (newest first). */
 export async function recentPortfolioBookings(
   user: SessionClaims,
-  input: { propertyIds: string[]; limit?: number },
+  input: { propertyIds: string[]; limit?: number; status?: string },
 ): Promise<PortfolioBookingRow[]> {
   authorize(user, "report:view-financial", user.activePropertyId);
   if (input.propertyIds.length === 0) return [];
   const rows = await db.scoped(user).reservation.findMany({
-    where: { propertyId: { in: input.propertyIds } },
+    where: {
+      propertyId: { in: input.propertyIds },
+      // Optional status filter — powers the clickable dashboard/bookings cards.
+      ...(input.status ? { status: input.status as never } : {}),
+    },
     select: {
       id: true, code: true, status: true, source: true, checkInDate: true, checkOutDate: true,
       guest: { select: { fullName: true } },

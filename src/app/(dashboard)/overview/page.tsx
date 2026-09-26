@@ -27,7 +27,7 @@ import { TrendChart } from "@/components/ui/charts/trend-chart";
 import { BreakdownList } from "@/components/ui/charts/breakdown-list";
 import { formatINR } from "@/lib/utils";
 
-export const metadata: Metadata = { title: "Command centre" };
+export const metadata: Metadata = { title: "Dashboard" };
 
 const SOURCE_LABEL: Record<string, string> = {
   WALK_IN: "Walk-in", DIRECT: "Direct", WEBSITE: "Website", PHONE: "Phone", CORPORATE: "Corporate",
