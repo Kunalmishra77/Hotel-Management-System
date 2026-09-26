@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatINR, formatDayMonth } from "@/lib/utils";
 import { PAYMENT_MODE_LABEL } from "@/lib/constants/company";
+import { ExpensesCharts } from "./expenses-charts";
 import type { ExpensePortfolio } from "../queries";
 
 const HEADS = ["HOUSEKEEPING", "KITCHEN", "MAINTENANCE", "UTILITIES", "STAFF", "ADMINISTRATION", "MISC"] as const;
@@ -76,26 +77,18 @@ export function ExpensesPortfolio({
           </div>
         </div>
 
-        {/* Per-property + per-payment-method breakdown */}
-        <div className="grid gap-3 lg:grid-cols-2">
-          <div className="rounded-lg border p-3">
-            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">By property</p>
-            <ul className="space-y-1 text-sm">
-              {data.byProperty.length === 0 ? <li className="text-muted-foreground">No approved spend.</li> :
-                data.byProperty.map((p) => (
-                  <li key={p.propertyId} className="flex justify-between"><span>{p.propertyName}</span><span className="tabular font-medium">{formatINR(p.totalPaise)}</span></li>
-                ))}
-            </ul>
-          </div>
-          <div className="rounded-lg border p-3">
-            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">By payment method</p>
-            <ul className="space-y-1 text-sm">
-              {data.byPaidVia.length === 0 ? <li className="text-muted-foreground">No approved spend.</li> :
-                data.byPaidVia.map((p) => (
-                  <li key={p.paidVia} className="flex justify-between"><span>{payLabel(p.paidVia === "UNSPECIFIED" ? null : p.paidVia)}</span><span className="tabular font-medium">{formatINR(p.totalPaise)}</span></li>
-                ))}
-            </ul>
-          </div>
+        {/* Visual breakdown — by category, by property, monthly trend */}
+        <ExpensesCharts data={data} />
+
+        {/* By payment method (compact list — a mix people scan, not a headline chart) */}
+        <div className="rounded-lg border p-3">
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">By payment method</p>
+          <ul className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+            {data.byPaidVia.length === 0 ? <li className="text-muted-foreground">No approved spend.</li> :
+              data.byPaidVia.map((p) => (
+                <li key={p.paidVia} className="flex justify-between"><span>{payLabel(p.paidVia === "UNSPECIFIED" ? null : p.paidVia)}</span><span className="tabular font-medium">{formatINR(p.totalPaise)}</span></li>
+              ))}
+          </ul>
         </div>
 
         {/* Ledger */}
