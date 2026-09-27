@@ -39,6 +39,45 @@ export async function guestIdsBySegment(_user: SessionClaims, segment: StatsSegm
  * otherwise tier falls back to visit count (always visible). Guest ids must
  * already be caller-scoped (they come from the org-scoped guest search).
  */
+export type GuestStat = {
+  visits: number;
+  roomNights: number;
+  revenuePaise: number | null;
+  outstandingPaise: number | null;
+  lastStayAt: Date | null;
+};
+
+/**
+ * Batch CRM value stats for the guest directory (visits, room-nights, lifetime
+ * revenue, outstanding balance, last stay) — from each guest's derived stats
+ * snapshot. Money fields are null for callers without `report:view-financial`.
+ * Read-only; no PII.
+ */
+export async function guestStats(
+  user: SessionClaims,
+  guestIds: string[],
+): Promise<Record<string, GuestStat>> {
+  if (guestIds.length === 0) return {};
+  const canSeeMoney = hasPermission(user, "report:view-financial");
+  const snaps = await db.unscoped().guestStatsSnapshot.findMany({
+    where: { guestId: { in: guestIds } },
+    select: { guestId: true, visits: true, totalRoomNights: true, totalRevenuePaise: true, outstandingPaise: true, lastStayAt: true },
+  });
+  const byId = new Map(snaps.map((s) => [s.guestId, s]));
+  const out: Record<string, GuestStat> = {};
+  for (const id of guestIds) {
+    const s = byId.get(id);
+    out[id] = {
+      visits: s?.visits ?? 0,
+      roomNights: s?.totalRoomNights ?? 0,
+      revenuePaise: canSeeMoney ? Number(s?.totalRevenuePaise ?? 0n) : null,
+      outstandingPaise: canSeeMoney ? Number(s?.outstandingPaise ?? 0n) : null,
+      lastStayAt: s?.lastStayAt ?? null,
+    };
+  }
+  return out;
+}
+
 export async function guestTiers(
   user: SessionClaims,
   guestIds: string[],

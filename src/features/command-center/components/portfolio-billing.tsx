@@ -9,7 +9,7 @@ import type { PortfolioBilling as PortfolioBillingData } from "../queries";
 
 /** Super-Admin portfolio billing — consolidated dues/collections + a per-property
  *  breakdown + a searchable/filterable invoice list across every property. */
-export function PortfolioBilling({ rollup, properties }: { rollup: PortfolioBillingData; properties: { id: string; name: string }[] }) {
+export function PortfolioBilling({ rollup, properties, gstOnly = false }: { rollup: PortfolioBillingData; properties: { id: string; name: string }[]; gstOnly?: boolean }) {
   const t = rollup.totals;
   return (
     <div className="mx-auto w-full max-w-[1600px]">
@@ -57,7 +57,9 @@ export function PortfolioBilling({ rollup, properties }: { rollup: PortfolioBill
         </CardContent>
       </Card>
 
-      <InvoiceSearch properties={properties} />
+      <div id="invoices" className="scroll-mt-20">
+        <InvoiceSearch properties={properties} gstOnly={gstOnly} />
+      </div>
     </div>
   );
 }

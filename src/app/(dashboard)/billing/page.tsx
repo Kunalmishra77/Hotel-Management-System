@@ -36,10 +36,7 @@ export default async function BillingPage({
     const rollup = await perPropertyBillingRollup(user, [...user.accessiblePropertyIds]);
     return (
       <div className="mx-auto w-full max-w-[1600px] space-y-6">
-        <PortfolioBilling rollup={rollup} properties={properties} />
-        <div id="invoices" className="scroll-mt-20">
-          <InvoiceSearch properties={properties} gstOnly={gstTab} />
-        </div>
+        <PortfolioBilling rollup={rollup} properties={properties} gstOnly={gstTab} />
       </div>
     );
   }

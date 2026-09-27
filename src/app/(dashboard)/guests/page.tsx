@@ -4,7 +4,7 @@ import { Users, UserPlus, Building2 } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
 import { hasPermission } from "@/lib/permissions";
 import { searchGuests, guestsOverview, guestsBySegment, type GuestSegment } from "@/features/guests/queries";
-import { guestTiers } from "@/features/guest-history/queries";
+import { guestTiers, guestStats } from "@/features/guest-history/queries";
 import { GuestSearchBox } from "@/features/guests/components/guest-search-box";
 import { GuestsTable } from "@/features/guests/components/guests-table";
 import { KpiCard } from "@/components/ui/kpi-card";
@@ -55,7 +55,8 @@ export default async function GuestsPage({
   ]);
 
   const displayed = listed ?? overview.recent;
-  const tiers = await guestTiers(user, displayed.map((g) => g.id));
+  const ids = displayed.map((g) => g.id);
+  const [tiers, stats] = await Promise.all([guestTiers(user, ids), guestStats(user, ids)]);
 
   return (
     <div className="mx-auto w-full max-w-[1600px]">
@@ -111,7 +112,7 @@ export default async function GuestsPage({
             {displayed.length} result{displayed.length === 1 ? "" : "s"} for &ldquo;{query}&rdquo;
           </h2>
         )}
-        <GuestsTable guests={displayed} tiers={tiers} />
+        <GuestsTable guests={displayed} tiers={tiers} stats={stats} />
       </div>
     </div>
   );
