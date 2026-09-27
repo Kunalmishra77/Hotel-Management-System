@@ -595,3 +595,53 @@ export async function inHousePortfolio(user: SessionClaims, propertyIds: string[
   }
   return { rows: out, total: out.length, byProperty: [...counts.values()].sort((a, b) => a.propertyName.localeCompare(b.propertyName)) };
 }
+
+export type TodayMovement = {
+  id: string;
+  code: string;
+  guestName: string;
+  propertyName: string;
+  rooms: string;
+  balancePaise: number;
+};
+
+/**
+ * Cross-property arrivals & departures for a given business day — the front-desk
+ * command list on the Dashboard (Phase-3 flagship). Arrivals = CONFIRMED checking
+ * in today; departures = IN_HOUSE checking out today. Each carries its property and
+ * outstanding balance so reception sees who owes before they leave. Property-scoped.
+ */
+export async function arrivalsDeparturesPortfolio(
+  user: SessionClaims,
+  propertyIds: string[],
+  date: Date,
+): Promise<{ arrivals: TodayMovement[]; departures: TodayMovement[] }> {
+  authorize(user, "reservation:view", user.activePropertyId);
+  if (propertyIds.length === 0) return { arrivals: [], departures: [] };
+  const day = utcEpochDay(date);
+  const dayStart = new Date(day * 86_400_000);
+  const dayEnd = new Date((day + 1) * 86_400_000);
+  const select = {
+    id: true, code: true,
+    guest: { select: { fullName: true } },
+    property: { select: { name: true } },
+    allocations: { select: { room: { select: { number: true } } } },
+    folio: { select: { lines: { select: { amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true } }, payments: { select: { amountPaise: true, isRefund: true } } } },
+  } as const;
+
+  const [arrivals, departures] = await Promise.all([
+    db.scoped(user).reservation.findMany({ where: { propertyId: { in: propertyIds }, status: "CONFIRMED", checkInDate: { gte: dayStart, lt: dayEnd } }, select, orderBy: { code: "asc" } }),
+    db.scoped(user).reservation.findMany({ where: { propertyId: { in: propertyIds }, status: "IN_HOUSE", checkOutDate: { gte: dayStart, lt: dayEnd } }, select, orderBy: { code: "asc" } }),
+  ]);
+
+  const toMovement = (r: (typeof arrivals)[number]): TodayMovement => ({
+    id: r.id,
+    code: r.code,
+    guestName: r.guest?.fullName ?? "—",
+    propertyName: r.property?.name ?? "—",
+    rooms: r.allocations.map((a) => a.room.number).filter(Boolean).join(", ") || "—",
+    balancePaise: r.folio ? Number(folioBalance(r.folio.lines, r.folio.payments)) : 0,
+  });
+
+  return { arrivals: arrivals.map(toMovement), departures: departures.map(toMovement) };
+}

@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
-import type { ReactNode } from "react";
 import Link from "next/link";
 import {
   BedDouble, IndianRupee, LineChart, Percent, TrendingUp, Wallet, Gauge, Trophy,
   TriangleAlert, ArrowRight, LogIn, LogOut, DoorOpen, CircleDollarSign,
-  CalendarCheck, XCircle, UserX,
+  CalendarCheck, XCircle, UserX, Sparkles, Wrench,
 } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
 import { hasPermission } from "@/lib/permissions";
@@ -15,7 +14,10 @@ import {
 import { liveTiles, trend } from "@/features/analytics/queries";
 import { revenueSegments } from "@/features/reports/queries";
 import { getPortfolio, portfolioBookingCounts } from "@/features/command-center/queries";
+import { arrivalsDeparturesPortfolio } from "@/features/reservations/queries";
+import { housekeepingPortfolio } from "@/features/housekeeping/queries";
 import { expensePortfolio } from "@/features/expenses/queries";
+import { OperationsToday, type QueueItem } from "@/features/command-center/components/operations-today";
 import { EXPENSE_HEAD_LABEL, PAYMENT_MODE_LABEL } from "@/lib/constants/company";
 import { PeriodFilter } from "@/features/command-center/components/period-filter";
 import { PortfolioLeague } from "@/features/command-center/components/portfolio-league";
@@ -78,7 +80,7 @@ export default async function OverviewPage({
   const win = periodRange(period, today, { from: sp.from, to: sp.to });
   const prev = previousWindow(win);
 
-  const [tiles, portfolio, prevPortfolio, revTrend, segs, bookingCounts, expenses] = await Promise.all([
+  const [tiles, portfolio, prevPortfolio, revTrend, segs, bookingCounts, expenses, movements, hk] = await Promise.all([
     liveTiles(user, propertyIds),
     getPortfolio(user, win.from, win.to),
     getPortfolio(user, prev.from, prev.to),
@@ -86,7 +88,13 @@ export default async function OverviewPage({
     revenueSegments(user, { propertyIds, from: win.from, to: win.to }),
     portfolioBookingCounts(user, { propertyIds, from: win.from, to: win.to }),
     expensePortfolio(user, { propertyIds: [...propertyIds], from: win.from, to: win.to }),
+    hasPermission(user, "reservation:view")
+      ? arrivalsDeparturesPortfolio(user, [...propertyIds], today)
+      : Promise.resolve({ arrivals: [], departures: [] }),
+    housekeepingPortfolio(user, [...propertyIds]),
   ]);
+
+  const roomsToClean = hk.reduce((n, r) => n + r.toClean, 0);
 
   const t = portfolio.totals;
   const p = prevPortfolio.totals;
@@ -103,6 +111,15 @@ export default async function OverviewPage({
   const directRatio = t.revenuePaise > 0 ? Math.round((directRev / t.revenuePaise) * 100) : 0;
   const { commissionPaise: otaCommission, netPaise: netRevenue } = netAfterCommission(segs.bySource, t.revenuePaise);
 
+  // Front-desk action queue — the live "what needs doing now" list.
+  const queue: QueueItem[] = [
+    { label: "Arrivals to check in", count: tiles.arrivalsToday, href: "/bookings?desk=1", icon: <LogIn />, tone: "warn" },
+    { label: "Departures due out", count: tiles.departuresToday, href: "/in-house", icon: <LogOut />, tone: "warn" },
+    { label: "Rooms to clean", count: roomsToClean, href: "/housekeeping", icon: <Sparkles />, tone: "warn" },
+    { label: "Rooms under maintenance", count: tiles.rooms.maintenance, href: "/maintenance", icon: <Wrench />, tone: "bad" },
+    { label: "In-house now", count: bookingCounts.inHouse, href: "/in-house", icon: <DoorOpen /> },
+  ];
+
   // Ranked league (by revenue) → best & worst spotlight.
   const ranked = [...portfolio.properties].sort((a, b) => b.revenuePaise - a.revenuePaise);
   const best = ranked[0];
@@ -116,7 +133,7 @@ export default async function OverviewPage({
   if (lowOcc.length > 0) alerts.push({ tone: "warning", text: `${lowOcc.length} propert${lowOcc.length === 1 ? "y" : "ies"} below 40% occupancy`, href: "/insights" });
 
   return (
-    <div className="mx-auto w-full max-w-6xl">
+    <div className="mx-auto w-full max-w-[1600px]">
       <PageHeader
         title="Dashboard"
         description={isPortfolio ? `${t.count} properties · one dashboard · ${win.label}` : win.label}
@@ -139,8 +156,8 @@ export default async function OverviewPage({
         <PeriodFilter period={period} from={iso(win.from)} to={iso(win.to)} />
       </div>
 
-      {/* KPI band with period-over-period deltas */}
-      <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
+      {/* KPI band with period-over-period deltas — dense: up to 6 across on wide screens */}
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
         <KpiCard label="Revenue" value={formatINR(t.revenuePaise)} icon={<IndianRupee />} href="/reports" tooltip="Room + service income for the period, net of discounts, excluding GST." {...deltaProps(deltaPct(t.revenuePaise, p.revenuePaise))} />
         <KpiCard label="Profit" value={formatINR(t.profitPaise)} icon={<TrendingUp />} href="/reports" tooltip="Revenue minus expenses (incl. payroll) for the period." {...deltaProps(deltaPct(t.profitPaise, p.profitPaise))} className={t.profitPaise < 0 ? "border-destructive/40" : undefined} />
         <KpiCard label="GOPPAR" value={formatINR(gopparNow)} icon={<CircleDollarSign />} href="/reports" tooltip="Gross Operating Profit Per Available Room = (revenue − operating expenses) ÷ available rooms. Profit per room you had." {...deltaProps(deltaPct(gopparNow, gopparPrev))} />
@@ -156,21 +173,20 @@ export default async function OverviewPage({
         <KpiCard label="Expenses" value={formatINR(expenses.totalPaise)} icon={<Wallet />} hint="approved, this period" tooltip="Approved operating expenses across all properties for the period." href="/expenses" />
       </div>
 
-      {/* Revenue trend + today's live board */}
-      <div className="mt-4 grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader className="pb-2"><CardTitle className="text-base">Revenue — {win.label}</CardTitle></CardHeader>
+      {/* Operations today — action queue + arrivals + departures (front-desk command strip) */}
+      <div className="mt-4">
+        <OperationsToday queue={queue} arrivals={movements.arrivals} departures={movements.departures} />
+      </div>
+
+      {/* Revenue trend (full width in the dense layout) */}
+      <div className="mt-4">
+        <Card>
+          <CardHeader className="flex-row items-baseline justify-between gap-2 pb-2">
+            <CardTitle className="text-base">Revenue — {win.label}</CardTitle>
+            <span className="text-xs text-muted-foreground">Occupied {tiles.rooms.occupied} · vacant {tiles.rooms.vacant} · reserved {tiles.rooms.reserved} right now</span>
+          </CardHeader>
           <CardContent>
             {trendData.length > 0 ? <TrendChart data={trendData} format="inr" height={200} /> : <p className="py-12 text-center text-sm text-muted-foreground">No revenue in range yet.</p>}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-base">Today, live</CardTitle></CardHeader>
-          <CardContent className="space-y-2">
-            <SnapshotRow icon={<LogIn className="size-4" />} label="Arrivals" value={tiles.arrivalsToday} href="/bookings" />
-            <SnapshotRow icon={<LogOut className="size-4" />} label="Departures" value={tiles.departuresToday} href="/in-house" />
-            <SnapshotRow icon={<DoorOpen className="size-4" />} label="Occupied" value={tiles.rooms.occupied} href="/rooms" />
-            <SnapshotRow icon={<BedDouble className="size-4" />} label="Vacant" value={tiles.rooms.vacant} href="/rooms" />
           </CardContent>
         </Card>
       </div>
@@ -302,15 +318,6 @@ export default async function OverviewPage({
         </Card>
       </div>
     </div>
-  );
-}
-
-function SnapshotRow({ icon, label, value, href }: { icon: ReactNode; label: string; value: number; href: string }) {
-  return (
-    <Link href={href} className="flex items-center justify-between rounded-md px-2 py-1.5 text-sm transition hover:bg-muted/60">
-      <span className="inline-flex items-center gap-2 text-muted-foreground [&_svg]:text-primary">{icon} {label}</span>
-      <span className="tabular font-semibold">{value}</span>
-    </Link>
   );
 }
 
