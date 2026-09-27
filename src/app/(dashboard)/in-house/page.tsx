@@ -29,7 +29,7 @@ export default async function InHousePage() {
   const duePaise = rows.reduce((n, r) => n + Math.max(0, r.balancePaise), 0);
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-1 py-1">
+    <div className="mx-auto w-full max-w-[1600px] px-1 py-1">
       <PageHeader title="In-house guests" description={`${total} guest${total === 1 ? "" : "s"} currently staying across all properties.`} />
 
       <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">

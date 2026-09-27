@@ -66,7 +66,7 @@ export default async function ExpensesPage({
         canApprove={hasPermission(user, "expense:approve")}
         todayTotalPaise={roll.totalPaise}
       />
-      <div className="mx-auto w-full max-w-6xl px-4 pb-8">
+      <div className="mx-auto w-full max-w-[1600px] px-4 pb-8">
         <ExpensesPortfolio
           data={portfolio}
           properties={properties.map((p) => ({ id: p.id, name: p.name }))}

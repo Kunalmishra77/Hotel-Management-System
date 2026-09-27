@@ -58,7 +58,7 @@ export default async function GuestsPage({
   const tiers = await guestTiers(user, displayed.map((g) => g.id));
 
   return (
-    <div className="mx-auto w-full max-w-6xl">
+    <div className="mx-auto w-full max-w-[1600px]">
       <PageHeader
         title="Guests"
         description="Permanent CRM — searchable across every property"
