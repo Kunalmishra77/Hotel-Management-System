@@ -59,6 +59,44 @@ export async function liveTiles(user: SessionClaims, propertyIds: string[]): Pro
 }
 
 /** Daily trend from immutable snapshots (closed dates) for a metric (FR-3/12, AC-13). */
+export type DailyMetricPoint = { date: string; revenuePaise: number; occupancyBps: number; adrPaise: number; revparPaise: number };
+
+/**
+ * Daily metric series for the dashboard sparklines — one round-trip that returns all
+ * four KPI trends, aggregated per business date across the given properties (revenue
+ * summed; occupancy/ADR/RevPAR averaged for the sparkline shape). Feeds the mini
+ * trend lines inside the KPI cards.
+ */
+export async function dailyMetricSeries(
+  user: SessionClaims,
+  input: { from: Date; to: Date; propertyIds: string[] },
+): Promise<DailyMetricPoint[]> {
+  if (input.propertyIds.length === 0) return [];
+  const rows = await db.scoped(user).dailyStatSnapshot.findMany({
+    where: { propertyId: { in: input.propertyIds }, businessDate: { gte: input.from, lte: input.to } },
+    select: { businessDate: true, occupancyBps: true, totalRevenuePaise: true, adrPaise: true, revparPaise: true },
+    orderBy: { businessDate: "asc" },
+  });
+  const byDay = new Map<string, { rev: number; occ: number; adr: number; revpar: number; n: number }>();
+  for (const r of rows) {
+    const key = r.businessDate.toISOString().slice(0, 10);
+    const g = byDay.get(key) ?? { rev: 0, occ: 0, adr: 0, revpar: 0, n: 0 };
+    g.rev += Number(r.totalRevenuePaise);
+    g.occ += r.occupancyBps;
+    g.adr += r.adrPaise;
+    g.revpar += r.revparPaise;
+    g.n += 1;
+    byDay.set(key, g);
+  }
+  return [...byDay.entries()].map(([date, g]) => ({
+    date,
+    revenuePaise: g.rev,
+    occupancyBps: Math.round(g.occ / g.n),
+    adrPaise: Math.round(g.adr / g.n),
+    revparPaise: Math.round(g.revpar / g.n),
+  }));
+}
+
 export async function trend(
   user: SessionClaims,
   input: { metric: "occupancy" | "revenue" | "adr" | "revpar"; from: Date; to: Date; propertyIds: string[] },

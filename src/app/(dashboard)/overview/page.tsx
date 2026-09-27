@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import {
   parsePeriod, periodRange, previousWindow, deltaPct,
 } from "@/features/command-center/domain/period";
-import { liveTiles, trend } from "@/features/analytics/queries";
+import { liveTiles, trend, dailyMetricSeries } from "@/features/analytics/queries";
+import { Sparkline } from "@/components/ui/charts/sparkline";
 import { revenueSegments } from "@/features/reports/queries";
 import { getPortfolio, portfolioBookingCounts } from "@/features/command-center/queries";
 import { arrivalsDeparturesPortfolio } from "@/features/reservations/queries";
@@ -80,7 +81,7 @@ export default async function OverviewPage({
   const win = periodRange(period, today, { from: sp.from, to: sp.to });
   const prev = previousWindow(win);
 
-  const [tiles, portfolio, prevPortfolio, revTrend, segs, bookingCounts, expenses, movements, hk] = await Promise.all([
+  const [tiles, portfolio, prevPortfolio, revTrend, segs, bookingCounts, expenses, movements, hk, series] = await Promise.all([
     liveTiles(user, propertyIds),
     getPortfolio(user, win.from, win.to),
     getPortfolio(user, prev.from, prev.to),
@@ -92,9 +93,17 @@ export default async function OverviewPage({
       ? arrivalsDeparturesPortfolio(user, [...propertyIds], today)
       : Promise.resolve({ arrivals: [], departures: [] }),
     housekeepingPortfolio(user, [...propertyIds]),
+    dailyMetricSeries(user, { from: win.from, to: win.to, propertyIds: [...propertyIds] }),
   ]);
 
   const roomsToClean = hk.reduce((n, r) => n + r.toClean, 0);
+  // Sparkline series for the headline KPIs (trend shape inside each card).
+  const spark = {
+    revenue: series.map((s) => s.revenuePaise),
+    occupancy: series.map((s) => s.occupancyBps),
+    adr: series.map((s) => s.adrPaise),
+    revpar: series.map((s) => s.revparPaise),
+  };
 
   const t = portfolio.totals;
   const p = prevPortfolio.totals;
@@ -158,12 +167,12 @@ export default async function OverviewPage({
 
       {/* KPI band with period-over-period deltas — dense: up to 6 across on wide screens */}
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-        <KpiCard label="Revenue" value={formatINR(t.revenuePaise)} icon={<IndianRupee />} href="/reports" tooltip="Room + service income for the period, net of discounts, excluding GST." {...deltaProps(deltaPct(t.revenuePaise, p.revenuePaise))} />
+        <KpiCard label="Revenue" value={formatINR(t.revenuePaise)} icon={<IndianRupee />} href="/reports" tooltip="Room + service income for the period, net of discounts, excluding GST." {...deltaProps(deltaPct(t.revenuePaise, p.revenuePaise))}><Sparkline data={spark.revenue} /></KpiCard>
         <KpiCard label="Profit" value={formatINR(t.profitPaise)} icon={<TrendingUp />} href="/reports" tooltip="Revenue minus expenses (incl. payroll) for the period." {...deltaProps(deltaPct(t.profitPaise, p.profitPaise))} className={t.profitPaise < 0 ? "border-destructive/40" : undefined} />
         <KpiCard label="GOPPAR" value={formatINR(gopparNow)} icon={<CircleDollarSign />} href="/reports" tooltip="Gross Operating Profit Per Available Room = (revenue − operating expenses) ÷ available rooms. Profit per room you had." {...deltaProps(deltaPct(gopparNow, gopparPrev))} />
-        <KpiCard label="Occupancy" value={pct(t.occupancyBps)} icon={<Percent />} href="/reports" tooltip="Occupied room-nights ÷ available room-nights over the period." {...deltaProps(deltaPct(t.occupancyBps, p.occupancyBps))} />
-        <KpiCard label="ADR" value={formatINR(t.adrPaise)} icon={<BedDouble />} href="/reports" tooltip="Average Daily Rate = room revenue ÷ rooms sold. The average price of a sold room (room income only)." {...deltaProps(deltaPct(t.adrPaise, p.adrPaise))} />
-        <KpiCard label="RevPAR" value={formatINR(t.revparPaise)} icon={<LineChart />} href="/reports" tooltip="Revenue Per Available Room = room revenue ÷ available rooms = ADR × occupancy." {...deltaProps(deltaPct(t.revparPaise, p.revparPaise))} />
+        <KpiCard label="Occupancy" value={pct(t.occupancyBps)} icon={<Percent />} href="/reports" tooltip="Occupied room-nights ÷ available room-nights over the period." {...deltaProps(deltaPct(t.occupancyBps, p.occupancyBps))}><Sparkline data={spark.occupancy} /></KpiCard>
+        <KpiCard label="ADR" value={formatINR(t.adrPaise)} icon={<BedDouble />} href="/reports" tooltip="Average Daily Rate = room revenue ÷ rooms sold. The average price of a sold room (room income only)." {...deltaProps(deltaPct(t.adrPaise, p.adrPaise))}><Sparkline data={spark.adr} /></KpiCard>
+        <KpiCard label="RevPAR" value={formatINR(t.revparPaise)} icon={<LineChart />} href="/reports" tooltip="Revenue Per Available Room = room revenue ÷ available rooms = ADR × occupancy." {...deltaProps(deltaPct(t.revparPaise, p.revparPaise))}><Sparkline data={spark.revpar} /></KpiCard>
         <KpiCard label="Live occupancy" value={pct(tiles.occupancyBps)} icon={<Gauge />} hint="right now" tooltip="Rooms occupied right now ÷ sellable rooms — the current floor state (not the period average)." href="/rooms" />
         <KpiCard label="Pending dues" value={formatINR(tiles.pendingPaise ?? 0)} icon={<Wallet />} hint="unsettled folios" tooltip="Money guests still owe: Σ folio balances (charges + tax − payments)." href="/billing" className={(tiles.pendingPaise ?? 0) > 0 ? "border-warning/40" : undefined} />
         <KpiCard label="Bookings" value={bookingCounts.bookings} icon={<CalendarCheck />} hint="realised in range" tooltip="Confirmed / in-house / stayed bookings in the period." href="/bookings" />
