@@ -35,7 +35,7 @@ export default async function BillingPage({
   if (resolvePortal(user.roleAssignments.map((r) => r.role)) === "SUPER_ADMIN" && !user.activePropertyId) {
     const rollup = await perPropertyBillingRollup(user, [...user.accessiblePropertyIds]);
     return (
-      <div className="mx-auto w-full max-w-6xl space-y-6">
+      <div className="mx-auto w-full max-w-[1600px] space-y-6">
         <PortfolioBilling rollup={rollup} properties={properties} />
         <div id="invoices" className="scroll-mt-20">
           <InvoiceSearch properties={properties} gstOnly={gstTab} />
@@ -55,7 +55,7 @@ export default async function BillingPage({
   ]);
 
   return (
-    <div className="mx-auto w-full max-w-6xl">
+    <div className="mx-auto w-full max-w-[1600px]">
       <PageHeader title="Billing" description="Outstanding dues, collections and GST tax invoices for this property." />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" data-testid="billing-kpis">

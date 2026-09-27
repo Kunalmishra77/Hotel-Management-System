@@ -12,7 +12,7 @@ import type { PortfolioBilling as PortfolioBillingData } from "../queries";
 export function PortfolioBilling({ rollup, properties }: { rollup: PortfolioBillingData; properties: { id: string; name: string }[] }) {
   const t = rollup.totals;
   return (
-    <div className="mx-auto w-full max-w-6xl">
+    <div className="mx-auto w-full max-w-[1600px]">
       <PageHeader title="Billing" description="Consolidated dues, collections and invoices across every property." />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
