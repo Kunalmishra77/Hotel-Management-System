@@ -54,7 +54,9 @@ export async function askBusiness(input: unknown): Promise<Result<BusinessAnswer
   return toResult(async () => {
     const { question } = askBusinessSchema.parse(input);
     const user = await requireUser();
-    return answerBusinessQuestion(user, { question });
+    // Establish the request context (org/scope/requestId in ALS) the canonical
+    // financial queries rely on — as every other AI action does.
+    return withAiContext(user, () => answerBusinessQuestion(user, { question }));
   });
 }
 
