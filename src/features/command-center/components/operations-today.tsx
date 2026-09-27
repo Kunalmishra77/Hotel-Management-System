@@ -60,7 +60,17 @@ export function OperationsToday({
   );
 }
 
-function MovementList({
+/** Today's arrivals + departures as a standalone two-column pair (portfolio views). */
+export function TodayMovements({ arrivals, departures }: { arrivals: TodayMovement[]; departures: TodayMovement[] }) {
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      <MovementList title="Arrivals today" icon={<LogIn />} rows={arrivals} emptyLabel="No arrivals scheduled today." href="/bookings?desk=1" cta="Front desk" />
+      <MovementList title="Departures today" icon={<LogOut />} rows={departures} emptyLabel="No departures due today." href="/in-house" cta="In-house" showBalance />
+    </div>
+  );
+}
+
+export function MovementList({
   title,
   icon,
   rows,

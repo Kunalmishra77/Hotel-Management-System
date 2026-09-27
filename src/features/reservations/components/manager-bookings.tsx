@@ -43,7 +43,7 @@ export function ManagerBookings({
   const lost = (overview.statusCounts["CANCELLED"] ?? 0) + (overview.statusCounts["NO_SHOW"] ?? 0);
 
   return (
-    <div className="mx-auto w-full max-w-6xl">
+    <div className="mx-auto w-full max-w-[1600px]">
       <PageHeader
         title="Bookings — performance"
         description={`Insights & trends · ${dateLabel}`}

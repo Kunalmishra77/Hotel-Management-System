@@ -112,7 +112,7 @@ export default async function BookingsPage({
   const dateLabel = today.toLocaleDateString("en-IN", { weekday: "short", day: "2-digit", month: "short" });
 
   return (
-    <div className="mx-auto w-full max-w-6xl">
+    <div className="mx-auto w-full max-w-[1600px]">
       <PageHeader
         title="Bookings"
         description={`Front desk · ${dateLabel}`}

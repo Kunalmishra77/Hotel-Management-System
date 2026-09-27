@@ -14,6 +14,8 @@ import {
   recentPortfolioBookings,
   getPortfolio,
 } from "@/features/command-center/queries";
+import { arrivalsDeparturesPortfolio } from "@/features/reservations/queries";
+import { TodayMovements } from "@/features/command-center/components/operations-today";
 import { PeriodFilter } from "@/features/command-center/components/period-filter";
 import {
   PerPropertyBookingsTable,
@@ -42,11 +44,12 @@ export async function SuperAdminBookings({
   const VALID_STATUS = ["CONFIRMED", "IN_HOUSE", "CHECKED_OUT", "CANCELLED", "NO_SHOW"] as const;
   const statusFilter = VALID_STATUS.includes(sp.status as never) ? sp.status : undefined;
 
-  const [counts, perProperty, recent, portfolio] = await Promise.all([
+  const [counts, perProperty, recent, portfolio, movements] = await Promise.all([
     portfolioBookingCounts(user, { propertyIds, from: win.from, to: win.to }),
     perPropertyBookingCounts(user, { propertyIds, from: win.from, to: win.to }),
     recentPortfolioBookings(user, { propertyIds, limit: statusFilter ? 200 : 30, status: statusFilter }),
     getPortfolio(user, win.from, win.to),
+    arrivalsDeparturesPortfolio(user, propertyIds, today),
   ]);
   // Preserve the period in card links so filtering doesn't reset the date window.
   const q = (status?: string) => {
@@ -56,7 +59,7 @@ export async function SuperAdminBookings({
   const STATUS_LABEL: Record<string, string> = { CONFIRMED: "Confirmed", IN_HOUSE: "In-house", CHECKED_OUT: "Checked out", CANCELLED: "Cancelled", NO_SHOW: "No-show" };
 
   return (
-    <div className="mx-auto w-full max-w-6xl">
+    <div className="mx-auto w-full max-w-[1600px]">
       <PageHeader
         title="Bookings"
         description={`Every property · ${win.label}`}
@@ -78,6 +81,11 @@ export async function SuperAdminBookings({
         <KpiCard label="Cancellations" value={counts.cancelled} icon={<XCircle />} hint="In this period" href={q("CANCELLED")} tooltip="Cancelled bookings — click to list." className={counts.cancelled > 0 ? "border-destructive/30" : undefined} />
         <KpiCard label="No-shows" value={counts.noShow} icon={<UserX />} hint="In this period" href={q("NO_SHOW")} tooltip="Confirmed guests who never arrived — click to list." />
         <KpiCard label="Revenue" value={formatINR(portfolio.totals.revenuePaise)} icon={<IndianRupee />} hint="Net of discounts, ex-tax" href="/reports" tooltip="Room + service revenue, net of discounts, excluding GST." />
+      </div>
+
+      {/* Today's movements across every property — the central team's "who's coming/going" */}
+      <div className="mb-4">
+        <TodayMovements arrivals={movements.arrivals} departures={movements.departures} />
       </div>
 
       <Card className="mb-4">
