@@ -29,7 +29,7 @@ export default async function RoomsPage() {
       return <NoProperty what="Rooms" canCreate={can(user, "property:manage", null)} />;
     }
     return (
-      <div className="mx-auto w-full max-w-6xl">
+      <div className="mx-auto w-full max-w-[1600px]">
         <div className="mb-4">
           <h1 className="text-xl font-semibold tracking-tight">Rooms</h1>
           <p className="text-sm text-muted-foreground">Live room status across all properties. Choose a hotel to manage its rooms.</p>
@@ -54,15 +54,23 @@ export default async function RoomsPage() {
 
   // Focused on one property: its room board.
   const board = await roomBoard(user, { propertyId });
+  // Live occupancy = occupied ÷ sellable (active minus out-of-order). Headline stat.
+  const sellable = board.counts.VACANT + board.counts.OCCUPIED + board.counts.RESERVED + board.counts.HOUSEKEEPING;
+  const liveOccPct = sellable > 0 ? Math.round((board.counts.OCCUPIED / sellable) * 100) : 0;
+  const summary = [
+    `${board.total} rooms`,
+    `${board.counts.OCCUPIED} occupied`,
+    `${board.counts.VACANT} vacant`,
+    `${liveOccPct}% live occupancy`,
+    ...(board.counts.UNDER_MAINTENANCE > 0 ? [`${board.counts.UNDER_MAINTENANCE} out of order`] : []),
+  ].join(" · ");
   return (
-    <div className="space-y-4">
+    <div className="mx-auto w-full max-w-[1600px] space-y-4">
       <BackToAllProperties />
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Rooms</h1>
-          <p className="text-sm text-muted-foreground">
-            {board.total} room{board.total === 1 ? "" : "s"} · tap one for actions
-          </p>
+          <p className="text-sm text-muted-foreground">{summary} · tap one for actions</p>
         </div>
         {can(user, "room:manage", propertyId) && (
           <Button asChild variant="outline" size="sm">

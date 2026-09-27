@@ -47,7 +47,7 @@ export function PropertyChooserCards({ properties, what }: { properties: Chooser
         <p className="text-sm text-muted-foreground">Pick a hotel to view its {what}. You can switch anytime from the selector at the top.</p>
       </div>
       {error && <p role="alert" className="mb-3 text-sm text-destructive">{error}</p>}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {properties.map((p) => {
           const busy = pendingId === p.id;
           return (
