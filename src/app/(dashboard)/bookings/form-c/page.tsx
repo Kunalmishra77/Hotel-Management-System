@@ -4,6 +4,7 @@ import { requirePermission } from "@/lib/auth/guard";
 import { can, hasPermission } from "@/lib/permissions";
 import { listCForms } from "@/features/reservations/queries";
 import { FormCRegister } from "@/features/reservations/components/form-c-register";
+import { PageHeader } from "@/components/ui/page-header";
 
 export const metadata: Metadata = { title: "Form C register" };
 
@@ -20,13 +21,11 @@ export default async function FormCPage() {
   const canSubmit = can(user, "checkin:perform", propertyId);
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4 p-4">
-      <div>
-        <h1 className="text-xl font-semibold">Form C register</h1>
-        <p className="text-sm text-muted-foreground">
-          Foreign-guest arrival reports (FRRO). Record the e-FRRO reference after submitting on the portal.
-        </p>
-      </div>
+    <div className="mx-auto w-full max-w-[1600px] space-y-4 p-4">
+      <PageHeader
+        title="Form C register"
+        description="Foreign-guest arrival reports (FRRO). Record the e-FRRO reference after submitting on the portal."
+      />
       <FormCRegister items={cforms} canSubmit={canSubmit} />
     </div>
   );

@@ -7,6 +7,7 @@
  */
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
 import { CampaignBuilder } from "./campaign-builder";
 
 type Template = { id: string; key: string; channel: string; language: string; providerTemplateId: string | null; isActive: boolean };
@@ -47,11 +48,11 @@ export function CommunicationsScreen(props: {
   const filteredLog = statusFilter ? props.log.filter((r) => r.status === statusFilter) : props.log;
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4 p-4">
-      <div>
-        <h1 className="text-xl font-semibold">Communications</h1>
-        <p className="text-sm text-muted-foreground">Guest messaging — templates, event automations, campaigns and the delivery log{props.propertyId ? " for this property" : " across all properties"}.</p>
-      </div>
+    <div className="mx-auto w-full max-w-[1600px] space-y-4 p-4">
+      <PageHeader
+        title="Communications"
+        description={`Guest messaging — templates, event automations, campaigns and the delivery log${props.propertyId ? " for this property" : " across all properties"}.`}
+      />
 
       <div className="flex gap-1 overflow-x-auto" role="tablist">
         {tabs.map((t) => (

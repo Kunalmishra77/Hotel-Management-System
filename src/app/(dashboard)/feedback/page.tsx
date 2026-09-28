@@ -51,7 +51,7 @@ export default async function FeedbackPage({
   ]);
 
   return (
-    <div className="mx-auto w-full max-w-4xl">
+    <div className="mx-auto w-full max-w-[1600px]">
       <PageHeader title="Feedback" description="Guest reviews with AI sentiment — surfaced for action, never auto-acted on." />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5" data-testid="feedback-kpis">
@@ -87,7 +87,7 @@ export default async function FeedbackPage({
             {sentiment ? "No feedback in this sentiment." : "No guest feedback yet."}
           </p>
         ) : (
-          <ul className="space-y-2" data-testid="feedback-list">
+          <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3" data-testid="feedback-list">
             {feedback.map((f) => {
               const s = f.sentiment ? SENTIMENT[f.sentiment] : null;
               return (

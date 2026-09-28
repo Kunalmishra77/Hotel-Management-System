@@ -46,7 +46,7 @@ export default async function PeoplePage({
       };
     });
     return (
-      <div className="mx-auto w-full max-w-6xl px-4 py-4">
+      <div className="mx-auto w-full max-w-[1600px] px-4 py-4">
         <PageHeader title="People" description="Your team across every property — staff, attendance and payroll." />
         <PeopleOverview cards={cards} />
       </div>
@@ -64,7 +64,7 @@ export default async function PeoplePage({
   const defaultTab = (await searchParams).tab === "payroll" ? "payroll" : "staff";
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-4">
+    <div className="mx-auto w-full max-w-[1600px] px-4 py-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <PageHeader title="People" description="Staff, attendance and payroll for this property." />
         <BackToAllProperties />

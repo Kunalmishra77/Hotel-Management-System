@@ -29,11 +29,12 @@ export default async function SettingsPage() {
   const settings = isOrgAdmin ? await getOrgSecuritySettings(user) : null;
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6 p-4">
+    <div className="mx-auto w-full max-w-[1600px] space-y-6 p-4">
       <PageHeader title="Settings" description="Your control room — company profile, security, audit and integrations." />
 
+      <div className="grid gap-6 lg:grid-cols-2 items-start">
       {/* Company profile — real, invoice-authoritative details (read-only here). */}
-      <Card>
+      <Card className={settings ? undefined : "lg:col-span-2"}>
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-base [&_svg]:size-4 [&_svg]:text-primary"><Building2 /> Company</CardTitle>
         </CardHeader>
@@ -60,10 +61,11 @@ export default async function SettingsPage() {
           <CardContent><SecuritySettingsForm settings={settings} /></CardContent>
         </Card>
       ) : null}
+      </div>
 
       {/* Config that has no other nav home. Users & Properties are top-level items,
           so they are not re-listed here — that was the overlap. */}
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {canUsers ? (
           <LinkCard href="/settings/audit" icon={<ScrollText />} title="Audit log" desc="Every business action, who and when" />
         ) : null}

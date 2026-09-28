@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
 import { approveRate, rejectRate } from "../actions";
 import type { DynamicRateRow, CategoryGuardrail } from "../queries";
 
@@ -50,10 +51,13 @@ export function PricingScreen({
     : "—";
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-4 p-4">
-      <h1 className="text-xl font-semibold">Pricing</h1>
+    <div className="mx-auto w-full max-w-[1600px] space-y-4 p-4">
+      <PageHeader
+        title="Pricing"
+        description="Occupancy/season-based rate suggestions — approve or adjust within each category's guardrail before they publish."
+      />
 
-      <div className="space-y-1.5">
+      <div className="max-w-xs space-y-1.5">
         <label htmlFor="cat" className="text-sm font-medium">Category</label>
         <select
           id="cat"
@@ -80,13 +84,13 @@ export function PricingScreen({
           {rates.length === 0 ? (
             <p className="text-sm text-muted-foreground">No suggestions yet. Run the pricing engine to populate this calendar.</p>
           ) : (
-            <ul className="divide-y rounded-md border" data-testid="pricing-list">
+            <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4" data-testid="pricing-list">
               {rates.map((r) => {
                 const day = isoDay(r.date);
                 const suggestedRupees = r.suggestedPaise / 100;
                 const value = adjust[r.id] ?? suggestedRupees;
                 return (
-                  <li key={r.id} className="space-y-2 p-3 text-sm" data-testid={`rate-${day}`}>
+                  <li key={r.id} className="space-y-2 rounded-md border p-3 text-sm" data-testid={`rate-${day}`}>
                     <div className="flex items-center justify-between gap-2">
                       <div>
                         <p className="font-medium">{day}</p>
@@ -108,7 +112,8 @@ export function PricingScreen({
                       <div className="flex items-center gap-2">
                         <Input
                           type="number"
-                          inputMode="numeric"
+                          inputMode="decimal"
+                          step="0.01"
                           aria-label={`Approved rate for ${day} (₹)`}
                           value={value}
                           onChange={(e) => setAdjust((a) => ({ ...a, [r.id]: Number(e.target.value) }))}
