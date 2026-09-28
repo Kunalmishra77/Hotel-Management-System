@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatINR, formatDayMonth } from "@/lib/utils";
 import { PAYMENT_MODE_LABEL } from "@/lib/constants/company";
 import { ExpensesCharts } from "./expenses-charts";
+import { ExportExpensesButton } from "./export-expenses-button";
 import type { ExpensePortfolio } from "../queries";
 
 const HEADS = ["HOUSEKEEPING", "KITCHEN", "MAINTENANCE", "UTILITIES", "STAFF", "ADMINISTRATION", "MISC"] as const;
@@ -32,10 +33,15 @@ export function ExpensesPortfolio({
   return (
     <Card className="mt-6">
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">All-property expenses</CardTitle>
-        <p className="text-sm text-muted-foreground">
-          Every property&apos;s spend in one place — filter by property, category, payment method and date. Totals count approved expenses only.
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <CardTitle className="text-base">All-property expenses</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Every property&apos;s spend in one place — filter by property, category, payment method and date. Totals count approved expenses only.
+            </p>
+          </div>
+          <ExportExpensesButton rows={data.rows} />
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Filter bar — native GET form, re-renders server-side. */}

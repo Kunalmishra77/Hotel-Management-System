@@ -16,3 +16,11 @@ export type CreateExpenseInput = z.infer<typeof createExpenseSchema>;
 
 export const approveExpenseSchema = z.object({ expenseId: z.string().min(1) });
 export const rejectExpenseSchema = z.object({ expenseId: z.string().min(1), reason: z.string().min(1).max(300) });
+
+/** Set/clear a monthly budget for one property + head. amountPaise 0 clears it. */
+export const setExpenseBudgetSchema = z.object({
+  propertyId: z.string().min(1),
+  head: z.enum(["HOUSEKEEPING", "KITCHEN", "MAINTENANCE", "UTILITIES", "STAFF", "ADMINISTRATION", "MISC"]),
+  month: z.string().regex(/^\d{4}-\d{2}$/),
+  amountPaise: z.number().int().min(0),
+});

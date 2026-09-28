@@ -91,6 +91,7 @@ model Property {
   rooms             Room[]
   reservations      Reservation[]
   expenses          Expense[]
+  expenseBudgets    ExpenseBudget[]
   staff             Staff[]
   invoiceSeries     InvoiceSeries[]
   registrationCards RegistrationCard[]
@@ -1215,6 +1216,23 @@ model Expense {
 
   @@index([propertyId, spentOn])
   @@index([propertyId, head])
+}
+
+// Monthly expense budget per property + head (07 budget-vs-actual). `month` is the
+// property-local budgeting period "YYYY-MM". amountPaise is BigInt (accumulating).
+model ExpenseBudget {
+  id          String      @id @default(cuid())
+  propertyId  String
+  property    Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  head        ExpenseHead
+  month       String // "YYYY-MM"
+  amountPaise BigInt      @default(0)
+  createdById String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@unique([propertyId, head, month])
+  @@index([propertyId, month])
 }
 
 // ==================== 09 STAFF / 21 PAYROLL ==================================

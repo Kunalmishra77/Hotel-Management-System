@@ -47,6 +47,7 @@ export const PROPERTY_SCOPED_MODELS = [
   "InvoiceSeries",
   "Invoice",
   "Expense",
+  "ExpenseBudget",
   "Staff",
   "HousekeepingTask",
   "MaintenanceJob",

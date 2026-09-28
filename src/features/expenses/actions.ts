@@ -16,10 +16,38 @@ import { DomainError, ErrorCode, NotFoundError } from "@/lib/errors";
 import { toResult, type Result } from "@/lib/result";
 import { resolveStorageAdapter } from "@/lib/storage";
 import { expenseDb, withExpenseContext } from "./internal";
-import { createExpenseSchema, approveExpenseSchema, rejectExpenseSchema } from "./schema";
+import { createExpenseSchema, approveExpenseSchema, rejectExpenseSchema, setExpenseBudgetSchema } from "./schema";
 import { requiresSuperApproval } from "./domain/escalation";
 
 export type ExpenseResult = { id: string; status: string };
+
+/**
+ * Set (or clear, when amount = 0) a monthly expense budget for one property + head
+ * (07 budget-vs-actual). Managing budgets is an `expense:approve` action — audited.
+ * Upsert on (property, head, month); amount is BigInt paise.
+ */
+export async function setExpenseBudget(input: unknown): Promise<Result<{ ok: true }>> {
+  return toResult(async () => {
+    const data = setExpenseBudgetSchema.parse(input);
+    const user = await requireUser();
+    authorize(user, "expense:approve", data.propertyId);
+    return withExpenseContext(user, () =>
+      expenseDb(user).$transaction(async (tx) => {
+        if (data.amountPaise === 0) {
+          await tx.expenseBudget.deleteMany({ where: { propertyId: data.propertyId, head: data.head, month: data.month } });
+        } else {
+          await tx.expenseBudget.upsert({
+            where: { propertyId_head_month: { propertyId: data.propertyId, head: data.head, month: data.month } },
+            create: { propertyId: data.propertyId, head: data.head, month: data.month, amountPaise: BigInt(data.amountPaise), createdById: user.userId },
+            update: { amountPaise: BigInt(data.amountPaise) },
+          });
+        }
+        await writeAudit(tx, { action: "expense:set-budget", entityType: "ExpenseBudget", entityId: `${data.propertyId}:${data.head}:${data.month}`, propertyId: data.propertyId, after: { head: data.head, month: data.month, amountPaise: data.amountPaise } });
+        return { ok: true as const };
+      }),
+    );
+  });
+}
 
 const SALARY_SUB = /salary|wages|payroll/i;
 

@@ -233,3 +233,59 @@ export async function listExpenses(
     spentOn: r.spentOn, status: r.status, vendor: r.vendor, hasBill: r.billObjectKey !== null,
   }));
 }
+
+export const EXPENSE_HEADS = ["HOUSEKEEPING", "KITCHEN", "MAINTENANCE", "UTILITIES", "STAFF", "ADMINISTRATION", "MISC"] as const;
+
+export type BudgetVsActualRow = { head: string; budgetPaise: number; actualPaise: number };
+export type BudgetVsActual = { month: string; rows: BudgetVsActualRow[]; totalBudgetPaise: number; totalActualPaise: number };
+
+/**
+ * Budget-vs-actual for a month across a property set (07 budget management). Actuals
+ * are APPROVED expenses in the month grouped by head; budgets come from ExpenseBudget
+ * for the same month. Every head is returned (even at 0) so the UI shows the full
+ * set. Defensive: if the ExpenseBudget table isn't migrated yet, budgets read as 0
+ * rather than crashing the page. Property-scoped; money in paise.
+ */
+export async function budgetVsActual(
+  user: SessionClaims,
+  input: { propertyIds: string[]; month: string },
+): Promise<BudgetVsActual> {
+  const ids = input.propertyIds.filter((id) => user.accessiblePropertyIds.includes(id));
+  const empty = EXPENSE_HEADS.map((head) => ({ head, budgetPaise: 0, actualPaise: 0 }));
+  if (ids.length === 0) return { month: input.month, rows: empty, totalBudgetPaise: 0, totalActualPaise: 0 };
+
+  const [y, m] = input.month.split("-").map(Number);
+  const from = new Date(Date.UTC(y!, m! - 1, 1));
+  const to = new Date(Date.UTC(y!, m!, 0, 23, 59, 59, 999));
+
+  const actualGroups = await db.scoped(user).expense.groupBy({
+    by: ["head"],
+    where: { propertyId: { in: ids }, status: "APPROVED", spentOn: { gte: from, lte: to } },
+    _sum: { amountPaise: true },
+  });
+  const actualByHead = new Map(actualGroups.map((g) => [g.head as string, g._sum.amountPaise ?? 0]));
+
+  const budgetByHead = new Map<string, number>();
+  try {
+    const budgetGroups = await db.scoped(user).expenseBudget.groupBy({
+      by: ["head"],
+      where: { propertyId: { in: ids }, month: input.month },
+      _sum: { amountPaise: true },
+    });
+    for (const g of budgetGroups) budgetByHead.set(g.head as string, Number(g._sum.amountPaise ?? 0n));
+  } catch {
+    // ExpenseBudget table not migrated yet — treat budgets as unset.
+  }
+
+  const rows = EXPENSE_HEADS.map((head) => ({
+    head,
+    budgetPaise: budgetByHead.get(head) ?? 0,
+    actualPaise: actualByHead.get(head) ?? 0,
+  }));
+  return {
+    month: input.month,
+    rows,
+    totalBudgetPaise: rows.reduce((n, r) => n + r.budgetPaise, 0),
+    totalActualPaise: rows.reduce((n, r) => n + r.actualPaise, 0),
+  };
+}

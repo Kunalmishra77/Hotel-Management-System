@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import { NoProperty } from "@/features/platform/components/no-property";
 import { hasPermission } from "@/lib/permissions";
 import { requirePermission } from "@/lib/auth/guard";
-import { listExpenses, expenseRollup, expensePortfolio } from "@/features/expenses/queries";
+import { listExpenses, expenseRollup, expensePortfolio, budgetVsActual } from "@/features/expenses/queries";
 import { listProperties } from "@/features/properties/queries";
 import { ExpensesScreen } from "@/features/expenses/components/expenses-screen";
 import { ExpensesPortfolio } from "@/features/expenses/components/expenses-portfolio";
+import { ExpensesBudget } from "@/features/expenses/components/expenses-budget";
 
 export const metadata: Metadata = { title: "Expenses" };
 
@@ -44,7 +45,11 @@ export default async function ExpensesPage({
   const from = new Date(`${dayStr}T00:00:00.000Z`);
   const to = new Date(`${dayStr}T23:59:59.999Z`);
   const accessible = [...user.accessiblePropertyIds];
-  const [expenses, roll, properties, portfolio] = await Promise.all([
+  // Budgets are per property: editable when one property is focused, else a
+  // read-only portfolio aggregate. Current calendar month.
+  const budgetMonth = dayStr.slice(0, 7);
+  const budgetPropertyIds = user.activePropertyId ? [user.activePropertyId] : accessible;
+  const [expenses, roll, properties, portfolio, budget] = await Promise.all([
     listExpenses(user, { propertyId, limit: 50 }),
     expenseRollup(user, { propertyIds: [propertyId], from, to, groupBy: "day" }),
     listProperties(user),
@@ -55,6 +60,7 @@ export default async function ExpensesPage({
       from: dayBound(filters.from, false),
       to: dayBound(filters.to, true),
     }),
+    budgetVsActual(user, { propertyIds: budgetPropertyIds, month: budgetMonth }),
   ]);
 
   return (
@@ -67,6 +73,13 @@ export default async function ExpensesPage({
         todayTotalPaise={roll.totalPaise}
       />
       <div className="mx-auto w-full max-w-[1600px] px-4 pb-8">
+        <ExpensesBudget
+          rows={budget.rows}
+          month={budget.month}
+          totalBudgetPaise={budget.totalBudgetPaise}
+          totalActualPaise={budget.totalActualPaise}
+          editablePropertyId={hasPermission(user, "expense:approve") ? user.activePropertyId : null}
+        />
         <ExpensesPortfolio
           data={portfolio}
           properties={properties.map((p) => ({ id: p.id, name: p.name }))}
