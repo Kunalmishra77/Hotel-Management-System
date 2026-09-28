@@ -1,0 +1,5468 @@
+{
+  "at": "2026-09-26T04:46:57.109Z",
+  "folioLines": [
+    {
+      "id": "cmu12gjry004tms0ko2qzbo44",
+      "folioId": "cmu12gjjd004rms0k80cuv6dh",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 191964,
+      "amountPaise": 191964,
+      "taxRateBps": 1200,
+      "cgstPaise": 11518,
+      "sgstPaise": 11518,
+      "igstPaise": 0,
+      "businessDate": "2026-09-08T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wwf"
+      }
+    },
+    {
+      "id": "cmu12gk92004yms0k3ujqf675",
+      "folioId": "cmu12gjjd004rms0k80cuv6dh",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 191964,
+      "amountPaise": 191964,
+      "taxRateBps": 1200,
+      "cgstPaise": 11518,
+      "sgstPaise": 11518,
+      "igstPaise": 0,
+      "businessDate": "2026-09-09T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wwf"
+      }
+    },
+    {
+      "id": "cmu13cs7z0063ms0km16ww4xv",
+      "folioId": "cmu13crzq0061ms0kuusn9ab3",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 223214,
+      "amountPaise": 223214,
+      "taxRateBps": 1200,
+      "cgstPaise": 13393,
+      "sgstPaise": 13393,
+      "igstPaise": 0,
+      "businessDate": "2026-09-10T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wwf"
+      }
+    },
+    {
+      "id": "cmu14idoj000lr00kqjf64bnh",
+      "folioId": "cmu14idfk000jr00kmlmuikqp",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 250000,
+      "amountPaise": 250000,
+      "taxRateBps": 1200,
+      "cgstPaise": 15000,
+      "sgstPaise": 15000,
+      "igstPaise": 0,
+      "businessDate": "2026-09-11T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wwf"
+      }
+    },
+    {
+      "id": "cmu14ie5g000qr00ko0f8vjwq",
+      "folioId": "cmu14idfk000jr00kmlmuikqp",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 250000,
+      "amountPaise": 250000,
+      "taxRateBps": 1200,
+      "cgstPaise": 15000,
+      "sgstPaise": 15000,
+      "igstPaise": 0,
+      "businessDate": "2026-09-12T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wwf"
+      }
+    },
+    {
+      "id": "cmu14z1kb0020r00kik983eq9",
+      "folioId": "cmu14z1c2001yr00k3d7jrau8",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 169643,
+      "amountPaise": 169643,
+      "taxRateBps": 1200,
+      "cgstPaise": 10179,
+      "sgstPaise": 10179,
+      "igstPaise": 0,
+      "businessDate": "2026-08-31T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmu14z2140025r00k4qzrlsqo",
+      "folioId": "cmu14z1c2001yr00k3d7jrau8",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 169643,
+      "amountPaise": 169643,
+      "taxRateBps": 1200,
+      "cgstPaise": 10179,
+      "sgstPaise": 10179,
+      "igstPaise": 0,
+      "businessDate": "2026-09-01T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmu14z2e1002ar00kb4kjabe1",
+      "folioId": "cmu14z1c2001yr00k3d7jrau8",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 169643,
+      "amountPaise": 169643,
+      "taxRateBps": 1200,
+      "cgstPaise": 10179,
+      "sgstPaise": 10179,
+      "igstPaise": 0,
+      "businessDate": "2026-09-02T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmu14z2qo002fr00kjajk8z63",
+      "folioId": "cmu14z1c2001yr00k3d7jrau8",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 169643,
+      "amountPaise": 169643,
+      "taxRateBps": 1200,
+      "cgstPaise": 10179,
+      "sgstPaise": 10179,
+      "igstPaise": 0,
+      "businessDate": "2026-09-03T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmu14z33n002kr00k6em2e89i",
+      "folioId": "cmu14z1c2001yr00k3d7jrau8",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 169643,
+      "amountPaise": 169643,
+      "taxRateBps": 1200,
+      "cgstPaise": 10179,
+      "sgstPaise": 10179,
+      "igstPaise": 0,
+      "businessDate": "2026-09-04T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmu14z3gx002pr00k7uqkmwet",
+      "folioId": "cmu14z1c2001yr00k3d7jrau8",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 169643,
+      "amountPaise": 169643,
+      "taxRateBps": 1200,
+      "cgstPaise": 10179,
+      "sgstPaise": 10179,
+      "igstPaise": 0,
+      "businessDate": "2026-09-05T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmu14z3tt002ur00ktsxtd2hi",
+      "folioId": "cmu14z1c2001yr00k3d7jrau8",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 169643,
+      "amountPaise": 169643,
+      "taxRateBps": 1200,
+      "cgstPaise": 10179,
+      "sgstPaise": 10179,
+      "igstPaise": 0,
+      "businessDate": "2026-09-06T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmu14z46q002zr00kc9dfgiu3",
+      "folioId": "cmu14z1c2001yr00k3d7jrau8",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 169643,
+      "amountPaise": 169643,
+      "taxRateBps": 1200,
+      "cgstPaise": 10179,
+      "sgstPaise": 10179,
+      "igstPaise": 0,
+      "businessDate": "2026-09-07T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmu14z4jc0034r00kaggybokx",
+      "folioId": "cmu14z1c2001yr00k3d7jrau8",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 169643,
+      "amountPaise": 169643,
+      "taxRateBps": 1200,
+      "cgstPaise": 10179,
+      "sgstPaise": 10179,
+      "igstPaise": 0,
+      "businessDate": "2026-09-08T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmu14z4vt0039r00k8qbana3e",
+      "folioId": "cmu14z1c2001yr00k3d7jrau8",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 169643,
+      "amountPaise": 169643,
+      "taxRateBps": 1200,
+      "cgstPaise": 10179,
+      "sgstPaise": 10179,
+      "igstPaise": 0,
+      "businessDate": "2026-09-09T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmu14z58a003er00koq9ckexh",
+      "folioId": "cmu14z1c2001yr00k3d7jrau8",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 169643,
+      "amountPaise": 169643,
+      "taxRateBps": 1200,
+      "cgstPaise": 10179,
+      "sgstPaise": 10179,
+      "igstPaise": 0,
+      "businessDate": "2026-09-10T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmu14z5kt003jr00kog6qksx4",
+      "folioId": "cmu14z1c2001yr00k3d7jrau8",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 169643,
+      "amountPaise": 169643,
+      "taxRateBps": 1200,
+      "cgstPaise": 10179,
+      "sgstPaise": 10179,
+      "igstPaise": 0,
+      "businessDate": "2026-09-11T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmu263iqs001npe0jtmzshmqj",
+      "folioId": "cmu263iil001lpe0j7ftw2bbi",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 210000,
+      "amountPaise": 210000,
+      "taxRateBps": 1200,
+      "cgstPaise": 12600,
+      "sgstPaise": 12600,
+      "igstPaise": 0,
+      "businessDate": "2026-09-02T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmu263j72001spe0jxfq7ii67",
+      "folioId": "cmu263iil001lpe0j7ftw2bbi",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 210000,
+      "amountPaise": 210000,
+      "taxRateBps": 1200,
+      "cgstPaise": 12600,
+      "sgstPaise": 12600,
+      "igstPaise": 0,
+      "businessDate": "2026-09-03T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmu263jj8001xpe0jt5vq3n0s",
+      "folioId": "cmu263iil001lpe0j7ftw2bbi",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 210000,
+      "amountPaise": 210000,
+      "taxRateBps": 1200,
+      "cgstPaise": 12600,
+      "sgstPaise": 12600,
+      "igstPaise": 0,
+      "businessDate": "2026-09-04T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmu27lpbc0036pe0jc5xgrv6u",
+      "folioId": "cmu27lp2t0034pe0jjx0mjqdg",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 214286,
+      "amountPaise": 214286,
+      "taxRateBps": 1200,
+      "cgstPaise": 12857,
+      "sgstPaise": 12857,
+      "igstPaise": 0,
+      "businessDate": "2026-09-05T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmu27lpsc003bpe0jbct492ij",
+      "folioId": "cmu27lp2t0034pe0jjx0mjqdg",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 214286,
+      "amountPaise": 214286,
+      "taxRateBps": 1200,
+      "cgstPaise": 12857,
+      "sgstPaise": 12857,
+      "igstPaise": 0,
+      "businessDate": "2026-09-06T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmu27lq54003gpe0jm8sh1diy",
+      "folioId": "cmu27lp2t0034pe0jjx0mjqdg",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 214286,
+      "amountPaise": 214286,
+      "taxRateBps": 1200,
+      "cgstPaise": 12857,
+      "sgstPaise": 12857,
+      "igstPaise": 0,
+      "businessDate": "2026-09-07T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmu28q5hx004vpe0jl9w8bd62",
+      "folioId": "cmu28q59j004tpe0j4uknm9a3",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 223214,
+      "amountPaise": 223214,
+      "taxRateBps": 1200,
+      "cgstPaise": 13393,
+      "sgstPaise": 13393,
+      "igstPaise": 0,
+      "businessDate": "2026-09-09T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmu28q5yp0050pe0jvuc7at5l",
+      "folioId": "cmu28q59j004tpe0j4uknm9a3",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 223214,
+      "amountPaise": 223214,
+      "taxRateBps": 1200,
+      "cgstPaise": 13393,
+      "sgstPaise": 13393,
+      "igstPaise": 0,
+      "businessDate": "2026-09-10T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmu28q6bc0055pe0jvpr90o7u",
+      "folioId": "cmu28q59j004tpe0j4uknm9a3",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 223214,
+      "amountPaise": 223214,
+      "taxRateBps": 1200,
+      "cgstPaise": 13393,
+      "sgstPaise": 13393,
+      "igstPaise": 0,
+      "businessDate": "2026-09-11T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmu28q6nz005ape0jw3pmconi",
+      "folioId": "cmu28q59j004tpe0j4uknm9a3",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 223214,
+      "amountPaise": 223214,
+      "taxRateBps": 1200,
+      "cgstPaise": 13393,
+      "sgstPaise": 13393,
+      "igstPaise": 0,
+      "businessDate": "2026-09-12T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmu28q70l005fpe0jb0m3yuks",
+      "folioId": "cmu28q59j004tpe0j4uknm9a3",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 223214,
+      "amountPaise": 223214,
+      "taxRateBps": 1200,
+      "cgstPaise": 13393,
+      "sgstPaise": 13393,
+      "igstPaise": 0,
+      "businessDate": "2026-09-13T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmu28q7d7005kpe0jmcmfx5ya",
+      "folioId": "cmu28q59j004tpe0j4uknm9a3",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 223214,
+      "amountPaise": 223214,
+      "taxRateBps": 1200,
+      "cgstPaise": 13393,
+      "sgstPaise": 13393,
+      "igstPaise": 0,
+      "businessDate": "2026-09-14T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmu28q7pv005ppe0jhvsyay7x",
+      "folioId": "cmu28q59j004tpe0j4uknm9a3",
+      "type": "EXTRA_BED",
+      "quantity": 1,
+      "unitPaise": 44643,
+      "amountPaise": 44643,
+      "taxRateBps": 1200,
+      "cgstPaise": 2679,
+      "sgstPaise": 2679,
+      "igstPaise": 0,
+      "businessDate": "2026-09-09T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmu28q82h005upe0j7io5q048",
+      "folioId": "cmu28q59j004tpe0j4uknm9a3",
+      "type": "LAUNDRY",
+      "quantity": 1,
+      "unitPaise": 16949,
+      "amountPaise": 16949,
+      "taxRateBps": 1800,
+      "cgstPaise": 1525,
+      "sgstPaise": 1525,
+      "igstPaise": 0,
+      "businessDate": "2026-09-09T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmu2c9pfw000bo50k8uiutj3d",
+      "folioId": "cmu2c9p770009o50kw8ditjik",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 205357,
+      "amountPaise": 205357,
+      "taxRateBps": 1200,
+      "cgstPaise": 12321,
+      "sgstPaise": 12321,
+      "igstPaise": 0,
+      "businessDate": "2026-08-31T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd23"
+      }
+    },
+    {
+      "id": "cmu2c9pxe000go50kqhzr5yv3",
+      "folioId": "cmu2c9p770009o50kw8ditjik",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 205357,
+      "amountPaise": 205357,
+      "taxRateBps": 1200,
+      "cgstPaise": 12321,
+      "sgstPaise": 12321,
+      "igstPaise": 0,
+      "businessDate": "2026-09-01T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd23"
+      }
+    },
+    {
+      "id": "cmu2ctafz001lo50kdnvgu8u1",
+      "folioId": "cmu2cta7s001jo50kt2x04xvs",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 210000,
+      "amountPaise": 210000,
+      "taxRateBps": 1200,
+      "cgstPaise": 12600,
+      "sgstPaise": 12600,
+      "igstPaise": 0,
+      "businessDate": "2026-08-31T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd23"
+      }
+    },
+    {
+      "id": "cmu2ctawf001qo50k5818fboo",
+      "folioId": "cmu2cta7s001jo50kt2x04xvs",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 210000,
+      "amountPaise": 210000,
+      "taxRateBps": 1200,
+      "cgstPaise": 12600,
+      "sgstPaise": 12600,
+      "igstPaise": 0,
+      "businessDate": "2026-09-01T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd23"
+      }
+    },
+    {
+      "id": "cmu2ctb8s001vo50ki9bp4g4e",
+      "folioId": "cmu2cta7s001jo50kt2x04xvs",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 210000,
+      "amountPaise": 210000,
+      "taxRateBps": 1200,
+      "cgstPaise": 12600,
+      "sgstPaise": 12600,
+      "igstPaise": 0,
+      "businessDate": "2026-09-02T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd23"
+      }
+    },
+    {
+      "id": "cmu2ctbl30020o50k4qwzxpw8",
+      "folioId": "cmu2cta7s001jo50kt2x04xvs",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 210000,
+      "amountPaise": 210000,
+      "taxRateBps": 1200,
+      "cgstPaise": 12600,
+      "sgstPaise": 12600,
+      "igstPaise": 0,
+      "businessDate": "2026-09-03T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd23"
+      }
+    },
+    {
+      "id": "cmu2ctbxg0025o50knszz61ce",
+      "folioId": "cmu2cta7s001jo50kt2x04xvs",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 210000,
+      "amountPaise": 210000,
+      "taxRateBps": 1200,
+      "cgstPaise": 12600,
+      "sgstPaise": 12600,
+      "igstPaise": 0,
+      "businessDate": "2026-09-04T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd23"
+      }
+    },
+    {
+      "id": "cmu2ctc9v002ao50kem2n109n",
+      "folioId": "cmu2cta7s001jo50kt2x04xvs",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 210000,
+      "amountPaise": 210000,
+      "taxRateBps": 1200,
+      "cgstPaise": 12600,
+      "sgstPaise": 12600,
+      "igstPaise": 0,
+      "businessDate": "2026-09-05T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd23"
+      }
+    },
+    {
+      "id": "cmu2dx1g8004ko50k7lt31s4a",
+      "folioId": "cmu2dx17p004io50kd1fx8gpu",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 200000,
+      "amountPaise": 200000,
+      "taxRateBps": 1200,
+      "cgstPaise": 12000,
+      "sgstPaise": 12000,
+      "igstPaise": 0,
+      "businessDate": "2026-09-04T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd23"
+      }
+    },
+    {
+      "id": "cmu2dx1x8004po50kbe1zmzvu",
+      "folioId": "cmu2dx17p004io50kd1fx8gpu",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 200000,
+      "amountPaise": 200000,
+      "taxRateBps": 1200,
+      "cgstPaise": 12000,
+      "sgstPaise": 12000,
+      "igstPaise": 0,
+      "businessDate": "2026-09-05T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd23"
+      }
+    },
+    {
+      "id": "cmu2ctcm9002fo50k393n3taj",
+      "folioId": "cmu2cta7s001jo50kt2x04xvs",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 210000,
+      "amountPaise": 210000,
+      "taxRateBps": 1200,
+      "cgstPaise": 12600,
+      "sgstPaise": 12600,
+      "igstPaise": 0,
+      "businessDate": "2026-09-06T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd23"
+      }
+    },
+    {
+      "id": "cmu2d6b5e003ko50ke0qspjh1",
+      "folioId": "cmu2d6ax6003io50khgvgi530",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 250000,
+      "amountPaise": 250000,
+      "taxRateBps": 1200,
+      "cgstPaise": 15000,
+      "sgstPaise": 15000,
+      "igstPaise": 0,
+      "businessDate": "2026-09-02T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd23"
+      }
+    },
+    {
+      "id": "cmu2kgksy0014ky0k9tu1b7sx",
+      "folioId": "cmu2kgkkk0012ky0kyp33du9e",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 257800,
+      "amountPaise": 257800,
+      "taxRateBps": 1200,
+      "cgstPaise": 15468,
+      "sgstPaise": 15468,
+      "igstPaise": 0,
+      "businessDate": "2026-09-06T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wwf"
+      }
+    },
+    {
+      "id": "cmu2kgl9s0019ky0kuxssq6rq",
+      "folioId": "cmu2kgkkk0012ky0kyp33du9e",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 257800,
+      "amountPaise": 257800,
+      "taxRateBps": 1200,
+      "cgstPaise": 15468,
+      "sgstPaise": 15468,
+      "igstPaise": 0,
+      "businessDate": "2026-09-07T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wwf"
+      }
+    },
+    {
+      "id": "cmu2klwmw002aky0ktkslcdnx",
+      "folioId": "cmu2klwio0028ky0knt306h42",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 215000,
+      "amountPaise": 215000,
+      "taxRateBps": 1200,
+      "cgstPaise": 12900,
+      "sgstPaise": 12900,
+      "igstPaise": 0,
+      "businessDate": "2026-09-08T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wwf"
+      }
+    },
+    {
+      "id": "cmu2klwzl002fky0kcok3ptid",
+      "folioId": "cmu2klwio0028ky0knt306h42",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 215000,
+      "amountPaise": 215000,
+      "taxRateBps": 1200,
+      "cgstPaise": 12900,
+      "sgstPaise": 12900,
+      "igstPaise": 0,
+      "businessDate": "2026-09-09T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wwf"
+      }
+    },
+    {
+      "id": "cmu3m7wmg0053ky0kgsirlv4r",
+      "folioId": "cmu3m7we30051ky0kcsxq45ey",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 223214,
+      "amountPaise": 223214,
+      "taxRateBps": 1200,
+      "cgstPaise": 13393,
+      "sgstPaise": 13393,
+      "igstPaise": 0,
+      "businessDate": "2026-08-23T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3m7x350058ky0k4jznsmxa",
+      "folioId": "cmu3m7we30051ky0kcsxq45ey",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 223214,
+      "amountPaise": 223214,
+      "taxRateBps": 1200,
+      "cgstPaise": 13393,
+      "sgstPaise": 13393,
+      "igstPaise": 0,
+      "businessDate": "2026-08-24T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3m7xfp005dky0ktljtu80t",
+      "folioId": "cmu3m7we30051ky0kcsxq45ey",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 223214,
+      "amountPaise": 223214,
+      "taxRateBps": 1200,
+      "cgstPaise": 13393,
+      "sgstPaise": 13393,
+      "igstPaise": 0,
+      "businessDate": "2026-08-25T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3m7xs8005iky0kjpadxtpf",
+      "folioId": "cmu3m7we30051ky0kcsxq45ey",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 223214,
+      "amountPaise": 223214,
+      "taxRateBps": 1200,
+      "cgstPaise": 13393,
+      "sgstPaise": 13393,
+      "igstPaise": 0,
+      "businessDate": "2026-08-26T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3m7y4t005nky0kr0lvl4v9",
+      "folioId": "cmu3m7we30051ky0kcsxq45ey",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 223214,
+      "amountPaise": 223214,
+      "taxRateBps": 1200,
+      "cgstPaise": 13393,
+      "sgstPaise": 13393,
+      "igstPaise": 0,
+      "businessDate": "2026-08-27T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3m7yhd005sky0khkv964ui",
+      "folioId": "cmu3m7we30051ky0kcsxq45ey",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 223214,
+      "amountPaise": 223214,
+      "taxRateBps": 1200,
+      "cgstPaise": 13393,
+      "sgstPaise": 13393,
+      "igstPaise": 0,
+      "businessDate": "2026-08-28T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3m7ytx005xky0k07u6f56s",
+      "folioId": "cmu3m7we30051ky0kcsxq45ey",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 223214,
+      "amountPaise": 223214,
+      "taxRateBps": 1200,
+      "cgstPaise": 13393,
+      "sgstPaise": 13393,
+      "igstPaise": 0,
+      "businessDate": "2026-08-29T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3m7z6f0062ky0kswfp7pl7",
+      "folioId": "cmu3m7we30051ky0kcsxq45ey",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 223214,
+      "amountPaise": 223214,
+      "taxRateBps": 1200,
+      "cgstPaise": 13393,
+      "sgstPaise": 13393,
+      "igstPaise": 0,
+      "businessDate": "2026-08-30T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3m7ziy0067ky0kip7wtn6f",
+      "folioId": "cmu3m7we30051ky0kcsxq45ey",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 223214,
+      "amountPaise": 223214,
+      "taxRateBps": 1200,
+      "cgstPaise": 13393,
+      "sgstPaise": 13393,
+      "igstPaise": 0,
+      "businessDate": "2026-08-31T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3m7zvi006cky0k01to9z6k",
+      "folioId": "cmu3m7we30051ky0kcsxq45ey",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 223214,
+      "amountPaise": 223214,
+      "taxRateBps": 1200,
+      "cgstPaise": 13393,
+      "sgstPaise": 13393,
+      "igstPaise": 0,
+      "businessDate": "2026-09-01T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3m8080006hky0kd7jdt4lp",
+      "folioId": "cmu3m7we30051ky0kcsxq45ey",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 223214,
+      "amountPaise": 223214,
+      "taxRateBps": 1200,
+      "cgstPaise": 13393,
+      "sgstPaise": 13393,
+      "igstPaise": 0,
+      "businessDate": "2026-09-02T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3m80kj006mky0krt7816ji",
+      "folioId": "cmu3m7we30051ky0kcsxq45ey",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 223214,
+      "amountPaise": 223214,
+      "taxRateBps": 1200,
+      "cgstPaise": 13393,
+      "sgstPaise": 13393,
+      "igstPaise": 0,
+      "businessDate": "2026-09-03T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3m80x2006rky0km6jte2cu",
+      "folioId": "cmu3m7we30051ky0kcsxq45ey",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 223214,
+      "amountPaise": 223214,
+      "taxRateBps": 1200,
+      "cgstPaise": 13393,
+      "sgstPaise": 13393,
+      "igstPaise": 0,
+      "businessDate": "2026-09-04T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3m819k006wky0kl38w144c",
+      "folioId": "cmu3m7we30051ky0kcsxq45ey",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 223214,
+      "amountPaise": 223214,
+      "taxRateBps": 1200,
+      "cgstPaise": 13393,
+      "sgstPaise": 13393,
+      "igstPaise": 0,
+      "businessDate": "2026-09-05T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3m81m30071ky0kvyp6qp0u",
+      "folioId": "cmu3m7we30051ky0kcsxq45ey",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 223214,
+      "amountPaise": 223214,
+      "taxRateBps": 1200,
+      "cgstPaise": 13393,
+      "sgstPaise": 13393,
+      "igstPaise": 0,
+      "businessDate": "2026-09-06T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3m81ym0076ky0kntz2zbo8",
+      "folioId": "cmu3m7we30051ky0kcsxq45ey",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 223214,
+      "amountPaise": 223214,
+      "taxRateBps": 1200,
+      "cgstPaise": 13393,
+      "sgstPaise": 13393,
+      "igstPaise": 0,
+      "businessDate": "2026-09-07T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3m82b4007bky0kjor0edht",
+      "folioId": "cmu3m7we30051ky0kcsxq45ey",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 223214,
+      "amountPaise": 223214,
+      "taxRateBps": 1200,
+      "cgstPaise": 13393,
+      "sgstPaise": 13393,
+      "igstPaise": 0,
+      "businessDate": "2026-09-08T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3m82nn007gky0klya4njt3",
+      "folioId": "cmu3m7we30051ky0kcsxq45ey",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 223214,
+      "amountPaise": 223214,
+      "taxRateBps": 1200,
+      "cgstPaise": 13393,
+      "sgstPaise": 13393,
+      "igstPaise": 0,
+      "businessDate": "2026-09-09T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3m8307007lky0k52rlo6mz",
+      "folioId": "cmu3m7we30051ky0kcsxq45ey",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 223214,
+      "amountPaise": 223214,
+      "taxRateBps": 1200,
+      "cgstPaise": 13393,
+      "sgstPaise": 13393,
+      "igstPaise": 0,
+      "businessDate": "2026-09-10T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3m83cq007qky0kq2o0fml7",
+      "folioId": "cmu3m7we30051ky0kcsxq45ey",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 223214,
+      "amountPaise": 223214,
+      "taxRateBps": 1200,
+      "cgstPaise": 13393,
+      "sgstPaise": 13393,
+      "igstPaise": 0,
+      "businessDate": "2026-09-11T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3meqyw009qky0k60qx6gyv",
+      "folioId": "cmu3meqqq009oky0khryny3w6",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 205357,
+      "amountPaise": 205357,
+      "taxRateBps": 1200,
+      "cgstPaise": 12321,
+      "sgstPaise": 12321,
+      "igstPaise": 0,
+      "businessDate": "2026-08-23T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3merfc009vky0kmygprg8b",
+      "folioId": "cmu3meqqq009oky0khryny3w6",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 205357,
+      "amountPaise": 205357,
+      "taxRateBps": 1200,
+      "cgstPaise": 12321,
+      "sgstPaise": 12321,
+      "igstPaise": 0,
+      "businessDate": "2026-08-24T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3merrs00a0ky0kpmb0r98p",
+      "folioId": "cmu3meqqq009oky0khryny3w6",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 205357,
+      "amountPaise": 205357,
+      "taxRateBps": 1200,
+      "cgstPaise": 12321,
+      "sgstPaise": 12321,
+      "igstPaise": 0,
+      "businessDate": "2026-08-25T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3mes4600a5ky0k64bh9zea",
+      "folioId": "cmu3meqqq009oky0khryny3w6",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 205357,
+      "amountPaise": 205357,
+      "taxRateBps": 1200,
+      "cgstPaise": 12321,
+      "sgstPaise": 12321,
+      "igstPaise": 0,
+      "businessDate": "2026-08-26T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3mesgv00aaky0kal2ot60p",
+      "folioId": "cmu3meqqq009oky0khryny3w6",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 205357,
+      "amountPaise": 205357,
+      "taxRateBps": 1200,
+      "cgstPaise": 12321,
+      "sgstPaise": 12321,
+      "igstPaise": 0,
+      "businessDate": "2026-08-27T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3mestm00afky0kb4560ud9",
+      "folioId": "cmu3meqqq009oky0khryny3w6",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 205357,
+      "amountPaise": 205357,
+      "taxRateBps": 1200,
+      "cgstPaise": 12321,
+      "sgstPaise": 12321,
+      "igstPaise": 0,
+      "businessDate": "2026-08-28T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3met6e00akky0kfo1ewyh3",
+      "folioId": "cmu3meqqq009oky0khryny3w6",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 205357,
+      "amountPaise": 205357,
+      "taxRateBps": 1200,
+      "cgstPaise": 12321,
+      "sgstPaise": 12321,
+      "igstPaise": 0,
+      "businessDate": "2026-08-29T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3metj500apky0kwywhibt3",
+      "folioId": "cmu3meqqq009oky0khryny3w6",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 205357,
+      "amountPaise": 205357,
+      "taxRateBps": 1200,
+      "cgstPaise": 12321,
+      "sgstPaise": 12321,
+      "igstPaise": 0,
+      "businessDate": "2026-08-30T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3metvw00auky0k2jfm4lez",
+      "folioId": "cmu3meqqq009oky0khryny3w6",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 205357,
+      "amountPaise": 205357,
+      "taxRateBps": 1200,
+      "cgstPaise": 12321,
+      "sgstPaise": 12321,
+      "igstPaise": 0,
+      "businessDate": "2026-08-31T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3meu8m00azky0klwjre318",
+      "folioId": "cmu3meqqq009oky0khryny3w6",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 205357,
+      "amountPaise": 205357,
+      "taxRateBps": 1200,
+      "cgstPaise": 12321,
+      "sgstPaise": 12321,
+      "igstPaise": 0,
+      "businessDate": "2026-09-01T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3meulf00b4ky0k2brmtuir",
+      "folioId": "cmu3meqqq009oky0khryny3w6",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 205357,
+      "amountPaise": 205357,
+      "taxRateBps": 1200,
+      "cgstPaise": 12321,
+      "sgstPaise": 12321,
+      "igstPaise": 0,
+      "businessDate": "2026-09-02T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3meuy700b9ky0kn0qsbxf6",
+      "folioId": "cmu3meqqq009oky0khryny3w6",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 205357,
+      "amountPaise": 205357,
+      "taxRateBps": 1200,
+      "cgstPaise": 12321,
+      "sgstPaise": 12321,
+      "igstPaise": 0,
+      "businessDate": "2026-09-03T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3mevb100beky0kv6kb4xgr",
+      "folioId": "cmu3meqqq009oky0khryny3w6",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 205357,
+      "amountPaise": 205357,
+      "taxRateBps": 1200,
+      "cgstPaise": 12321,
+      "sgstPaise": 12321,
+      "igstPaise": 0,
+      "businessDate": "2026-09-04T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3mevnu00bjky0kdhfsjwz4",
+      "folioId": "cmu3meqqq009oky0khryny3w6",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 205357,
+      "amountPaise": 205357,
+      "taxRateBps": 1200,
+      "cgstPaise": 12321,
+      "sgstPaise": 12321,
+      "igstPaise": 0,
+      "businessDate": "2026-09-05T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3mew0n00boky0kpic67qwq",
+      "folioId": "cmu3meqqq009oky0khryny3w6",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 205357,
+      "amountPaise": 205357,
+      "taxRateBps": 1200,
+      "cgstPaise": 12321,
+      "sgstPaise": 12321,
+      "igstPaise": 0,
+      "businessDate": "2026-09-06T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3mewdg00btky0k3u9nmahl",
+      "folioId": "cmu3meqqq009oky0khryny3w6",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 205357,
+      "amountPaise": 205357,
+      "taxRateBps": 1200,
+      "cgstPaise": 12321,
+      "sgstPaise": 12321,
+      "igstPaise": 0,
+      "businessDate": "2026-09-07T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3mewq800byky0khdh7llrv",
+      "folioId": "cmu3meqqq009oky0khryny3w6",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 205357,
+      "amountPaise": 205357,
+      "taxRateBps": 1200,
+      "cgstPaise": 12321,
+      "sgstPaise": 12321,
+      "igstPaise": 0,
+      "businessDate": "2026-09-08T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3mex3000c3ky0kz7clvxna",
+      "folioId": "cmu3meqqq009oky0khryny3w6",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 205357,
+      "amountPaise": 205357,
+      "taxRateBps": 1200,
+      "cgstPaise": 12321,
+      "sgstPaise": 12321,
+      "igstPaise": 0,
+      "businessDate": "2026-09-09T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3mexfx00c8ky0k5cfus1n7",
+      "folioId": "cmu3meqqq009oky0khryny3w6",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 205357,
+      "amountPaise": 205357,
+      "taxRateBps": 1200,
+      "cgstPaise": 12321,
+      "sgstPaise": 12321,
+      "igstPaise": 0,
+      "businessDate": "2026-09-10T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3mexsp00cdky0kw51s1pdj",
+      "folioId": "cmu3meqqq009oky0khryny3w6",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 205357,
+      "amountPaise": 205357,
+      "taxRateBps": 1200,
+      "cgstPaise": 12321,
+      "sgstPaise": 12321,
+      "igstPaise": 0,
+      "businessDate": "2026-09-11T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3mey5h00ciky0km63osal2",
+      "folioId": "cmu3meqqq009oky0khryny3w6",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 205357,
+      "amountPaise": 205357,
+      "taxRateBps": 1200,
+      "cgstPaise": 12321,
+      "sgstPaise": 12321,
+      "igstPaise": 0,
+      "businessDate": "2026-09-12T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3meyi900cnky0kslgau8q3",
+      "folioId": "cmu3meqqq009oky0khryny3w6",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 205357,
+      "amountPaise": 205357,
+      "taxRateBps": 1200,
+      "cgstPaise": 12321,
+      "sgstPaise": 12321,
+      "igstPaise": 0,
+      "businessDate": "2026-09-13T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3meyv000csky0kz4lbswmf",
+      "folioId": "cmu3meqqq009oky0khryny3w6",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 205357,
+      "amountPaise": 205357,
+      "taxRateBps": 1200,
+      "cgstPaise": 12321,
+      "sgstPaise": 12321,
+      "igstPaise": 0,
+      "businessDate": "2026-09-14T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3mez7u00cxky0kvmpe0hfy",
+      "folioId": "cmu3meqqq009oky0khryny3w6",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 205357,
+      "amountPaise": 205357,
+      "taxRateBps": 1200,
+      "cgstPaise": 12321,
+      "sgstPaise": 12321,
+      "igstPaise": 0,
+      "businessDate": "2026-09-15T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3nev8200f8ky0kd1midcj2",
+      "folioId": "cmu3neuzp00f6ky0k00ga2f6t",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-23T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3nevor00fdky0k3898wjsm",
+      "folioId": "cmu3neuzp00f6ky0k00ga2f6t",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-24T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3new1d00fiky0k7edgolmi",
+      "folioId": "cmu3neuzp00f6ky0k00ga2f6t",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-25T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3newdy00fnky0k4qwooiaz",
+      "folioId": "cmu3neuzp00f6ky0k00ga2f6t",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-26T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3newqi00fsky0k11r6cttl",
+      "folioId": "cmu3neuzp00f6ky0k00ga2f6t",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-27T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3nex3200fxky0kyu8ensij",
+      "folioId": "cmu3neuzp00f6ky0k00ga2f6t",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-28T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3nexfo00g2ky0kdxmg6sca",
+      "folioId": "cmu3neuzp00f6ky0k00ga2f6t",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-29T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3nexs800g7ky0kc4a8uff6",
+      "folioId": "cmu3neuzp00f6ky0k00ga2f6t",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-30T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3ney4u00gcky0kkcjfp3pr",
+      "folioId": "cmu3neuzp00f6ky0k00ga2f6t",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-31T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3neyhf00ghky0kry1p9v2z",
+      "folioId": "cmu3neuzp00f6ky0k00ga2f6t",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-01T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3neytz00gmky0kv1150bpj",
+      "folioId": "cmu3neuzp00f6ky0k00ga2f6t",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-02T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3nez6j00grky0k0p18c4j1",
+      "folioId": "cmu3neuzp00f6ky0k00ga2f6t",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-03T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3nezj300gwky0knqaz940e",
+      "folioId": "cmu3neuzp00f6ky0k00ga2f6t",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-04T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3nezvm00h1ky0kknpzlnem",
+      "folioId": "cmu3neuzp00f6ky0k00ga2f6t",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-05T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3nf08600h6ky0kobdrapxd",
+      "folioId": "cmu3neuzp00f6ky0k00ga2f6t",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-06T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3nf0kt00hbky0ksw6r3uzd",
+      "folioId": "cmu3neuzp00f6ky0k00ga2f6t",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-07T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3nf0xc00hgky0kw39k5z1d",
+      "folioId": "cmu3neuzp00f6ky0k00ga2f6t",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-08T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3nf19x00hlky0ko9w7p1ko",
+      "folioId": "cmu3neuzp00f6ky0k00ga2f6t",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-09T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3nf1mh00hqky0kfrwgr5h8",
+      "folioId": "cmu3neuzp00f6ky0k00ga2f6t",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-10T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3nf1z100hvky0k3tzlfg9l",
+      "folioId": "cmu3neuzp00f6ky0k00ga2f6t",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-11T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3nnixf00jbky0kspscrrvl",
+      "folioId": "cmu3nnip100j9ky0krzceux5o",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-23T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3nnje900jgky0k8ostdywg",
+      "folioId": "cmu3nnip100j9ky0krzceux5o",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-24T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3nnjqw00jlky0k59q91cf4",
+      "folioId": "cmu3nnip100j9ky0krzceux5o",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-25T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3nnk3l00jqky0k1wve0t8x",
+      "folioId": "cmu3nnip100j9ky0krzceux5o",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-26T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3nnkg800jvky0kk59iao6t",
+      "folioId": "cmu3nnip100j9ky0krzceux5o",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-27T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3nnksu00k0ky0kw3th5vu7",
+      "folioId": "cmu3nnip100j9ky0krzceux5o",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-28T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3nnl5h00k5ky0k8wi4aiw1",
+      "folioId": "cmu3nnip100j9ky0krzceux5o",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-29T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3nnli400kaky0kln6l2w08",
+      "folioId": "cmu3nnip100j9ky0krzceux5o",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-30T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3nnlur00kfky0k4f6uvtpp",
+      "folioId": "cmu3nnip100j9ky0krzceux5o",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-31T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3nnm7e00kkky0k5eurrgvh",
+      "folioId": "cmu3nnip100j9ky0krzceux5o",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-01T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3nnmk200kpky0kzci9fpbs",
+      "folioId": "cmu3nnip100j9ky0krzceux5o",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-02T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3nnmwp00kuky0kly4crbvz",
+      "folioId": "cmu3nnip100j9ky0krzceux5o",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-03T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3nnn9d00kzky0ksicq53ms",
+      "folioId": "cmu3nnip100j9ky0krzceux5o",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-04T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3nnnm000l4ky0k847anjqa",
+      "folioId": "cmu3nnip100j9ky0krzceux5o",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-05T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3nnnyn00l9ky0keidc0uk8",
+      "folioId": "cmu3nnip100j9ky0krzceux5o",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-06T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3nnobb00leky0k3zgt9azg",
+      "folioId": "cmu3nnip100j9ky0krzceux5o",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-07T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3nnoo100ljky0kpkvbajco",
+      "folioId": "cmu3nnip100j9ky0krzceux5o",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-08T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3nnp0q00loky0kxb6d2905",
+      "folioId": "cmu3nnip100j9ky0krzceux5o",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-09T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3nnpde00ltky0k632kl6k9",
+      "folioId": "cmu3nnip100j9ky0krzceux5o",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-10T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3nnpq400lyky0kl14lrbwy",
+      "folioId": "cmu3nnip100j9ky0krzceux5o",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-11T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3o4xcw00nyky0kf9kcawd7",
+      "folioId": "cmu3o4x4g00nwky0kwk93mkoj",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-23T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3o4xth00o3ky0kn9ve2oy8",
+      "folioId": "cmu3o4x4g00nwky0kwk93mkoj",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-24T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3o4y6600o8ky0k565u8qgd",
+      "folioId": "cmu3o4x4g00nwky0kwk93mkoj",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-25T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3o4yiw00odky0k92nkvmyj",
+      "folioId": "cmu3o4x4g00nwky0kwk93mkoj",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-26T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3o4yve00oiky0kku7jrf3d",
+      "folioId": "cmu3o4x4g00nwky0kwk93mkoj",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-27T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3o4z7w00onky0kx6h8lgy9",
+      "folioId": "cmu3o4x4g00nwky0kwk93mkoj",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-28T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3o4zks00osky0kpjj4dno3",
+      "folioId": "cmu3o4x4g00nwky0kwk93mkoj",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-29T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3o4zxf00oxky0kzuq4pcjz",
+      "folioId": "cmu3o4x4g00nwky0kwk93mkoj",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-30T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3o509y00p2ky0kl0xm9vxj",
+      "folioId": "cmu3o4x4g00nwky0kwk93mkoj",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-31T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3o50mg00p7ky0krgpxxm65",
+      "folioId": "cmu3o4x4g00nwky0kwk93mkoj",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-01T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3o50yw00pcky0k6ja8cjy8",
+      "folioId": "cmu3o4x4g00nwky0kwk93mkoj",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-02T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3o51bi00phky0kqwetvar7",
+      "folioId": "cmu3o4x4g00nwky0kwk93mkoj",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-03T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3o51o300pmky0kd4x7w0ub",
+      "folioId": "cmu3o4x4g00nwky0kwk93mkoj",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-04T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3o520l00prky0kr8lmur9x",
+      "folioId": "cmu3o4x4g00nwky0kwk93mkoj",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-05T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3o52cz00pwky0kh24s6rse",
+      "folioId": "cmu3o4x4g00nwky0kwk93mkoj",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-06T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3o52ph00q1ky0kjobo1ek0",
+      "folioId": "cmu3o4x4g00nwky0kwk93mkoj",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-07T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3o531x00q6ky0k71ntq134",
+      "folioId": "cmu3o4x4g00nwky0kwk93mkoj",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-08T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3o53ee00qbky0k9ev0nnew",
+      "folioId": "cmu3o4x4g00nwky0kwk93mkoj",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-09T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3o53qu00qgky0kaj3h72d1",
+      "folioId": "cmu3o4x4g00nwky0kwk93mkoj",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-10T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3o543900qlky0kzzhkffm2",
+      "folioId": "cmu3o4x4g00nwky0kwk93mkoj",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-11T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3ofsi600slky0k3wmjs2bx",
+      "folioId": "cmu3ofs9s00sjky0kzecxjktf",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-22T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3ofsz000sqky0kfb8wtcb5",
+      "folioId": "cmu3ofs9s00sjky0kzecxjktf",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-23T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3oftbo00svky0katndj7kj",
+      "folioId": "cmu3ofs9s00sjky0kzecxjktf",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-24T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3oftoa00t0ky0kn0r7h08n",
+      "folioId": "cmu3ofs9s00sjky0kzecxjktf",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-25T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3ofu0z00t5ky0k91tbn3zb",
+      "folioId": "cmu3ofs9s00sjky0kzecxjktf",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-26T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3ofudn00taky0k3z128id2",
+      "folioId": "cmu3ofs9s00sjky0kzecxjktf",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-27T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3ofuq900tfky0kjrujzumw",
+      "folioId": "cmu3ofs9s00sjky0kzecxjktf",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-28T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3ofv2x00tkky0kkfthd4xn",
+      "folioId": "cmu3ofs9s00sjky0kzecxjktf",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-29T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3ofvfm00tpky0kt5x5k6ni",
+      "folioId": "cmu3ofs9s00sjky0kzecxjktf",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-30T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3ofvs900tuky0k6pti39qr",
+      "folioId": "cmu3ofs9s00sjky0kzecxjktf",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-31T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3ofw4x00tzky0kjxg0wt72",
+      "folioId": "cmu3ofs9s00sjky0kzecxjktf",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-01T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3ofwhj00u4ky0kwjqx8d4h",
+      "folioId": "cmu3ofs9s00sjky0kzecxjktf",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-02T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3ofwu500u9ky0k3nlw7g8f",
+      "folioId": "cmu3ofs9s00sjky0kzecxjktf",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-03T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3ofx6t00ueky0ktr2aeiwn",
+      "folioId": "cmu3ofs9s00sjky0kzecxjktf",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-04T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3ofxjg00ujky0k5lfbrzvw",
+      "folioId": "cmu3ofs9s00sjky0kzecxjktf",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-05T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3ofxw200uoky0kp5m2uou1",
+      "folioId": "cmu3ofs9s00sjky0kzecxjktf",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-06T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3ofy8q00utky0kbczztene",
+      "folioId": "cmu3ofs9s00sjky0kzecxjktf",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-07T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3ofyld00uyky0kyolznrn5",
+      "folioId": "cmu3ofs9s00sjky0kzecxjktf",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-08T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3ofyxz00v3ky0khnyymq2z",
+      "folioId": "cmu3ofs9s00sjky0kzecxjktf",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-09T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3ofzal00v8ky0kdzkin6qs",
+      "folioId": "cmu3ofs9s00sjky0kzecxjktf",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-10T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3ofzn900vdky0kqg6kwl3w",
+      "folioId": "cmu3ofs9s00sjky0kzecxjktf",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-11T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3ofzzw00viky0kt8zwpmq0",
+      "folioId": "cmu3ofs9s00sjky0kzecxjktf",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-12T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3oppy200xmky0ketlnz3c1",
+      "folioId": "cmu3opppt00xkky0kg9j4gfnb",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-23T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3opqep00xrky0kjlsto0do",
+      "folioId": "cmu3opppt00xkky0kg9j4gfnb",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-24T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3opqr500xwky0kdsf98to3",
+      "folioId": "cmu3opppt00xkky0kg9j4gfnb",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-25T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3opr3l00y1ky0kttqwiia9",
+      "folioId": "cmu3opppt00xkky0kg9j4gfnb",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-26T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3oprg000y6ky0kq6xcvtev",
+      "folioId": "cmu3opppt00xkky0kg9j4gfnb",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-27T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3oprsf00ybky0kux6o5xc6",
+      "folioId": "cmu3opppt00xkky0kg9j4gfnb",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-28T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3ops4w00ygky0k0k71gwym",
+      "folioId": "cmu3opppt00xkky0kg9j4gfnb",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-29T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3opshc00ylky0km4lhi30i",
+      "folioId": "cmu3opppt00xkky0kg9j4gfnb",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-30T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3opsts00yqky0kzvl2fxh8",
+      "folioId": "cmu3opppt00xkky0kg9j4gfnb",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-08-31T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3opt6a00yvky0kr0nsmwt2",
+      "folioId": "cmu3opppt00xkky0kg9j4gfnb",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-01T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3optiq00z0ky0kz9jtmrfd",
+      "folioId": "cmu3opppt00xkky0kg9j4gfnb",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-02T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3optv600z5ky0k5dwha000",
+      "folioId": "cmu3opppt00xkky0kg9j4gfnb",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-03T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3opu7n00zaky0kj1dcusg8",
+      "folioId": "cmu3opppt00xkky0kg9j4gfnb",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-04T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3opuk300zfky0kf5miry7o",
+      "folioId": "cmu3opppt00xkky0kg9j4gfnb",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-05T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3opuwj00zkky0k9rcvqt6s",
+      "folioId": "cmu3opppt00xkky0kg9j4gfnb",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-06T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3opv9000zpky0kvvifc2y1",
+      "folioId": "cmu3opppt00xkky0kg9j4gfnb",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-07T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3opvlf00zuky0kokb7htny",
+      "folioId": "cmu3opppt00xkky0kg9j4gfnb",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-08T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3opvxv00zzky0kc8q3zkvx",
+      "folioId": "cmu3opppt00xkky0kg9j4gfnb",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-09T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3opwaa0104ky0ki5ljbrfn",
+      "folioId": "cmu3opppt00xkky0kg9j4gfnb",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-10T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3opwmr0109ky0k6ngibl4v",
+      "folioId": "cmu3opppt00xkky0kg9j4gfnb",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 280000,
+      "amountPaise": 280000,
+      "taxRateBps": 1200,
+      "cgstPaise": 16800,
+      "sgstPaise": 16800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-11T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3pdpvf012qky0ka2ul568p",
+      "folioId": "cmu3pdpn1012oky0kur9u5k0a",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 230000,
+      "amountPaise": 230000,
+      "taxRateBps": 1200,
+      "cgstPaise": 13800,
+      "sgstPaise": 13800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-12T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3pdqc8012vky0ku943ce2k",
+      "folioId": "cmu3pdpn1012oky0kur9u5k0a",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 230000,
+      "amountPaise": 230000,
+      "taxRateBps": 1200,
+      "cgstPaise": 13800,
+      "sgstPaise": 13800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-13T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3potbu013sky0kanvb0r9z",
+      "folioId": "cmu3pot3n013qky0kt2m6ptp5",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 210000,
+      "amountPaise": 210000,
+      "taxRateBps": 1200,
+      "cgstPaise": 12600,
+      "sgstPaise": 12600,
+      "igstPaise": 0,
+      "businessDate": "2026-09-13T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3pzink0152ky0kliz175az",
+      "folioId": "cmu3pzifa0150ky0ke2lcd3eo",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 250000,
+      "amountPaise": 250000,
+      "taxRateBps": 1200,
+      "cgstPaise": 15000,
+      "sgstPaise": 15000,
+      "igstPaise": 0,
+      "businessDate": "2026-09-13T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3pzj450157ky0kee2ygg4o",
+      "folioId": "cmu3pzifa0150ky0ke2lcd3eo",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 250000,
+      "amountPaise": 250000,
+      "taxRateBps": 1200,
+      "cgstPaise": 15000,
+      "sgstPaise": 15000,
+      "igstPaise": 0,
+      "businessDate": "2026-09-14T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3pzjgm015cky0ka38oe34s",
+      "folioId": "cmu3pzifa0150ky0ke2lcd3eo",
+      "type": "EXTRA_BED",
+      "quantity": 1,
+      "unitPaise": 30000,
+      "amountPaise": 30000,
+      "taxRateBps": 1200,
+      "cgstPaise": 1800,
+      "sgstPaise": 1800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-13T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3z7tz2016kky0k2epyuxah",
+      "folioId": "cmu3z7tqd016iky0kiytbp46w",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 500000,
+      "amountPaise": 500000,
+      "taxRateBps": 1200,
+      "cgstPaise": 30000,
+      "sgstPaise": 30000,
+      "igstPaise": 0,
+      "businessDate": "2026-09-08T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd23"
+      }
+    },
+    {
+      "id": "cmu3z7ugk016pky0kbi8lt1ds",
+      "folioId": "cmu3z7tqd016iky0kiytbp46w",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 500000,
+      "amountPaise": 500000,
+      "taxRateBps": 1200,
+      "cgstPaise": 30000,
+      "sgstPaise": 30000,
+      "igstPaise": 0,
+      "businessDate": "2026-09-09T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd23"
+      }
+    },
+    {
+      "id": "cmu3z7utk016uky0kr1h7be63",
+      "folioId": "cmu3z7tqd016iky0kiytbp46w",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 500000,
+      "amountPaise": 500000,
+      "taxRateBps": 1200,
+      "cgstPaise": 30000,
+      "sgstPaise": 30000,
+      "igstPaise": 0,
+      "businessDate": "2026-09-10T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd23"
+      }
+    },
+    {
+      "id": "cmu3z7v6j016zky0kxw3bbjwv",
+      "folioId": "cmu3z7tqd016iky0kiytbp46w",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 500000,
+      "amountPaise": 500000,
+      "taxRateBps": 1200,
+      "cgstPaise": 30000,
+      "sgstPaise": 30000,
+      "igstPaise": 0,
+      "businessDate": "2026-09-11T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd23"
+      }
+    },
+    {
+      "id": "cmu3z7vjj0174ky0kr2pm905y",
+      "folioId": "cmu3z7tqd016iky0kiytbp46w",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 500000,
+      "amountPaise": 500000,
+      "taxRateBps": 1200,
+      "cgstPaise": 30000,
+      "sgstPaise": 30000,
+      "igstPaise": 0,
+      "businessDate": "2026-09-12T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd23"
+      }
+    },
+    {
+      "id": "cmu3z7vwh0179ky0k3s9q2b8y",
+      "folioId": "cmu3z7tqd016iky0kiytbp46w",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 500000,
+      "amountPaise": 500000,
+      "taxRateBps": 1200,
+      "cgstPaise": 30000,
+      "sgstPaise": 30000,
+      "igstPaise": 0,
+      "businessDate": "2026-09-13T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd23"
+      }
+    },
+    {
+      "id": "cmu3z7w9g017eky0kz2uyynw1",
+      "folioId": "cmu3z7tqd016iky0kiytbp46w",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 500000,
+      "amountPaise": 500000,
+      "taxRateBps": 1200,
+      "cgstPaise": 30000,
+      "sgstPaise": 30000,
+      "igstPaise": 0,
+      "businessDate": "2026-09-14T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd23"
+      }
+    },
+    {
+      "id": "cmu3z7wmi017jky0k8ctkr9cc",
+      "folioId": "cmu3z7tqd016iky0kiytbp46w",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 500000,
+      "amountPaise": 500000,
+      "taxRateBps": 1200,
+      "cgstPaise": 30000,
+      "sgstPaise": 30000,
+      "igstPaise": 0,
+      "businessDate": "2026-09-15T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd23"
+      }
+    },
+    {
+      "id": "cmu3zoknw019cky0knlmf3ugk",
+      "folioId": "cmu3zokfi019aky0kfh39ak0d",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 250000,
+      "amountPaise": 250000,
+      "taxRateBps": 1200,
+      "cgstPaise": 15000,
+      "sgstPaise": 15000,
+      "igstPaise": 0,
+      "businessDate": "2026-09-14T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu3zol5c019hky0kdxevsy0s",
+      "folioId": "cmu3zokfi019aky0kfh39ak0d",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 250000,
+      "amountPaise": 250000,
+      "taxRateBps": 1200,
+      "cgstPaise": 15000,
+      "sgstPaise": 15000,
+      "igstPaise": 0,
+      "businessDate": "2026-09-15T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmu6o142l01bxky0ketx05vjs",
+      "folioId": "cmu6o13ua01bvky0kf6ojw059",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 500000,
+      "amountPaise": 500000,
+      "taxRateBps": 1200,
+      "cgstPaise": 30000,
+      "sgstPaise": 30000,
+      "igstPaise": 0,
+      "businessDate": "2026-09-12T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmu6o14j701c2ky0kqdkuulth",
+      "folioId": "cmu6o13ua01bvky0kf6ojw059",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 500000,
+      "amountPaise": 500000,
+      "taxRateBps": 1200,
+      "cgstPaise": 30000,
+      "sgstPaise": 30000,
+      "igstPaise": 0,
+      "businessDate": "2026-09-13T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmu6o14vn01c7ky0kn5gnr6az",
+      "folioId": "cmu6o13ua01bvky0kf6ojw059",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 500000,
+      "amountPaise": 500000,
+      "taxRateBps": 1200,
+      "cgstPaise": 30000,
+      "sgstPaise": 30000,
+      "igstPaise": 0,
+      "businessDate": "2026-09-14T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmu6o158401ccky0k14updkq0",
+      "folioId": "cmu6o13ua01bvky0kf6ojw059",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 500000,
+      "amountPaise": 500000,
+      "taxRateBps": 1200,
+      "cgstPaise": 30000,
+      "sgstPaise": 30000,
+      "igstPaise": 0,
+      "businessDate": "2026-09-15T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmu6o15kl01chky0klpivckse",
+      "folioId": "cmu6o13ua01bvky0kf6ojw059",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 500000,
+      "amountPaise": 500000,
+      "taxRateBps": 1200,
+      "cgstPaise": 30000,
+      "sgstPaise": 30000,
+      "igstPaise": 0,
+      "businessDate": "2026-09-16T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmu6o15x101cmky0kg6c13291",
+      "folioId": "cmu6o13ua01bvky0kf6ojw059",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 500000,
+      "amountPaise": 500000,
+      "taxRateBps": 1200,
+      "cgstPaise": 30000,
+      "sgstPaise": 30000,
+      "igstPaise": 0,
+      "businessDate": "2026-09-17T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmu6o7z2j01dyky0kkm2m4fuh",
+      "folioId": "cmu6o7yu101dwky0k2rp9ct4x",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 178571,
+      "amountPaise": 178571,
+      "taxRateBps": 1200,
+      "cgstPaise": 10714,
+      "sgstPaise": 10714,
+      "igstPaise": 0,
+      "businessDate": "2026-09-17T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd23"
+      }
+    },
+    {
+      "id": "cmu7zxp6c01goky0kkvs389g8",
+      "folioId": "cmu7zxoxz01gmky0kxmctv62o",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 230000,
+      "amountPaise": 230000,
+      "taxRateBps": 1200,
+      "cgstPaise": 13800,
+      "sgstPaise": 13800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-18T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wwf"
+      }
+    },
+    {
+      "id": "cmub0otwo01jdky0kd2y5n9tz",
+      "folioId": "cmub0otod01jbky0k5s1rod00",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 220000,
+      "amountPaise": 220000,
+      "taxRateBps": 1200,
+      "cgstPaise": 13200,
+      "sgstPaise": 13200,
+      "igstPaise": 0,
+      "businessDate": "2026-09-18T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmub0oude01jiky0k5azqew8i",
+      "folioId": "cmub0otod01jbky0k5s1rod00",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 220000,
+      "amountPaise": 220000,
+      "taxRateBps": 1200,
+      "cgstPaise": 13200,
+      "sgstPaise": 13200,
+      "igstPaise": 0,
+      "businessDate": "2026-09-19T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmub0oupy01jnky0kfliyi1yh",
+      "folioId": "cmub0otod01jbky0k5s1rod00",
+      "type": "EXTRA_BED",
+      "quantity": 1,
+      "unitPaise": 50000,
+      "amountPaise": 50000,
+      "taxRateBps": 1200,
+      "cgstPaise": 3000,
+      "sgstPaise": 3000,
+      "igstPaise": 0,
+      "businessDate": "2026-09-18T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmub182lv01lbky0kbfk9guut",
+      "folioId": "cmub182dn01l9ky0ke9z7o69x",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 235700,
+      "amountPaise": 235700,
+      "taxRateBps": 1200,
+      "cgstPaise": 14142,
+      "sgstPaise": 14142,
+      "igstPaise": 0,
+      "businessDate": "2026-09-19T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmub2cxik01ngky0kr3dg5nd1",
+      "folioId": "cmub2cxaj01neky0kc1bhwcij",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 214500,
+      "amountPaise": 214500,
+      "taxRateBps": 1200,
+      "cgstPaise": 12870,
+      "sgstPaise": 12870,
+      "igstPaise": 0,
+      "businessDate": "2026-09-16T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd23"
+      }
+    },
+    {
+      "id": "cmub2cxyr01nlky0khdlhbd74",
+      "folioId": "cmub2cxaj01neky0kc1bhwcij",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 214500,
+      "amountPaise": 214500,
+      "taxRateBps": 1200,
+      "cgstPaise": 12870,
+      "sgstPaise": 12870,
+      "igstPaise": 0,
+      "businessDate": "2026-09-17T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd23"
+      }
+    },
+    {
+      "id": "cmub2cyay01nqky0k0vo9zkvg",
+      "folioId": "cmub2cxaj01neky0kc1bhwcij",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 214500,
+      "amountPaise": 214500,
+      "taxRateBps": 1200,
+      "cgstPaise": 12870,
+      "sgstPaise": 12870,
+      "igstPaise": 0,
+      "businessDate": "2026-09-18T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd23"
+      }
+    },
+    {
+      "id": "cmub2cyn301nvky0kg8t51j42",
+      "folioId": "cmub2cxaj01neky0kc1bhwcij",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 214500,
+      "amountPaise": 214500,
+      "taxRateBps": 1200,
+      "cgstPaise": 12870,
+      "sgstPaise": 12870,
+      "igstPaise": 0,
+      "businessDate": "2026-09-19T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd23"
+      }
+    },
+    {
+      "id": "cmub2cyz901o0ky0k0nocixde",
+      "folioId": "cmub2cxaj01neky0kc1bhwcij",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 214500,
+      "amountPaise": 214500,
+      "taxRateBps": 1200,
+      "cgstPaise": 12870,
+      "sgstPaise": 12870,
+      "igstPaise": 0,
+      "businessDate": "2026-09-20T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd23"
+      }
+    },
+    {
+      "id": "cmuc86mo101q5ky0k7zvyffac",
+      "folioId": "cmuc86mfx01q3ky0k1q5itpwk",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 267857,
+      "amountPaise": 267857,
+      "taxRateBps": 1200,
+      "cgstPaise": 16071,
+      "sgstPaise": 16071,
+      "igstPaise": 0,
+      "businessDate": "2026-09-20T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmuc86n4a01qaky0k79qmkb0w",
+      "folioId": "cmuc86mfx01q3ky0k1q5itpwk",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 267857,
+      "amountPaise": 267857,
+      "taxRateBps": 1200,
+      "cgstPaise": 16071,
+      "sgstPaise": 16071,
+      "igstPaise": 0,
+      "businessDate": "2026-09-21T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmuccliqy01roky0k3wktyzpb",
+      "folioId": "cmub0otod01jbky0k5s1rod00",
+      "type": "DISCOUNT",
+      "quantity": 1,
+      "unitPaise": -30000,
+      "amountPaise": -30000,
+      "taxRateBps": 1200,
+      "cgstPaise": -1800,
+      "sgstPaise": -1800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-22T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmuduwoog001dom0kgv2psq8o",
+      "folioId": "cmuduwog8001bom0kpnln0ph0",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 190000,
+      "amountPaise": 190000,
+      "taxRateBps": 1200,
+      "cgstPaise": 11400,
+      "sgstPaise": 11400,
+      "igstPaise": 0,
+      "businessDate": "2026-09-21T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd23"
+      }
+    },
+    {
+      "id": "cmuduwp4u001iom0kudl87gwl",
+      "folioId": "cmuduwog8001bom0kpnln0ph0",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 190000,
+      "amountPaise": 190000,
+      "taxRateBps": 1200,
+      "cgstPaise": 11400,
+      "sgstPaise": 11400,
+      "igstPaise": 0,
+      "businessDate": "2026-09-22T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd23"
+      }
+    },
+    {
+      "id": "cmuduwph5001nom0k6jma3nq2",
+      "folioId": "cmuduwog8001bom0kpnln0ph0",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 190000,
+      "amountPaise": 190000,
+      "taxRateBps": 1200,
+      "cgstPaise": 11400,
+      "sgstPaise": 11400,
+      "igstPaise": 0,
+      "businessDate": "2026-09-23T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd23"
+      }
+    },
+    {
+      "id": "cmudvilco002lom0kdzlmpmfi",
+      "folioId": "cmudvil46002jom0kaxfxfqvy",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 250000,
+      "amountPaise": 250000,
+      "taxRateBps": 1200,
+      "cgstPaise": 15000,
+      "sgstPaise": 15000,
+      "igstPaise": 0,
+      "businessDate": "2026-09-21T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd23"
+      }
+    },
+    {
+      "id": "cmudviltn002qom0kojsvul93",
+      "folioId": "cmudvil46002jom0kaxfxfqvy",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 250000,
+      "amountPaise": 250000,
+      "taxRateBps": 1200,
+      "cgstPaise": 15000,
+      "sgstPaise": 15000,
+      "igstPaise": 0,
+      "businessDate": "2026-09-22T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd23"
+      }
+    },
+    {
+      "id": "cmudvim6c002vom0ks6ap9ffz",
+      "folioId": "cmudvil46002jom0kaxfxfqvy",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 250000,
+      "amountPaise": 250000,
+      "taxRateBps": 1200,
+      "cgstPaise": 15000,
+      "sgstPaise": 15000,
+      "igstPaise": 0,
+      "businessDate": "2026-09-23T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd23"
+      }
+    },
+    {
+      "id": "cmudxiuqv003zom0k5k20jiut",
+      "folioId": "cmudvil46002jom0kaxfxfqvy",
+      "type": "REVERSAL",
+      "quantity": 1,
+      "unitPaise": -250000,
+      "amountPaise": -250000,
+      "taxRateBps": 1200,
+      "cgstPaise": -15000,
+      "sgstPaise": -15000,
+      "igstPaise": 0,
+      "businessDate": "2026-09-23T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd23"
+      }
+    },
+    {
+      "id": "cmudxjve20045om0k6c29dkcz",
+      "folioId": "cmudvil46002jom0kaxfxfqvy",
+      "type": "REVERSAL",
+      "quantity": 1,
+      "unitPaise": -250000,
+      "amountPaise": -250000,
+      "taxRateBps": 1200,
+      "cgstPaise": -15000,
+      "sgstPaise": -15000,
+      "igstPaise": 0,
+      "businessDate": "2026-09-23T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd23"
+      }
+    },
+    {
+      "id": "cmudxxlu3004wom0k2b6ucaji",
+      "folioId": "cmudxxlli004uom0ki3q54vyp",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 500000,
+      "amountPaise": 500000,
+      "taxRateBps": 1200,
+      "cgstPaise": 30000,
+      "sgstPaise": 30000,
+      "igstPaise": 0,
+      "businessDate": "2026-09-17T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmudxxmb70051om0k7onyjnxh",
+      "folioId": "cmudxxlli004uom0ki3q54vyp",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 500000,
+      "amountPaise": 500000,
+      "taxRateBps": 1200,
+      "cgstPaise": 30000,
+      "sgstPaise": 30000,
+      "igstPaise": 0,
+      "businessDate": "2026-09-18T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmudxxmo30056om0kk67gbahs",
+      "folioId": "cmudxxlli004uom0ki3q54vyp",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 500000,
+      "amountPaise": 500000,
+      "taxRateBps": 1200,
+      "cgstPaise": 30000,
+      "sgstPaise": 30000,
+      "igstPaise": 0,
+      "businessDate": "2026-09-19T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmudxxn0y005bom0kzueoxmr3",
+      "folioId": "cmudxxlli004uom0ki3q54vyp",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 500000,
+      "amountPaise": 500000,
+      "taxRateBps": 1200,
+      "cgstPaise": 30000,
+      "sgstPaise": 30000,
+      "igstPaise": 0,
+      "businessDate": "2026-09-20T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmudxxndt005gom0kzig71qlq",
+      "folioId": "cmudxxlli004uom0ki3q54vyp",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 500000,
+      "amountPaise": 500000,
+      "taxRateBps": 1200,
+      "cgstPaise": 30000,
+      "sgstPaise": 30000,
+      "igstPaise": 0,
+      "businessDate": "2026-09-21T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmudxxnqq005lom0kmgy3nzmo",
+      "folioId": "cmudxxlli004uom0ki3q54vyp",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 500000,
+      "amountPaise": 500000,
+      "taxRateBps": 1200,
+      "cgstPaise": 30000,
+      "sgstPaise": 30000,
+      "igstPaise": 0,
+      "businessDate": "2026-09-22T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmudxxo3t005qom0k1ssqak6i",
+      "folioId": "cmudxxlli004uom0ki3q54vyp",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 500000,
+      "amountPaise": 500000,
+      "taxRateBps": 1200,
+      "cgstPaise": 30000,
+      "sgstPaise": 30000,
+      "igstPaise": 0,
+      "businessDate": "2026-09-23T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_hkd30"
+      }
+    },
+    {
+      "id": "cmuf7pzip0091om0kstoa41to",
+      "folioId": "cmuf7pzaa008zom0k7t85b6xt",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 230000,
+      "amountPaise": 230000,
+      "taxRateBps": 1200,
+      "cgstPaise": 13800,
+      "sgstPaise": 13800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-18T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmuf7pzzi0096om0k92f6484k",
+      "folioId": "cmuf7pzaa008zom0k7t85b6xt",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 230000,
+      "amountPaise": 230000,
+      "taxRateBps": 1200,
+      "cgstPaise": 13800,
+      "sgstPaise": 13800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-19T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmuf7q0c5009bom0kimj4m5uu",
+      "folioId": "cmuf7pzaa008zom0k7t85b6xt",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 230000,
+      "amountPaise": 230000,
+      "taxRateBps": 1200,
+      "cgstPaise": 13800,
+      "sgstPaise": 13800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-20T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmuf7q0oy009gom0kggrh2pm8",
+      "folioId": "cmuf7pzaa008zom0k7t85b6xt",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 230000,
+      "amountPaise": 230000,
+      "taxRateBps": 1200,
+      "cgstPaise": 13800,
+      "sgstPaise": 13800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-21T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmuf7q11l009lom0kxdf4ggsr",
+      "folioId": "cmuf7pzaa008zom0k7t85b6xt",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 230000,
+      "amountPaise": 230000,
+      "taxRateBps": 1200,
+      "cgstPaise": 13800,
+      "sgstPaise": 13800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-22T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmuf7q1eg009qom0k4x7zygs0",
+      "folioId": "cmuf7pzaa008zom0k7t85b6xt",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 230000,
+      "amountPaise": 230000,
+      "taxRateBps": 1200,
+      "cgstPaise": 13800,
+      "sgstPaise": 13800,
+      "igstPaise": 0,
+      "businessDate": "2026-09-23T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmuf8lnu500ccom0kll0umkns",
+      "folioId": "cmuf8lnlt00caom0kfp2njzaf",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 210000,
+      "amountPaise": 210000,
+      "taxRateBps": 1200,
+      "cgstPaise": 12600,
+      "sgstPaise": 12600,
+      "igstPaise": 0,
+      "businessDate": "2026-09-20T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmuf8loaq00chom0kqf4b3ymc",
+      "folioId": "cmuf8lnlt00caom0kfp2njzaf",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 210000,
+      "amountPaise": 210000,
+      "taxRateBps": 1200,
+      "cgstPaise": 12600,
+      "sgstPaise": 12600,
+      "igstPaise": 0,
+      "businessDate": "2026-09-21T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmuf8lon700cmom0k3t1p7mi4",
+      "folioId": "cmuf8lnlt00caom0kfp2njzaf",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 210000,
+      "amountPaise": 210000,
+      "taxRateBps": 1200,
+      "cgstPaise": 12600,
+      "sgstPaise": 12600,
+      "igstPaise": 0,
+      "businessDate": "2026-09-22T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmuf8lozo00crom0k0wgwpbfq",
+      "folioId": "cmuf8lnlt00caom0kfp2njzaf",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 210000,
+      "amountPaise": 210000,
+      "taxRateBps": 1200,
+      "cgstPaise": 12600,
+      "sgstPaise": 12600,
+      "igstPaise": 0,
+      "businessDate": "2026-09-23T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wmg"
+      }
+    },
+    {
+      "id": "cmugj80af00lxom0kc7xerv63",
+      "folioId": "cmugj802c00lvom0kgpnsj7xb",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 213200,
+      "amountPaise": 213200,
+      "taxRateBps": 1200,
+      "cgstPaise": 12792,
+      "sgstPaise": 12792,
+      "igstPaise": 0,
+      "businessDate": "2026-09-14T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wwf"
+      }
+    },
+    {
+      "id": "cmugj80qg00m2om0k6bilyt4i",
+      "folioId": "cmugj802c00lvom0kgpnsj7xb",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 213200,
+      "amountPaise": 213200,
+      "taxRateBps": 1200,
+      "cgstPaise": 12792,
+      "sgstPaise": 12792,
+      "igstPaise": 0,
+      "businessDate": "2026-09-15T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wwf"
+      }
+    },
+    {
+      "id": "cmugj812e00m7om0kqxnbnq5y",
+      "folioId": "cmugj802c00lvom0kgpnsj7xb",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 213200,
+      "amountPaise": 213200,
+      "taxRateBps": 1200,
+      "cgstPaise": 12792,
+      "sgstPaise": 12792,
+      "igstPaise": 0,
+      "businessDate": "2026-09-16T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wwf"
+      }
+    },
+    {
+      "id": "cmugj81ed00mcom0kis3hi3d3",
+      "folioId": "cmugj802c00lvom0kgpnsj7xb",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 213200,
+      "amountPaise": 213200,
+      "taxRateBps": 1200,
+      "cgstPaise": 12792,
+      "sgstPaise": 12792,
+      "igstPaise": 0,
+      "businessDate": "2026-09-17T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wwf"
+      }
+    },
+    {
+      "id": "cmugj81qd00mhom0k5uxyxlfl",
+      "folioId": "cmugj802c00lvom0kgpnsj7xb",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 213200,
+      "amountPaise": 213200,
+      "taxRateBps": 1200,
+      "cgstPaise": 12792,
+      "sgstPaise": 12792,
+      "igstPaise": 0,
+      "businessDate": "2026-09-18T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wwf"
+      }
+    },
+    {
+      "id": "cmugj822d00mmom0kboraynpf",
+      "folioId": "cmugj802c00lvom0kgpnsj7xb",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 213200,
+      "amountPaise": 213200,
+      "taxRateBps": 1200,
+      "cgstPaise": 12792,
+      "sgstPaise": 12792,
+      "igstPaise": 0,
+      "businessDate": "2026-09-19T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wwf"
+      }
+    },
+    {
+      "id": "cmugj82ee00mrom0kd0o4j0ko",
+      "folioId": "cmugj802c00lvom0kgpnsj7xb",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 213200,
+      "amountPaise": 213200,
+      "taxRateBps": 1200,
+      "cgstPaise": 12792,
+      "sgstPaise": 12792,
+      "igstPaise": 0,
+      "businessDate": "2026-09-20T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wwf"
+      }
+    },
+    {
+      "id": "cmugj82qj00mwom0knzp817wg",
+      "folioId": "cmugj802c00lvom0kgpnsj7xb",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 213200,
+      "amountPaise": 213200,
+      "taxRateBps": 1200,
+      "cgstPaise": 12792,
+      "sgstPaise": 12792,
+      "igstPaise": 0,
+      "businessDate": "2026-09-21T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wwf"
+      }
+    },
+    {
+      "id": "cmugj832k00n1om0kyc090ain",
+      "folioId": "cmugj802c00lvom0kgpnsj7xb",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 213200,
+      "amountPaise": 213200,
+      "taxRateBps": 1200,
+      "cgstPaise": 12792,
+      "sgstPaise": 12792,
+      "igstPaise": 0,
+      "businessDate": "2026-09-22T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wwf"
+      }
+    },
+    {
+      "id": "cmugj83el00n6om0kbuw0fpxq",
+      "folioId": "cmugj802c00lvom0kgpnsj7xb",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 213200,
+      "amountPaise": 213200,
+      "taxRateBps": 1200,
+      "cgstPaise": 12792,
+      "sgstPaise": 12792,
+      "igstPaise": 0,
+      "businessDate": "2026-09-23T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wwf"
+      }
+    },
+    {
+      "id": "cmugj83qk00nbom0k7g7p8urj",
+      "folioId": "cmugj802c00lvom0kgpnsj7xb",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 213200,
+      "amountPaise": 213200,
+      "taxRateBps": 1200,
+      "cgstPaise": 12792,
+      "sgstPaise": 12792,
+      "igstPaise": 0,
+      "businessDate": "2026-09-24T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wwf"
+      }
+    },
+    {
+      "id": "cmugpdp0d00r0om0kkpso4r6b",
+      "folioId": "cmugpdos200qyom0kewtv3scl",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 223214,
+      "amountPaise": 223214,
+      "taxRateBps": 1200,
+      "cgstPaise": 13393,
+      "sgstPaise": 13393,
+      "igstPaise": 0,
+      "businessDate": "2026-09-20T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wwf"
+      }
+    },
+    {
+      "id": "cmugpdph100r5om0k7e97u72d",
+      "folioId": "cmugpdos200qyom0kewtv3scl",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 223214,
+      "amountPaise": 223214,
+      "taxRateBps": 1200,
+      "cgstPaise": 13393,
+      "sgstPaise": 13393,
+      "igstPaise": 0,
+      "businessDate": "2026-09-21T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wwf"
+      }
+    },
+    {
+      "id": "cmugpdptt00raom0k9roagegf",
+      "folioId": "cmugpdos200qyom0kewtv3scl",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 223214,
+      "amountPaise": 223214,
+      "taxRateBps": 1200,
+      "cgstPaise": 13393,
+      "sgstPaise": 13393,
+      "igstPaise": 0,
+      "businessDate": "2026-09-22T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wwf"
+      }
+    },
+    {
+      "id": "cmugpdq6a00rfom0kai59urjx",
+      "folioId": "cmugpdos200qyom0kewtv3scl",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 223214,
+      "amountPaise": 223214,
+      "taxRateBps": 1200,
+      "cgstPaise": 13393,
+      "sgstPaise": 13393,
+      "igstPaise": 0,
+      "businessDate": "2026-09-23T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wwf"
+      }
+    },
+    {
+      "id": "cmugpdqir00rkom0k1dg62ihs",
+      "folioId": "cmugpdos200qyom0kewtv3scl",
+      "type": "ROOM",
+      "quantity": 1,
+      "unitPaise": 223214,
+      "amountPaise": 223214,
+      "taxRateBps": 1200,
+      "cgstPaise": 13393,
+      "sgstPaise": 13393,
+      "igstPaise": 0,
+      "businessDate": "2026-09-24T00:00:00.000Z",
+      "folio": {
+        "propertyId": "prop_wwf"
+      }
+    }
+  ],
+  "invoices": [
+    {
+      "id": "cmu12gpp9005dms0k8h2a7bjv",
+      "number": "HKD3/2026-27/00001",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 383928,
+      "cgstPaise": 23036,
+      "sgstPaise": 23036,
+      "igstPaise": 0,
+      "totalPaise": 430000,
+      "pdfObjectKey": "invoices/cmu12gpp9005dms0k8h2a7bjv.pdf"
+    },
+    {
+      "id": "cmu13cy6o006jms0ki7uj8sli",
+      "number": "HKD3/2026-27/00002",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 223214,
+      "cgstPaise": 13393,
+      "sgstPaise": 13393,
+      "igstPaise": 0,
+      "totalPaise": 250000,
+      "pdfObjectKey": "invoices/cmu13cy6o006jms0ki7uj8sli.pdf"
+    },
+    {
+      "id": "cmu14ijik0015r00k5260qrjo",
+      "number": "HKD3/2026-27/00003",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 500000,
+      "cgstPaise": 30000,
+      "sgstPaise": 30000,
+      "igstPaise": 0,
+      "totalPaise": 560000,
+      "pdfObjectKey": "invoices/cmu14ijik0015r00k5260qrjo.pdf"
+    },
+    {
+      "id": "cmu14zaum003yr00k34in4qsd",
+      "number": "HKD30/2026-27/00001",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 2035716,
+      "cgstPaise": 122148,
+      "sgstPaise": 122148,
+      "igstPaise": 0,
+      "totalPaise": 2280012,
+      "pdfObjectKey": "invoices/cmu14zaum003yr00k34in4qsd.pdf"
+    },
+    {
+      "id": "cmu263olg002cpe0jds8m97qr",
+      "number": "HKD30/2026-27/00002",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 630000,
+      "cgstPaise": 37800,
+      "sgstPaise": 37800,
+      "igstPaise": 0,
+      "totalPaise": 705600,
+      "pdfObjectKey": "invoices/cmu263olg002cpe0jds8m97qr.pdf"
+    },
+    {
+      "id": "cmu27lvg3003vpe0jqqq1o4zz",
+      "number": "HKD30/2026-27/00003",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 642858,
+      "cgstPaise": 38571,
+      "sgstPaise": 38571,
+      "igstPaise": 0,
+      "totalPaise": 720000,
+      "pdfObjectKey": "invoices/cmu27lvg3003vpe0jqqq1o4zz.pdf"
+    },
+    {
+      "id": "cmu28qe8s006epe0jrzs0wy6j",
+      "number": "HKD30/2026-27/00004",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 1519924,
+      "cgstPaise": 87538,
+      "sgstPaise": 87538,
+      "igstPaise": 0,
+      "totalPaise": 1695000,
+      "pdfObjectKey": "invoices/cmu28qe8s006epe0jrzs0wy6j.pdf"
+    },
+    {
+      "id": "cmu2c9vbb000vo50k7hl1fkdh",
+      "number": "HKD23/2026-27/00001",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 410714,
+      "cgstPaise": 24642,
+      "sgstPaise": 24642,
+      "igstPaise": 0,
+      "totalPaise": 459998,
+      "pdfObjectKey": null
+    },
+    {
+      "id": "cmu2cthv8002uo50kgolfi4vj",
+      "number": "HKD23/2026-27/00002",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 1470000,
+      "cgstPaise": 88200,
+      "sgstPaise": 88200,
+      "igstPaise": 0,
+      "totalPaise": 1646400,
+      "pdfObjectKey": null
+    },
+    {
+      "id": "cmu2d6gds003zo50k7estsjun",
+      "number": "HKD23/2026-27/00003",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 250000,
+      "cgstPaise": 15000,
+      "sgstPaise": 15000,
+      "igstPaise": 0,
+      "totalPaise": 280000,
+      "pdfObjectKey": null
+    },
+    {
+      "id": "cmu2dx77w0054o50kyg7jy8w8",
+      "number": "HKD23/2026-27/00004",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 400000,
+      "cgstPaise": 24000,
+      "sgstPaise": 24000,
+      "igstPaise": 0,
+      "totalPaise": 448000,
+      "pdfObjectKey": null
+    },
+    {
+      "id": "cmu2kgqmq001oky0khx7xqb2r",
+      "number": "HKD3/2026-27/00004",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 515600,
+      "cgstPaise": 30936,
+      "sgstPaise": 30936,
+      "igstPaise": 0,
+      "totalPaise": 577472,
+      "pdfObjectKey": null
+    },
+    {
+      "id": "cmu3m887j0080ky0kwxxukow7",
+      "number": "HKD17/2026-27/00001",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 4464280,
+      "cgstPaise": 267860,
+      "sgstPaise": 267860,
+      "igstPaise": 0,
+      "totalPaise": 5000000,
+      "pdfObjectKey": null
+    },
+    {
+      "id": "cmu3mf5cb00d7ky0k7yc7rist",
+      "number": "HKD17/2026-27/00002",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 4928568,
+      "cgstPaise": 295704,
+      "sgstPaise": 295704,
+      "igstPaise": 0,
+      "totalPaise": 5519976,
+      "pdfObjectKey": null
+    },
+    {
+      "id": "cmu3nf6u200i5ky0kqxnbi1ze",
+      "number": "HKD17/2026-27/00003",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 5600000,
+      "cgstPaise": 336000,
+      "sgstPaise": 336000,
+      "igstPaise": 0,
+      "totalPaise": 6272000,
+      "pdfObjectKey": null
+    },
+    {
+      "id": "cmu3nnun600m8ky0kfpnzy1qp",
+      "number": "HKD17/2026-27/00004",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 5600000,
+      "cgstPaise": 336000,
+      "sgstPaise": 336000,
+      "igstPaise": 0,
+      "totalPaise": 6272000,
+      "pdfObjectKey": null
+    },
+    {
+      "id": "cmu3o58ws00qvky0k7nru1s1z",
+      "number": "HKD17/2026-27/00005",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 5600000,
+      "cgstPaise": 336000,
+      "sgstPaise": 336000,
+      "igstPaise": 0,
+      "totalPaise": 6272000,
+      "pdfObjectKey": null
+    },
+    {
+      "id": "cmu3og4w100vsky0kehww6sad",
+      "number": "HKD17/2026-27/00006",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 6160000,
+      "cgstPaise": 369600,
+      "sgstPaise": 369600,
+      "igstPaise": 0,
+      "totalPaise": 6899200,
+      "pdfObjectKey": null
+    },
+    {
+      "id": "cmu3oq1g4010jky0kzuc36260",
+      "number": "HKD17/2026-27/00007",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 5600000,
+      "cgstPaise": 336000,
+      "sgstPaise": 336000,
+      "igstPaise": 0,
+      "totalPaise": 6272000,
+      "pdfObjectKey": null
+    },
+    {
+      "id": "cmu3pdwv0013aky0kwprfq8u0",
+      "number": "HKD17/2026-27/00008",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 562500,
+      "cgstPaise": 30163,
+      "sgstPaise": 30163,
+      "igstPaise": 0,
+      "totalPaise": 622826,
+      "pdfObjectKey": null
+    },
+    {
+      "id": "cmu3poyvv0147ky0kn5figrne",
+      "number": "HKD17/2026-27/00009",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 210000,
+      "cgstPaise": 12600,
+      "sgstPaise": 12600,
+      "igstPaise": 0,
+      "totalPaise": 235200,
+      "pdfObjectKey": null
+    },
+    {
+      "id": "cmu3pzomk015rky0kexkoddvx",
+      "number": "HKD17/2026-27/00010",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 530000,
+      "cgstPaise": 31800,
+      "sgstPaise": 31800,
+      "igstPaise": 0,
+      "totalPaise": 593600,
+      "pdfObjectKey": null
+    },
+    {
+      "id": "cmu3z81ob017tky0k7ykrnqp1",
+      "number": "HKD23/2026-27/00005",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 4000000,
+      "cgstPaise": 240000,
+      "sgstPaise": 240000,
+      "igstPaise": 0,
+      "totalPaise": 4480000,
+      "pdfObjectKey": null
+    },
+    {
+      "id": "cmu3zoq2i019rky0kdyozr2nc",
+      "number": "HKD17/2026-27/00011",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 500000,
+      "cgstPaise": 30000,
+      "sgstPaise": 30000,
+      "igstPaise": 0,
+      "totalPaise": 560000,
+      "pdfObjectKey": null
+    },
+    {
+      "id": "cmu6o1bfr01d6ky0kjspac6pr",
+      "number": "HKD30/2026-27/00005",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 3063000,
+      "cgstPaise": 181575,
+      "sgstPaise": 181575,
+      "igstPaise": 0,
+      "totalPaise": 3426150,
+      "pdfObjectKey": null
+    },
+    {
+      "id": "cmu6o84re01edky0kf3wpq1dr",
+      "number": "HKD23/2026-27/00006",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 178571,
+      "cgstPaise": 10714,
+      "sgstPaise": 10714,
+      "igstPaise": 0,
+      "totalPaise": 199999,
+      "pdfObjectKey": null
+    },
+    {
+      "id": "cmu7zxv8701h8ky0kb7v2myla",
+      "number": "HKD3/2026-27/00006",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 298200,
+      "cgstPaise": 15505,
+      "sgstPaise": 15505,
+      "igstPaise": 0,
+      "totalPaise": 329210,
+      "pdfObjectKey": null
+    },
+    {
+      "id": "cmuc86s6k01qpky0kb86qmwrn",
+      "number": "HKD17/2026-27/00015",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 535714,
+      "cgstPaise": 32142,
+      "sgstPaise": 32142,
+      "igstPaise": 0,
+      "totalPaise": 599998,
+      "pdfObjectKey": null
+    },
+    {
+      "id": "cmucc5cuq01rhky0ke1b1aybt",
+      "number": "HKD17/2026-27/00016",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 535714,
+      "cgstPaise": 32142,
+      "sgstPaise": 32142,
+      "igstPaise": 0,
+      "totalPaise": 599998,
+      "pdfObjectKey": "invoices/cmucc5cuq01rhky0ke1b1aybt.pdf"
+    },
+    {
+      "id": "cmub2d45201ofky0kt9d1m8dh",
+      "number": "HKD23/2026-27/00007",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 1072500,
+      "cgstPaise": 64350,
+      "sgstPaise": 64350,
+      "igstPaise": 0,
+      "totalPaise": 1201200,
+      "pdfObjectKey": "invoices/cmub2d45201ofky0kt9d1m8dh.pdf"
+    },
+    {
+      "id": "cmub1884p01lqky0kbz7r9b1m",
+      "number": "HKD17/2026-27/00014",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 235700,
+      "cgstPaise": 14142,
+      "sgstPaise": 14142,
+      "igstPaise": 0,
+      "totalPaise": 263984,
+      "pdfObjectKey": "invoices/cmub1884p01lqky0kbz7r9b1m.pdf"
+    },
+    {
+      "id": "cmu2km0uj002uky0ko889kg46",
+      "number": "HKD3/2026-27/00005",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 430000,
+      "cgstPaise": 25800,
+      "sgstPaise": 25800,
+      "igstPaise": 0,
+      "totalPaise": 481600,
+      "pdfObjectKey": "invoices/cmu2km0uj002uky0ko889kg46.pdf"
+    },
+    {
+      "id": "cmub0p01f01k2ky0kgndeb2bu",
+      "number": "HKD17/2026-27/00013",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 490000,
+      "cgstPaise": 29400,
+      "sgstPaise": 29400,
+      "igstPaise": 0,
+      "totalPaise": 548800,
+      "pdfObjectKey": "invoices/cmub0p01f01k2ky0kgndeb2bu.pdf"
+    },
+    {
+      "id": "cmucndene0007qg0karuxkzsz",
+      "number": "HKD17/2026-27/00017",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 535714,
+      "cgstPaise": 32142,
+      "sgstPaise": 32142,
+      "igstPaise": 0,
+      "totalPaise": 599998,
+      "pdfObjectKey": "invoices/cmucndene0007qg0karuxkzsz.pdf"
+    },
+    {
+      "id": "cmuf7q6rc00a5om0krlsl1z3x",
+      "number": "HKD17/2026-27/00018",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 1380000,
+      "cgstPaise": 82800,
+      "sgstPaise": 82800,
+      "igstPaise": 0,
+      "totalPaise": 1545600,
+      "pdfObjectKey": null
+    },
+    {
+      "id": "cmuf8luyz00dgom0k1rgczuvz",
+      "number": "HKD17/2026-27/00019",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 840000,
+      "cgstPaise": 50400,
+      "sgstPaise": 50400,
+      "igstPaise": 0,
+      "totalPaise": 940800,
+      "pdfObjectKey": "invoices/cmuf8luyz00dgom0k1rgczuvz.pdf"
+    },
+    {
+      "id": "cmugpdwj700s9om0kh432q68l",
+      "number": "HKD3/2026-27/00008",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 1211308,
+      "cgstPaise": 69346,
+      "sgstPaise": 69346,
+      "igstPaise": 0,
+      "totalPaise": 1350000,
+      "pdfObjectKey": "invoices/cmugpdwj700s9om0kh432q68l.pdf"
+    },
+    {
+      "id": "cmugj89tk00o5om0k2b9bohyf",
+      "number": "HKD3/2026-27/00007",
+      "type": "TAX_INVOICE",
+      "taxableValuePaise": 2450200,
+      "cgstPaise": 143337,
+      "sgstPaise": 143337,
+      "igstPaise": 0,
+      "totalPaise": 2736874,
+      "pdfObjectKey": "invoices/cmugj89tk00o5om0k2b9bohyf.pdf"
+    }
+  ],
+  "snapshots": [
+    {
+      "id": "cmu263rxi002gpe0jrrlzn410",
+      "roomRevenuePaise": 379643,
+      "totalRevenuePaise": 379643,
+      "adrPaise": 189822,
+      "revparPaise": 189822
+    },
+    {
+      "id": "cmu263sn4002hpe0jcgmi080z",
+      "roomRevenuePaise": 379643,
+      "totalRevenuePaise": 379643,
+      "adrPaise": 189822,
+      "revparPaise": 189822
+    },
+    {
+      "id": "cmu263tct002ipe0jdcnn9la5",
+      "roomRevenuePaise": 379643,
+      "totalRevenuePaise": 379643,
+      "adrPaise": 189822,
+      "revparPaise": 189822
+    },
+    {
+      "id": "cmu2c9xio000zo50kt69y2kj6",
+      "roomRevenuePaise": 205357,
+      "totalRevenuePaise": 205357,
+      "adrPaise": 205357,
+      "revparPaise": 102679
+    },
+    {
+      "id": "cmu2c9ykf0010o50keuhb2ux9",
+      "roomRevenuePaise": 205357,
+      "totalRevenuePaise": 205357,
+      "adrPaise": 205357,
+      "revparPaise": 102679
+    },
+    {
+      "id": "cmu2d6iji0043o50k5di18izs",
+      "roomRevenuePaise": 460000,
+      "totalRevenuePaise": 460000,
+      "adrPaise": 460000,
+      "revparPaise": 230000
+    },
+    {
+      "id": "cmu2dx9kn0058o50kqqq70qy6",
+      "roomRevenuePaise": 410000,
+      "totalRevenuePaise": 410000,
+      "adrPaise": 410000,
+      "revparPaise": 205000
+    },
+    {
+      "id": "cmu2dxamy0059o50kycz5t3ys",
+      "roomRevenuePaise": 410000,
+      "totalRevenuePaise": 410000,
+      "adrPaise": 410000,
+      "revparPaise": 205000
+    },
+    {
+      "id": "cmu2e5qc2005wo50klykkkgqa",
+      "roomRevenuePaise": 210000,
+      "totalRevenuePaise": 210000,
+      "adrPaise": 210000,
+      "revparPaise": 105000
+    },
+    {
+      "id": "cmu2e5rdq005xo50kg9of44ba",
+      "roomRevenuePaise": 0,
+      "totalRevenuePaise": 0,
+      "adrPaise": 0,
+      "revparPaise": 0
+    },
+    {
+      "id": "cmu2kv95a003yky0k291wk1b5",
+      "roomRevenuePaise": 0,
+      "totalRevenuePaise": 0,
+      "adrPaise": 0,
+      "revparPaise": 0
+    },
+    {
+      "id": "cmu2kva78003zky0k9prp06jq",
+      "roomRevenuePaise": 0,
+      "totalRevenuePaise": 0,
+      "adrPaise": 0,
+      "revparPaise": 0
+    },
+    {
+      "id": "cmu2kvb4z0040ky0kqfpccbse",
+      "roomRevenuePaise": 0,
+      "totalRevenuePaise": 0,
+      "adrPaise": 0,
+      "revparPaise": 0
+    },
+    {
+      "id": "cmu2kvc300041ky0kpz2yxeqt",
+      "roomRevenuePaise": 0,
+      "totalRevenuePaise": 0,
+      "adrPaise": 0,
+      "revparPaise": 0
+    },
+    {
+      "id": "cmu2kvd0z0042ky0k5iyyxpok",
+      "roomRevenuePaise": 0,
+      "totalRevenuePaise": 0,
+      "adrPaise": 0,
+      "revparPaise": 0
+    },
+    {
+      "id": "cmu2kvdyq0043ky0krakev0ld",
+      "roomRevenuePaise": 0,
+      "totalRevenuePaise": 0,
+      "adrPaise": 0,
+      "revparPaise": 0
+    },
+    {
+      "id": "cmu2kvf0o0044ky0k2a234e2z",
+      "roomRevenuePaise": 0,
+      "totalRevenuePaise": 0,
+      "adrPaise": 0,
+      "revparPaise": 0
+    },
+    {
+      "id": "cmu2k6epf000lky0kxnbp3279",
+      "roomRevenuePaise": 0,
+      "totalRevenuePaise": 0,
+      "adrPaise": 0,
+      "revparPaise": 0
+    },
+    {
+      "id": "cmu2k6fqa000mky0kujetrvcq",
+      "roomRevenuePaise": 0,
+      "totalRevenuePaise": 0,
+      "adrPaise": 0,
+      "revparPaise": 0
+    },
+    {
+      "id": "cmu2k6gn3000nky0k7bmpeior",
+      "roomRevenuePaise": 0,
+      "totalRevenuePaise": 0,
+      "adrPaise": 0,
+      "revparPaise": 0
+    },
+    {
+      "id": "cmu2kviru0048ky0kctfenvso",
+      "roomRevenuePaise": 0,
+      "totalRevenuePaise": 0,
+      "adrPaise": 0,
+      "revparPaise": 0
+    },
+    {
+      "id": "cmu2kvjpk0049ky0k4sbe5qmf",
+      "roomRevenuePaise": 0,
+      "totalRevenuePaise": 0,
+      "adrPaise": 0,
+      "revparPaise": 0
+    },
+    {
+      "id": "cmu2kvknb004aky0kt734emou",
+      "roomRevenuePaise": 0,
+      "totalRevenuePaise": 0,
+      "adrPaise": 0,
+      "revparPaise": 0
+    },
+    {
+      "id": "cmu2kvll7004bky0kydj6p001",
+      "roomRevenuePaise": 0,
+      "totalRevenuePaise": 0,
+      "adrPaise": 0,
+      "revparPaise": 0
+    },
+    {
+      "id": "cmu2kgsub001sky0kk1ny9w0e",
+      "roomRevenuePaise": 257800,
+      "totalRevenuePaise": 257800,
+      "adrPaise": 128900,
+      "revparPaise": 85933
+    },
+    {
+      "id": "cmu2kgtw6001tky0kyxih2jqz",
+      "roomRevenuePaise": 257800,
+      "totalRevenuePaise": 257800,
+      "adrPaise": 128900,
+      "revparPaise": 85933
+    },
+    {
+      "id": "cmu2kvogz004eky0kr7ink4qf",
+      "roomRevenuePaise": 406964,
+      "totalRevenuePaise": 406964,
+      "adrPaise": 203482,
+      "revparPaise": 135655
+    },
+    {
+      "id": "cmu2kvpf4004fky0khseu51ww",
+      "roomRevenuePaise": 406964,
+      "totalRevenuePaise": 406964,
+      "adrPaise": 203482,
+      "revparPaise": 135655
+    },
+    {
+      "id": "cmu2kvqha004gky0kb74re1g0",
+      "roomRevenuePaise": 223214,
+      "totalRevenuePaise": 223214,
+      "adrPaise": 223214,
+      "revparPaise": 74405
+    },
+    {
+      "id": "cmu2kvrez004hky0kfdq9wov8",
+      "roomRevenuePaise": 250000,
+      "totalRevenuePaise": 250000,
+      "adrPaise": 125000,
+      "revparPaise": 83333
+    },
+    {
+      "id": "cmu3m8id7008fky0k3nxaf1gz",
+      "roomRevenuePaise": 1828571,
+      "totalRevenuePaise": 1828571,
+      "adrPaise": 261224,
+      "revparPaise": 203175
+    },
+    {
+      "id": "cmu3m8k6x008jky0kmtk1lqpf",
+      "roomRevenuePaise": 1828571,
+      "totalRevenuePaise": 1828571,
+      "adrPaise": 261224,
+      "revparPaise": 203175
+    },
+    {
+      "id": "cmu3m8nyq008pky0kbevbt5wy",
+      "roomRevenuePaise": 1828571,
+      "totalRevenuePaise": 1828571,
+      "adrPaise": 261224,
+      "revparPaise": 203175
+    },
+    {
+      "id": "cmu3m8psj008sky0kpozy8l7l",
+      "roomRevenuePaise": 1828571,
+      "totalRevenuePaise": 1828571,
+      "adrPaise": 261224,
+      "revparPaise": 203175
+    },
+    {
+      "id": "cmu3m8qpg008tky0kvocgwrff",
+      "roomRevenuePaise": 1828571,
+      "totalRevenuePaise": 1828571,
+      "adrPaise": 261224,
+      "revparPaise": 203175
+    },
+    {
+      "id": "cmu3m8rmf008vky0kmwxs5cun",
+      "roomRevenuePaise": 1828571,
+      "totalRevenuePaise": 1828571,
+      "adrPaise": 261224,
+      "revparPaise": 203175
+    },
+    {
+      "id": "cmu3m8sk0008xky0knz1uv4w2",
+      "roomRevenuePaise": 1828571,
+      "totalRevenuePaise": 1828571,
+      "adrPaise": 261224,
+      "revparPaise": 203175
+    },
+    {
+      "id": "cmu3m8tis008yky0ktp81o5ct",
+      "roomRevenuePaise": 1828571,
+      "totalRevenuePaise": 1828571,
+      "adrPaise": 261224,
+      "revparPaise": 203175
+    },
+    {
+      "id": "cmu3m8v5t0090ky0kswpl70hc",
+      "roomRevenuePaise": 1828571,
+      "totalRevenuePaise": 1828571,
+      "adrPaise": 261224,
+      "revparPaise": 203175
+    },
+    {
+      "id": "cmu3mfr5300dvky0k30fzviff",
+      "roomRevenuePaise": 715357,
+      "totalRevenuePaise": 817857,
+      "adrPaise": 143071,
+      "revparPaise": 79484
+    },
+    {
+      "id": "cmu3og73p00vwky0kqxjg9k7s",
+      "roomRevenuePaise": 280000,
+      "totalRevenuePaise": 280000,
+      "adrPaise": 140000,
+      "revparPaise": 31111
+    },
+    {
+      "id": "cmu3mfs3900dwky0k985kixa9",
+      "roomRevenuePaise": 895357,
+      "totalRevenuePaise": 925357,
+      "adrPaise": 179071,
+      "revparPaise": 99484
+    },
+    {
+      "id": "cmu2e5sfi005yo50k837teb0i",
+      "roomRevenuePaise": 500000,
+      "totalRevenuePaise": 500000,
+      "adrPaise": 250000,
+      "revparPaise": 250000
+    },
+    {
+      "id": "cmu3m8dse0088ky0kuvk375h5",
+      "roomRevenuePaise": 1828571,
+      "totalRevenuePaise": 1828571,
+      "adrPaise": 261224,
+      "revparPaise": 203175
+    },
+    {
+      "id": "cmu3m8epb0089ky0ks91od7m1",
+      "roomRevenuePaise": 1828571,
+      "totalRevenuePaise": 1828571,
+      "adrPaise": 261224,
+      "revparPaise": 203175
+    },
+    {
+      "id": "cmu3m8gj6008cky0kcvlesozu",
+      "roomRevenuePaise": 1828571,
+      "totalRevenuePaise": 1828571,
+      "adrPaise": 261224,
+      "revparPaise": 203175
+    },
+    {
+      "id": "cmu3m8hg4008eky0kyud99cmf",
+      "roomRevenuePaise": 1828571,
+      "totalRevenuePaise": 1828571,
+      "adrPaise": 261224,
+      "revparPaise": 203175
+    },
+    {
+      "id": "cmu3m8ja1008hky0kqpopo3rn",
+      "roomRevenuePaise": 1828571,
+      "totalRevenuePaise": 1828571,
+      "adrPaise": 261224,
+      "revparPaise": 203175
+    },
+    {
+      "id": "cmu3m8l3q008kky0kyp6nziom",
+      "roomRevenuePaise": 1828571,
+      "totalRevenuePaise": 1828571,
+      "adrPaise": 261224,
+      "revparPaise": 203175
+    },
+    {
+      "id": "cmu3m8m0o008mky0knvd7uidc",
+      "roomRevenuePaise": 1828571,
+      "totalRevenuePaise": 1828571,
+      "adrPaise": 261224,
+      "revparPaise": 203175
+    },
+    {
+      "id": "cmu3m8n1q008nky0ki5gf22rr",
+      "roomRevenuePaise": 1828571,
+      "totalRevenuePaise": 1828571,
+      "adrPaise": 261224,
+      "revparPaise": 203175
+    },
+    {
+      "id": "cmu3m8ovp008qky0k99erjj71",
+      "roomRevenuePaise": 1828571,
+      "totalRevenuePaise": 1828571,
+      "adrPaise": 261224,
+      "revparPaise": 203175
+    },
+    {
+      "id": "cmu3m8fm9008bky0knat0h1c6",
+      "roomRevenuePaise": 1828571,
+      "totalRevenuePaise": 1828571,
+      "adrPaise": 261224,
+      "revparPaise": 203175
+    },
+    {
+      "id": "cmu3mft1700dxky0kh21u97mo",
+      "roomRevenuePaise": 705357,
+      "totalRevenuePaise": 705357,
+      "adrPaise": 176339,
+      "revparPaise": 78373
+    },
+    {
+      "id": "cmu3z851g017yky0kd89jdx5u",
+      "roomRevenuePaise": 500000,
+      "totalRevenuePaise": 500000,
+      "adrPaise": 500000,
+      "revparPaise": 250000
+    },
+    {
+      "id": "cmu3z8609017zky0k3xoy2uoh",
+      "roomRevenuePaise": 500000,
+      "totalRevenuePaise": 500000,
+      "adrPaise": 500000,
+      "revparPaise": 250000
+    },
+    {
+      "id": "cmu3z86z90180ky0kdtb2eb1s",
+      "roomRevenuePaise": 500000,
+      "totalRevenuePaise": 500000,
+      "adrPaise": 500000,
+      "revparPaise": 250000
+    },
+    {
+      "id": "cmu3z87yh0181ky0k2on755xq",
+      "roomRevenuePaise": 500000,
+      "totalRevenuePaise": 500000,
+      "adrPaise": 500000,
+      "revparPaise": 250000
+    },
+    {
+      "id": "cmu3z88xd0182ky0k7il8bdg5",
+      "roomRevenuePaise": 500000,
+      "totalRevenuePaise": 500000,
+      "adrPaise": 500000,
+      "revparPaise": 250000
+    },
+    {
+      "id": "cmu3mftz500dyky0kwnmwde77",
+      "roomRevenuePaise": 455357,
+      "totalRevenuePaise": 488690,
+      "adrPaise": 91071,
+      "revparPaise": 50595
+    },
+    {
+      "id": "cmu3m8crf0086ky0k128kjv2l",
+      "roomRevenuePaise": 1828571,
+      "totalRevenuePaise": 1828571,
+      "adrPaise": 261224,
+      "revparPaise": 203175
+    },
+    {
+      "id": "cmu3z8a0e0183ky0khqekuett",
+      "roomRevenuePaise": 500000,
+      "totalRevenuePaise": 500000,
+      "adrPaise": 500000,
+      "revparPaise": 250000
+    },
+    {
+      "id": "cmu3z8az90184ky0klhkmt123",
+      "roomRevenuePaise": 500000,
+      "totalRevenuePaise": 500000,
+      "adrPaise": 500000,
+      "revparPaise": 250000
+    },
+    {
+      "id": "cmu6o1dmf01daky0kzl0wcgo4",
+      "roomRevenuePaise": 723214,
+      "totalRevenuePaise": 786214,
+      "adrPaise": 361607,
+      "revparPaise": 361607
+    },
+    {
+      "id": "cmu6o1err01dbky0kyvggfzom",
+      "roomRevenuePaise": 723214,
+      "totalRevenuePaise": 723214,
+      "adrPaise": 361607,
+      "revparPaise": 361607
+    },
+    {
+      "id": "cmu6o1foz01dcky0kgaug8kw3",
+      "roomRevenuePaise": 723214,
+      "totalRevenuePaise": 723214,
+      "adrPaise": 361607,
+      "revparPaise": 361607
+    },
+    {
+      "id": "cmu6o1gm801ddky0k9s5ccujs",
+      "roomRevenuePaise": 500000,
+      "totalRevenuePaise": 500000,
+      "adrPaise": 500000,
+      "revparPaise": 250000
+    },
+    {
+      "id": "cmu6o1hjf01deky0kgzmay5qw",
+      "roomRevenuePaise": 500000,
+      "totalRevenuePaise": 500000,
+      "adrPaise": 500000,
+      "revparPaise": 250000
+    },
+    {
+      "id": "cmuc86ufm01qtky0kua2qj6cg",
+      "roomRevenuePaise": 707857,
+      "totalRevenuePaise": 707857,
+      "adrPaise": 176964,
+      "revparPaise": 88482
+    },
+    {
+      "id": "cmu55epjg01aoky0k1c7exzab",
+      "roomRevenuePaise": 0,
+      "totalRevenuePaise": 0,
+      "adrPaise": 0,
+      "revparPaise": 0
+    },
+    {
+      "id": "cmu7zn5s801gcky0kjelxdbg2",
+      "roomRevenuePaise": 0,
+      "totalRevenuePaise": 0,
+      "adrPaise": 0,
+      "revparPaise": 0
+    },
+    {
+      "id": "cmuc7zfcm01poky0k23dchjbw",
+      "roomRevenuePaise": 707857,
+      "totalRevenuePaise": 707857,
+      "adrPaise": 141571,
+      "revparPaise": 88482
+    },
+    {
+      "id": "cmudu2gii000iom0kfg122xwf",
+      "roomRevenuePaise": 440000,
+      "totalRevenuePaise": 410000,
+      "adrPaise": 110000,
+      "revparPaise": 55000
+    },
+    {
+      "id": "cmuf5ksc5008fom0klcfye6iu",
+      "roomRevenuePaise": 440000,
+      "totalRevenuePaise": 440000,
+      "adrPaise": 110000,
+      "revparPaise": 55000
+    },
+    {
+      "id": "cmugjh5a000pdom0kzyec64jv",
+      "roomRevenuePaise": 213200,
+      "totalRevenuePaise": 318200,
+      "adrPaise": 213200,
+      "revparPaise": 71067
+    },
+    {
+      "id": "cmu55qkll01b6ky0knikmxyyb",
+      "roomRevenuePaise": 214500,
+      "totalRevenuePaise": 214500,
+      "adrPaise": 107250,
+      "revparPaise": 107250
+    },
+    {
+      "id": "cmu6o874f01ehky0k2e8v439r",
+      "roomRevenuePaise": 393071,
+      "totalRevenuePaise": 393071,
+      "adrPaise": 196536,
+      "revparPaise": 196536
+    },
+    {
+      "id": "cmub2d86b01olky0kcweba457",
+      "roomRevenuePaise": 214500,
+      "totalRevenuePaise": 214500,
+      "adrPaise": 214500,
+      "revparPaise": 107250
+    },
+    {
+      "id": "cmub2d92k01omky0koxfc14zx",
+      "roomRevenuePaise": 214500,
+      "totalRevenuePaise": 214500,
+      "adrPaise": 214500,
+      "revparPaise": 107250
+    },
+    {
+      "id": "cmub2d9z001onky0kg3ulo9vk",
+      "roomRevenuePaise": 214500,
+      "totalRevenuePaise": 214500,
+      "adrPaise": 214500,
+      "revparPaise": 107250
+    },
+    {
+      "id": "cmu6pn6ud01f8ky0kjfrdgj4v",
+      "roomRevenuePaise": 213200,
+      "totalRevenuePaise": 213200,
+      "adrPaise": 106600,
+      "revparPaise": 71067
+    },
+    {
+      "id": "cmu6pn7w501f9ky0kqfj3tra4",
+      "roomRevenuePaise": 213200,
+      "totalRevenuePaise": 213200,
+      "adrPaise": 106600,
+      "revparPaise": 71067
+    },
+    {
+      "id": "cmu6pn8xx01faky0ka8utprnn",
+      "roomRevenuePaise": 213200,
+      "totalRevenuePaise": 213200,
+      "adrPaise": 106600,
+      "revparPaise": 71067
+    },
+    {
+      "id": "cmuduwrqu001uom0kbm5vt0tb",
+      "roomRevenuePaise": 440000,
+      "totalRevenuePaise": 440000,
+      "adrPaise": 220000,
+      "revparPaise": 220000
+    },
+    {
+      "id": "cmuduwsvq001vom0kpxmhq95r",
+      "roomRevenuePaise": 440000,
+      "totalRevenuePaise": 440000,
+      "adrPaise": 220000,
+      "revparPaise": 220000
+    },
+    {
+      "id": "cmuduwtsm001wom0k13oyvgf3",
+      "roomRevenuePaise": 440000,
+      "totalRevenuePaise": 440000,
+      "adrPaise": 220000,
+      "revparPaise": 220000
+    },
+    {
+      "id": "cmu6o1igm01dfky0klcn9njs4",
+      "roomRevenuePaise": 1000000,
+      "totalRevenuePaise": 1000000,
+      "adrPaise": 500000,
+      "revparPaise": 500000
+    },
+    {
+      "id": "cmudxxrrx005yom0kmjtwdmq9",
+      "roomRevenuePaise": 500000,
+      "totalRevenuePaise": 500000,
+      "adrPaise": 500000,
+      "revparPaise": 250000
+    },
+    {
+      "id": "cmudxxsqx005zom0k8bhz48zx",
+      "roomRevenuePaise": 500000,
+      "totalRevenuePaise": 500000,
+      "adrPaise": 500000,
+      "revparPaise": 250000
+    },
+    {
+      "id": "cmudxxtp90060om0ka8s0k3yr",
+      "roomRevenuePaise": 500000,
+      "totalRevenuePaise": 500000,
+      "adrPaise": 500000,
+      "revparPaise": 250000
+    },
+    {
+      "id": "cmudxxunv0061om0kmumbfbpy",
+      "roomRevenuePaise": 500000,
+      "totalRevenuePaise": 500000,
+      "adrPaise": 500000,
+      "revparPaise": 250000
+    },
+    {
+      "id": "cmudxxvm80062om0k1uak73kv",
+      "roomRevenuePaise": 500000,
+      "totalRevenuePaise": 500000,
+      "adrPaise": 500000,
+      "revparPaise": 250000
+    },
+    {
+      "id": "cmudxxwkl0064om0k15hnsir0",
+      "roomRevenuePaise": 500000,
+      "totalRevenuePaise": 500000,
+      "adrPaise": 500000,
+      "revparPaise": 250000
+    },
+    {
+      "id": "cmu7zxxfq01hcky0koij8worx",
+      "roomRevenuePaise": 443200,
+      "totalRevenuePaise": 511400,
+      "adrPaise": 221600,
+      "revparPaise": 147733
+    },
+    {
+      "id": "cmu7zn6qj01gdky0krjin7bfa",
+      "roomRevenuePaise": 450000,
+      "totalRevenuePaise": 500000,
+      "adrPaise": 112500,
+      "revparPaise": 56250
+    },
+    {
+      "id": "cmub0ixf501iwky0kmn0g3zi9",
+      "roomRevenuePaise": 685700,
+      "totalRevenuePaise": 685700,
+      "adrPaise": 171425,
+      "revparPaise": 85713
+    },
+    {
+      "id": "cmub21l8u01muky0kvbk20h8a",
+      "roomRevenuePaise": 213200,
+      "totalRevenuePaise": 213200,
+      "adrPaise": 106600,
+      "revparPaise": 71067
+    },
+    {
+      "id": "cmugjhfjq00poom0kf1ewsvbi",
+      "roomRevenuePaise": 0,
+      "totalRevenuePaise": 0,
+      "adrPaise": 0,
+      "revparPaise": 0
+    },
+    {
+      "id": "cmugjhavg00pjom0k974g4qi8",
+      "roomRevenuePaise": 436414,
+      "totalRevenuePaise": 531652,
+      "adrPaise": 218207,
+      "revparPaise": 145471
+    },
+    {
+      "id": "cmugjhbsb00pkom0kril6ok0t",
+      "roomRevenuePaise": 436414,
+      "totalRevenuePaise": 436414,
+      "adrPaise": 218207,
+      "revparPaise": 145471
+    },
+    {
+      "id": "cmugjhcp800plom0kzpoc9jnm",
+      "roomRevenuePaise": 436414,
+      "totalRevenuePaise": 436414,
+      "adrPaise": 218207,
+      "revparPaise": 145471
+    },
+    {
+      "id": "cmugjhdm100pmom0k94i7dog2",
+      "roomRevenuePaise": 436414,
+      "totalRevenuePaise": 436414,
+      "adrPaise": 218207,
+      "revparPaise": 145471
+    },
+    {
+      "id": "cmugjhemw00pnom0kivihyila",
+      "roomRevenuePaise": 436414,
+      "totalRevenuePaise": 436414,
+      "adrPaise": 218207,
+      "revparPaise": 145471
+    }
+  ]
+}

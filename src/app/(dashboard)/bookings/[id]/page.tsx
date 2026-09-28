@@ -4,7 +4,8 @@ import Link from "next/link";
 import { CalendarDays, IndianRupee, ReceiptText, UserCheck } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
 import { hasPermission } from "@/lib/permissions";
-import { getReservation, getReservationGuestPanel } from "@/features/reservations/queries";
+import { getReservation, getReservationGuestPanel, transferStatement } from "@/features/reservations/queries";
+import { CombinedStatementCard } from "@/features/reservations/components/combined-statement-card";
 import { getGuestProfile } from "@/features/guests/queries";
 import { pendingGuestInfo } from "@/features/reservations/domain/guest-checklist";
 import { ClipboardCheck } from "lucide-react";
@@ -52,6 +53,8 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
   // both modify the origin and create at a destination, and other properties exist.
   const canTransfer = r.status === "IN_HOUSE" && r.roomNumbers.length === 1 && canManageGuests && hasPermission(user, "reservation:create");
   const transferProperties = canTransfer ? (await listProperties(user)).map((p) => ({ id: p.id, name: p.name })) : [];
+  // Combined bill across a transfer chain (only when this booking is part of one).
+  const statement = canFolio ? await transferStatement(user, r.id) : null;
   // Cancellation is a PRE-ARRIVAL action only (domain: IN_HOUSE → only CHECKED_OUT).
   // An in-house guest is checked out / recorded as early departure — never cancelled.
   const canCancel = hasPermission(user, "reservation:cancel") && ["ENQUIRY", "CONFIRMED"].includes(r.status);
@@ -208,6 +211,8 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
       {(r.status === "IN_HOUSE" || r.status === "CONFIRMED") && canManageGuests ? (
         <ExtendStayCard reservationId={r.id} checkOutDate={r.checkOutDate.toISOString().slice(0, 10)} />
       ) : null}
+
+      {statement?.isTransfer ? <CombinedStatementCard statement={statement} /> : null}
 
       {canTransfer && transferProperties.length > 1 ? (
         <TransferPropertyCard

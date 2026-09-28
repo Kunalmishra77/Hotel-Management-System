@@ -649,3 +649,85 @@ export async function arrivalsDeparturesPortfolio(
 
   return { arrivals: arrivals.map(toMovement), departures: departures.map(toMovement) };
 }
+
+export type TransferSegment = {
+  reservationId: string;
+  code: string;
+  propertyName: string;
+  checkInDate: Date;
+  checkOutDate: Date;
+  status: string;
+  chargesPaise: number; // taxable value (ex-tax)
+  taxPaise: number;
+  paidPaise: number;
+  balancePaise: number;
+};
+export type TransferStatement = {
+  isTransfer: boolean;
+  segments: TransferSegment[];
+  totalChargesPaise: number;
+  totalTaxPaise: number;
+  totalPaidPaise: number;
+  totalBalancePaise: number;
+};
+
+/**
+ * Combined statement across a cross-property transfer chain (03). A transfer links
+ * an origin booking to its continuation via `transferredFromId`; this walks the
+ * whole chain (up to the root, then down) and returns each property segment's folio
+ * totals + a grand total, so the guest can be shown ONE bill across both properties
+ * while each folio/GST stays per-property. `isTransfer` is false for a normal
+ * (single) booking. `folio:view`, property-scoped.
+ */
+export async function transferStatement(user: SessionClaims, reservationId: string): Promise<TransferStatement> {
+  authorize(user, "folio:view", user.activePropertyId);
+  const scoped = db.scoped(user);
+
+  // Walk UP to the root of the chain.
+  let rootId = reservationId;
+  for (let i = 0; i < 10; i++) {
+    const r = await scoped.reservation.findFirst({ where: { id: rootId }, select: { transferredFromId: true } });
+    if (r?.transferredFromId) rootId = r.transferredFromId; else break;
+  }
+  // Walk DOWN, collecting every continuation.
+  const chain = new Set<string>([rootId]);
+  let frontier = [rootId];
+  for (let i = 0; i < 10 && frontier.length > 0; i++) {
+    const kids = await scoped.reservation.findMany({ where: { transferredFromId: { in: frontier } }, select: { id: true } });
+    frontier = kids.map((k) => k.id).filter((id) => !chain.has(id));
+    frontier.forEach((id) => chain.add(id));
+  }
+  const ids = [...chain];
+
+  const resvs = await scoped.reservation.findMany({
+    where: { id: { in: ids } },
+    select: {
+      id: true, code: true, status: true, checkInDate: true, checkOutDate: true,
+      property: { select: { name: true } },
+      folio: { select: { lines: { select: { amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true } }, payments: { select: { amountPaise: true, isRefund: true } } } },
+    },
+    orderBy: { checkInDate: "asc" },
+  });
+
+  const segments: TransferSegment[] = resvs.map((r) => {
+    const lines = r.folio?.lines ?? [];
+    const payments = r.folio?.payments ?? [];
+    const chargesPaise = lines.reduce((n, l) => n + Number(l.amountPaise), 0);
+    const taxPaise = lines.reduce((n, l) => n + l.cgstPaise + l.sgstPaise + l.igstPaise, 0);
+    const paidPaise = payments.reduce((n, p) => n + (p.isRefund ? -Number(p.amountPaise) : Number(p.amountPaise)), 0);
+    return {
+      reservationId: r.id, code: r.code, propertyName: r.property?.name ?? "—",
+      checkInDate: r.checkInDate, checkOutDate: r.checkOutDate, status: r.status,
+      chargesPaise, taxPaise, paidPaise, balancePaise: Number(folioBalance(lines, payments)),
+    };
+  });
+
+  return {
+    isTransfer: segments.length > 1,
+    segments,
+    totalChargesPaise: segments.reduce((n, s) => n + s.chargesPaise, 0),
+    totalTaxPaise: segments.reduce((n, s) => n + s.taxPaise, 0),
+    totalPaidPaise: segments.reduce((n, s) => n + s.paidPaise, 0),
+    totalBalancePaise: segments.reduce((n, s) => n + s.balancePaise, 0),
+  };
+}
