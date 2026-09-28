@@ -110,7 +110,8 @@ function BudgetRow({ row, month, editablePropertyId }: { row: BudgetVsActualRow;
           <span className="text-xs text-muted-foreground">Budget ₹</span>
           <Input
             type="number"
-            inputMode="numeric"
+            inputMode="decimal"
+            step="0.01"
             value={value}
             onChange={(e) => setValue(e.target.value)}
             placeholder="Not set"

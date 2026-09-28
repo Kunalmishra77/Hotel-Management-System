@@ -446,7 +446,7 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
                 {CHARGE_TYPES.map((t) => <option key={t} value={t}>{CHARGE_LABEL[t]}</option>)}
               </select>
               <Input placeholder="Note (optional, e.g. Dinner)" value={x.description} onChange={(e) => setExtra(i, "description", e.target.value)} />
-              <Input type="number" inputMode="numeric" min={0} placeholder="Amount ₹" value={x.amount} onChange={(e) => setExtra(i, "amount", e.target.value)} data-testid={`extra-amount-${i}`} />
+              <Input type="number" inputMode="decimal" step="0.01" min={0} placeholder="Amount ₹" value={x.amount} onChange={(e) => setExtra(i, "amount", e.target.value)} data-testid={`extra-amount-${i}`} />
               <Button type="button" variant="ghost" size="sm" className="h-9 text-muted-foreground hover:text-destructive" onClick={() => setExtras((xs) => xs.filter((_, j) => j !== i))}>Remove</Button>
             </div>
           ))}
@@ -472,7 +472,7 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
             </div>
             <p className="text-xs text-muted-foreground">Applies to the room rate <span className="font-medium">and</span> every extra charge above.</p>
           </div>
-          <Fld label="Room rate per night (₹)"><Input type="number" inputMode="numeric" min={0} value={f.rate} onChange={(e) => set("rate", e.target.value)} placeholder="Enter the nightly rate" data-testid="hist-rate" /></Fld>
+          <Fld label="Room rate per night (₹)"><Input type="number" inputMode="decimal" step="0.01" min={0} value={f.rate} onChange={(e) => set("rate", e.target.value)} placeholder="Enter the nightly rate" data-testid="hist-rate" /></Fld>
           {["MAKEMYTRIP", "BOOKING_COM", "AGODA", "GOIBIBO", "AIRBNB", "TRAVEL_AGENT"].includes(f.source) && (
             <p className="text-xs font-medium text-amber-700 dark:text-amber-400 sm:col-span-2" data-testid="hist-ota-rate-hint">
               OTA booking — enter the agreed {f.source === "MAKEMYTRIP" ? "MakeMyTrip" : f.source === "BOOKING_COM" ? "Booking.com" : "channel"} rate here, not the default room rate.
@@ -502,7 +502,7 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
                 <select value={p.mode} onChange={(e) => setPay(i, "mode", e.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" data-testid={`pay-mode-${i}`}>
                   {PAY_MODES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
                 </select>
-                <Input type="number" inputMode="numeric" min={0} placeholder="Amount ₹" value={p.amount} onChange={(e) => setPay(i, "amount", e.target.value)} data-testid={`pay-amount-${i}`} />
+                <Input type="number" inputMode="decimal" step="0.01" min={0} placeholder="Amount ₹" value={p.amount} onChange={(e) => setPay(i, "amount", e.target.value)} data-testid={`pay-amount-${i}`} />
                 <Input placeholder="Reference / txn no. (optional)" value={p.reference} onChange={(e) => setPay(i, "reference", e.target.value)} />
                 <div className="space-y-1"><span className="text-xs text-muted-foreground">Payment date (optional)</span><Input type="date" value={p.date} onChange={(e) => setPay(i, "date", e.target.value)} /></div>
               </div>

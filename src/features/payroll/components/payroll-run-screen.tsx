@@ -96,9 +96,9 @@ function LineCard({
           {editable ? (
             <div className="space-y-2">
               <div className="grid grid-cols-3 gap-2">
-                <label className="text-xs">Bonus ₹<Input type="number" inputMode="numeric" value={bonus} onChange={(e) => setBonus(Number(e.target.value))} data-testid={`bonus-${line.id}`} /></label>
-                <label className="text-xs">Deduct ₹<Input type="number" inputMode="numeric" value={deduction} onChange={(e) => setDeduction(Number(e.target.value))} data-testid={`deduction-${line.id}`} /></label>
-                <label className="text-xs">Advance ₹<Input type="number" inputMode="numeric" value={advance} onChange={(e) => setAdvance(Number(e.target.value))} data-testid={`advance-${line.id}`} /></label>
+                <label className="text-xs">Bonus ₹<Input type="number" inputMode="decimal" step="0.01" value={bonus} onChange={(e) => setBonus(Number(e.target.value))} data-testid={`bonus-${line.id}`} /></label>
+                <label className="text-xs">Deduct ₹<Input type="number" inputMode="decimal" step="0.01" value={deduction} onChange={(e) => setDeduction(Number(e.target.value))} data-testid={`deduction-${line.id}`} /></label>
+                <label className="text-xs">Advance ₹<Input type="number" inputMode="decimal" step="0.01" value={advance} onChange={(e) => setAdvance(Number(e.target.value))} data-testid={`advance-${line.id}`} /></label>
               </div>
               <Input placeholder="Reason (required to override base/OT)" value={reason} onChange={(e) => setReason(e.target.value)} data-testid={`reason-${line.id}`} />
               <Button size="sm" disabled={pending} data-testid={`save-${line.id}`}

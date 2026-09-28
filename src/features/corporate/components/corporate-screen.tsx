@@ -61,7 +61,7 @@ export function CorporateScreen({
           <CardContent className="space-y-3">
             <div className="space-y-1.5"><Label htmlFor="c-name">Name</Label><Input id="c-name" value={cName} onChange={(e) => setCName(e.target.value)} data-testid="corp-name" /></div>
             <div className="space-y-1.5"><Label htmlFor="c-gstin">GSTIN</Label><Input id="c-gstin" value={cGstin} onChange={(e) => setCGstin(e.target.value)} data-testid="corp-gstin" /></div>
-            <div className="space-y-1.5"><Label htmlFor="c-limit">Credit limit (₹)</Label><Input id="c-limit" type="number" inputMode="numeric" value={cLimit} onChange={(e) => setCLimit(Number(e.target.value))} data-testid="corp-limit" /></div>
+            <div className="space-y-1.5"><Label htmlFor="c-limit">Credit limit (₹)</Label><Input id="c-limit" type="number" inputMode="decimal" step="0.01" value={cLimit} onChange={(e) => setCLimit(Number(e.target.value))} data-testid="corp-limit" /></div>
             <Button size="lg" disabled={pending || !cName || cLimit < 0}
               onClick={() => run(() => createCorporate({ name: cName, gstin: cGstin || undefined, creditLimitPaise: toPaise(cLimit) }), () => { setCName(""); setCGstin(""); setCLimit(0); })}
               data-testid="corp-save">Add corporate</Button>
@@ -148,7 +148,7 @@ function NegotiatedRateForm({ corporateId, pending, run }: { corporateId: string
   return (
     <div className="mt-3 flex flex-wrap items-end gap-2">
       <div className="space-y-1"><Label htmlFor={`nr-cat-${corporateId}`} className="text-xs">Category id</Label><Input id={`nr-cat-${corporateId}`} value={cat} onChange={(e) => setCat(e.target.value)} className="h-9 w-40" data-testid={`nr-cat-${corporateId}`} /></div>
-      <div className="space-y-1"><Label htmlFor={`nr-rate-${corporateId}`} className="text-xs">Rate (₹)</Label><Input id={`nr-rate-${corporateId}`} type="number" inputMode="numeric" value={rate} onChange={(e) => setRate(Number(e.target.value))} className="h-9 w-28" data-testid={`nr-rate-${corporateId}`} /></div>
+      <div className="space-y-1"><Label htmlFor={`nr-rate-${corporateId}`} className="text-xs">Rate (₹)</Label><Input id={`nr-rate-${corporateId}`} type="number" inputMode="decimal" step="0.01" value={rate} onChange={(e) => setRate(Number(e.target.value))} className="h-9 w-28" data-testid={`nr-rate-${corporateId}`} /></div>
       <Button size="sm" disabled={pending || !cat || rate <= 0}
         onClick={() => run(() => setNegotiatedRate({ corporateId, roomCategoryId: cat, ratePaise: toPaise(rate) }), () => { setCat(""); setRate(0); })}
         data-testid={`nr-save-${corporateId}`}>Set rate</Button>

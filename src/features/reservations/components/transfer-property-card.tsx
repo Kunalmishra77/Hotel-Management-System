@@ -134,7 +134,7 @@ export function TransferPropertyCard({
           <div className="flex flex-wrap items-end gap-3 border-t pt-3">
             <div className="space-y-1.5">
               <Label htmlFor="transfer-rate">Rate / night (₹) at new property</Label>
-              <Input id="transfer-rate" type="number" inputMode="numeric" value={rate} onChange={(e) => setRate(Number(e.target.value))} className="w-40" data-testid="transfer-rate" />
+              <Input id="transfer-rate" type="number" inputMode="decimal" step="0.01" value={rate} onChange={(e) => setRate(Number(e.target.value))} className="w-40" data-testid="transfer-rate" />
             </div>
             <Button type="button" disabled={pending || rate <= 0} onClick={submit} data-testid="transfer-submit">
               {pending ? "Transferring…" : "Transfer guest"}

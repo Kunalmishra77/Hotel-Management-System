@@ -158,7 +158,7 @@ function RoomRateForm({ onSubmit, onCancel, pending }: { onSubmit: (ratePerNight
       <p className="text-sm text-muted-foreground">
         Wrong room rate picked (e.g. an OTA / Booking.com booking)? Enter the <span className="font-medium">correct rate per night</span> — the current room charges are cancelled and re-posted at this rate for the same number of nights. GST (5%) is applied automatically. Works even after checkout; re-generate the invoice afterwards.
       </p>
-      <Input type="number" inputMode="numeric" placeholder="Correct rate per night ₹" value={rate} onChange={(e) => setRate(Number(e.target.value))} data-testid="roomrate-amount" />
+      <Input type="number" inputMode="decimal" step="0.01" placeholder="Correct rate per night ₹" value={rate} onChange={(e) => setRate(Number(e.target.value))} data-testid="roomrate-amount" />
       <div className="flex gap-2">
         <Button size="lg" disabled={pending || rate <= 0} onClick={() => onSubmit(rate)} data-testid="roomrate-submit">Apply correct rate</Button>
         <Button size="lg" variant="outline" onClick={onCancel}>Cancel</Button>
@@ -177,7 +177,7 @@ function ChargeForm({ onSubmit, onCancel, pending }: { onSubmit: (type: string, 
         {["ROOM", "FOOD", "LAUNDRY", "AIRPORT_TRANSFER", "TAXI", "EXTRA_BED", "MISC"].map((t) => <option key={t} value={t}>{t}</option>)}
       </select>
       <Input placeholder="Description" value={desc} onChange={(e) => setDesc(e.target.value)} data-testid="charge-desc" />
-      <Input type="number" inputMode="numeric" placeholder="Amount ₹" value={amt} onChange={(e) => setAmt(Number(e.target.value))} data-testid="charge-amount" />
+      <Input type="number" inputMode="decimal" step="0.01" placeholder="Amount ₹" value={amt} onChange={(e) => setAmt(Number(e.target.value))} data-testid="charge-amount" />
       <div className="flex gap-2">
         <Button size="lg" disabled={pending || !desc || amt <= 0} onClick={() => onSubmit(type, desc, amt)} data-testid="charge-submit">Add</Button>
         <Button size="lg" variant="outline" onClick={onCancel}>Cancel</Button>
@@ -230,7 +230,7 @@ function DiscountForm({ onSubmit, onCancel, pending }: { onSubmit: (reason: stri
     <Card><CardContent className="space-y-3 p-4">
       <p className="text-sm text-muted-foreground">Reduce the bill — a discount posts as a negative line and the balance recalculates. Over the org threshold needs a manager&apos;s permission.</p>
       <Input placeholder="Reason (e.g. loyalty, corporate rate)" value={reason} onChange={(e) => setReason(e.target.value)} data-testid="discount-reason" />
-      <Input type="number" inputMode="numeric" placeholder="Discount ₹" value={amt} onChange={(e) => setAmt(Number(e.target.value))} data-testid="discount-amount" />
+      <Input type="number" inputMode="decimal" step="0.01" placeholder="Discount ₹" value={amt} onChange={(e) => setAmt(Number(e.target.value))} data-testid="discount-amount" />
       <div className="flex gap-2">
         <Button size="lg" disabled={pending || !reason || amt <= 0} onClick={() => onSubmit(reason, amt)} data-testid="discount-submit">Apply discount</Button>
         <Button size="lg" variant="outline" onClick={onCancel}>Cancel</Button>
@@ -250,7 +250,7 @@ function PaymentForm({ balancePaise, onSubmit, onCancel, pending }: { balancePai
           <select value={t.mode} onChange={(e) => setTenders((ts) => ts.map((x, j) => (j === i ? { ...x, mode: e.target.value } : x)))} className="h-10 rounded-md border border-input bg-background px-2 text-sm" data-testid={`tender-mode-${i}`}>
             {["UPI", "CASH", "CREDIT_CARD", "DEBIT_CARD"].map((m) => <option key={m} value={m}>{m}</option>)}
           </select>
-          <Input type="number" inputMode="numeric" value={t.amountPaise / 100} onChange={(e) => setTenders((ts) => ts.map((x, j) => (j === i ? { ...x, amountPaise: toPaise(Number(e.target.value)) } : x)))} data-testid={`tender-amount-${i}`} />
+          <Input type="number" inputMode="decimal" step="0.01" value={t.amountPaise / 100} onChange={(e) => setTenders((ts) => ts.map((x, j) => (j === i ? { ...x, amountPaise: toPaise(Number(e.target.value)) } : x)))} data-testid={`tender-amount-${i}`} />
         </div>
       ))}
       <div className="flex items-center justify-between text-sm">

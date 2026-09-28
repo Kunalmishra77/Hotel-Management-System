@@ -158,7 +158,7 @@ export function PosScreen({
               <div className="flex items-end gap-2">
                 <div className="flex-1 space-y-1.5">
                   <Label htmlFor="pos-disc">Discount (₹)</Label>
-                  <Input id="pos-disc" type="number" inputMode="numeric" value={discount} onChange={(e) => setDiscount(Number(e.target.value))} data-testid="pos-discount" />
+                  <Input id="pos-disc" type="number" inputMode="decimal" step="0.01" value={discount} onChange={(e) => setDiscount(Number(e.target.value))} data-testid="pos-discount" />
                 </div>
                 <Button variant="outline" disabled={pending} onClick={() => run(() => applyDiscount({ orderId: activeOrder.id, amountPaise: Math.round(discount * 100), reason: "counter discount" }))} data-testid="pos-apply-discount">Apply</Button>
               </div>

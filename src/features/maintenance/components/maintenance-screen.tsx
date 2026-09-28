@@ -167,7 +167,7 @@ function JobRow({ job, pending, run }: { job: MaintenanceJobItem; pending: boole
           {canBlock && !showBlock && (
             <Button size="sm" variant="outline" disabled={pending} onClick={() => setShowBlock(true)} data-testid={`block-${job.id}`}>Block room</Button>
           )}
-          <Input type="number" inputMode="numeric" className="w-24" placeholder="Cost ₹" value={cost || ""} onChange={(e) => setCost(Number(e.target.value))} data-testid={`cost-${job.id}`} />
+          <Input type="number" inputMode="decimal" step="0.01" className="w-24" placeholder="Cost ₹" value={cost || ""} onChange={(e) => setCost(Number(e.target.value))} data-testid={`cost-${job.id}`} />
           <Input className="w-36" placeholder="Vendor" value={vendor} onChange={(e) => setVendor(e.target.value)} data-testid={`vendor-${job.id}`} />
           <Button size="sm" disabled={pending} onClick={() => run(() => closeJob({ jobId: job.id, costPaise: cost > 0 ? toPaise(cost) : undefined, vendor: vendor.trim() || undefined }))} data-testid={`close-${job.id}`}>Close</Button>
         </div>

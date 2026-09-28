@@ -84,7 +84,7 @@ export function ExpensesScreen({
               </select>
             </div>
             <div className="space-y-1.5"><Label htmlFor="exp-sub">Sub-category</Label><Input id="exp-sub" value={sub} onChange={(e) => setSub(e.target.value)} data-testid="expense-sub" /></div>
-            <div className="space-y-1.5"><Label htmlFor="exp-amt">Amount (₹)</Label><Input id="exp-amt" type="number" inputMode="numeric" value={amount} onChange={(e) => setAmount(Number(e.target.value))} data-testid="expense-amount" /></div>
+            <div className="space-y-1.5"><Label htmlFor="exp-amt">Amount (₹)</Label><Input id="exp-amt" type="number" inputMode="decimal" step="0.01" value={amount} onChange={(e) => setAmount(Number(e.target.value))} data-testid="expense-amount" /></div>
             <div className="space-y-1.5">
               <Label htmlFor="exp-pay">Payment method</Label>
               <select id="exp-pay" value={paidVia} onChange={(e) => setPaidVia(e.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" data-testid="expense-paidvia">

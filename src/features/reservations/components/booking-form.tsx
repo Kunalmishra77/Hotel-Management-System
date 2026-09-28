@@ -347,16 +347,16 @@ export function BookingForm({
             </Labeled>
             <div className="grid gap-3 sm:grid-cols-2">
               <Labeled label="Rate/night (₹)">
-                <Input type="number" inputMode="numeric" value={rate} onChange={(e) => { setRateTouched(true); setRate(Number(e.target.value)); }} data-testid="rate" />
+                <Input type="number" inputMode="decimal" step="0.01" value={rate} onChange={(e) => { setRateTouched(true); setRate(Number(e.target.value)); }} data-testid="rate" />
                 {isOta && (
                   <p className="mt-1 text-xs font-medium text-amber-700 dark:text-amber-400" data-testid="ota-rate-hint">
                     OTA booking — enter the agreed {source === "MAKEMYTRIP" ? "MakeMyTrip" : source === "BOOKING_COM" ? "Booking.com" : "channel"} rate here, not the default room rate.
                   </p>
                 )}
               </Labeled>
-              <Labeled label="Discount (₹)"><Input type="number" inputMode="numeric" value={discount} onChange={(e) => setDiscount(Number(e.target.value))} /></Labeled>
-              <Labeled label="Extra bed (₹)"><Input type="number" inputMode="numeric" value={extraBed} onChange={(e) => setExtraBed(Number(e.target.value))} /></Labeled>
-              <Labeled label="Advance (₹)"><Input type="number" inputMode="numeric" value={advance} onChange={(e) => setAdvance(Number(e.target.value))} data-testid="advance" /></Labeled>
+              <Labeled label="Discount (₹)"><Input type="number" inputMode="decimal" step="0.01" value={discount} onChange={(e) => setDiscount(Number(e.target.value))} /></Labeled>
+              <Labeled label="Extra bed (₹)"><Input type="number" inputMode="decimal" step="0.01" value={extraBed} onChange={(e) => setExtraBed(Number(e.target.value))} /></Labeled>
+              <Labeled label="Advance (₹)"><Input type="number" inputMode="decimal" step="0.01" value={advance} onChange={(e) => setAdvance(Number(e.target.value))} data-testid="advance" /></Labeled>
             </div>
             <Labeled label="Payment status">
               <select

@@ -68,7 +68,7 @@ export function StaffScreen({
             <div className="space-y-1.5"><Label htmlFor="s-name">Name</Label><Input id="s-name" value={name} onChange={(e) => setName(e.target.value)} data-testid="staff-name" /></div>
             <div className="space-y-1.5"><Label htmlFor="s-mobile">Mobile</Label><Input id="s-mobile" inputMode="tel" value={mobile} onChange={(e) => setMobile(e.target.value)} data-testid="staff-mobile" /></div>
             <div className="space-y-1.5"><Label htmlFor="s-dept">Department</Label><Input id="s-dept" value={department} onChange={(e) => setDepartment(e.target.value)} data-testid="staff-dept" /></div>
-            <div className="space-y-1.5"><Label htmlFor="s-sal">Salary/mo (₹)</Label><Input id="s-sal" type="number" inputMode="numeric" value={salary} onChange={(e) => setSalary(Number(e.target.value))} data-testid="staff-salary" /></div>
+            <div className="space-y-1.5"><Label htmlFor="s-sal">Salary/mo (₹)</Label><Input id="s-sal" type="number" inputMode="decimal" step="0.01" value={salary} onChange={(e) => setSalary(Number(e.target.value))} data-testid="staff-salary" /></div>
             <div className="space-y-1.5"><Label htmlFor="s-join">Joined on</Label><Input id="s-join" type="date" value={joinedOn} onChange={(e) => setJoinedOn(e.target.value)} /></div>
             <div className="space-y-1.5"><Label htmlFor="s-aad">Aadhaar</Label><Input id="s-aad" value={aadhaar} onChange={(e) => setAadhaar(e.target.value)} data-testid="staff-aadhaar" /></div>
           </div>
