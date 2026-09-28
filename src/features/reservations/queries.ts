@@ -17,6 +17,7 @@ export type ReservationListItem = {
   id: string;
   code: string;
   status: string;
+  propertyId: string;
   guestId: string;
   guestName: string;
   checkInDate: Date;
@@ -32,6 +33,7 @@ const LIST_SELECT = {
   id: true,
   code: true,
   status: true,
+  propertyId: true,
   guestId: true,
   checkInDate: true,
   checkOutDate: true,
@@ -46,6 +48,7 @@ type Row = {
   id: string;
   code: string;
   status: string;
+  propertyId: string;
   guestId: string;
   checkInDate: Date;
   checkOutDate: Date;
@@ -61,6 +64,7 @@ function toItem(r: Row): ReservationListItem {
     id: r.id,
     code: r.code,
     status: r.status,
+    propertyId: r.propertyId,
     guestId: r.guestId,
     guestName: r.guest.fullName,
     checkInDate: r.checkInDate,

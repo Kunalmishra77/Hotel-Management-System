@@ -580,6 +580,12 @@ model Reservation {
   // (oversell or missing room-type mapping). Null for a normally-allocated booking.
   needsAttention ReservationAttention?
 
+  // Cross-property transfer link: when a guest is shifted to another property
+  // mid-stay, the continuation booking (at the new property) points back to the
+  // origin. The origin is checked out on the transfer date; the two together are
+  // one guest journey shown as a combined statement. Null for a normal booking.
+  transferredFromId String?
+
   // Financial snapshot at booking (authoritative charges live on the folio)
   ratePaise         Int
   discountPaise     Int @default(0)

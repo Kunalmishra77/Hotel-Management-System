@@ -213,6 +213,22 @@ export const extendStaySchema = z.object({
 });
 export type ExtendStayInput = z.infer<typeof extendStaySchema>;
 
+/**
+ * Transfer an in-house guest to ANOTHER property mid-stay (03). The origin is
+ * checked out on `transferDate`; a linked continuation booking is created at
+ * `toPropertyId`/`toRoomId` for `transferDate → newCheckOutDate`. Per-property
+ * billing is preserved (two folios); a combined statement is shown at checkout.
+ */
+export const transferPropertySchema = z.object({
+  reservationId: z.string().min(1),
+  toPropertyId: z.string().min(1),
+  toRoomId: z.string().min(1),
+  transferDate: dateInput,
+  newCheckOutDate: dateInput,
+  ratePaise: z.number().int().min(0),
+});
+export type TransferPropertyInput = z.infer<typeof transferPropertySchema>;
+
 export const checkInSchema = z.object({ reservationId: z.string().min(1) });
 export const checkOutSchema = z.object({
   reservationId: z.string().min(1),

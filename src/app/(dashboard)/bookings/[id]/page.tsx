@@ -11,6 +11,8 @@ import { ClipboardCheck } from "lucide-react";
 import { ConfirmBookingButton } from "@/features/reservations/components/confirm-booking-button";
 import { ReservationGuestsCard } from "@/features/reservations/components/reservation-guests-card";
 import { ExtendStayCard } from "@/features/reservations/components/extend-stay-card";
+import { TransferPropertyCard } from "@/features/reservations/components/transfer-property-card";
+import { listProperties } from "@/features/properties/queries";
 import { CancelBookingButton } from "@/features/reservations/components/cancel-booking-button";
 import { CheckOutButton } from "@/features/reservations/components/check-out-button";
 import { getBalance } from "@/features/billing";
@@ -46,6 +48,10 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
   const canCheckIn = r.status === "CONFIRMED" && hasPermission(user, "checkin:perform");
   const canCheckOut = r.status === "IN_HOUSE" && hasPermission(user, "checkout:perform");
   const canManageGuests = hasPermission(user, "reservation:modify");
+  // Cross-property transfer: only for a single-room in-house guest, when the user can
+  // both modify the origin and create at a destination, and other properties exist.
+  const canTransfer = r.status === "IN_HOUSE" && r.roomNumbers.length === 1 && canManageGuests && hasPermission(user, "reservation:create");
+  const transferProperties = canTransfer ? (await listProperties(user)).map((p) => ({ id: p.id, name: p.name })) : [];
   // Cancellation is a PRE-ARRIVAL action only (domain: IN_HOUSE → only CHECKED_OUT).
   // An in-house guest is checked out / recorded as early departure — never cancelled.
   const canCancel = hasPermission(user, "reservation:cancel") && ["ENQUIRY", "CONFIRMED"].includes(r.status);
@@ -201,6 +207,15 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
 
       {(r.status === "IN_HOUSE" || r.status === "CONFIRMED") && canManageGuests ? (
         <ExtendStayCard reservationId={r.id} checkOutDate={r.checkOutDate.toISOString().slice(0, 10)} />
+      ) : null}
+
+      {canTransfer && transferProperties.length > 1 ? (
+        <TransferPropertyCard
+          reservationId={r.id}
+          currentPropertyId={r.propertyId}
+          checkOutDate={r.checkOutDate.toISOString().slice(0, 10)}
+          properties={transferProperties}
+        />
       ) : null}
 
       {canCancel ? (
