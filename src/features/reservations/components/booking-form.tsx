@@ -151,7 +151,9 @@ export function BookingForm({
     startSearch(async () => {
       setSelectedRooms([]);
       setRateTouched(false);
-      const res = await searchAvailability({ propertyId, checkInDate, checkOutDate, categoryId, adults, children });
+      // Empty category → search ALL free rooms across the property, so a group can
+      // pick several rooms (any category) to book together under one guest.
+      const res = await searchAvailability({ propertyId, checkInDate, checkOutDate, categoryId: categoryId || undefined, adults, children });
       setRooms(res.ok ? res.data.rooms : []);
     });
   };
@@ -195,7 +197,7 @@ export function BookingForm({
             <Labeled label="Room category">
               <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" data-testid="category-select">
-                {propertyCategories.length === 0 ? <option value="">No categories</option> : null}
+                {propertyCategories.length === 0 ? <option value="">No categories</option> : <option value="">Any category — all free rooms (group booking)</option>}
                 {propertyCategories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </Labeled>
@@ -236,7 +238,7 @@ export function BookingForm({
             ) : (
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
-                  Tap a room to book it. Tap more than one — or use <b>Book the whole unit</b> — to book the full {rooms.length}-room ({rooms.length} BHK) apartment together.
+                  Tap a room to book it. <b>Tap several rooms</b> to book them together under one guest (a group / multi-room booking) — or use <b>Select all</b> below. The nightly rate defaults to the sum of the rooms picked.
                 </p>
                 <ul className="space-y-2" data-testid="room-options">
                   {rooms.map((r) => (
@@ -252,7 +254,7 @@ export function BookingForm({
                 {rooms.length > 1 && (
                   <div className="flex flex-wrap items-center gap-2">
                     <Button type="button" variant="secondary" size="sm" onClick={selectAll} data-testid="book-whole-unit">
-                      Book the whole unit ({rooms.length} BHK — all {rooms.length} rooms)
+                      Select all {rooms.length} free rooms
                     </Button>
                     {selectedRooms.length > 0 && (
                       <button type="button" className="text-xs text-muted-foreground underline" onClick={() => applySelection([])}>Clear</button>

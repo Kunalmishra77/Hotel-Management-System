@@ -94,7 +94,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                 </Link>
               </Button>
             ) : null}
-            {canCheckOut ? <CheckOutButton reservationId={r.id} /> : null}
+            {canCheckOut ? <CheckOutButton reservationId={r.id} canDefer={hasPermission(user, "folio:defer")} /> : null}
             {canFolio ? (
               <Button asChild variant={canCheckIn ? "outline" : "default"} size="sm">
                 <Link href={`/bookings/${r.id}/folio`} data-testid="open-folio">
