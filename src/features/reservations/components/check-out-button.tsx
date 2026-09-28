@@ -35,23 +35,29 @@ export function CheckOutButton({ reservationId, canDefer = false }: { reservatio
   }
 
   return (
-    <div className="flex flex-col items-end gap-1">
-      <Button type="button" size="sm" disabled={pending} onClick={() => submit(false)} data-testid="check-out">
-        <LogOut /> {pending ? "Checking out…" : "Check out"}
-      </Button>
-      {error && <span role="alert" className="max-w-xs text-right text-xs text-destructive">{error}</span>}
-      {balanceBlock ? (
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={pending}
-          onClick={() => submit(true)}
-          data-testid="check-out-defer"
-          className="border-amber-500/50 text-amber-700 hover:bg-amber-500/10 dark:text-amber-400"
-        >
-          Check out &amp; defer balance
+    <div className="flex flex-col items-end gap-1.5">
+      {!balanceBlock ? (
+        <Button type="button" size="sm" disabled={pending} onClick={() => submit(false)} data-testid="check-out">
+          <LogOut /> {pending ? "Checking out…" : "Check out"}
         </Button>
+      ) : null}
+      {error && !balanceBlock ? <span role="alert" className="max-w-xs text-right text-xs text-destructive">{error}</span> : null}
+      {balanceBlock ? (
+        <div className="flex max-w-xs flex-col items-end gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 p-2.5 text-right">
+          <p className="text-xs text-amber-800 dark:text-amber-300">
+            Balance still pending on this folio. Settle it on the folio, or check out now and defer the balance (recorded &amp; audited).
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            disabled={pending}
+            onClick={() => submit(true)}
+            data-testid="check-out-defer"
+            className="bg-amber-600 text-white hover:bg-amber-700"
+          >
+            <LogOut /> {pending ? "Checking out…" : "Check out anyway (defer balance)"}
+          </Button>
+        </div>
       ) : null}
     </div>
   );
