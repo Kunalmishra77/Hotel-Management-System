@@ -33,14 +33,22 @@ export async function setExpenseBudget(input: unknown): Promise<Result<{ ok: tru
     authorize(user, "expense:approve", data.propertyId);
     return withExpenseContext(user, () =>
       expenseDb(user).$transaction(async (tx) => {
+        const where = { propertyId: data.propertyId, head: data.head, month: data.month };
         if (data.amountPaise === 0) {
-          await tx.expenseBudget.deleteMany({ where: { propertyId: data.propertyId, head: data.head, month: data.month } });
+          // Clear the target.
+          await tx.expenseBudget.deleteMany({ where });
         } else {
-          await tx.expenseBudget.upsert({
-            where: { propertyId_head_month: { propertyId: data.propertyId, head: data.head, month: data.month } },
-            create: { propertyId: data.propertyId, head: data.head, month: data.month, amountPaise: BigInt(data.amountPaise), createdById: user.userId },
-            update: { amountPaise: BigInt(data.amountPaise) },
-          });
+          // Upsert without the compound-unique key: the property-scope extension wraps
+          // `where` in AND[...], and a composite unique key is invalid inside AND — so
+          // use scalar find + updateMany/create, which the extension handles.
+          const existing = await tx.expenseBudget.findFirst({ where, select: { id: true } });
+          if (existing) {
+            await tx.expenseBudget.updateMany({ where, data: { amountPaise: BigInt(data.amountPaise) } });
+          } else {
+            await tx.expenseBudget.create({
+              data: { propertyId: data.propertyId, head: data.head, month: data.month, amountPaise: BigInt(data.amountPaise), createdById: user.userId },
+            });
+          }
         }
         await writeAudit(tx, { action: "expense:set-budget", entityType: "ExpenseBudget", entityId: `${data.propertyId}:${data.head}:${data.month}`, propertyId: data.propertyId, after: { head: data.head, month: data.month, amountPaise: data.amountPaise } });
         return { ok: true as const };
