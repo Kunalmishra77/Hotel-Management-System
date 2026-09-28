@@ -147,9 +147,14 @@ export async function extendStay(input: unknown): Promise<Result<MoveResult>> {
         publicMessage: "The new check-out must be after the current one.",
       });
     }
+    // Extend keeps the ORIGINAL check-in (historical for an in-house guest), so the
+    // "check-in in the past" guard must not fire — only the new check-out range is
+    // validated. `allowPast` skips the New-Booking past-date rule (this isn't a new
+    // booking; the "after current check-out" rule above already gates the change).
     assertBookingDatesValid({
       checkInDate: r.checkInDate, checkOutDate: newCheckOut,
       dayUseEnabled: r.property.dayUseEnabled, tz: r.property.timezone,
+      allowPast: true,
     });
     const nights = computeNights(r.checkInDate, newCheckOut, r.property.timezone);
     const roomId = r.allocations[0]!.roomId;
