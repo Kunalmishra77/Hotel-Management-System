@@ -25,12 +25,16 @@ export type InHouseTableRow = {
 
 const isToday = (iso: string): boolean => new Date(iso).toDateString() === new Date().toDateString();
 const dayKey = (iso: string): string => new Date(iso).toISOString().slice(0, 10);
+const todayKey = (): string => new Date().toISOString().slice(0, 10);
+/** Expected check-out already passed but the guest is still in-house = overstay. */
+const isOverdue = (iso: string): boolean => dayKey(iso) < todayKey();
 
 export function InHouseTable({ rows }: { rows: InHouseTableRow[] }) {
   const [q, setQ] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [dueOnly, setDueOnly] = useState(false);
+  const [overstayOnly, setOverstayOnly] = useState(false);
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -40,9 +44,10 @@ export function InHouseTable({ rows }: { rows: InHouseTableRow[] }) {
       if (from && out < from) return false;
       if (to && out > to) return false;
       if (dueOnly && r.balancePaise <= 0) return false;
+      if (overstayOnly && !isOverdue(r.checkOutDate)) return false;
       return true;
     });
-  }, [rows, q, from, to, dueOnly]);
+  }, [rows, q, from, to, dueOnly, overstayOnly]);
 
   const cell = "h-10 rounded-md border border-input bg-background px-3 text-sm";
   return (
@@ -60,15 +65,20 @@ export function InHouseTable({ rows }: { rows: InHouseTableRow[] }) {
           <span className="shrink-0">Leaving to</span>
           <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={`${cell} w-full`} aria-label="Check-out to" />
         </label>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={dueOnly} onChange={(e) => setDueOnly(e.target.checked)} className="size-4" /> Balance due only
-        </label>
+        <div className="flex flex-wrap items-center gap-4">
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={dueOnly} onChange={(e) => setDueOnly(e.target.checked)} className="size-4" /> Balance due only
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={overstayOnly} onChange={(e) => setOverstayOnly(e.target.checked)} className="size-4" data-testid="inhouse-overstay" /> Overstay only
+          </label>
+        </div>
       </div>
 
-      {(q || from || to || dueOnly) && (
+      {(q || from || to || dueOnly || overstayOnly) && (
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           <span>{filtered.length} of {rows.length} shown</span>
-          <button type="button" className="underline" onClick={() => { setQ(""); setFrom(""); setTo(""); setDueOnly(false); }}>Clear filters</button>
+          <button type="button" className="underline" onClick={() => { setQ(""); setFrom(""); setTo(""); setDueOnly(false); setOverstayOnly(false); }}>Clear filters</button>
         </div>
       )}
 
@@ -90,22 +100,35 @@ export function InHouseTable({ rows }: { rows: InHouseTableRow[] }) {
                 <th className="py-2 px-3 font-medium">Check-in</th>
                 <th className="py-2 px-3 font-medium">Expected check-out</th>
                 <th className="py-2 px-3 text-right font-medium">Payment</th>
+                <th className="py-2 pl-3 text-right font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((r) => (
-                <tr key={r.id} className="border-b last:border-0 hover:bg-muted/40">
+              {filtered.map((r) => {
+                const overdue = isOverdue(r.checkOutDate);
+                return (
+                <tr key={r.id} className={`border-b last:border-0 hover:bg-muted/40 ${overdue ? "bg-destructive/5" : ""}`}>
                   <td className="py-2.5 pr-3 font-medium"><Link href={`/bookings/${r.id}`} className="hover:underline">{r.guestName}</Link></td>
                   <td className="py-2.5 px-3 text-muted-foreground">{r.propertyName}</td>
                   <td className="py-2.5 px-3 font-mono text-xs">{r.rooms}</td>
                   <td className="py-2.5 px-3 tabular text-muted-foreground">{r.adults}</td>
                   <td className="py-2.5 px-3 whitespace-nowrap">{formatDayMonth(r.checkInDate)}</td>
-                  <td className="py-2.5 px-3 whitespace-nowrap">{formatDayMonth(r.checkOutDate)}{isToday(r.checkOutDate) ? <span className="ml-1 text-xs text-amber-600">(today)</span> : null}</td>
+                  <td className="py-2.5 px-3 whitespace-nowrap">
+                    {formatDayMonth(r.checkOutDate)}
+                    {overdue ? <span className="ml-1 rounded-full bg-destructive/10 px-1.5 py-0.5 text-[11px] font-medium text-destructive">Overstay</span>
+                      : isToday(r.checkOutDate) ? <span className="ml-1 text-xs text-amber-600">(today)</span> : null}
+                  </td>
                   <td className="py-2.5 px-3 text-right tabular">
                     {r.balancePaise > 0 ? <span className="font-semibold text-amber-700 dark:text-amber-400">{formatINR(r.balancePaise)} due</span> : <span className="text-success">Settled</span>}
                   </td>
+                  <td className="py-2.5 pl-3 text-right whitespace-nowrap">
+                    <Link href={`/bookings/${r.id}/folio`} className="text-primary underline-offset-4 hover:underline">Folio</Link>
+                    <span className="px-1.5 text-muted-foreground">·</span>
+                    <Link href={`/bookings/${r.id}`} className="text-primary underline-offset-4 hover:underline">Open</Link>
+                  </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { BedDouble, UserCheck, LogOut, Building2 } from "lucide-react";
+import { BedDouble, UserCheck, LogOut, Building2, Wallet, AlertTriangle } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
 import { inHousePortfolio } from "@/features/reservations/queries";
 import { PageHeader } from "@/components/ui/page-header";
@@ -27,16 +27,20 @@ export default async function InHousePage() {
   const { rows, total, byProperty } = await inHousePortfolio(user, scope);
   const leavingToday = rows.filter((r) => isToday(r.checkOutDate)).length;
   const duePaise = rows.reduce((n, r) => n + Math.max(0, r.balancePaise), 0);
+  // Overstay = expected check-out already passed but still in-house (needs action).
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const overstay = rows.filter((r) => r.checkOutDate.toISOString().slice(0, 10) < todayKey).length;
 
   return (
     <div className="mx-auto w-full max-w-[1600px] px-1 py-1">
       <PageHeader title="In-house guests" description={`${total} guest${total === 1 ? "" : "s"} currently staying across all properties.`} />
 
-      <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
         <KpiCard label="In-house now" value={total} icon={<UserCheck />} hint="currently staying" />
         <KpiCard label="Leaving today" value={leavingToday} icon={<LogOut />} hint="due to check out" />
+        <KpiCard label="Overstay" value={overstay} icon={<AlertTriangle />} hint="past check-out, still in" className={overstay > 0 ? "border-destructive/40" : undefined} />
         <KpiCard label="Properties occupied" value={byProperty.length} icon={<Building2 />} hint="with guests in-house" />
-        <KpiCard label="Balance due" value={formatINR(duePaise)} icon={<BedDouble />} hint="across in-house folios" trend={duePaise > 0 ? "down" : "up"} />
+        <KpiCard label="Balance due" value={formatINR(duePaise)} icon={<Wallet />} hint="across in-house folios" trend={duePaise > 0 ? "down" : "up"} />
       </div>
 
       {byProperty.length > 0 && (
