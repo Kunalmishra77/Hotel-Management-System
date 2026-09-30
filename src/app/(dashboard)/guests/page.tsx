@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Users, UserPlus, Building2 } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
 import { hasPermission } from "@/lib/permissions";
-import { searchGuests, guestsOverview, guestsBySegment, type GuestSegment } from "@/features/guests/queries";
+import { searchGuests, guestsOverview, guestsBySegment, listAllGuests, type GuestSegment } from "@/features/guests/queries";
 import { guestTiers, guestStats } from "@/features/guest-history/queries";
 import { GuestSearchBox } from "@/features/guests/components/guest-search-box";
 import { GuestsTable } from "@/features/guests/components/guests-table";
@@ -16,11 +16,13 @@ export const metadata: Metadata = { title: "Guests" };
 
 const SEGMENTS: { key: string; label: string }[] = [
   { key: "", label: "Recent" },
+  { key: "all", label: "All" },
   { key: "vip", label: "VIP" },
   { key: "repeat", label: "Repeat" },
   { key: "corporate", label: "Corporate" },
 ];
 const SEGMENT_HEADING: Record<string, string> = {
+  all: "All guests",
   vip: "VIP guests",
   repeat: "Repeat guests",
   corporate: "Corporate guests",
@@ -44,14 +46,17 @@ export default async function GuestsPage({
   const query = (sp.q ?? "").trim();
   const segParam = (sp.segment ?? "").trim();
   const segment = isSegment(segParam) ? segParam : null;
+  const showAll = segParam === "all";
 
   const [overview, listed] = await Promise.all([
     guestsOverview(user),
     query
       ? searchGuests(user, { query, limit: 25 }).then((r) => r.guests)
-      : segment
-        ? guestsBySegment(user, { segment, limit: 24 })
-        : Promise.resolve(null),
+      : showAll
+        ? listAllGuests(user, { limit: 100 })
+        : segment
+          ? guestsBySegment(user, { segment, limit: 24 })
+          : Promise.resolve(null),
   ]);
 
   const displayed = listed ?? overview.recent;
@@ -85,7 +90,7 @@ export default async function GuestsPage({
       {/* Segment filter chips (ignored while a search is active) */}
       <div className="mt-3 flex flex-wrap gap-2" data-testid="segment-chips">
         {SEGMENTS.map((s) => {
-          const active = !query && (segment ?? "") === s.key;
+          const active = !query && (segParam || "") === s.key;
           return (
             <Link
               key={s.key || "recent"}
@@ -105,7 +110,7 @@ export default async function GuestsPage({
       <div className="mt-4">
         {!query ? (
           <h2 className="mb-2 text-sm font-semibold text-muted-foreground">
-            {segment ? SEGMENT_HEADING[segment] : "Recently added"}
+            {SEGMENT_HEADING[segParam] ?? "Recently added"}
           </h2>
         ) : (
           <h2 className="mb-2 text-sm font-semibold text-muted-foreground">

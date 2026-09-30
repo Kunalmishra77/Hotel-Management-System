@@ -19,7 +19,8 @@ import { writeAudit } from "@/lib/audit";
 import { emitEvent } from "@/lib/events";
 import { DomainError, ErrorCode, NotFoundError } from "@/lib/errors";
 import { toResult, type Result } from "@/lib/result";
-import { ensureFolio, postRoomChargeTx, type BillingPostTx } from "@/features/billing";
+import { revalidatePath } from "next/cache";
+import { ensureFolio, postRoomChargeTx, correctRoomRate, type BillingPostTx } from "@/features/billing";
 import { nights as computeNights } from "./domain/nights";
 import { freeRoomIdsFor, findFreeRooms, type RoomFinder } from "./availability";
 import {
@@ -28,7 +29,7 @@ import {
   reservationDb,
   withReservationContext,
 } from "./internal";
-import { modifyReservationSchema, reallocateRoomSchema, extendStaySchema } from "./schema";
+import { modifyReservationSchema, reallocateRoomSchema, extendStaySchema, setRoomRateSchema } from "./schema";
 
 export type MoveResult = { id: string; status: string; roomId: string };
 
@@ -213,6 +214,62 @@ export async function extendStay(input: unknown): Promise<Result<MoveResult>> {
         ),
       ),
     );
+  });
+}
+
+/**
+ * Edit a booking's nightly room rate after it's created/checked-in (03 FR-8).
+ *
+ * Front desk often needs to correct the per-guest rate post check-in (wrong tariff,
+ * OTA/negotiated rate). This: (1) re-posts any already-charged room-nights at the
+ * new rate via the proven billing correction (reverse + re-post, GST re-applied),
+ * and (2) updates the reservation's `ratePaise` so future night-audit and check-out
+ * postings use the new rate too — keeping the folio and the booking rate in step
+ * (the drift the old folio-only "Fix room rate" left behind).
+ */
+export async function setRoomRate(input: unknown): Promise<Result<{ id: string; newRatePaise: number }>> {
+  return toResult(async () => {
+    const data = setRoomRateSchema.parse(input);
+    const user = await requireUser();
+    const client = reservationDb(user);
+
+    const r = await client.reservation.findFirst({
+      where: { id: data.reservationId },
+      select: { id: true, propertyId: true, status: true, ratePaise: true, folio: { select: { id: true } } },
+    });
+    if (!r) throw new NotFoundError("Reservation not found.");
+    authorize(user, "reservation:modify", r.propertyId);
+    if (!["CONFIRMED", "IN_HOUSE", "CHECKED_OUT"].includes(r.status)) {
+      throw new DomainError(ErrorCode.ILLEGAL_TRANSITION, "This booking's room rate can't be edited.", {
+        publicMessage: "This booking's room rate can't be edited.",
+      });
+    }
+
+    // Correct already-posted room charges to the new rate first (proven path). A
+    // VALIDATION_FAILED means "nothing posted yet" — fine; the rate update below
+    // makes the un-accrued nights post at the new rate. Any other failure aborts
+    // before the rate changes, so folio and booking never diverge.
+    if (r.folio) {
+      const res = await correctRoomRate({ folioId: r.folio.id, newUnitPaise: data.newRatePaise, reason: "room rate edited" });
+      if (!res.ok && res.error.code !== ErrorCode.VALIDATION_FAILED) {
+        throw new DomainError(res.error.code, res.error.message, { publicMessage: res.error.message });
+      }
+    }
+
+    await withReservationContext(user, () =>
+      client.$transaction(async (tx) => {
+        await tx.reservation.updateMany({ where: { id: r.id }, data: { ratePaise: data.newRatePaise } });
+        await emitEvent(tx, { type: "ReservationModified", aggregateId: r.id, propertyId: r.propertyId, payload: { ratePaise: data.newRatePaise, rateEdited: true } });
+        await writeAudit(tx, {
+          action: "reservation:set-rate", entityType: "Reservation", entityId: r.id, propertyId: r.propertyId,
+          before: { ratePaise: r.ratePaise }, after: { ratePaise: data.newRatePaise },
+        });
+      }),
+    );
+
+    revalidatePath(`/bookings/${r.id}`);
+    revalidatePath(`/bookings/${r.id}/folio`);
+    return { id: r.id, newRatePaise: data.newRatePaise };
   });
 }
 

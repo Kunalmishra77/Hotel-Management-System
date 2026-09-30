@@ -214,6 +214,17 @@ export const extendStaySchema = z.object({
 export type ExtendStayInput = z.infer<typeof extendStaySchema>;
 
 /**
+ * Edit the nightly room rate of a booking after it's created/checked-in. Updates
+ * the reservation's rate (so future night-audit/checkout postings use it) and
+ * re-posts any already-charged room-nights at the new rate. Amount in paise.
+ */
+export const setRoomRateSchema = z.object({
+  reservationId: z.string().min(1),
+  newRatePaise: z.coerce.number().int().positive().max(100_000_00),
+});
+export type SetRoomRateInput = z.infer<typeof setRoomRateSchema>;
+
+/**
  * Transfer an in-house guest to ANOTHER property mid-stay (03). The origin is
  * checked out on `transferDate`; a linked continuation booking is created at
  * `toPropertyId`/`toRoomId` for `transferDate → newCheckOutDate`. Per-property

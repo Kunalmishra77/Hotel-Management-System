@@ -89,3 +89,7 @@ export {
 /** Auto-issue the GST tax invoice for a stay at check-out (best-effort, idempotent).
  *  03's check-out calls this AFTER its transaction commits. */
 export { autoIssueInvoiceOnCheckout } from "./invoice-actions";
+
+/** Correct posted room charges to a new nightly rate (reverse + re-post). Reused
+ *  by 03's "edit room rate" so the folio and the booking rate stay in step. */
+export { correctRoomRate } from "./charge-actions";

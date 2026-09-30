@@ -12,6 +12,7 @@ import { ClipboardCheck } from "lucide-react";
 import { ConfirmBookingButton } from "@/features/reservations/components/confirm-booking-button";
 import { ReservationGuestsCard } from "@/features/reservations/components/reservation-guests-card";
 import { ExtendStayCard } from "@/features/reservations/components/extend-stay-card";
+import { EditRoomRateCard } from "@/features/reservations/components/edit-room-rate-card";
 import { TransferPropertyCard } from "@/features/reservations/components/transfer-property-card";
 import { listProperties } from "@/features/properties/queries";
 import { CancelBookingButton } from "@/features/reservations/components/cancel-booking-button";
@@ -210,6 +211,10 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
 
       {(r.status === "IN_HOUSE" || r.status === "CONFIRMED") && canManageGuests ? (
         <ExtendStayCard reservationId={r.id} checkOutDate={r.checkOutDate.toISOString().slice(0, 10)} />
+      ) : null}
+
+      {["ENQUIRY", "CONFIRMED", "IN_HOUSE", "CHECKED_OUT"].includes(r.status) && canManageGuests ? (
+        <EditRoomRateCard reservationId={r.id} currentRatePaise={r.ratePaise} />
       ) : null}
 
       {statement?.isTransfer ? <CombinedStatementCard statement={statement} /> : null}

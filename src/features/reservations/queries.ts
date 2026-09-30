@@ -27,6 +27,8 @@ export type ReservationListItem = {
   nights: number;
   roomNumbers: string[];
   needsAttention: string | null;
+  /** Booking's nightly room rate (paise, pre-tax) — powers the "edit room rate" card. */
+  ratePaise: number;
 };
 
 const LIST_SELECT = {
@@ -40,6 +42,7 @@ const LIST_SELECT = {
   checkInAt: true,
   nights: true,
   needsAttention: true,
+  ratePaise: true,
   guest: { select: { fullName: true } },
   allocations: { select: { room: { select: { number: true } } } },
 } as const;
@@ -55,6 +58,7 @@ type Row = {
   checkInAt: Date | null;
   nights: number;
   needsAttention: string | null;
+  ratePaise: number;
   guest: { fullName: string };
   allocations: { room: { number: string } }[];
 };
@@ -73,6 +77,7 @@ function toItem(r: Row): ReservationListItem {
     nights: r.nights,
     roomNumbers: r.allocations.map((a) => a.room.number),
     needsAttention: r.needsAttention,
+    ratePaise: r.ratePaise,
   };
 }
 

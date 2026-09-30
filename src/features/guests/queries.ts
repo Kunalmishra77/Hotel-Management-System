@@ -124,6 +124,24 @@ export async function guestsBySegment(
 }
 
 /**
+ * Every guest in the org (A–Z), masked — the "All" browse filter on the CRM
+ * landing. Capped to a sane page size; use search for a specific guest at scale.
+ */
+export async function listAllGuests(
+  user: SessionClaims,
+  input: { limit?: number } = {},
+): Promise<GuestListItem[]> {
+  const prisma = db.unscoped();
+  const rows = await prisma.guest.findMany({
+    where: { orgId: user.orgId, deletedAt: null },
+    select: GUEST_LIST_SELECT,
+    orderBy: [{ fullName: "asc" }, { id: "asc" }],
+    take: input.limit ?? 100,
+  });
+  return rows.map(toGuestListItem);
+}
+
+/**
  * Search guests, scoped to the caller's org, cursor-paginated, masked.
  *
  * Raw-SQL for the text path so the trigram index is actually used — Prisma's
