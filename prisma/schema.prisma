@@ -1196,6 +1196,7 @@ enum ExpenseHead {
   STAFF
   ADMINISTRATION
   MISC
+  GST_BILLS
 }
 
 enum ExpenseStatus {
@@ -1211,10 +1212,12 @@ model Expense {
   head          ExpenseHead
   subCategory   String? // "Cleaning Material", "Vegetables", "Electricity"...
   description   String?
+  quantity      String? // e.g. "10 litres", "5 kg" (Kitchen etc.)
   amountPaise   Int
   spentOn       DateTime      @db.Date
   paidVia       PaymentMode?
   vendor        String?
+  gstNumber     String? // GSTIN captured for "Only GST Bills" expenses
   billObjectKey String?
   status        ExpenseStatus @default(DRAFT)
   approvedById  String?

@@ -52,6 +52,7 @@ export const EXPENSE_HEAD_LABEL: Record<string, string> = {
   STAFF: "Staff",
   ADMINISTRATION: "Administration",
   MISC: "Miscellaneous",
+  GST_BILLS: "Only GST Bills",
 };
 
 /** Payment-mode enum → the label shown on the invoice ("Payment method"). */
