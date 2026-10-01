@@ -116,6 +116,10 @@ export function OffSiteBookingForm({ properties, defaultPropertyId }: { properti
             </div>
             <div className="space-y-1.5"><Label htmlFor="osb-amt">Amount (₹) <span className="font-normal text-muted-foreground">(optional)</span></Label><Input id="osb-amt" type="number" inputMode="decimal" step="0.01" value={amount || ""} onChange={(e) => setAmount(Number(e.target.value))} /></div>
           </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="osb-notes">Notes <span className="font-normal text-muted-foreground">(optional)</span></Label>
+            <Textarea id="osb-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any detail about this off-site booking" />
+          </div>
         </CardContent>
       </Card>
 

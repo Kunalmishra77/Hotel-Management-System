@@ -169,7 +169,7 @@ async function BookingsSection({ user, month, propertyIds, from, to, nameOf }: S
   return <ReportSection title={`Bookings · ${month}`} subtitle="Bookings in the period (by check-in date), per property and status." filename={`bookings-${month}.csv`} columns={columns} rows={tableRows} totalsRow={totalsRow} />;
 }
 
-async function RoomsSection({ user, month, propertyIds, nameOf }: SectionInput & { nameOf: (id: string) => string }) {
+async function RoomsSection({ user, propertyIds, nameOf }: SectionInput & { nameOf: (id: string) => string }) {
   const rows = await roomsReport(user, { propertyIds });
   const columns: ReportColumn[] = [
     { key: "property", label: "Property", format: "property" },
