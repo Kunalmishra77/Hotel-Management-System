@@ -5,7 +5,8 @@
  * hotel is winning" view. Each row drills into that property's command centre.
  */
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { formatINR } from "@/lib/utils";
+import { formatINR, cn } from "@/lib/utils";
+import { propertyColor } from "@/lib/property-colors";
 import type { PortfolioProperty } from "../queries";
 
 const pct = (bps: number) => `${Math.round(bps / 100)}%`;
@@ -17,7 +18,9 @@ export function PortfolioLeague({ properties }: { properties: PortfolioProperty[
       header: "Property",
       cell: (p) => (
         <div className="min-w-0">
-          <div className="truncate font-semibold text-foreground">{p.name}</div>
+          <div className="flex items-center gap-1.5 truncate font-semibold text-foreground">
+            <span className={cn("size-2 shrink-0 rounded-full", propertyColor(p.name).dot)} aria-hidden="true" />{p.name}
+          </div>
           <div className="text-xs text-muted-foreground">{p.city} · {p.code}</div>
         </div>
       ),

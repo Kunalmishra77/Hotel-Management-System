@@ -10,6 +10,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Building2, BedDouble, DoorOpen, Wrench, ArrowRight } from "lucide-react";
+import { propertyColor } from "@/lib/property-colors";
+import { cn } from "@/lib/utils";
 import { switchProperty } from "../actions";
 
 export type ChooserProperty = {
@@ -50,6 +52,7 @@ export function PropertyChooserCards({ properties, what }: { properties: Chooser
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {properties.map((p) => {
           const busy = pendingId === p.id;
+          const c = propertyColor(p.name);
           return (
             <button
               key={p.id}
@@ -57,7 +60,7 @@ export function PropertyChooserCards({ properties, what }: { properties: Chooser
               onClick={() => pick(p.id)}
               disabled={pendingId !== null}
               data-testid={`choose-property-${p.id}`}
-              className="group flex flex-col overflow-hidden rounded-2xl border bg-card text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+              className={cn("group flex flex-col overflow-hidden rounded-2xl border border-l-4 bg-card text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60", c.accent)}
             >
               {/* Header band (no photo field yet — a clean branded gradient + initial). */}
               <div className="relative flex h-24 items-end bg-gradient-to-br from-primary/85 to-primary/60 p-4">
@@ -68,7 +71,9 @@ export function PropertyChooserCards({ properties, what }: { properties: Chooser
               </div>
               <div className="flex flex-1 flex-col gap-3 p-4">
                 <div>
-                  <p className="font-semibold leading-tight">{p.name}</p>
+                  <p className="flex items-center gap-1.5 font-semibold leading-tight">
+                    <span className={cn("size-2 shrink-0 rounded-full", c.dot)} aria-hidden="true" />{p.name}
+                  </p>
                   <p className="text-xs text-muted-foreground">{[p.city, p.state].filter(Boolean).join(", ") || "—"}</p>
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-center">
