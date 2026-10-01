@@ -74,6 +74,21 @@ export async function listMessageLog(
   }));
 }
 
+/**
+ * A single guest's communication history (#24 "Conversation") — every automated
+ * or manual message sent to this guest across channels, newest first. Recipient
+ * address is masked (FR-15). Property-scoped.
+ */
+export async function listGuestMessages(user: SessionClaims, guestId: string, limit = 50) {
+  const rows = await db.scoped(user).messageLog.findMany({
+    where: { guestId },
+    orderBy: { createdAt: "desc" },
+    take: Math.min(limit, 200),
+    select: { id: true, channel: true, category: true, templateKey: true, toAddress: true, status: true, createdAt: true },
+  });
+  return rows.map((r) => ({ ...r, toAddress: maskAddress(r.channel, r.toAddress) }));
+}
+
 /** Campaign builder preview: how many recipients are marketing-eligible (FR-14). */
 export async function consentPreview(
   user: SessionClaims,

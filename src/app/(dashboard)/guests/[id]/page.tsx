@@ -11,6 +11,8 @@ import { getGuestHistory, guestStays } from "@/features/guest-history/queries";
 import { guestTier } from "@/features/guest-history/domain/tier";
 import { GuestHistorySection } from "@/features/guest-history/components/guest-history-section";
 import { GuestStaysCard } from "@/features/guest-history/components/guest-stays-card";
+import { listGuestMessages } from "@/features/communications/queries";
+import { GuestConversationCard } from "@/features/communications/components/guest-conversation-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -36,6 +38,8 @@ export default async function GuestProfilePage({ params }: { params: Promise<{ i
   const canManage = hasPermission(user, "guest:manage") && activeStay !== null;
 
   const [history, stays] = await Promise.all([getGuestHistory(user, id), guestStays(user, id)]);
+  // #24 Conversation — the guest's message history (only for users who can message).
+  const messages = hasPermission(user, "communication:send") ? await listGuestMessages(user, id) : null;
   const preferredCategory = history.preferredCategoryId
     ? await db.scoped(user).roomCategory.findFirst({ where: { id: history.preferredCategoryId }, select: { name: true } })
     : null;
@@ -94,6 +98,7 @@ export default async function GuestProfilePage({ params }: { params: Promise<{ i
         <div className="space-y-6 lg:col-span-2">
           <GuestStaysCard stays={stays} />
           <GuestHistorySection history={history} preferredCategoryName={preferredCategory?.name ?? null} />
+          {messages ? <GuestConversationCard messages={messages} /> : null}
         </div>
       </div>
     </div>
