@@ -46,6 +46,14 @@ export function BookingForm({
   const timezone = properties.find((p) => p.id === propertyId)?.timezone ?? "Asia/Kolkata";
   const [checkInDate, setCheckIn] = useState("");
   const [checkOutDate, setCheckOut] = useState("");
+  // Date guards: no past check-in; check-out must be at least the day after check-in.
+  const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: timezone });
+  const minCheckOutStr = (() => {
+    const base = checkInDate || todayStr;
+    const d = new Date(`${base}T00:00:00.000Z`);
+    d.setUTCDate(d.getUTCDate() + 1);
+    return d.toISOString().slice(0, 10);
+  })();
   const [adults, setAdults] = useState(2);
   const [children, setChildren] = useState(0);
   const [categoryId, setCategoryId] = useState(propertyCategories[0]?.id ?? "");
@@ -188,8 +196,8 @@ export function BookingForm({
             </select>
           </Labeled>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Labeled label="Check-in"><Input type="date" value={checkInDate} onChange={(e) => setCheckIn(e.target.value)} data-testid="checkin-date" /></Labeled>
-            <Labeled label="Check-out"><Input type="date" value={checkOutDate} onChange={(e) => setCheckOut(e.target.value)} data-testid="checkout-date" /></Labeled>
+            <Labeled label="Check-in"><Input type="date" min={todayStr} value={checkInDate} onChange={(e) => { const v = e.target.value; setCheckIn(v); if (checkOutDate && v && checkOutDate <= v) setCheckOut(""); }} data-testid="checkin-date" /></Labeled>
+            <Labeled label="Check-out"><Input type="date" min={minCheckOutStr} value={checkOutDate} onChange={(e) => setCheckOut(e.target.value)} data-testid="checkout-date" /></Labeled>
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
             <Labeled label="Adults"><Input type="number" inputMode="numeric" min={1} value={adults} onChange={(e) => setAdults(Number(e.target.value))} /></Labeled>

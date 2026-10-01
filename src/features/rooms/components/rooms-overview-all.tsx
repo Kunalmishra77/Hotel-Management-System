@@ -20,8 +20,8 @@ export function RoomsOverviewAllView({ data }: { data: RoomsOverviewAll }) {
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <KpiCard label="Total rooms" value={t.total} icon={<BedDouble />} hint="Active, all hotels" />
-        <KpiCard label="Occupied now" value={t.occupied} icon={<DoorOpen />} hint="Guests in-house" />
-        <KpiCard label="Available" value={t.available} icon={<DoorClosed />} hint="Ready to sell" />
+        <KpiCard label="Occupied now" value={t.occupied} icon={<DoorOpen />} hint="Guests in-house" className="border-amber-500/30" />
+        <KpiCard label="Available" value={t.available} icon={<DoorClosed />} hint="Ready to sell" className="border-emerald-500/40" />
         <KpiCard label="Reserved" value={t.reserved} icon={<CalendarClock />} hint="Held for arrivals" />
         <KpiCard label="Housekeeping" value={t.housekeeping} icon={<Sparkles />} hint="Being cleaned" />
         <KpiCard label="Out of order" value={t.maintenance} icon={<Wrench />} hint="Under maintenance" />
@@ -59,8 +59,8 @@ export function RoomsOverviewAllView({ data }: { data: RoomsOverviewAll }) {
                   <tr className="border-t-2 bg-muted/30 font-semibold">
                     <td className="px-3 py-2.5">All room types</td>
                     <td className="px-3 py-2.5 text-right tabular">{t.total}</td>
-                    <td className="px-3 py-2.5 text-right tabular text-emerald-700 dark:text-emerald-400">{t.occupied}</td>
-                    <td className="px-3 py-2.5 text-right tabular">{t.available}</td>
+                    <td className="px-3 py-2.5 text-right tabular text-amber-700 dark:text-amber-400">{t.occupied}</td>
+                    <td className="px-3 py-2.5 text-right tabular text-emerald-700 dark:text-emerald-400">{t.available}</td>
                     <td className="px-3 py-2.5 text-right tabular">{t.reserved}</td>
                     <td className="px-3 py-2.5 text-right tabular">{t.housekeeping}</td>
                     <td className="px-3 py-2.5 text-right tabular">{t.maintenance}</td>
@@ -81,8 +81,8 @@ function TypeRow({ r }: { r: RoomTypeRow }) {
     <tr className="border-b last:border-0 hover:bg-muted/30">
       <td className="px-3 py-2.5 font-medium">{r.categoryName}</td>
       <td className="px-3 py-2.5 text-right tabular">{r.total}</td>
-      <td className="px-3 py-2.5 text-right tabular text-emerald-700 dark:text-emerald-400">{r.occupied}</td>
-      <td className="px-3 py-2.5 text-right tabular">{r.available}</td>
+      <td className="px-3 py-2.5 text-right tabular text-amber-700 dark:text-amber-400">{r.occupied}</td>
+      <td className="px-3 py-2.5 text-right tabular font-medium text-emerald-700 dark:text-emerald-400">{r.available}</td>
       <td className="px-3 py-2.5 text-right tabular text-muted-foreground">{r.reserved}</td>
       <td className="px-3 py-2.5 text-right tabular text-muted-foreground">{r.housekeeping}</td>
       <td className="px-3 py-2.5 text-right tabular text-muted-foreground">{r.maintenance}</td>

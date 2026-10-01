@@ -68,14 +68,10 @@ export async function findFreeRooms(
       status: { not: "UNDER_MAINTENANCE" },
       ...(input.categoryId ? { categoryId: input.categoryId } : {}),
       ...(input.roomIds ? { id: { in: input.roomIds } } : {}),
-      ...(input.adults != null || input.children != null
-        ? {
-            category: {
-              ...(input.adults != null ? { maxAdults: { gte: input.adults } } : {}),
-              ...(input.children != null ? { maxChildren: { gte: input.children } } : {}),
-            },
-          }
-        : {}),
+      // NOTE: occupancy (adults/children) deliberately does NOT filter availability
+      // (client request): the party size never hides an otherwise-free room. Staff
+      // can place extra guests / add an extra bed as needed; capacity is advisory,
+      // not a hard gate on what's bookable.
       // The two anti-overbooking exclusions.
       allocations: { none: overlap },
       blocks: { none: overlap },

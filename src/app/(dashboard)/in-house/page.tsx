@@ -5,7 +5,7 @@ import { inHousePortfolio } from "@/features/reservations/queries";
 import { PageHeader } from "@/components/ui/page-header";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { PropertyBadge } from "@/components/ui/property-badge";
 import { InHouseTable } from "@/features/reservations/components/in-house-table";
 import { formatINR } from "@/lib/utils";
 
@@ -46,7 +46,7 @@ export default async function InHousePage() {
       {byProperty.length > 0 && (
         <div className="mt-4 flex flex-wrap gap-2">
           {byProperty.map((p) => (
-            <Badge key={p.propertyId} variant="secondary">{p.propertyName}: {p.count}</Badge>
+            <PropertyBadge key={p.propertyId} name={p.propertyName} count={p.count} />
           ))}
         </div>
       )}
