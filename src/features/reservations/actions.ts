@@ -17,11 +17,13 @@ import { toResult, type Result } from "@/lib/result";
 import { ensureFolio } from "@/features/billing";
 import { canTransition } from "./domain/transitions";
 import { createBooking, type ReservationSummary } from "./booking";
-import { reservationDb, withReservationContext } from "./internal";
+import { reservationDb, withReservationContext, generateReservationCode } from "./internal";
+import { nights as computeNights } from "./domain/nights";
 import {
   createReservationSchema,
   holdReservationSchema,
   confirmReservationSchema,
+  externalStaySchema,
 } from "./schema";
 
 export type { ReservationSummary };
@@ -33,6 +35,68 @@ export async function createReservation(input: unknown): Promise<Result<Reservat
     const user = await requireUser();
     authorize(user, "reservation:create", data.propertyId);
     return withReservationContext(user, () => createBooking(user, data, { hold: false }));
+  });
+}
+
+/**
+ * #1 — record an "Other" (off-site) stay at a property we don't operate. No room,
+ * no availability, no folio: just guest + dates + external hotel name/address (+
+ * an optional amount for reference). Owned by a real property for scope. Still
+ * validate → authorize → transaction → event → audit (business-rules §20).
+ */
+export async function createExternalStay(input: unknown): Promise<Result<{ id: string; code: string }>> {
+  return toResult(async () => {
+    const data = externalStaySchema.parse(input);
+    const user = await requireUser();
+    authorize(user, "reservation:create", data.propertyId);
+    const nights = computeNights(data.checkInDate, data.checkOutDate);
+    return withReservationContext(user, () =>
+      reservationDb(user).$transaction(async (tx) => {
+        let created: { id: string; code: string } | null = null;
+        for (let attempt = 0; attempt < 3 && !created; attempt++) {
+          try {
+            created = await tx.reservation.create({
+              data: {
+                propertyId: data.propertyId,
+                code: generateReservationCode(),
+                guestId: data.guestId,
+                status: "CONFIRMED",
+                source: data.source,
+                checkInDate: data.checkInDate,
+                checkOutDate: data.checkOutDate,
+                nights,
+                adults: data.adults,
+                children: data.children,
+                ratePaise: data.amountPaise,
+                externalHotelName: data.externalHotelName,
+                externalHotelAddress: data.externalHotelAddress,
+                notes: data.notes ?? null,
+              },
+              select: { id: true, code: true },
+            });
+          } catch (e) {
+            // Retry on a reservation-code clash; rethrow anything else.
+            if (e && typeof e === "object" && "code" in e && (e as { code?: string }).code === "P2002" && attempt < 2) continue;
+            throw e;
+          }
+        }
+        if (!created) throw new DomainError(ErrorCode.CONFLICT, "Could not allocate a booking code.");
+        await emitEvent(tx, {
+          type: "ReservationCreated",
+          aggregateId: created.id,
+          propertyId: data.propertyId,
+          payload: { code: created.code, external: true, hotel: data.externalHotelName },
+        });
+        await writeAudit(tx, {
+          action: "reservation:create",
+          entityType: "Reservation",
+          entityId: created.id,
+          propertyId: data.propertyId,
+          after: { code: created.code, external: true, hotel: data.externalHotelName },
+        });
+        return created;
+      }),
+    );
   });
 }
 

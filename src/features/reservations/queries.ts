@@ -29,6 +29,9 @@ export type ReservationListItem = {
   needsAttention: string | null;
   /** Booking's nightly room rate (paise, pre-tax) — powers the "edit room rate" card. */
   ratePaise: number;
+  /** #1 off-site booking: the external hotel name/address, else null for a normal stay. */
+  externalHotelName: string | null;
+  externalHotelAddress: string | null;
 };
 
 const LIST_SELECT = {
@@ -43,6 +46,8 @@ const LIST_SELECT = {
   nights: true,
   needsAttention: true,
   ratePaise: true,
+  externalHotelName: true,
+  externalHotelAddress: true,
   guest: { select: { fullName: true } },
   allocations: { select: { room: { select: { number: true } } } },
 } as const;
@@ -59,6 +64,8 @@ type Row = {
   nights: number;
   needsAttention: string | null;
   ratePaise: number;
+  externalHotelName: string | null;
+  externalHotelAddress: string | null;
   guest: { fullName: string };
   allocations: { room: { number: string } }[];
 };
@@ -78,6 +85,8 @@ function toItem(r: Row): ReservationListItem {
     roomNumbers: r.allocations.map((a) => a.room.number),
     needsAttention: r.needsAttention,
     ratePaise: r.ratePaise,
+    externalHotelName: r.externalHotelName,
+    externalHotelAddress: r.externalHotelAddress,
   };
 }
 

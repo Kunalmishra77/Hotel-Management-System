@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requirePermission } from "@/lib/auth/guard";
 import { db } from "@/lib/db";
@@ -25,7 +26,12 @@ export default async function NewBookingPage() {
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-4 p-4">
-      <h1 className="text-xl font-semibold">New booking</h1>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-xl font-semibold">New booking</h1>
+        <Link href="/bookings/new/off-site" className="text-sm text-primary underline underline-offset-4">
+          Booking at another (off-site) property?
+        </Link>
+      </div>
       <BookingForm properties={properties} categories={categories} defaultPropertyId={defaultPropertyId} />
     </div>
   );

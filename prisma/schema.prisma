@@ -569,6 +569,14 @@ model Reservation {
   checkOutAt      DateTime?
   onlineCheckInAt DateTime? // guest completed self-service online check-in pre-arrival (wave 2)
   expectedArrival String? // §2 planned check-in time / ETA at booking (e.g. "18:00", "late evening")
+
+  // #1 "Other" off-site booking: a stay recorded at a property NOT run by us
+  // (guest referred/placed elsewhere). Just the hotel name + address are stored;
+  // such a reservation has NO room allocation and NO folio. propertyId still points
+  // at the owning Woodpecker property for scope. Null for a normal booking.
+  externalHotelName    String?
+  externalHotelAddress String?
+
   nights          Int
   adults          Int       @default(1)
   children        Int       @default(0)

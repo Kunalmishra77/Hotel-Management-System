@@ -52,6 +52,33 @@ export const createReservationSchema = z.object({
 });
 export type CreateReservationInput = z.infer<typeof createReservationSchema>;
 
+/** #1 "Other" off-site stay — a booking recorded at a property we don't run. No
+ *  room/availability/folio; just the external hotel name + address + amount. The
+ *  owning `propertyId` is a real Woodpecker property (for scope/ownership). */
+export const externalStaySchema = z
+  .object({
+    propertyId: z.string().min(1),
+    guestId: z.string().min(1),
+    source: z.enum([
+      "DIRECT", "WEBSITE", "PHONE", "WALK_IN",
+      "AIRBNB", "BOOKING_COM", "AGODA", "MAKEMYTRIP", "GOIBIBO",
+      "CORPORATE", "TRAVEL_AGENT",
+    ]).default("DIRECT"),
+    externalHotelName: z.string().min(1, "Enter the hotel name.").max(200),
+    externalHotelAddress: z.string().min(1, "Enter the hotel address.").max(500),
+    checkInDate: dateInput,
+    checkOutDate: dateInput,
+    adults: z.number().int().min(1).default(1),
+    children: z.number().int().min(0).default(0),
+    amountPaise: paise.default(0),
+    notes: z.string().max(1000).optional(),
+  })
+  .refine((d) => d.checkOutDate > d.checkInDate, {
+    message: "Check-out must be after check-in.",
+    path: ["checkOutDate"],
+  });
+export type ExternalStayInput = z.infer<typeof externalStaySchema>;
+
 export const holdReservationSchema = z.object({
   ...bookingFields,
   roomIds: z.array(z.string().min(1)).min(1),

@@ -154,10 +154,18 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-1.5 text-sm">
-            <p>
-              <span className="text-muted-foreground">Rooms:</span>{" "}
-              <span className="font-mono">{r.roomNumbers.join(", ") || "Unallocated"}</span>
-            </p>
+            {r.externalHotelName ? (
+              <p>
+                <span className="text-muted-foreground">Off-site property:</span>{" "}
+                <span className="font-medium">{r.externalHotelName}</span>
+                {r.externalHotelAddress ? <span className="text-muted-foreground"> · {r.externalHotelAddress}</span> : null}
+              </p>
+            ) : (
+              <p>
+                <span className="text-muted-foreground">Rooms:</span>{" "}
+                <span className="font-mono">{r.roomNumbers.join(", ") || "Unallocated"}</span>
+              </p>
+            )}
             <p>
               <span className="text-muted-foreground">Dates:</span> {formatDayMonth(r.checkInDate)} →{" "}
               {formatDayMonth(r.checkOutDate)} · {r.nights} night(s)
