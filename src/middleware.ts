@@ -36,6 +36,7 @@ const PUBLIC_PREFIXES = [
   "/api/booking-engine", // public booking engine (23)
   "/book", // public booking website UI (23) — unauthenticated by design
   "/order", // public in-room QR ordering (19 addendum) — token-gated, no session
+  "/review", // public guest feedback via QR (#26) — token-gated, no session
   "/track", // public field-staff tracker (09 addendum) — token-gated, no session
   "/api/field-staff", // public field-staff ping endpoint — token-gated + rate-limited
 ];

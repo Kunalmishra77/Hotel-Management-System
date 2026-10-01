@@ -4,7 +4,9 @@ import Link from "next/link";
 import { CalendarDays, IndianRupee, ReceiptText, UserCheck } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
 import { hasPermission } from "@/lib/permissions";
+import QRCode from "qrcode";
 import { getReservation, getReservationGuestPanel, transferStatement } from "@/features/reservations/queries";
+import { reviewUrl } from "@/features/feedback/review-token";
 import { CombinedStatementCard } from "@/features/reservations/components/combined-statement-card";
 import { getGuestProfile } from "@/features/guests/queries";
 import { pendingGuestInfo } from "@/features/reservations/domain/guest-checklist";
@@ -65,6 +67,18 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
     canFolio ? getReservationFolio(user, id) : Promise.resolve(null),
     getGuestProfile(user, r.guestId),
   ]);
+
+  // Guest feedback QR (#26) — shown while in-house / after checkout so reception can
+  // present or print it. Best-effort: a QR hiccup must never break the booking page.
+  let feedbackQr: { url: string; dataUrl: string } | null = null;
+  if (r.status === "IN_HOUSE" || r.status === "CHECKED_OUT") {
+    try {
+      const url = reviewUrl(r.id);
+      feedbackQr = { url, dataUrl: await QRCode.toDataURL(url, { margin: 1, width: 200 }) };
+    } catch {
+      feedbackQr = null;
+    }
+  }
 
   // Pending guest info/documents (client req #6) — surfaced before checkout so
   // reception collects what's missing. Only shown while the stay is still open.
@@ -237,6 +251,22 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
 
       {billFolio ? (
         <BookingBillSummary folio={billFolio} reservationId={r.id} canManageFolio={hasPermission(user, "folio:charge")} />
+      ) : null}
+
+      {feedbackQr ? (
+        <Card className="mt-4">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">Guest feedback QR</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+            {/* eslint-disable-next-line @next/next/no-img-element -- server-generated data-URL QR */}
+            <img src={feedbackQr.dataUrl} alt="Scan to leave feedback" className="size-36 rounded-lg border bg-white p-1" />
+            <div className="min-w-0 space-y-1.5 text-sm">
+              <p className="text-muted-foreground">Show or print this for the guest to scan at / after check-out — a 30-second review that nudges a direct booking next time.</p>
+              <a href={feedbackQr.url} target="_blank" rel="noopener noreferrer" className="inline-block break-all font-medium text-primary underline-offset-4 hover:underline">{feedbackQr.url}</a>
+            </div>
+          </CardContent>
+        </Card>
       ) : null}
 
       {guestPanel ? (
