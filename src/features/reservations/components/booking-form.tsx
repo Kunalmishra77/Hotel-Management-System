@@ -262,7 +262,7 @@ export function BookingForm({
                 {rooms.length > 1 && (
                   <div className="flex flex-wrap items-center gap-2">
                     <Button type="button" variant="secondary" size="sm" onClick={selectAll} data-testid="book-whole-unit">
-                      Select all {rooms.length} free rooms
+                      🏠 Book the whole apartment — all {rooms.length} rooms
                     </Button>
                     {selectedRooms.length > 0 && (
                       <button type="button" className="text-xs text-muted-foreground underline" onClick={() => applySelection([])}>Clear</button>
