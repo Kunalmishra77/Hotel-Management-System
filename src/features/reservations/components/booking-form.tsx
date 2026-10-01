@@ -89,6 +89,22 @@ export function BookingForm({
   const selectAll = () => applySelection(rooms ?? []);
   const isSelected = (id: string) => selectedRooms.some((x) => x.id === id);
 
+  // Group free rooms by floor = apartment unit (a 2/3-BHK occupies one floor), so
+  // the user can book a whole apartment (one floor) or the whole property (every
+  // floor) in one tap — not just room-by-room.
+  const floorGroups = (() => {
+    if (!rooms) return [] as { floorId: string | null; floorName: string | null; rooms: AvailableRoom[] }[];
+    const map = new Map<string, { floorId: string | null; floorName: string | null; rooms: AvailableRoom[] }>();
+    for (const r of rooms) {
+      const key = r.floorId ?? "__none__";
+      const g = map.get(key) ?? { floorId: r.floorId, floorName: r.floorName, rooms: [] };
+      g.rooms.push(r);
+      map.set(key, g);
+    }
+    return [...map.values()];
+  })();
+  const multiFloor = floorGroups.filter((g) => g.rooms.length > 0).length > 1;
+
   const [source, setSource] = useState("WALK_IN");
   const isOta = ["BOOKING_COM", "MAKEMYTRIP", "AGODA", "GOIBIBO", "AIRBNB", "TRAVEL_AGENT"].includes(source);
   const [settlement, setSettlement] = useState("PAY_AT_HOTEL");
@@ -260,13 +276,34 @@ export function BookingForm({
                   ))}
                 </ul>
                 {rooms.length > 1 && (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button type="button" variant="secondary" size="sm" onClick={selectAll} data-testid="book-whole-unit">
-                      🏠 Book the whole apartment — all {rooms.length} rooms
-                    </Button>
-                    {selectedRooms.length > 0 && (
-                      <button type="button" className="text-xs text-muted-foreground underline" onClick={() => applySelection([])}>Clear</button>
-                    )}
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">Quick select</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {/* One apartment = one floor. Show a per-floor button only when
+                          the property has more than one apartment/floor free; otherwise
+                          the single floor IS the whole apartment (next button). */}
+                      {multiFloor &&
+                        floorGroups
+                          .filter((g) => g.rooms.length > 0)
+                          .map((g) => (
+                            <Button
+                              key={g.floorId ?? "none"}
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => applySelection(g.rooms)}
+                              data-testid={`book-floor-${g.floorId ?? "none"}`}
+                            >
+                              🏠 Whole apartment{g.floorName ? ` · ${g.floorName} floor` : ""} — {g.rooms.length} rooms
+                            </Button>
+                          ))}
+                      <Button type="button" variant="secondary" size="sm" onClick={selectAll} data-testid="book-whole-unit">
+                        {multiFloor ? "🏢 Whole property" : "🏠 Book the whole apartment"} — all {rooms.length} rooms
+                      </Button>
+                      {selectedRooms.length > 0 && (
+                        <button type="button" className="text-xs text-muted-foreground underline" onClick={() => applySelection([])}>Clear</button>
+                      )}
+                    </div>
                   </div>
                 )}
                 {selectedRooms.length > 0 && (

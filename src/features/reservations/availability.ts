@@ -17,6 +17,10 @@ export type AvailableRoom = {
   categoryId: string;
   categoryName: string;
   baseRatePaise: number;
+  // Floor = the apartment unit (a 2/3-BHK occupies one floor). Lets the booking UI
+  // offer "book the whole apartment" (all rooms on a floor) vs the whole property.
+  floorId: string | null;
+  floorName: string | null;
 };
 
 type RoomRow = {
@@ -24,6 +28,8 @@ type RoomRow = {
   number: string;
   categoryId: string;
   category: { name: string; baseRatePaise: number };
+  floorId: string | null;
+  floor: { name: string } | null;
 };
 
 /**
@@ -81,6 +87,8 @@ export async function findFreeRooms(
       number: true,
       categoryId: true,
       category: { select: { name: true, baseRatePaise: true } },
+      floorId: true,
+      floor: { select: { name: true } },
     },
     orderBy: { number: "asc" },
   });
@@ -91,6 +99,8 @@ export async function findFreeRooms(
     categoryId: r.categoryId,
     categoryName: r.category.name,
     baseRatePaise: r.category.baseRatePaise,
+    floorId: r.floorId,
+    floorName: r.floor?.name ?? null,
   }));
 }
 
