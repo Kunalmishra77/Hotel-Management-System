@@ -11,22 +11,13 @@
 import { useEffect, useState } from "react";
 import { useActionState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RevealSheet } from "./reveal-sheet";
 import { addGuestIdFormAction, type AddIdFormState } from "../form-actions";
 import type { GuestProfile as GuestProfileData } from "../queries";
-import type { GuestTierInfo } from "@/features/guest-history/domain/tier";
-
-const TIER_VARIANT: Record<string, "brass" | "secondary" | "outline"> = {
-  VIP: "brass",
-  REPEAT: "secondary",
-  NEW: "outline",
-};
 
 type RevealTarget = { field: "mobile" | "email" | "whatsapp"; label: string };
 
@@ -36,40 +27,15 @@ export function GuestProfile({
   guest,
   canRevealPii,
   canManage = false,
-  tier,
 }: {
   guest: GuestProfileData;
   canRevealPii: boolean;
   canManage?: boolean;
-  tier: GuestTierInfo;
 }) {
   const [reveal, setReveal] = useState<RevealTarget | null>(null);
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-4 p-4">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold" data-testid="guest-name">{guest.fullName}</h1>
-          {guest.companyName && (
-            <p className="text-sm text-muted-foreground">{guest.companyName}</p>
-          )}
-          <div className="mt-1.5 flex flex-wrap gap-1.5" data-testid="guest-tags">
-            <Badge variant={TIER_VARIANT[tier.tier] ?? "outline"}>{tier.label}</Badge>
-            {guest.companyName && <Badge variant="secondary">Corporate</Badge>}
-          </div>
-        </div>
-        <div className="flex shrink-0 gap-2">
-          {canManage && (
-            <Button asChild size="sm" data-testid="edit-guest">
-              <Link href={`/guests/${guest.id}/edit`}>Edit</Link>
-            </Button>
-          )}
-          <Button asChild variant="outline" size="sm">
-            <Link href="/guests">Back</Link>
-          </Button>
-        </div>
-      </div>
-
+    <div className="space-y-4" data-testid="guest-name-anchor">
       <Card>
         <CardHeader className="pb-3"><CardTitle className="text-base">Contact</CardTitle></CardHeader>
         <CardContent className="space-y-3">
