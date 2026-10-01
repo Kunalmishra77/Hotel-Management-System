@@ -5,6 +5,7 @@
  * through). Counts come from the booking-count queries; no metric is recomputed.
  */
 import { DataTable, type Column } from "@/components/ui/data-table";
+import { PropertyBadge } from "@/components/ui/property-badge";
 import type { PropertyBookingStat, PortfolioBookingRow } from "@/features/command-center/queries";
 
 const STATUS_TONE: Record<string, string> = {
@@ -24,7 +25,7 @@ const SOURCE_LABEL: Record<string, string> = {
 
 export function PerPropertyBookingsTable({ rows }: { rows: PropertyBookingStat[] }) {
   const columns: Column<PropertyBookingStat>[] = [
-    { key: "name", header: "Property", cell: (r) => <span className="font-medium">{r.name}</span>, sortValue: (r) => r.name.toLowerCase() },
+    { key: "name", header: "Property", cell: (r) => <PropertyBadge name={r.name} />, sortValue: (r) => r.name.toLowerCase() },
     { key: "bookings", header: "Bookings", align: "right", cell: (r) => <span className="tabular font-semibold">{r.bookings}</span>, sortValue: (r) => r.bookings },
     { key: "cancelled", header: "Cancelled", align: "right", cell: (r) => <span className="tabular text-muted-foreground">{r.cancelled}</span>, sortValue: (r) => r.cancelled, hideBelow: "sm" },
     { key: "noShow", header: "No-show", align: "right", cell: (r) => <span className="tabular text-muted-foreground">{r.noShow}</span>, sortValue: (r) => r.noShow, hideBelow: "sm" },
@@ -55,7 +56,7 @@ export function RecentBookingsTable({ rows }: { rows: PortfolioBookingRow[] }) {
   const columns: Column<PortfolioBookingRow>[] = [
     { key: "code", header: "Booking", cell: (r) => <span className="font-mono text-sm font-medium">{r.code}</span>, sortValue: (r) => r.code },
     { key: "guest", header: "Guest", cell: (r) => <span className="truncate">{r.guestName}</span>, sortValue: (r) => r.guestName.toLowerCase() },
-    { key: "property", header: "Property", cell: (r) => <span className="truncate text-muted-foreground">{r.propertyName}</span>, sortValue: (r) => r.propertyName.toLowerCase(), hideBelow: "md" },
+    { key: "property", header: "Property", cell: (r) => <PropertyBadge name={r.propertyName} />, sortValue: (r) => r.propertyName.toLowerCase(), hideBelow: "md" },
     { key: "source", header: "Source", cell: (r) => <span className="text-muted-foreground">{SOURCE_LABEL[r.source] ?? r.source}</span>, sortValue: (r) => r.source, hideBelow: "lg" },
     {
       key: "dates", header: "Dates", cell: (r) => <span className="tabular text-muted-foreground">{fmtDate(r.checkInDate)} → {fmtDate(r.checkOutDate)}</span>,
