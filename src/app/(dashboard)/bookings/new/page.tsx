@@ -15,7 +15,10 @@ export default async function NewBookingPage() {
 
   const [properties, categories] = await Promise.all([
     db.unscoped().property.findMany({ where: { id: { in: ids }, deletedAt: null }, select: { id: true, name: true, timezone: true }, orderBy: { name: "asc" } }),
-    db.unscoped().roomCategory.findMany({ where: { propertyId: { in: ids } }, select: { id: true, name: true, propertyId: true }, orderBy: { name: "asc" } }),
+    // Only categories that still have a sellable (active) room — hides stale/demo
+    // categories (e.g. D-1/17's old Deluxe/Suite, whose rooms are all inactive) so
+    // the booking dropdown shows just the real ones (#2).
+    db.unscoped().roomCategory.findMany({ where: { propertyId: { in: ids }, rooms: { some: { isActive: true } } }, select: { id: true, name: true, propertyId: true }, orderBy: { name: "asc" } }),
   ]);
   if (properties.length === 0) notFound();
   const defaultPropertyId = properties.some((p) => p.id === user.activePropertyId) ? user.activePropertyId! : properties[0]!.id;
