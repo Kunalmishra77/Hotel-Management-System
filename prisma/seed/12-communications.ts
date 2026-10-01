@@ -31,6 +31,11 @@ export async function seedCommunications(prisma: PrismaClient): Promise<void> {
     // triggers these manually from the invoice; live delivery needs BSP/domain setup.
     { key: "INVOICE_SHARE", channel: "WHATSAPP" as const, language: "en", body: "Hi {{guestName}}, here is your invoice {{invoiceNumber}} from {{propertyName}} for {{invoiceTotal}}. Thank you for staying with us.", providerTemplateId: "hsm_invoice_share_en" },
     { key: "INVOICE_SHARE", channel: "EMAIL" as const, language: "en", body: "Dear {{guestName}},\n\nPlease find the details of your invoice {{invoiceNumber}} from {{propertyName}}, total {{invoiceTotal}}.\n\nDo reply to this email if you need a copy of the PDF or have any question about the bill.\n\nWarm regards,\n{{propertyName}}", providerTemplateId: null },
+    // +10-day post-checkout follow-up (client req #25) — a re-engagement / rebook
+    // nudge sent 10 days after check-out. Scheduled (not event) via the automation
+    // below; the scheduler already supports a check-out anchor (anchorFor).
+    { key: "FOLLOWUP_10D", channel: "EMAIL" as const, language: "en", body: "Dear {{guestName}},\n\nIt has been a little while since your stay at {{propertyName}} — we hope you are doing well. If you are planning another visit to the city, we would love to host you again, and are happy to arrange your preferred apartment.\n\nJust reply to this email or call us to book.\n\nWarm regards,\n{{propertyName}}", providerTemplateId: null },
+    { key: "FOLLOWUP_10D", channel: "WHATSAPP" as const, language: "en", body: "Hi {{guestName}}, we hope you enjoyed your stay at {{propertyName}}! Planning another trip? Reply here and we'll arrange your apartment again.", providerTemplateId: "hsm_followup_10d_en" },
   ];
   for (const t of templates) {
     await prisma.messageTemplate.upsert({
@@ -52,6 +57,11 @@ export async function seedCommunications(prisma: PrismaClient): Promise<void> {
     { id: "auto_booking_confirmation_email", category: "BEFORE_ARRIVAL" as const, triggerEvent: "ReservationCreated", scheduleOffsetMinutes: null, templateKey: "BOOKING_CONFIRMATION", channel: "EMAIL" as const },
     { id: "auto_welcome_checkin_email", category: "DURING_STAY" as const, triggerEvent: "GuestCheckedIn", scheduleOffsetMinutes: null, templateKey: "WELCOME_CHECKIN", channel: "EMAIL" as const },
     { id: "auto_checkout_thankyou_email", category: "AFTER_CHECKOUT" as const, triggerEvent: "GuestCheckedOut", scheduleOffsetMinutes: null, templateKey: "CHECKOUT_THANKYOU", channel: "EMAIL" as const },
+    // +10-day follow-up (client req #25): scheduled AFTER_CHECKOUT at +14400 min
+    // (10 days) from check-out. Email is live-ready over SMTP; WhatsApp stays
+    // sandbox until the WABA/BSP + HSM template are approved.
+    { id: "auto_followup_10d_email", category: "AFTER_CHECKOUT" as const, triggerEvent: null, scheduleOffsetMinutes: 14400, templateKey: "FOLLOWUP_10D", channel: "EMAIL" as const },
+    { id: "auto_followup_10d_whatsapp", category: "AFTER_CHECKOUT" as const, triggerEvent: null, scheduleOffsetMinutes: 14400, templateKey: "FOLLOWUP_10D", channel: "WHATSAPP" as const },
   ];
   for (const a of automations) {
     const { id, ...rest } = a;

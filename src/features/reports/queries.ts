@@ -108,3 +108,111 @@ export async function revenueSegments(
 
   return { corporates, bySource };
 }
+
+// ---------------------------------------------------------------------------
+// #28 — additional property-wise report shards: bookings, rooms, GST.
+// Each returns rows keyed by propertyId; the page maps names + totals. All reads
+// are property-scoped; `report:view-financial` gates them like the others.
+// ---------------------------------------------------------------------------
+
+export type BookingsReportRow = {
+  propertyId: string;
+  total: number; confirmed: number; inHouse: number; checkedOut: number; cancelled: number; noShow: number; enquiry: number;
+  roomNights: number;
+};
+
+/** Bookings for the period (by check-in date) grouped per property + by status. */
+export async function bookingsReport(
+  user: SessionClaims,
+  input: { propertyIds: string[]; from: Date; to: Date },
+): Promise<BookingsReportRow[]> {
+  authorize(user, "report:view-financial", input.propertyIds[0] ?? null);
+  const rows = await db.scoped(user).reservation.findMany({
+    where: { propertyId: { in: input.propertyIds }, checkInDate: { gte: input.from, lte: input.to } },
+    select: { propertyId: true, status: true, nights: true },
+  });
+  const map = new Map<string, BookingsReportRow>();
+  for (const pid of input.propertyIds) {
+    map.set(pid, { propertyId: pid, total: 0, confirmed: 0, inHouse: 0, checkedOut: 0, cancelled: 0, noShow: 0, enquiry: 0, roomNights: 0 });
+  }
+  for (const r of rows) {
+    const row = map.get(r.propertyId);
+    if (!row) continue;
+    row.total += 1;
+    if (r.status === "CONFIRMED") row.confirmed += 1;
+    else if (r.status === "IN_HOUSE") row.inHouse += 1;
+    else if (r.status === "CHECKED_OUT") row.checkedOut += 1;
+    else if (r.status === "CANCELLED") row.cancelled += 1;
+    else if (r.status === "NO_SHOW") row.noShow += 1;
+    else if (r.status === "ENQUIRY") row.enquiry += 1;
+    // Room-nights count only non-cancelled stays (business-rules §Availability).
+    if (r.status === "IN_HOUSE" || r.status === "CHECKED_OUT" || r.status === "CONFIRMED") row.roomNights += r.nights;
+  }
+  return [...map.values()];
+}
+
+export type RoomsReportRow = {
+  propertyId: string;
+  total: number; active: number; vacant: number; occupied: number; reserved: number; maintenance: number; housekeeping: number;
+};
+
+/** Current room inventory per property, by status (the room-board rollup). */
+export async function roomsReport(
+  user: SessionClaims,
+  input: { propertyIds: string[] },
+): Promise<RoomsReportRow[]> {
+  authorize(user, "report:view-financial", input.propertyIds[0] ?? null);
+  const rooms = await db.scoped(user).room.findMany({
+    where: { propertyId: { in: input.propertyIds } },
+    select: { propertyId: true, status: true, isActive: true },
+  });
+  const map = new Map<string, RoomsReportRow>();
+  for (const pid of input.propertyIds) {
+    map.set(pid, { propertyId: pid, total: 0, active: 0, vacant: 0, occupied: 0, reserved: 0, maintenance: 0, housekeeping: 0 });
+  }
+  for (const r of rooms) {
+    const row = map.get(r.propertyId);
+    if (!row) continue;
+    row.total += 1;
+    if (r.isActive) row.active += 1;
+    if (r.status === "VACANT") row.vacant += 1;
+    else if (r.status === "OCCUPIED") row.occupied += 1;
+    else if (r.status === "RESERVED") row.reserved += 1;
+    else if (r.status === "UNDER_MAINTENANCE") row.maintenance += 1;
+    else if (r.status === "HOUSEKEEPING") row.housekeeping += 1;
+  }
+  return [...map.values()];
+}
+
+export type GstReportRow = {
+  propertyId: string;
+  taxablePaise: number; cgstPaise: number; sgstPaise: number; igstPaise: number; totalPaise: number; invoiceCount: number;
+};
+
+/** GST collected per property for the period, from issued invoices. Credit notes
+ *  carry negative amounts so they net the originals out automatically. */
+export async function gstReport(
+  user: SessionClaims,
+  input: { propertyIds: string[]; from: Date; to: Date },
+): Promise<GstReportRow[]> {
+  authorize(user, "report:view-financial", input.propertyIds[0] ?? null);
+  const invoices = await db.scoped(user).invoice.findMany({
+    where: { propertyId: { in: input.propertyIds }, issuedAt: { gte: input.from, lte: input.to } },
+    select: { propertyId: true, taxableValuePaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, totalPaise: true, type: true },
+  });
+  const map = new Map<string, GstReportRow>();
+  for (const pid of input.propertyIds) {
+    map.set(pid, { propertyId: pid, taxablePaise: 0, cgstPaise: 0, sgstPaise: 0, igstPaise: 0, totalPaise: 0, invoiceCount: 0 });
+  }
+  for (const i of invoices) {
+    const row = map.get(i.propertyId);
+    if (!row) continue;
+    row.taxablePaise += Number(i.taxableValuePaise);
+    row.cgstPaise += i.cgstPaise;
+    row.sgstPaise += i.sgstPaise;
+    row.igstPaise += i.igstPaise;
+    row.totalPaise += Number(i.totalPaise);
+    if (i.type === "TAX_INVOICE") row.invoiceCount += 1;
+  }
+  return [...map.values()];
+}

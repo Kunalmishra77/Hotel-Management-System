@@ -8,7 +8,10 @@ import { cn } from "@/lib/utils";
 export const REPORT_TYPES = [
   { key: "profit", label: "Profit & loss" },
   { key: "occupancy", label: "Occupancy & rate" },
+  { key: "bookings", label: "Bookings" },
+  { key: "rooms", label: "Rooms" },
   { key: "source", label: "Revenue by source" },
+  { key: "gst", label: "GST summary" },
   { key: "dues", label: "Outstanding dues" },
 ] as const;
 

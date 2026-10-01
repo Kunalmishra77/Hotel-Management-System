@@ -8,11 +8,23 @@ import { authorize } from "@/lib/permissions";
 import { folioBalance } from "./domain/balance";
 import type { SessionClaims } from "@/lib/auth/claims";
 
+export type FolioInvoiceView = {
+  id: string;
+  number: string;
+  type: string; // TAX_INVOICE | CREDIT_NOTE
+  totalPaise: number;
+  cancelsInvoiceId: string | null;
+  issuedAt: Date;
+};
+
 export type FolioView = {
   id: string;
   balancePaise: number;
   lines: { id: string; type: string; description: string; amountPaise: number; cgstPaise: number; sgstPaise: number; igstPaise: number }[];
   payments: { id: string; mode: string; amountPaise: number; isRefund: boolean }[];
+  // Issued bills on this folio, oldest first — the version history (original →
+  // credit note → revised). #22: lets the UI void & revise and show the chain.
+  invoices: FolioInvoiceView[];
 };
 
 export async function getFolio(user: SessionClaims, folioId: string): Promise<FolioView | null> {
@@ -22,6 +34,7 @@ export async function getFolio(user: SessionClaims, folioId: string): Promise<Fo
       id: true,
       lines: { select: { id: true, type: true, description: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true }, orderBy: { createdAt: "asc" } },
       payments: { select: { id: true, mode: true, amountPaise: true, isRefund: true }, orderBy: { receivedAt: "asc" } },
+      invoices: { select: { id: true, number: true, type: true, totalPaise: true, cancelsInvoiceId: true, issuedAt: true }, orderBy: { issuedAt: "asc" } },
     },
   });
   if (!folio) return null;
@@ -31,6 +44,7 @@ export async function getFolio(user: SessionClaims, folioId: string): Promise<Fo
     balancePaise: Number(balance),
     lines: folio.lines.map((l) => ({ ...l, amountPaise: Number(l.amountPaise) })),
     payments: folio.payments.map((p) => ({ ...p, amountPaise: Number(p.amountPaise) })),
+    invoices: folio.invoices.map((i) => ({ ...i, totalPaise: Number(i.totalPaise) })),
   };
 }
 
@@ -43,6 +57,7 @@ export async function getReservationFolio(user: SessionClaims, reservationId: st
       id: true,
       lines: { select: { id: true, type: true, description: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true }, orderBy: { createdAt: "asc" } },
       payments: { select: { id: true, mode: true, amountPaise: true, isRefund: true }, orderBy: { receivedAt: "asc" } },
+      invoices: { select: { id: true, number: true, type: true, totalPaise: true, cancelsInvoiceId: true, issuedAt: true }, orderBy: { issuedAt: "asc" } },
     },
   });
   if (!folio) return null;
@@ -52,6 +67,7 @@ export async function getReservationFolio(user: SessionClaims, reservationId: st
     balancePaise: Number(balance),
     lines: folio.lines.map((l) => ({ ...l, amountPaise: Number(l.amountPaise) })),
     payments: folio.payments.map((p) => ({ ...p, amountPaise: Number(p.amountPaise) })),
+    invoices: folio.invoices.map((i) => ({ ...i, totalPaise: Number(i.totalPaise) })),
   };
 }
 

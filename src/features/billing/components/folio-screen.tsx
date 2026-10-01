@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { postFolioCharge, applyDiscount, reverseFolioLine, correctRoomRate } from "../charge-actions";
 import { recordPayment } from "../payment-actions";
-import { generateInvoice } from "../invoice-actions";
+import { generateInvoice, voidInvoice } from "../invoice-actions";
 import { addAddOnToReservation } from "@/features/add-ons/actions";
 import type { FolioView } from "../queries";
 
@@ -42,6 +42,12 @@ export function FolioScreen({
   const hasRoomCharge = folio.lines.some((l) => l.type === "ROOM");
   const [invoice, setInvoice] = useState<{ id: string; number: string } | null>(null);
   const [reverseTarget, setReverseTarget] = useState<{ id: string; description: string } | null>(null);
+  const [voidTarget, setVoidTarget] = useState<{ id: string; number: string } | null>(null);
+
+  // Version history: an invoice is "voided" when a CREDIT_NOTE cancels it. The
+  // active bill is the latest TAX_INVOICE that has not been credited.
+  const voidedIds = new Set(folio.invoices.filter((i) => i.cancelsInvoiceId).map((i) => i.cancelsInvoiceId!));
+  const activeInvoice = [...folio.invoices].reverse().find((i) => i.type === "TAX_INVOICE" && !voidedIds.has(i.id)) ?? null;
 
   const generate = () => {
     setError(null);
@@ -113,6 +119,49 @@ export function FolioScreen({
           })()}
         </CardContent>
       </Card>
+
+      {folio.invoices.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3"><CardTitle className="text-base">Bills &amp; version history</CardTitle></CardHeader>
+          <CardContent className="space-y-2 text-sm" data-testid="invoice-history">
+            {folio.invoices.map((inv) => {
+              const isCredit = inv.type === "CREDIT_NOTE";
+              const voided = voidedIds.has(inv.id);
+              return (
+                <div key={inv.id} className="flex flex-wrap items-center justify-between gap-2 border-b pb-2 last:border-0 last:pb-0">
+                  <span className="flex items-center gap-2">
+                    <span className="font-mono font-medium">{inv.number}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {isCredit ? "Credit note (voids a bill)" : voided ? "Tax invoice · VOIDED" : "Tax invoice"}
+                      {" · "}{new Date(inv.issuedAt).toLocaleDateString("en-IN")}
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-3">
+                    <span className={`tabular ${voided || isCredit ? "text-muted-foreground line-through" : ""}`}>{rupees(inv.totalPaise)}</span>
+                    <a href={`/api/invoices/${inv.id}`} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline underline-offset-2">PDF</a>
+                  </span>
+                </div>
+              );
+            })}
+            {activeInvoice && (
+              <div className="pt-1">
+                <Button size="sm" variant="outline" disabled={pending} onClick={() => setVoidTarget({ id: activeInvoice.id, number: activeInvoice.number })} data-testid="void-invoice">
+                  Void &amp; revise this bill
+                </Button>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Issues a credit note against <span className="font-mono">{activeInvoice.number}</span> (the law forbids editing a tax invoice). Then correct the charges above and press <b>Generate GST invoice</b> for the revised bill — the full chain stays on record here.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {voidTarget && (
+        <VoidForm number={voidTarget.number} pending={pending}
+          onSubmit={(reason) => { const id = voidTarget.id; setVoidTarget(null); run(() => voidInvoice({ invoiceId: id, reason })); }}
+          onCancel={() => setVoidTarget(null)} />
+      )}
 
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       {invoice && (
@@ -217,6 +266,22 @@ function ReverseForm({ description, onSubmit, onCancel, pending }: { description
       <Input placeholder="Reason (e.g. wrong amount, duplicate)" value={reason} onChange={(e) => setReason(e.target.value)} data-testid="reverse-reason" />
       <div className="flex gap-2">
         <Button size="lg" variant="destructive" disabled={pending || !reason} onClick={() => onSubmit(reason)} data-testid="reverse-submit">Reverse charge</Button>
+        <Button size="lg" variant="outline" onClick={onCancel}>Cancel</Button>
+      </div>
+    </CardContent></Card>
+  );
+}
+
+function VoidForm({ number, onSubmit, onCancel, pending }: { number: string; onSubmit: (reason: string) => void; onCancel: () => void; pending: boolean }) {
+  const [reason, setReason] = useState("");
+  return (
+    <Card className="border-destructive/40"><CardContent className="space-y-3 p-4">
+      <p className="text-sm">
+        Void invoice <span className="font-mono font-medium">{number}</span>? A <b>credit note</b> is issued on the same number series (the original is never deleted — GST rules). Afterwards, correct the charges and generate the revised bill.
+      </p>
+      <Input placeholder="Reason (e.g. wrong amount, guest dispute, rate revised)" value={reason} onChange={(e) => setReason(e.target.value)} data-testid="void-reason" />
+      <div className="flex gap-2">
+        <Button size="lg" variant="destructive" disabled={pending || !reason} onClick={() => onSubmit(reason)} data-testid="void-submit">Void &amp; issue credit note</Button>
         <Button size="lg" variant="outline" onClick={onCancel}>Cancel</Button>
       </div>
     </CardContent></Card>
