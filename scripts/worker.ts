@@ -19,7 +19,7 @@ import { dispatchOutbox } from "../src/lib/events/dispatch";
 import { registerAllConsumers } from "../src/features/register-consumers";
 import { dispatchQueuedMessages, scheduleTick } from "../src/features/communications/dispatch";
 import { syncWorker } from "../src/features/accounting/sync";
-import { registerImportJobs } from "../src/features/data-onboarding/job";
+import { registerImportJobs, JOBS_IMPORT } from "../src/features/data-onboarding/job";
 import { channelsProcessInbox, pullActiveChannels, deadLetterStalePushes } from "../src/features/channels/jobs";
 import { runPricingEngine } from "../src/features/dynamic-pricing/engine";
 import { releaseExpiredWebOrders } from "../src/features/booking-engine/public";
@@ -63,6 +63,14 @@ async function main(): Promise<void> {
   boss.on("error", (error) => logger.error("pgboss.error", { error: error.message }));
 
   await boss.start();
+
+  // pg-boss v10 no longer auto-creates a queue on first work()/schedule()/send()
+  // (v9 did). Every queue must exist first, or the first worker throws
+  // "Queue <name> not found" and the whole process crashes. createQueue is
+  // idempotent (INSERT ... ON CONFLICT DO NOTHING), so this is safe every boot.
+  for (const name of [...Object.values(JOBS), ...Object.values(JOBS_IMPORT)]) {
+    await boss.createQueue(name);
+  }
 
   // Register the event consumers the dispatcher delivers to (05 guest-history;
   // more modules register here as they add consumers).
