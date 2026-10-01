@@ -14,7 +14,10 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # ---- build stage: install all deps, generate Prisma client, build Next ----
 FROM base AS build
 COPY package.json package-lock.json ./
-RUN npm ci
+# Force dev-dependencies even if NODE_ENV=production is injected at build time —
+# the build needs tsx/typescript/autoprefixer/tailwind (all devDependencies).
+ENV NODE_ENV=development
+RUN npm ci --include=dev
 COPY . .
 ENV DATABASE_URL="postgresql://build:build@localhost:5432/build?schema=public"
 ENV DIRECT_URL="postgresql://build:build@localhost:5432/build?schema=public"
