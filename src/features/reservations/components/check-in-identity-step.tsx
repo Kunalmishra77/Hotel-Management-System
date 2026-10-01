@@ -28,6 +28,7 @@ const ID_TYPES = [
   { value: "DRIVING_LICENCE", label: "Driving licence" },
   { value: "VOTER_ID", label: "Voter ID" },
   { value: "VISA", label: "Visa" },
+  { value: "OTHER", label: "Other ID" },
 ] as const;
 const LABEL: Record<string, string> = Object.fromEntries(ID_TYPES.map((t) => [t.value, t.label]));
 
@@ -39,6 +40,7 @@ const DOC_SLOTS: Record<string, { front: string; back?: string }> = {
   DRIVING_LICENCE: { front: "Driving licence — front" },
   VOTER_ID: { front: "Voter ID — front" },
   VISA: { front: "Visa — page" },
+  OTHER: { front: "ID — front" },
 };
 
 function fileToBase64(file: File): Promise<string> {

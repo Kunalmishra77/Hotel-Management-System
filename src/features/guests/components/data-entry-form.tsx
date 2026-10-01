@@ -18,7 +18,7 @@ import { dataEntryCreateGuestAction, extractGuestFieldsAction } from "../data-en
 import type { GuestFormState } from "../form-actions";
 
 const INITIAL: GuestFormState = { status: "idle" };
-const ID_TYPES = ["", "AADHAAR", "PASSPORT", "DRIVING_LICENCE", "VOTER_ID", "PAN", "VISA"] as const;
+const ID_TYPES = ["", "AADHAAR", "PASSPORT", "DRIVING_LICENCE", "VOTER_ID", "PAN", "VISA", "OTHER"] as const;
 type Fields = Record<string, string>;
 const EMPTY: Fields = {};
 

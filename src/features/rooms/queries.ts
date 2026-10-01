@@ -11,6 +11,7 @@ import { assertPropertyInScope } from "@/lib/db";
 import type { SessionClaims } from "@/lib/auth/claims";
 import type { RoomBoardFilter } from "./schema";
 import { allowedTransitionsForRole } from "./domain/transitions";
+import { listProperties } from "@/features/properties/queries";
 
 export type BoardRoom = {
   id: string;
@@ -108,6 +109,123 @@ export async function roomBoard(
     counts,
     total: rooms.length,
   };
+}
+
+// ---------------------------------------------------------------------------
+// All-properties rooms overview (02) — a cross-property, room-type-grouped view.
+//
+// IMPORTANT: "occupied" is derived from who is actually IN-HOUSE (the allocation
+// truth), NOT from the stored `room.status` field, which can drift (e.g. a
+// historical/Data-Entry in-house stay allocates the room but never flips its
+// status to OCCUPIED). Deriving from allocations makes the counts correct even
+// when the status field is stale. Non-occupied rooms then take their state from
+// room.status (maintenance / housekeeping / reserved), and a block covering today
+// counts as out-of-order.
+// ---------------------------------------------------------------------------
+
+export type RoomTypeRow = {
+  categoryName: string;
+  total: number;
+  occupied: number;
+  reserved: number;
+  housekeeping: number;
+  maintenance: number;
+  available: number;
+};
+export type PropertyRoomRollup = {
+  id: string;
+  name: string;
+  city: string;
+  state: string;
+  total: number;
+  occupied: number;
+  available: number;
+  reserved: number;
+  housekeeping: number;
+  maintenance: number;
+  occupancyBps: number;
+};
+export type RoomsOverviewAll = {
+  byType: RoomTypeRow[];
+  totals: RoomTypeRow;
+  byProperty: PropertyRoomRollup[];
+};
+
+type EffStatus = "OCCUPIED" | "RESERVED" | "HOUSEKEEPING" | "MAINTENANCE" | "AVAILABLE";
+
+function effectiveStatus(roomId: string, status: RoomStatus, occupied: Set<string>, blocked: Set<string>): EffStatus {
+  if (occupied.has(roomId)) return "OCCUPIED"; // an in-house guest is in it right now
+  if (blocked.has(roomId) || status === "UNDER_MAINTENANCE") return "MAINTENANCE";
+  if (status === "HOUSEKEEPING") return "HOUSEKEEPING";
+  if (status === "RESERVED") return "RESERVED";
+  return "AVAILABLE";
+}
+
+export async function roomsOverviewAll(user: SessionClaims): Promise<RoomsOverviewAll> {
+  const scoped = db.scoped(user);
+  const today = startOfUtcDay(new Date());
+  const properties = await listProperties(user);
+  const propMeta = new Map(properties.map((p) => [p.id, p]));
+
+  const [rooms, inHouse, blocks] = await Promise.all([
+    scoped.room.findMany({
+      where: { isActive: true },
+      select: { id: true, propertyId: true, status: true, category: { select: { name: true } } },
+    }),
+    scoped.reservation.findMany({
+      where: { status: "IN_HOUSE" },
+      select: { allocations: { select: { roomId: true } } },
+    }),
+    scoped.roomBlock.findMany({
+      where: { startDate: { lte: today }, endDate: { gt: today } },
+      select: { roomId: true },
+    }),
+  ]);
+
+  const occupiedIds = new Set<string>();
+  for (const r of inHouse) for (const a of r.allocations) occupiedIds.add(a.roomId);
+  const blockedIds = new Set(blocks.map((b) => b.roomId));
+
+  const blankType = (name: string): RoomTypeRow => ({ categoryName: name, total: 0, occupied: 0, reserved: 0, housekeeping: 0, maintenance: 0, available: 0 });
+  const typeMap = new Map<string, RoomTypeRow>();
+  const totals = blankType("All room types");
+  const propMap = new Map<string, PropertyRoomRollup>();
+
+  const bump = (row: RoomTypeRow | PropertyRoomRollup, eff: EffStatus) => {
+    row.total += 1;
+    if (eff === "OCCUPIED") row.occupied += 1;
+    else if (eff === "MAINTENANCE") row.maintenance += 1;
+    else if (eff === "HOUSEKEEPING") row.housekeeping += 1;
+    else if (eff === "RESERVED") row.reserved += 1;
+    else row.available += 1;
+  };
+
+  for (const room of rooms) {
+    const eff = effectiveStatus(room.id, room.status, occupiedIds, blockedIds);
+    const name = room.category.name;
+    const trow = typeMap.get(name) ?? blankType(name);
+    bump(trow, eff);
+    typeMap.set(name, trow);
+    bump(totals, eff);
+
+    const meta = propMeta.get(room.propertyId);
+    const prow = propMap.get(room.propertyId) ?? {
+      id: room.propertyId, name: meta?.name ?? "—", city: meta?.city ?? "", state: meta?.state ?? "",
+      total: 0, occupied: 0, available: 0, reserved: 0, housekeeping: 0, maintenance: 0, occupancyBps: 0,
+    };
+    bump(prow, eff);
+    propMap.set(room.propertyId, prow);
+  }
+
+  const byProperty = [...propMap.values()].map((p) => {
+    const denom = p.total - p.maintenance; // maintenance rooms aren't sellable (reporting.md)
+    return { ...p, occupancyBps: denom > 0 ? Math.min(10_000, Math.round((p.occupied * 10_000) / denom)) : 0 };
+  });
+  // Keep property order stable (A–Z by name), and room types A–Z.
+  byProperty.sort((a, b) => a.name.localeCompare(b.name));
+  const byType = [...typeMap.values()].sort((a, b) => a.categoryName.localeCompare(b.categoryName));
+
+  return { byType, totals, byProperty };
 }
 
 export type CategoryListItem = {

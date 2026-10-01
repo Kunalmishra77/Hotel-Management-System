@@ -17,6 +17,7 @@ import { formatINR } from "@/lib/utils";
 
 export function EditRoomRateCard({ reservationId, currentRatePaise }: { reservationId: string; currentRatePaise: number }) {
   const [rate, setRate] = useState("");
+  const [gstMode, setGstMode] = useState<"inclusive" | "exclusive">("exclusive");
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
@@ -25,7 +26,7 @@ export function EditRoomRateCard({ reservationId, currentRatePaise }: { reservat
     setError(null);
     setDone(null);
     start(async () => {
-      const res = await setRoomRate({ reservationId, newRatePaise: Math.round(Number(rate) * 100) });
+      const res = await setRoomRate({ reservationId, newRatePaise: Math.round(Number(rate) * 100), gstMode });
       if (!res.ok) { setError(res.error.message); return; }
       setDone(formatINR(res.data.newRatePaise));
       setRate("");
@@ -41,8 +42,18 @@ export function EditRoomRateCard({ reservationId, currentRatePaise }: { reservat
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          Wrong or changed nightly rate for this guest? Enter the correct rate — GST (5%) is applied automatically. Already-charged nights are re-billed at the new rate, and the rest of the stay uses it too. Current: <span className="font-medium text-foreground">{formatINR(currentRatePaise)}/night</span>.
+          Wrong or changed nightly rate for this guest? Enter the correct rate and choose whether GST (5%) is already included or added on top. Already-charged nights are re-billed at the new rate, and the rest of the stay uses it too. Current: <span className="font-medium text-foreground">{formatINR(currentRatePaise)}/night</span> (pre-tax).
         </p>
+        <div className="flex flex-wrap gap-4 text-sm">
+          <label className="flex items-center gap-2">
+            <input type="radio" name="edit-rate-gst" value="exclusive" checked={gstMode === "exclusive"} onChange={() => setGstMode("exclusive")} data-testid="edit-rate-exclusive" />
+            Add GST on top
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="radio" name="edit-rate-gst" value="inclusive" checked={gstMode === "inclusive"} onChange={() => setGstMode("inclusive")} data-testid="edit-rate-inclusive" />
+            Rate includes GST
+          </label>
+        </div>
         <div className="flex flex-wrap items-end gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="edit-rate">New rate per night (₹)</Label>

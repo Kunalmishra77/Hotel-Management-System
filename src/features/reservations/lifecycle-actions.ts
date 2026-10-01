@@ -223,8 +223,24 @@ export async function checkOut(input: unknown): Promise<Result<LifecycleResult>>
     // outside the tx). The FOLIO is the money truth (business-rules.md §6).
     const property = await client.property.findFirst({
       where: { id: r.propertyId },
-      select: { state: true },
+      select: { state: true, timezone: true },
     });
+
+    // Early check-out: a guest leaving BEFORE their booked check-out is billed only
+    // for the nights actually stayed (check-in → today, property-local), never the
+    // full booking. We clamp the stay to today (min 1 night), so only stayed nights
+    // post and the booking record + room availability reflect the real departure.
+    const todayStr = property?.timezone
+      ? new Date().toLocaleDateString("en-CA", { timeZone: property.timezone })
+      : new Date().toISOString().slice(0, 10);
+    const todayDate = new Date(`${todayStr}T00:00:00.000Z`);
+    const minCheckOut = new Date(Date.UTC(r.checkInDate.getUTCFullYear(), r.checkInDate.getUTCMonth(), r.checkInDate.getUTCDate() + 1));
+    let effectiveCheckOut = r.checkOutDate;
+    if (todayDate.getTime() < r.checkOutDate.getTime()) {
+      effectiveCheckOut = todayDate.getTime() < minCheckOut.getTime() ? minCheckOut : todayDate;
+    }
+    const isEarly = effectiveCheckOut.getTime() < r.checkOutDate.getTime();
+    const effectiveNights = stayNightDates(r.checkInDate, effectiveCheckOut).length;
 
     // ONE transaction, so the balance we gate on and the status flip are atomic and
     // consistent (no TOCTOU): lock the folio FOR UPDATE first, so a concurrent charge/
@@ -260,7 +276,9 @@ export async function checkOut(input: unknown): Promise<Result<LifecycleResult>>
             select: { businessDate: true },
           });
           const posted = new Set(roomLines.map((l) => dateKey(l.businessDate)));
-          const toPost = stayNightDates(r.checkInDate, r.checkOutDate).filter((d) => !posted.has(dateKey(d)));
+          // Bill only up to the EFFECTIVE check-out (today for an early departure), so
+          // a guest leaving early is never charged for nights they didn't stay.
+          const toPost = stayNightDates(r.checkInDate, effectiveCheckOut).filter((d) => !posted.has(dateKey(d)));
           if (property) {
             for (const businessDate of toPost) {
               await postRoomChargeTx(tx as unknown as BillingPostTx, {
@@ -285,7 +303,7 @@ export async function checkOut(input: unknown): Promise<Result<LifecycleResult>>
         } else {
           // No folio — a booking that never checked in. Fall back to the snapshot.
           balancePaise = priceReservation({
-            ratePaise: r.ratePaise, nights: r.nights, discountPaise: r.discountPaise,
+            ratePaise: r.ratePaise, nights: effectiveNights, discountPaise: r.discountPaise,
             extraBedPaise: r.extraBedPaise, otherChargesPaise: r.otherChargesPaise,
             taxPaise: r.taxPaise, advancePaise: r.advancePaise,
           }).balancePaise;
@@ -305,6 +323,19 @@ export async function checkOut(input: unknown): Promise<Result<LifecycleResult>>
         });
         if (flipped.count !== 1) {
           throw new DomainError(ErrorCode.CONFLICT, "This booking is no longer available to check out.");
+        }
+
+        // Early departure: record the real (shorter) stay and shrink the allocation so
+        // the room is sellable again for the freed nights.
+        if (isEarly) {
+          await tx.reservation.updateMany({
+            where: { id: r.id },
+            data: { checkOutDate: effectiveCheckOut, nights: effectiveNights },
+          });
+          await tx.roomAllocation.updateMany({
+            where: { reservationId: r.id },
+            data: { endDate: effectiveCheckOut },
+          });
         }
 
         await freeRooms(tx as unknown as RoomStatusTx, r, "HOUSEKEEPING", "check-out");

@@ -21,6 +21,7 @@ import { DomainError, ErrorCode, NotFoundError } from "@/lib/errors";
 import { toResult, type Result } from "@/lib/result";
 import { revalidatePath } from "next/cache";
 import { ensureFolio, postRoomChargeTx, correctRoomRate, type BillingPostTx } from "@/features/billing";
+import { roomGstBps } from "@/lib/constants/gst";
 import { nights as computeNights } from "./domain/nights";
 import { freeRoomIdsFor, findFreeRooms, type RoomFinder } from "./availability";
 import {
@@ -245,12 +246,20 @@ export async function setRoomRate(input: unknown): Promise<Result<{ id: string; 
       });
     }
 
+    // The booking's stored rate is PRE-TAX (glossary). If the operator entered a
+    // GST-inclusive figure, back the tax out to the taxable unit; otherwise the
+    // entered rate IS the taxable unit (GST added on top, like a live booking).
+    const bps = roomGstBps(data.newRatePaise);
+    const preTaxPaise = data.gstMode === "inclusive"
+      ? Math.round((data.newRatePaise * 10_000) / (10_000 + bps))
+      : data.newRatePaise;
+
     // Correct already-posted room charges to the new rate first (proven path). A
     // VALIDATION_FAILED means "nothing posted yet" — fine; the rate update below
     // makes the un-accrued nights post at the new rate. Any other failure aborts
     // before the rate changes, so folio and booking never diverge.
     if (r.folio) {
-      const res = await correctRoomRate({ folioId: r.folio.id, newUnitPaise: data.newRatePaise, reason: "room rate edited" });
+      const res = await correctRoomRate({ folioId: r.folio.id, newUnitPaise: preTaxPaise, reason: "room rate edited" });
       if (!res.ok && res.error.code !== ErrorCode.VALIDATION_FAILED) {
         throw new DomainError(res.error.code, res.error.message, { publicMessage: res.error.message });
       }
@@ -258,18 +267,18 @@ export async function setRoomRate(input: unknown): Promise<Result<{ id: string; 
 
     await withReservationContext(user, () =>
       client.$transaction(async (tx) => {
-        await tx.reservation.updateMany({ where: { id: r.id }, data: { ratePaise: data.newRatePaise } });
-        await emitEvent(tx, { type: "ReservationModified", aggregateId: r.id, propertyId: r.propertyId, payload: { ratePaise: data.newRatePaise, rateEdited: true } });
+        await tx.reservation.updateMany({ where: { id: r.id }, data: { ratePaise: preTaxPaise } });
+        await emitEvent(tx, { type: "ReservationModified", aggregateId: r.id, propertyId: r.propertyId, payload: { ratePaise: preTaxPaise, rateEdited: true } });
         await writeAudit(tx, {
           action: "reservation:set-rate", entityType: "Reservation", entityId: r.id, propertyId: r.propertyId,
-          before: { ratePaise: r.ratePaise }, after: { ratePaise: data.newRatePaise },
+          before: { ratePaise: r.ratePaise }, after: { ratePaise: preTaxPaise, gstMode: data.gstMode },
         });
       }),
     );
 
     revalidatePath(`/bookings/${r.id}`);
     revalidatePath(`/bookings/${r.id}/folio`);
-    return { id: r.id, newRatePaise: data.newRatePaise };
+    return { id: r.id, newRatePaise: preTaxPaise };
   });
 }
 

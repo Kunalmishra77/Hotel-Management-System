@@ -4,9 +4,9 @@ import { Layers } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
 import { can } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
-import { roomBoard } from "@/features/rooms/queries";
-import { propertyOverview } from "@/features/properties/queries";
+import { roomBoard, roomsOverviewAll } from "@/features/rooms/queries";
 import { RoomBoard } from "@/features/rooms/components/room-board";
+import { RoomsOverviewAllView } from "@/features/rooms/components/rooms-overview-all";
 import { PropertyChooserCards } from "@/features/platform/components/property-chooser-cards";
 import { BackToAllProperties } from "@/features/platform/components/back-to-all-properties";
 import { NoProperty } from "@/features/platform/components/no-property";
@@ -22,32 +22,38 @@ export default async function RoomsPage() {
   const user = await requirePermission("room:view-status");
   const propertyId = user.activePropertyId;
 
-  // Default (all hotels): show the properties as cards to drill into.
+  // Default (all hotels): a cross-property, room-type-grouped overview (counts are
+  // derived from who's actually in-house, so they're right even if a room's stored
+  // status is stale), then the properties as cards to drill into.
   if (!propertyId) {
-    const overview = await propertyOverview(user);
-    if (overview.length === 0) {
+    const overview = await roomsOverviewAll(user);
+    if (overview.byProperty.length === 0) {
       return <NoProperty what="Rooms" canCreate={can(user, "property:manage", null)} />;
     }
     return (
-      <div className="mx-auto w-full max-w-[1600px]">
-        <div className="mb-4">
+      <div className="mx-auto w-full max-w-[1600px] space-y-6">
+        <div>
           <h1 className="text-xl font-semibold tracking-tight">Rooms</h1>
-          <p className="text-sm text-muted-foreground">Live room status across all properties. Choose a hotel to manage its rooms.</p>
+          <p className="text-sm text-muted-foreground">Live room availability across all properties, by room type. Choose a hotel below to manage its rooms.</p>
         </div>
-        <PropertyChooserCards
-          what="rooms"
-          properties={overview.map((p) => ({
-            id: p.id,
-            name: p.name,
-            city: p.city,
-            state: p.state,
-            total: p.occupancy.total,
-            occupied: p.occupancy.occupied,
-            available: p.occupancy.vacant,
-            maintenance: p.occupancy.maintenance,
-            occupancyPct: Math.round(p.occupancy.occupancyBps / 100),
-          }))}
-        />
+        <RoomsOverviewAllView data={overview} />
+        <div>
+          <h2 className="mb-3 text-sm font-semibold text-muted-foreground">Open a property</h2>
+          <PropertyChooserCards
+            what="rooms"
+            properties={overview.byProperty.map((p) => ({
+              id: p.id,
+              name: p.name,
+              city: p.city,
+              state: p.state,
+              total: p.total,
+              occupied: p.occupied,
+              available: p.available,
+              maintenance: p.maintenance,
+              occupancyPct: Math.round(p.occupancyBps / 100),
+            }))}
+          />
+        </div>
       </div>
     );
   }

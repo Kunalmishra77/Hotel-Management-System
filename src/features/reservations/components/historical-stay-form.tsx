@@ -64,12 +64,12 @@ const PAY_MODES: { value: string; label: string }[] = [
 
 type Person = { fullName: string; age: string; gender: string; relation: string; idType: string; idNumber: string };
 const blankPerson: Person = { fullName: "", age: "", gender: "", relation: "", idType: "", idNumber: "" };
-const ID_OPTS = ["", "AADHAAR", "PASSPORT", "DRIVING_LICENCE", "VOTER_ID", "PAN", "VISA"] as const;
+const ID_OPTS = ["", "AADHAAR", "PASSPORT", "DRIVING_LICENCE", "VOTER_ID", "PAN", "VISA", "OTHER"] as const;
 
 // One ID document per person sharing the room (each with its own photo/number).
 type IdDoc = { type: string; value: string; scanBase64: string; contentType: string; preview: string };
 const blankIdDoc: IdDoc = { type: "PASSPORT", value: "", scanBase64: "", contentType: "", preview: "" };
-const ID_DOC_TYPES = ["AADHAAR", "PASSPORT", "DRIVING_LICENCE", "VOTER_ID", "PAN", "VISA"] as const;
+const ID_DOC_TYPES = ["AADHAAR", "PASSPORT", "DRIVING_LICENCE", "VOTER_ID", "PAN", "VISA", "OTHER"] as const;
 
 // Extra services on the same bill (meals, laundry, cab…).
 type Extra = { type: string; description: string; amount: string };

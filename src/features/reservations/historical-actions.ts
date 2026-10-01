@@ -244,6 +244,15 @@ export async function createHistoricalStay(input: unknown): Promise<Result<{ res
           await tx.roomAllocation.create({
             data: { propertyId: data.propertyId, reservationId: reservation.id, roomId: room.id, startDate: ci, endDate: co },
           });
+          // Keep the room's live status in step with the stay being recorded, so the
+          // occupancy boards are correct — a current (in-house) or future (confirmed)
+          // historical entry otherwise leaves the room showing VACANT. A past
+          // (checked-out) stay doesn't change the current status.
+          const roomStatus = status === "IN_HOUSE" ? "OCCUPIED" : status === "CONFIRMED" ? "RESERVED" : null;
+          if (roomStatus) {
+            await tx.room.updateMany({ where: { id: room.id }, data: { status: roomStatus } });
+            await emitEvent(tx, { type: "RoomStatusChanged", aggregateId: room.id, propertyId: data.propertyId, payload: { to: roomStatus, reason: "data-entry" } });
+          }
         }
 
         // Accompanying guests — same room + same bill, each with their own details.
@@ -317,6 +326,27 @@ export async function createHistoricalStay(input: unknown): Promise<Result<{ res
               receivedById: user.userId,
               receivedAt: p.receivedAt ? new Date(`${p.receivedAt}T12:00:00.000Z`) : null,
             });
+          }
+          // Historical past stays are presumed already settled: a CHECKED_OUT stay
+          // recorded with NO payment is backfill of a completed stay, not an open
+          // due — auto-settle the folio to ₹0 so it never shows as outstanding.
+          // (If the operator entered any payment, we respect it exactly as given.)
+          if (status === "CHECKED_OUT" && amountPaid === 0) {
+            const posted = await tx.folioLine.findMany({
+              where: { folioId },
+              select: { amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true },
+            });
+            const totalDuePaise = posted.reduce((n, l) => n + Number(l.amountPaise) + l.cgstPaise + l.sgstPaise + l.igstPaise, 0);
+            if (totalDuePaise > 0) {
+              await postPaymentTx(tx as unknown as BillingPostTx, {
+                folioId,
+                propertyId: data.propertyId,
+                mode: "CASH",
+                amountPaise: totalDuePaise,
+                reference: `HIST-SETTLE-${code}`,
+                receivedById: user.userId,
+              });
+            }
           }
         }
 

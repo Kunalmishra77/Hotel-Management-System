@@ -58,7 +58,17 @@ export function CheckInWizard({
   const [error, setError] = useState<string | null>(null);
 
   const hasAadhaar = useMemo(() => ids.some((i) => i.type === "AADHAAR"), [ids]);
-  const isForeign = useMemo(() => ids.some((i) => i.type === "PASSPORT" || i.type === "VISA"), [ids]);
+  // Form C (FRRO) is for FOREIGN NATIONALS only — it must key off nationality, not
+  // off "a passport was captured" (Indians hold passports too, and were wrongly
+  // sent to Form C). An explicit Indian nationality never gets Form C; a foreign
+  // nationality does; if nationality wasn't captured, fall back to a passport/visa
+  // on file so a genuine foreign guest isn't missed.
+  const isForeign = useMemo(() => {
+    const nat = (context.guestNationality ?? "").trim().toLowerCase();
+    if (nat === "indian" || nat === "india") return false;
+    const hasForeignId = ids.some((i) => i.type === "PASSPORT" || i.type === "VISA");
+    return nat !== "" || hasForeignId;
+  }, [context.guestNationality, ids]);
   const steps = useMemo(() => ALL_STEPS.filter((s) => s.key !== "cform" || isForeign), [isForeign]);
   const stepIndex = steps.findIndex((s) => s.key === step);
 

@@ -122,7 +122,7 @@ export const historicalStaySchema = z
     city: z.string().trim().max(80).optional().nullable(),
     country: z.string().trim().max(80).optional().nullable(),
     dob: histDate.optional().nullable().or(z.literal("").transform(() => null)),
-    idType: z.enum(["AADHAAR", "PASSPORT", "DRIVING_LICENCE", "VOTER_ID", "PAN", "VISA"]).optional().nullable(),
+    idType: z.enum(["AADHAAR", "PASSPORT", "DRIVING_LICENCE", "VOTER_ID", "PAN", "VISA", "OTHER"]).optional().nullable(),
     idNumber: z.string().trim().max(60).optional().nullable(),
     scanBase64: z.string().optional().nullable(),
     scanContentType: z.string().optional().nullable(),
@@ -131,7 +131,7 @@ export const historicalStaySchema = z
     ids: z
       .array(
         z.object({
-          type: z.enum(["AADHAAR", "PASSPORT", "DRIVING_LICENCE", "VOTER_ID", "PAN", "VISA"]),
+          type: z.enum(["AADHAAR", "PASSPORT", "DRIVING_LICENCE", "VOTER_ID", "PAN", "VISA", "OTHER"]),
           value: z.string().trim().max(60).optional().nullable(),
           scanBase64: z.string().optional().nullable(),
           scanContentType: z.string().optional().nullable(),
@@ -221,6 +221,9 @@ export type ExtendStayInput = z.infer<typeof extendStaySchema>;
 export const setRoomRateSchema = z.object({
   reservationId: z.string().min(1),
   newRatePaise: z.coerce.number().int().positive().max(100_000_00),
+  // Whether the entered rate already includes GST (back it out) or GST is added on
+  // top. Defaults to exclusive (add-on), matching the live booking path.
+  gstMode: z.enum(["inclusive", "exclusive"]).default("exclusive"),
 });
 export type SetRoomRateInput = z.infer<typeof setRoomRateSchema>;
 

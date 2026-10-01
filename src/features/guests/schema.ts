@@ -80,7 +80,7 @@ export const updateGuestSchema = createGuestSchema
 
 export const addGuestIdSchema = z.object({
   guestId: z.string().min(1),
-  type: z.enum(["AADHAAR", "PASSPORT", "DRIVING_LICENCE", "PAN", "VOTER_ID", "VISA"]),
+  type: z.enum(["AADHAAR", "PASSPORT", "DRIVING_LICENCE", "PAN", "VOTER_ID", "VISA", "OTHER"]),
   /** The ID number — OPTIONAL. The finalized front-desk workflow captures the
    *  document as an IMAGE; a typed number is no longer required (and for Aadhaar
    *  we deliberately don't force one). */

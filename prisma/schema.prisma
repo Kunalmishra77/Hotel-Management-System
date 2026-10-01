@@ -720,6 +720,7 @@ enum IdType {
   PAN
   VOTER_ID
   VISA
+  OTHER
 }
 
 model Guest {
