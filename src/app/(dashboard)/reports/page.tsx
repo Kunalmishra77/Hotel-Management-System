@@ -105,7 +105,7 @@ async function OccupancySection({ user, month, propertyIds, from, to }: SectionI
     profitReport(user, { propertyIds, from, to }),
   ]);
   const columns: ReportColumn[] = [
-    { key: "property", label: "Property" },
+    { key: "property", label: "Property", format: "property" },
     { key: "occupancy", label: "Occupancy", format: "percent" },
     { key: "adr", label: "ADR", format: "money" },
     { key: "revpar", label: "RevPAR", format: "money" },
@@ -147,7 +147,7 @@ async function SourceSection({ user, month, propertyIds, from, to }: SectionInpu
 async function DuesSection({ user, propertyIds }: { user: SectionInput["user"]; propertyIds: string[] }) {
   const rollup = await perPropertyBillingRollup(user, propertyIds);
   const columns: ReportColumn[] = [
-    { key: "property", label: "Property" },
+    { key: "property", label: "Property", format: "property" },
     { key: "outstanding", label: "Outstanding dues", format: "money" },
     { key: "unsettled", label: "Unsettled folios", format: "text", align: "right" },
     { key: "collectedToday", label: "Collected today", format: "money" },

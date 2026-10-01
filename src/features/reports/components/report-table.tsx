@@ -5,12 +5,13 @@
  * the same columns/rows → CSV. New report types just supply columns + rows.
  */
 import { formatINR } from "@/lib/utils";
+import { PropertyBadge } from "@/components/ui/property-badge";
 
 export type ReportColumn = {
   key: string;
   label: string;
-  /** Format the cell: money → ₹, percent → whole %, else plain text. */
-  format?: "money" | "percent" | "text";
+  /** Format the cell: money → ₹, percent → whole %, property → colour badge, else text. */
+  format?: "money" | "percent" | "text" | "property";
   align?: "left" | "right";
 };
 export type ReportRow = Record<string, string | number>;
@@ -52,7 +53,9 @@ export function ReportTable({
             <tr key={String(r[columns[0]!.key] ?? i)} className="border-b last:border-0 hover:bg-muted/30">
               {columns.map((c) => (
                 <td key={c.key} className={`py-2.5 px-3 ${align(c) === "right" ? "text-right tabular" : ""} ${c.key === columns[0]!.key ? "font-medium" : "text-muted-foreground"}`}>
-                  {fmt(r[c.key], c.format)}
+                  {c.format === "property" && r[c.key] && String(r[c.key]) !== "All properties"
+                    ? <PropertyBadge name={String(r[c.key])} />
+                    : fmt(r[c.key], c.format)}
                 </td>
               ))}
             </tr>
