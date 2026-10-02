@@ -16,12 +16,15 @@ export type PropertyColor = {
   dot: string;
   /** a subtle left-accent border for rows/cards */
   accent: string;
+  /** a very light background tint for a whole row/card/cell of this property */
+  row: string;
 };
 
 const NEUTRAL: PropertyColor = {
   badge: "bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/30",
   dot: "bg-slate-400",
   accent: "border-l-slate-400",
+  row: "",
 };
 
 // Order matters: more-specific tokens first (D-1/30 before D-1/3).
@@ -32,6 +35,7 @@ const RULES: { token: string; color: PropertyColor }[] = [
       badge: "bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/30",
       dot: "bg-sky-400",
       accent: "border-l-sky-400",
+      row: "bg-sky-500/5",
     },
   },
   {
@@ -40,6 +44,7 @@ const RULES: { token: string; color: PropertyColor }[] = [
       badge: "bg-orange-500/10 text-orange-700 dark:text-orange-300 border-orange-500/30",
       dot: "bg-orange-400",
       accent: "border-l-orange-400",
+      row: "bg-orange-500/5",
     },
   },
   {
@@ -48,6 +53,7 @@ const RULES: { token: string; color: PropertyColor }[] = [
       badge: "bg-[#9c6b43]/12 text-[#8a5a33] dark:text-[#c9a888] border-[#9c6b43]/35",
       dot: "bg-[#a0703f]",
       accent: "border-l-[#a0703f]",
+      row: "bg-[#9c6b43]/8",
     },
   },
   {
@@ -56,6 +62,7 @@ const RULES: { token: string; color: PropertyColor }[] = [
       badge: "bg-amber-400/15 text-amber-800 dark:text-amber-300 border-amber-500/30",
       dot: "bg-amber-400",
       accent: "border-l-amber-400",
+      row: "bg-amber-400/10",
     },
   },
 ];

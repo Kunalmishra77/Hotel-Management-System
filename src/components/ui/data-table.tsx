@@ -44,6 +44,7 @@ export function DataTable<T>({
   rows,
   getRowKey,
   getRowHref,
+  getRowClassName,
   searchable,
   initialSort,
   toolbar,
@@ -55,6 +56,8 @@ export function DataTable<T>({
   rows: T[];
   getRowKey: (row: T) => string;
   getRowHref?: (row: T) => string;
+  /** Optional per-row classes (e.g. a property-colour row tint). */
+  getRowClassName?: (row: T) => string;
   searchable?: { placeholder?: string; accessor: (row: T) => string };
   initialSort?: { key: string; dir: "asc" | "desc" };
   toolbar?: React.ReactNode;
@@ -193,6 +196,7 @@ export function DataTable<T>({
                     className={cn(
                       "border-b last:border-0 transition-colors",
                       href && "u-row cursor-pointer focus-visible:outline-none focus-visible:bg-muted/60",
+                      getRowClassName?.(row),
                     )}
                   >
                     {columns.map((col) => (

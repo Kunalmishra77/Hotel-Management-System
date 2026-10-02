@@ -64,6 +64,7 @@ export function PortfolioLeague({ properties }: { properties: PortfolioProperty[
       rows={properties}
       getRowKey={(p) => p.id}
       getRowHref={(p) => `/overview/${p.id}`}
+      getRowClassName={(p) => propertyColor(p.name).row}
       searchable={{ placeholder: "Search property…", accessor: (p) => `${p.name} ${p.city} ${p.code}` }}
       initialSort={{ key: "rev", dir: "desc" }}
       pageSize={10}

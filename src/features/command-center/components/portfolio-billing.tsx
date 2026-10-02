@@ -4,6 +4,7 @@ import { KpiCard } from "@/components/ui/kpi-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { PropertyBadge } from "@/components/ui/property-badge";
+import { propertyColor } from "@/lib/property-colors";
 import { formatINR } from "@/lib/utils";
 import { InvoiceSearch } from "@/features/billing/components/invoice-search";
 import type { PortfolioBilling as PortfolioBillingData } from "../queries";
@@ -42,7 +43,7 @@ export function PortfolioBilling({ rollup, properties, gstOnly = false }: { roll
                   <tr><td colSpan={5} className="py-6 text-center text-muted-foreground">No properties.</td></tr>
                 ) : (
                   rollup.rows.map((r) => (
-                    <tr key={r.propertyId} className="border-b last:border-0">
+                    <tr key={r.propertyId} className={`border-b last:border-0 ${propertyColor(r.name).row}`}>
                       <td className="py-2.5 pr-3"><PropertyBadge name={r.name} /></td>
                       <td className={`py-2.5 px-3 text-right tabular ${r.outstandingPaise > 0 ? "text-amber-700 dark:text-amber-400 font-semibold" : ""}`}>{formatINR(r.outstandingPaise)}</td>
                       <td className="py-2.5 px-3 text-right tabular text-muted-foreground">{r.unsettledFolios}</td>

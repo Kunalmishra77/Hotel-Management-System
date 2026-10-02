@@ -6,6 +6,7 @@
  */
 import { formatINR } from "@/lib/utils";
 import { PropertyBadge } from "@/components/ui/property-badge";
+import { propertyColor } from "@/lib/property-colors";
 
 export type ReportColumn = {
   key: string;
@@ -38,6 +39,7 @@ export function ReportTable({
     return <p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">{emptyLabel}</p>;
   }
   const align = (c: ReportColumn) => (c.align ?? (c.format === "money" || c.format === "percent" ? "right" : "left"));
+  const propCol = columns.find((c) => c.format === "property");
   return (
     <div className="overflow-x-auto rounded-lg border">
       <table className="w-full min-w-[560px] text-sm">
@@ -49,8 +51,11 @@ export function ReportTable({
           </tr>
         </thead>
         <tbody>
-          {rows.map((r, i) => (
-            <tr key={String(r[columns[0]!.key] ?? i)} className="border-b last:border-0 hover:bg-muted/30">
+          {rows.map((r, i) => {
+            const propName = propCol ? String(r[propCol.key] ?? "") : "";
+            const tint = propName && propName !== "All properties" ? propertyColor(propName).row : "";
+            return (
+            <tr key={String(r[columns[0]!.key] ?? i)} className={`border-b last:border-0 hover:bg-muted/30 ${tint}`}>
               {columns.map((c) => (
                 <td key={c.key} className={`py-2.5 px-3 ${align(c) === "right" ? "text-right tabular" : ""} ${c.key === columns[0]!.key ? "font-medium" : "text-muted-foreground"}`}>
                   {c.format === "property" && r[c.key] && String(r[c.key]) !== "All properties"
@@ -59,7 +64,8 @@ export function ReportTable({
                 </td>
               ))}
             </tr>
-          ))}
+            );
+          })}
           {totalsRow ? (
             <tr className="border-t-2 bg-muted/30 font-semibold">
               {columns.map((c) => (

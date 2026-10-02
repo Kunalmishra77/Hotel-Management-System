@@ -9,6 +9,7 @@
  * and cannot be tampered with there.
  */
 import { UserMenu } from "@/components/layout/user-menu";
+import { BackButton } from "@/components/layout/back-button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { NotificationBell } from "@/features/notifications/components/notification-bell";
 import { AiLauncher } from "@/features/ai/components/ai-launcher";
@@ -52,6 +53,7 @@ export function AppShell({
     <div className="flex h-dvh flex-col overflow-hidden">
       <header className="z-30 flex min-h-touch shrink-0 items-center justify-between gap-2 border-b bg-background px-2 pt-[env(safe-area-inset-top)]">
         <div className="flex items-center gap-1.5">
+          <BackButton />
           {brandName ? (
             <span className="hidden items-center gap-1.5 pl-1 pr-1 text-sm font-semibold tracking-tight sm:inline-flex">
               <span className="size-2.5 rounded-full" style={{ backgroundColor: brandColor ?? "var(--primary)" }} aria-hidden="true" />

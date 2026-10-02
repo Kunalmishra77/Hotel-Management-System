@@ -137,7 +137,7 @@ export function InHouseTable({ rows }: { rows: InHouseTableRow[] }) {
               {filtered.map((r) => {
                 const overdue = isOverdue(r.checkOutDate);
                 return (
-                <tr key={r.id} className={`border-b last:border-0 hover:bg-muted/40 ${overdue ? "bg-destructive/5" : ""}`}>
+                <tr key={r.id} className={`border-b last:border-0 hover:bg-muted/40 ${overdue ? "bg-destructive/5" : propertyColor(r.propertyName).row}`}>
                   <td className="py-2.5 pr-3 font-medium"><Link href={`/bookings/${r.id}`} className="hover:underline">{r.guestName}</Link></td>
                   <td className="py-2.5 px-3"><PropertyBadge name={r.propertyName} /></td>
                   <td className="py-2.5 px-3 font-mono text-xs">{r.rooms}</td>

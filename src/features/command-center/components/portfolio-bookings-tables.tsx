@@ -6,6 +6,7 @@
  */
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { PropertyBadge } from "@/components/ui/property-badge";
+import { propertyColor } from "@/lib/property-colors";
 import type { PropertyBookingStat, PortfolioBookingRow } from "@/features/command-center/queries";
 
 const STATUS_TONE: Record<string, string> = {
@@ -45,6 +46,7 @@ export function PerPropertyBookingsTable({ rows }: { rows: PropertyBookingStat[]
       rows={rows}
       getRowKey={(r) => r.propertyId}
       getRowHref={(r) => `/overview/${r.propertyId}`}
+      getRowClassName={(r) => propertyColor(r.name).row}
       initialSort={{ key: "bookings", dir: "desc" }}
       pageSize={12}
       empty={<p className="text-sm text-muted-foreground">No bookings in this period.</p>}
@@ -74,6 +76,7 @@ export function RecentBookingsTable({ rows }: { rows: PortfolioBookingRow[] }) {
       rows={rows}
       getRowKey={(r) => r.id}
       getRowHref={(r) => `/bookings/${r.id}`}
+      getRowClassName={(r) => propertyColor(r.propertyName).row}
       searchable={{ placeholder: "Search booking, guest or property…", accessor: (r) => `${r.code} ${r.guestName} ${r.propertyName}` }}
       pageSize={12}
       empty={<p className="text-sm text-muted-foreground">No bookings yet.</p>}
