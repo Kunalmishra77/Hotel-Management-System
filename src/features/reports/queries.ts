@@ -185,6 +185,92 @@ export async function roomsReport(
   return [...map.values()];
 }
 
+/** One row per invoice — the detailed GST register an accountant exports. */
+export type GstInvoiceRow = {
+  propertyId: string;
+  number: string;
+  issuedAt: Date;
+  type: string;
+  customerName: string;
+  customerGstin: string | null;
+  placeOfSupply: string;
+  taxablePaise: number;
+  cgstPaise: number;
+  sgstPaise: number;
+  igstPaise: number;
+  totalPaise: number;
+};
+
+export async function gstInvoiceRegister(
+  user: SessionClaims,
+  input: { propertyIds: string[]; from: Date; to: Date },
+): Promise<GstInvoiceRow[]> {
+  authorize(user, "report:view-financial", input.propertyIds[0] ?? null);
+  const invoices = await db.scoped(user).invoice.findMany({
+    where: { propertyId: { in: input.propertyIds }, issuedAt: { gte: input.from, lte: input.to } },
+    select: {
+      propertyId: true, number: true, issuedAt: true, type: true, customerName: true,
+      customerGstin: true, placeOfSupply: true, taxableValuePaise: true, cgstPaise: true,
+      sgstPaise: true, igstPaise: true, totalPaise: true,
+    },
+    orderBy: { issuedAt: "asc" },
+  });
+  return invoices.map((i) => ({
+    propertyId: i.propertyId,
+    number: i.number,
+    issuedAt: i.issuedAt,
+    type: i.type,
+    customerName: i.customerName,
+    customerGstin: i.customerGstin,
+    placeOfSupply: i.placeOfSupply,
+    taxablePaise: Number(i.taxableValuePaise),
+    cgstPaise: i.cgstPaise,
+    sgstPaise: i.sgstPaise,
+    igstPaise: i.igstPaise,
+    totalPaise: Number(i.totalPaise),
+  }));
+}
+
+/** One row per booking — the detailed bookings register. */
+export type BookingRegisterRow = {
+  propertyId: string;
+  code: string;
+  guestName: string;
+  source: string;
+  status: string;
+  checkInDate: Date;
+  checkOutDate: Date;
+  nights: number;
+  ratePaise: number;
+};
+
+export async function bookingsRegister(
+  user: SessionClaims,
+  input: { propertyIds: string[]; from: Date; to: Date },
+): Promise<BookingRegisterRow[]> {
+  authorize(user, "report:view-financial", input.propertyIds[0] ?? null);
+  const rows = await db.scoped(user).reservation.findMany({
+    where: { propertyId: { in: input.propertyIds }, checkInDate: { gte: input.from, lte: input.to } },
+    select: {
+      propertyId: true, code: true, status: true, source: true,
+      checkInDate: true, checkOutDate: true, nights: true, ratePaise: true,
+      guest: { select: { fullName: true } },
+    },
+    orderBy: { checkInDate: "asc" },
+  });
+  return rows.map((r) => ({
+    propertyId: r.propertyId,
+    code: r.code,
+    guestName: r.guest.fullName,
+    source: r.source,
+    status: r.status,
+    checkInDate: r.checkInDate,
+    checkOutDate: r.checkOutDate,
+    nights: r.nights,
+    ratePaise: r.ratePaise,
+  }));
+}
+
 export type GstReportRow = {
   propertyId: string;
   taxablePaise: number; cgstPaise: number; sgstPaise: number; igstPaise: number; totalPaise: number; invoiceCount: number;

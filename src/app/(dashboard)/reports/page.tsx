@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { requirePermission } from "@/lib/auth/guard";
 import { hasPermission } from "@/lib/permissions";
 import { NoProperty } from "@/features/platform/components/no-property";
-import { profitReport, revenueSegments, bookingsReport, roomsReport, gstReport } from "@/features/reports/queries";
+import { profitReport, revenueSegments, bookingsReport, roomsReport, gstReport, gstInvoiceRegister, bookingsRegister } from "@/features/reports/queries";
 import { perPropertyStats } from "@/features/analytics/queries";
 import { perPropertyBillingRollup } from "@/features/command-center/queries";
 import { listAccessibleProperties } from "@/features/platform/actions";
@@ -166,7 +166,32 @@ async function BookingsSection({ user, month, propertyIds, from, to, nameOf }: S
   const tableRows: ReportRow[] = rows.map((r) => ({ property: nameOf(r.propertyId), total: r.total, confirmed: r.confirmed, inHouse: r.inHouse, checkedOut: r.checkedOut, cancelled: r.cancelled, noShow: r.noShow, roomNights: r.roomNights }));
   const sum = (k: keyof (typeof rows)[number]) => rows.reduce((n, r) => n + (r[k] as number), 0);
   const totalsRow: ReportRow = { property: "All properties", total: sum("total"), confirmed: sum("confirmed"), inHouse: sum("inHouse"), checkedOut: sum("checkedOut"), cancelled: sum("cancelled"), noShow: sum("noShow"), roomNights: sum("roomNights") };
-  return <ReportSection title={`Bookings · ${month}`} subtitle="Bookings in the period (by check-in date), per property and status." filename={`bookings-${month}.csv`} columns={columns} rows={tableRows} totalsRow={totalsRow} />;
+
+  // Detailed register — one row per booking.
+  const register = await bookingsRegister(user, { propertyIds, from, to });
+  const regColumns: ReportColumn[] = [
+    { key: "code", label: "Booking" },
+    { key: "guest", label: "Guest" },
+    { key: "property", label: "Property", format: "property" },
+    { key: "source", label: "Source" },
+    { key: "status", label: "Status" },
+    { key: "checkIn", label: "Check-in" },
+    { key: "checkOut", label: "Check-out" },
+    { key: "nights", label: "Nights", format: "text", align: "right" },
+    { key: "rate", label: "Rate/night", format: "money" },
+  ];
+  const regRows: ReportRow[] = register.map((b) => ({
+    code: b.code, guest: b.guestName, property: nameOf(b.propertyId), source: sourceLabel(b.source), status: b.status,
+    checkIn: b.checkInDate.toISOString().slice(0, 10), checkOut: b.checkOutDate.toISOString().slice(0, 10),
+    nights: b.nights, rate: b.ratePaise,
+  }));
+
+  return (
+    <div className="space-y-6">
+      <ReportSection title={`Bookings · ${month}`} subtitle="Bookings in the period (by check-in date), per property and status." filename={`bookings-${month}.csv`} columns={columns} rows={tableRows} totalsRow={totalsRow} />
+      <ReportSection title="Booking register · per booking" subtitle="Every booking in the period with guest, source, dates and rate — the detailed list." filename={`booking-register-${month}.csv`} columns={regColumns} rows={regRows} />
+    </div>
+  );
 }
 
 async function RoomsSection({ user, propertyIds, nameOf }: SectionInput & { nameOf: (id: string) => string }) {
@@ -208,7 +233,43 @@ async function GstSection({ user, month, propertyIds, from, to, nameOf }: Sectio
     total: rows.reduce((n, r) => n + r.totalPaise, 0),
     count: rows.reduce((n, r) => n + r.invoiceCount, 0),
   };
-  return <ReportSection title={`GST summary · ${month}`} subtitle="GST collected per property from issued invoices (credit notes net out originals)." filename={`gst-summary-${month}.csv`} columns={columns} rows={tableRows} totalsRow={totalsRow} />;
+
+  // Detailed register — one row per invoice with the full tax breakup.
+  const register = await gstInvoiceRegister(user, { propertyIds, from, to });
+  const regColumns: ReportColumn[] = [
+    { key: "date", label: "Date" },
+    { key: "number", label: "Invoice no." },
+    { key: "type", label: "Type" },
+    { key: "property", label: "Property", format: "property" },
+    { key: "customer", label: "Customer" },
+    { key: "gstin", label: "Customer GSTIN" },
+    { key: "pos", label: "Place of supply" },
+    { key: "taxable", label: "Taxable", format: "money" },
+    { key: "cgst", label: "CGST", format: "money" },
+    { key: "sgst", label: "SGST", format: "money" },
+    { key: "igst", label: "IGST", format: "money" },
+    { key: "total", label: "Total", format: "money" },
+  ];
+  const regRows: ReportRow[] = register.map((i) => ({
+    date: i.issuedAt.toISOString().slice(0, 10), number: i.number, type: i.type === "CREDIT_NOTE" ? "Credit note" : "Tax invoice",
+    property: nameOf(i.propertyId), customer: i.customerName, gstin: i.customerGstin ?? "", pos: i.placeOfSupply,
+    taxable: i.taxablePaise, cgst: i.cgstPaise, sgst: i.sgstPaise, igst: i.igstPaise, total: i.totalPaise,
+  }));
+  const regTotals: ReportRow = {
+    date: "", number: "", type: "", property: "Total", customer: "", gstin: "", pos: "",
+    taxable: register.reduce((n, i) => n + i.taxablePaise, 0),
+    cgst: register.reduce((n, i) => n + i.cgstPaise, 0),
+    sgst: register.reduce((n, i) => n + i.sgstPaise, 0),
+    igst: register.reduce((n, i) => n + i.igstPaise, 0),
+    total: register.reduce((n, i) => n + i.totalPaise, 0),
+  };
+
+  return (
+    <div className="space-y-6">
+      <ReportSection title={`GST summary · ${month}`} subtitle="GST collected per property from issued invoices (credit notes net out originals)." filename={`gst-summary-${month}.csv`} columns={columns} rows={tableRows} totalsRow={totalsRow} />
+      <ReportSection title="GST register · per invoice" subtitle="Every invoice with its CGST / SGST / IGST breakup — the detailed register for filing." filename={`gst-register-${month}.csv`} columns={regColumns} rows={regRows} totalsRow={regTotals} />
+    </div>
+  );
 }
 
 async function DuesSection({ user, propertyIds }: { user: SectionInput["user"]; propertyIds: string[] }) {
