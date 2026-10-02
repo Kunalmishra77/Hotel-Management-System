@@ -34,7 +34,7 @@ export default async function DataEntryPage() {
   }));
 
   return (
-    <div className="mx-auto w-full max-w-3xl p-4">
+    <div className="mx-auto w-full max-w-5xl p-4">
       <PageHeader
         title="Data Entry — previous stays"
         description="Enter a guest's past stay for a property. Each saved stay appears under that property with its dates — in guest history, occupancy and revenue."

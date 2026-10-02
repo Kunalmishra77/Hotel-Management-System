@@ -32,7 +32,7 @@ export function PayrollRunScreen({ run }: { run: PayrollRunView }) {
   };
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-4 p-4">
+    <div className="mx-auto w-full max-w-6xl space-y-4 p-4">
       <header className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">
           Payroll · {run.month}{run.sequence > 1 ? ` · adj #${run.sequence}` : ""}
@@ -42,12 +42,15 @@ export function PayrollRunScreen({ run }: { run: PayrollRunView }) {
 
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
 
-      <ul className="space-y-3" data-testid="payroll-lines">
+      <div className="grid gap-4 lg:grid-cols-3">
+        <ul className="grid gap-3 sm:grid-cols-2 lg:col-span-2" data-testid="payroll-lines">
         {run.lines.map((line) => (
           <LineCard key={line.id} line={line} editable={draft} pending={pending} onSave={call} />
         ))}
       </ul>
 
+        {/* Summary rail — sticky on desktop */}
+        <div className="space-y-4 lg:sticky lg:top-2 lg:self-start">
       <Card>
         <CardContent className="flex items-center justify-between p-4">
           <span className="text-sm text-muted-foreground">Total</span>
@@ -61,6 +64,8 @@ export function PayrollRunScreen({ run }: { run: PayrollRunView }) {
           Finalize &amp; generate payslips
         </Button>
       )}
+        </div>
+      </div>
     </div>
   );
 }

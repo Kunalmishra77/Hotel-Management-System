@@ -29,7 +29,7 @@ export default async function MessagesPage() {
   const awaiting = threads.filter((t) => t.lastSender === "GUEST").length;
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-1 py-1">
+    <div className="mx-auto w-full max-w-5xl px-1 py-1">
       <PageHeader title="Guest messages" description="Chat threads from checked-in guests." />
 
       <div className="mt-6 grid grid-cols-2 gap-3 sm:max-w-md">

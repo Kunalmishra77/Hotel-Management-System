@@ -49,7 +49,7 @@ export function MaintenanceScreen({ propertyId, jobs, overview }: { propertyId: 
   };
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-4 p-4">
+    <div className="mx-auto w-full max-w-6xl space-y-4 p-4">
       <h1 className="text-xl font-semibold">Maintenance</h1>
 
       <StatStrip
@@ -63,7 +63,10 @@ export function MaintenanceScreen({ propertyId, jobs, overview }: { propertyId: 
         ]}
       />
 
-      <Card>
+      {/* Form on the left (sticky on desktop), the preventive + jobs lists fill
+          the remaining width; single column on phone. */}
+      <div className="grid gap-4 lg:grid-cols-5">
+      <Card className="lg:col-span-2 lg:sticky lg:top-2 lg:self-start">
         <CardHeader className="pb-3"><CardTitle className="text-base">New job</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
@@ -110,6 +113,7 @@ export function MaintenanceScreen({ propertyId, jobs, overview }: { propertyId: 
         </CardContent>
       </Card>
 
+      <div className="space-y-4 lg:col-span-3">
       {upcomingPreventive.length > 0 && (
         <Card>
           <CardHeader className="pb-3"><CardTitle className="text-base">Preventive schedule</CardTitle></CardHeader>
@@ -143,6 +147,8 @@ export function MaintenanceScreen({ propertyId, jobs, overview }: { propertyId: 
           )}
         </CardContent>
       </Card>
+      </div>
+      </div>
     </div>
   );
 }

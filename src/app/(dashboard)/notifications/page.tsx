@@ -16,7 +16,7 @@ export default async function NotificationsPage() {
   const items = await listMyNotifications(50);
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-1 py-1">
+    <div className="mx-auto w-full max-w-5xl px-1 py-1">
       <PageHeader title="Notifications" description="Your operational alerts." />
       <NotificationList items={items} />
     </div>

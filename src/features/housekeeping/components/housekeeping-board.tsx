@@ -106,7 +106,7 @@ export function HousekeepingBoard({ tasks, overview }: { tasks: HousekeepingTask
   };
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-4 p-4">
+    <div className="mx-auto w-full max-w-6xl space-y-4 p-4">
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-xl font-semibold">Housekeeping</h1>
         <div className="flex items-center gap-2">
@@ -133,7 +133,7 @@ export function HousekeepingBoard({ tasks, overview }: { tasks: HousekeepingTask
       {tasks.length === 0 ? (
         <p className="text-sm text-muted-foreground">No cleaning tasks right now.</p>
       ) : (
-        <ul className="space-y-2" data-testid="task-board">
+        <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3" data-testid="task-board">
           {tasks.map((t) => {
             const isQueued = queuedIds.includes(t.id);
             return (

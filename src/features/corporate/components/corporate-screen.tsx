@@ -51,7 +51,7 @@ export function CorporateScreen({
   const stmtFor = (id: string) => statements.find((s) => s.corporateId === id);
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-4 p-4">
+    <div className="mx-auto w-full max-w-6xl space-y-4 p-4">
       <h1 className="text-xl font-semibold">Corporate &amp; travel agents</h1>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
 
@@ -80,6 +80,7 @@ export function CorporateScreen({
         </Card>
       </div>
 
+      <div className="grid items-start gap-4 lg:grid-cols-2">
       <Card>
         <CardHeader className="pb-3"><CardTitle className="text-base">Corporates</CardTitle></CardHeader>
         <CardContent>
@@ -138,6 +139,7 @@ export function CorporateScreen({
           )}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

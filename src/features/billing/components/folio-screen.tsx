@@ -68,9 +68,12 @@ export function FolioScreen({
   };
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-4 p-4">
+    <div className="mx-auto w-full max-w-6xl space-y-4 p-4">
       <h1 className="text-xl font-semibold">Folio · {guestName}</h1>
 
+      <div className="grid gap-4 lg:grid-cols-3">
+        {/* Main column — charges & bills fill the width */}
+        <div className="space-y-4 lg:col-span-2">
       <Card>
         <CardHeader className="pb-3"><CardTitle className="text-base">Charges & payments</CardTitle></CardHeader>
         <CardContent className="space-y-1 text-sm" data-testid="folio-lines">
@@ -156,7 +159,10 @@ export function FolioScreen({
           </CardContent>
         </Card>
       )}
+        </div>
 
+        {/* Actions rail — sticky on desktop */}
+        <div className="space-y-3 lg:sticky lg:top-2 lg:self-start">
       {voidTarget && (
         <VoidForm number={voidTarget.number} pending={pending}
           onSubmit={(reason) => { const id = voidTarget.id; setVoidTarget(null); run(() => voidInvoice({ invoiceId: id, reason })); }}
@@ -196,6 +202,8 @@ export function FolioScreen({
           <Button size="lg" variant="outline" disabled={pending || folio.lines.length === 0} onClick={generate} data-testid="generate-invoice">Generate GST invoice</Button>
         </div>
       )}
+        </div>
+      </div>
     </div>
   );
 }

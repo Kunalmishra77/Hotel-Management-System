@@ -28,7 +28,7 @@ export default async function EditGuestPage({ params }: { params: Promise<{ id: 
   if (!activeStay) notFound();
 
   return (
-    <div className="mx-auto w-full max-w-2xl p-4">
+    <div className="mx-auto w-full max-w-4xl p-4">
       <PageHeader title={`Edit ${guest.fullName}`} description="Correct any detail while the guest is staying (fix a mistake made at check-in)." />
       <EditGuestForm guest={guest} />
     </div>

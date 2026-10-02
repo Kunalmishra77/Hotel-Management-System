@@ -20,7 +20,7 @@ export default async function ThreadPage({ params }: { params: Promise<{ reserva
   if (!thread) notFound();
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-2xl flex-col px-1 py-1">
+    <div className="mx-auto flex h-full w-full max-w-4xl flex-col px-1 py-1">
       <Link href="/messages" className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
         <ArrowLeft className="size-3.5" aria-hidden="true" /> All messages
       </Link>

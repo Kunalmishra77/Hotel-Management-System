@@ -68,7 +68,7 @@ export function PosScreen({
     );
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-4 p-4">
+    <div className="mx-auto w-full max-w-6xl space-y-4 p-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">POS</h1>
         <a href="/pos/kitchen" className="text-sm text-primary underline" data-testid="pos-kitchen-link">Kitchen ›</a>
@@ -109,11 +109,14 @@ export function PosScreen({
         </Card>
       ) : (
         <>
+          {/* Menu fills the width; the bill + settle sit in a sticky right rail
+              on desktop and stack under the menu on phone. */}
+          <div className="grid gap-4 lg:grid-cols-3">
           {/* Menu grid */}
-          <Card>
+          <Card className="lg:col-span-2">
             <CardHeader className="pb-3"><CardTitle className="text-base">Menu</CardTitle></CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" data-testid="pos-menu">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4" data-testid="pos-menu">
                 {menu.map((m) => (
                   <Button key={m.id} variant="outline" className="h-auto min-h-16 flex-col items-start py-2" disabled={pending}
                     onClick={() => run(() => addItem({ orderId: activeOrder.id, menuItemId: m.id, quantity: 1 }))}
@@ -126,6 +129,8 @@ export function PosScreen({
             </CardContent>
           </Card>
 
+          {/* ---- Right rail: bill + settle ---- */}
+          <div className="space-y-4 lg:sticky lg:top-2 lg:self-start">
           {/* Current bill */}
           <Card data-testid="pos-bill">
             <CardHeader className="pb-3"><CardTitle className="text-base">Order {activeOrder.code}</CardTitle></CardHeader>
@@ -193,6 +198,8 @@ export function PosScreen({
               </div>
             </CardContent>
           </Card>
+          </div>
+          </div>
         </>
       )}
     </div>

@@ -87,7 +87,7 @@ export function CheckInWizard({
   };
 
   return (
-    <div className="mx-auto w-full max-w-2xl">
+    <div className="mx-auto w-full max-w-4xl">
       <Stepper steps={steps} current={stepIndex} />
 
       <Card className="mt-4">
@@ -223,31 +223,33 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 
 function VerifyStep({ context }: { context: CheckInContext }) {
   return (
-    <div className="space-y-1 divide-y divide-border/60">
-      <div className="pb-2">
+    <div>
+      <div className="pb-3">
         <p className="text-base font-semibold">{context.guestName}</p>
         <p className="text-sm text-muted-foreground">
           <span className="font-mono">{context.code}</span>
           {context.guestMaskedMobile ? ` · ${context.guestMaskedMobile}` : ""}
         </p>
       </div>
-      <Row label="Rooms">{context.roomNumbers.join(", ") || "Unallocated"}</Row>
-      <Row label="Stay">
-        {formatDayMonth(context.checkInDate)} → {formatDayMonth(context.checkOutDate)} · {context.nights} night(s)
-      </Row>
-      <Row label="Occupancy">
-        {context.adults} adult(s){context.children > 0 ? `, ${context.children} child(ren)` : ""}
-      </Row>
-      <Row label="Payment">
-        <Badge variant="secondary">{SETTLEMENT_LABEL[context.settlementIntent] ?? context.settlementIntent}</Badge>
-      </Row>
-      {context.balancePaise !== null ? (
-        <Row label="Balance due">
-          <span className={context.balancePaise > 0 ? "text-warning" : "text-success"}>
-            {formatINR(context.balancePaise)}
-          </span>
+      <div className="grid gap-x-10 sm:grid-cols-2">
+        <Row label="Rooms">{context.roomNumbers.join(", ") || "Unallocated"}</Row>
+        <Row label="Stay">
+          {formatDayMonth(context.checkInDate)} → {formatDayMonth(context.checkOutDate)} · {context.nights} night(s)
         </Row>
-      ) : null}
+        <Row label="Occupancy">
+          {context.adults} adult(s){context.children > 0 ? `, ${context.children} child(ren)` : ""}
+        </Row>
+        <Row label="Payment">
+          <Badge variant="secondary">{SETTLEMENT_LABEL[context.settlementIntent] ?? context.settlementIntent}</Badge>
+        </Row>
+        {context.balancePaise !== null ? (
+          <Row label="Balance due">
+            <span className={context.balancePaise > 0 ? "text-warning" : "text-success"}>
+              {formatINR(context.balancePaise)}
+            </span>
+          </Row>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -266,37 +268,39 @@ function ConfirmStep({
   cformStatus: boolean | null;
 }) {
   return (
-    <div className="space-y-1 divide-y divide-border/60">
-      <div className="pb-2">
+    <div>
+      <div className="pb-3">
         <h3 className="text-sm font-semibold">Ready to check in</h3>
         <p className="mt-0.5 text-sm text-muted-foreground">
           Confirm to move {context.guestName} in-house and open the folio.
         </p>
       </div>
-      <Row label="Room(s)">{context.roomNumbers.join(", ") || "Unallocated"}</Row>
-      <Row label="Documents">{idCount} captured</Row>
-      {cformStatus !== null ? (
-        <Row label="Form C">
-          {cformStatus ? (
-            <span className="text-success">Generated</span>
+      <div className="grid gap-x-10 sm:grid-cols-2">
+        <Row label="Room(s)">{context.roomNumbers.join(", ") || "Unallocated"}</Row>
+        <Row label="Documents">{idCount} captured</Row>
+        {cformStatus !== null ? (
+          <Row label="Form C">
+            {cformStatus ? (
+              <span className="text-success">Generated</span>
+            ) : (
+              <span className="text-warning">Pending</span>
+            )}
+          </Row>
+        ) : null}
+        <Row label="Registration">
+          {registrationSaved ? (
+            <span className="text-success">Signed</span>
           ) : (
-            <span className="text-warning">Pending</span>
+            <span className="text-muted-foreground">Not signed</span>
           )}
         </Row>
-      ) : null}
-      <Row label="Registration">
-        {registrationSaved ? (
-          <span className="text-success">Signed</span>
-        ) : (
-          <span className="text-muted-foreground">Not signed</span>
-        )}
-      </Row>
-      <Row label="Payment">{SETTLEMENT_LABEL[context.settlementIntent] ?? context.settlementIntent}</Row>
-      {collectedPaise > 0 ? (
-        <Row label="Collected">
-          <span className="text-success">{formatINR(collectedPaise)}</span>
-        </Row>
-      ) : null}
+        <Row label="Payment">{SETTLEMENT_LABEL[context.settlementIntent] ?? context.settlementIntent}</Row>
+        {collectedPaise > 0 ? (
+          <Row label="Collected">
+            <span className="text-success">{formatINR(collectedPaise)}</span>
+          </Row>
+        ) : null}
+      </div>
     </div>
   );
 }

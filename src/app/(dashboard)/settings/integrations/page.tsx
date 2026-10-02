@@ -13,7 +13,7 @@ export default async function IntegrationsSettingsPage() {
   const overview = await getIntegrationsOverview(user);
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-5xl space-y-6">
       <PageHeader
         title="Integrations"
         description="Sandbox and live status across every external provider — and the blocker each must clear to go live."

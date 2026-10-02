@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: "New guest" };
 export default async function NewGuestPage() {
   await requirePermission("guest:create");
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-4 p-4">
+    <div className="mx-auto w-full max-w-4xl space-y-4 p-4">
       <h1 className="text-xl font-semibold">New guest</h1>
       <NewGuestForm />
     </div>

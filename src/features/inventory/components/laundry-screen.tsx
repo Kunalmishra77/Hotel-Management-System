@@ -68,10 +68,13 @@ export function LaundryScreen({ propertyId, batches }: { propertyId: string; bat
   }
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-4 p-4">
+    <div className="mx-auto w-full max-w-6xl space-y-4 p-4">
       <h1 className="text-xl font-semibold">Laundry</h1>
 
-      <Card>
+      {/* Send-batch form on the left (sticky on desktop), the batch list fills the
+          remaining width; single column on phone. */}
+      <div className="grid gap-4 lg:grid-cols-5">
+      <Card className="lg:col-span-2 lg:sticky lg:top-2 lg:self-start">
         <CardHeader className="pb-3"><CardTitle className="text-base">Send a batch</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
@@ -93,6 +96,7 @@ export function LaundryScreen({ propertyId, batches }: { propertyId: string; bat
         </CardContent>
       </Card>
 
+      <div className="lg:col-span-3">
       {batches.length === 0 ? (
         <EmptyState title="No laundry batches yet" description="Send a batch above to start tracking linen." />
       ) : (
@@ -139,6 +143,8 @@ export function LaundryScreen({ propertyId, batches }: { propertyId: string; bat
           ))}
         </ul>
       )}
+      </div>
+      </div>
     </div>
   );
 }

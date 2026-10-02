@@ -35,7 +35,7 @@ export default async function ProfilePage() {
   const portal = resolvePortal(roles);
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-1 py-1">
+    <div className="mx-auto w-full max-w-4xl px-1 py-1">
       <PageHeader title="My profile" description="Your account, access, and password." />
 
       <Card className="mt-2">
@@ -79,18 +79,20 @@ export default async function ProfilePage() {
         </Card>
       </div>
 
-      <Card className="mt-4">
-        <CardHeader className="pb-2"><CardTitle className="text-base">Change password</CardTitle></CardHeader>
-        <CardContent><ChangePasswordForm /></CardContent>
-      </Card>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-base">Change password</CardTitle></CardHeader>
+          <CardContent><ChangePasswordForm /></CardContent>
+        </Card>
 
-      <Card className="mt-4">
-        <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-base"><ShieldCheck className="size-4 text-primary" aria-hidden="true" /> Two-factor authentication</CardTitle></CardHeader>
-        <CardContent className="flex items-center justify-between gap-3">
-          <p className="text-sm text-muted-foreground">Manage 2FA and backup codes in Security.</p>
-          <Button asChild variant="outline" size="sm"><Link href="/settings/security">Open Security</Link></Button>
-        </CardContent>
-      </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-base"><ShieldCheck className="size-4 text-primary" aria-hidden="true" /> Two-factor authentication</CardTitle></CardHeader>
+          <CardContent className="flex items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground">Manage 2FA and backup codes in Security.</p>
+            <Button asChild variant="outline" size="sm"><Link href="/settings/security">Open Security</Link></Button>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

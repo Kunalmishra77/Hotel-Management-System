@@ -49,10 +49,13 @@ export function FieldStaffScreen({ tracked, others }: { tracked: FieldStaffLocat
   }
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-4 p-4">
+    <div className="mx-auto w-full max-w-6xl space-y-4 p-4">
       <h1 className="text-xl font-semibold">Field staff</h1>
 
-      <Card>
+      {/* Tracked list fills the width; the enable-tracking list sits alongside
+          (sticky on desktop) and stacks under on phone. */}
+      <div className="grid gap-4 lg:grid-cols-3">
+      <Card className="lg:col-span-2">
         <CardHeader className="pb-3"><CardTitle className="text-base">Tracked</CardTitle></CardHeader>
         <CardContent>
           {tracked.length === 0 ? (
@@ -104,7 +107,7 @@ export function FieldStaffScreen({ tracked, others }: { tracked: FieldStaffLocat
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="lg:sticky lg:top-2 lg:self-start">
         <CardHeader className="pb-3"><CardTitle className="text-base">Enable tracking</CardTitle></CardHeader>
         <CardContent>
           {others.length === 0 ? (
@@ -121,6 +124,7 @@ export function FieldStaffScreen({ tracked, others }: { tracked: FieldStaffLocat
           )}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

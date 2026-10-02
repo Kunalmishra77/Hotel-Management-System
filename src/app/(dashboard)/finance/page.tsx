@@ -36,7 +36,7 @@ export default async function FinancePage() {
   ];
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-1 py-1">
+    <div className="mx-auto w-full max-w-6xl px-1 py-1">
       <PageHeader title="Finance & approvals" description="The money you own — approvals, today's numbers, and the books." />
 
       {tiles && (tiles.revenueTodayPaise !== null) && (
@@ -47,7 +47,8 @@ export default async function FinancePage() {
         </div>
       )}
 
-      <Card className="mt-4">
+      <div className="mt-4 grid items-start gap-4 lg:grid-cols-3">
+      <Card className="lg:col-span-2">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-base">
             <ClipboardCheck className="size-4 text-primary" aria-hidden="true" /> Pending approvals
@@ -78,13 +79,14 @@ export default async function FinancePage() {
         </CardContent>
       </Card>
 
-      <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
+      <div className="grid gap-2.5">
         {links.map((l) => (
           <Link key={l.href} href={l.href} className="group flex items-center justify-between rounded-xl border bg-card p-4 shadow-sm transition hover:border-primary/40 hover:shadow-md">
             <span className="inline-flex items-center gap-2 font-medium">{l.icon} {l.label}</span>
             <ArrowRight className="size-4 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-primary" aria-hidden="true" />
           </Link>
         ))}
+      </div>
       </div>
     </div>
   );

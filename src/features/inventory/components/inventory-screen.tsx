@@ -56,7 +56,7 @@ export function InventoryScreen({ propertyId, items, overview }: { propertyId: s
   };
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-4 p-4">
+    <div className="mx-auto w-full max-w-6xl space-y-4 p-4">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">Stock</h1>
         <Button asChild variant="outline" size="sm"><Link href="/inventory/laundry" data-testid="laundry-link"><Shirt className="size-4" /> Laundry</Link></Button>
@@ -72,7 +72,10 @@ export function InventoryScreen({ propertyId, items, overview }: { propertyId: s
         ]}
       />
 
-      <Card>
+      {/* Add-item form on the left (sticky on desktop), the stock list fills the
+          remaining width; single column on phone. */}
+      <div className="grid gap-4 lg:grid-cols-5">
+      <Card className="lg:col-span-2 lg:sticky lg:top-2 lg:self-start">
         <CardHeader className="pb-3"><CardTitle className="text-base">Add an item</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
@@ -97,7 +100,7 @@ export function InventoryScreen({ propertyId, items, overview }: { propertyId: s
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="lg:col-span-3">
         <CardHeader className="pb-3"><CardTitle className="text-base">On hand</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <div className="flex flex-wrap gap-1" data-testid="domain-filter">
@@ -148,6 +151,7 @@ export function InventoryScreen({ propertyId, items, overview }: { propertyId: s
           )}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

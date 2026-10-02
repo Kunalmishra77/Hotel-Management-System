@@ -38,7 +38,7 @@ export function AccountingView(props: {
   };
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-4 p-4">
+    <div className="mx-auto w-full max-w-6xl space-y-4 p-4">
       <h1 className="text-xl font-semibold">Accounting sync</h1>
       {message && (
         <p role="alert" className="text-sm text-destructive" data-testid="accounting-message">
@@ -106,7 +106,7 @@ export function AccountingView(props: {
       {props.providers.length === 0 ? (
         <p className="text-sm text-muted-foreground">No sync activity yet.</p>
       ) : (
-        <ul className="space-y-2" data-testid="provider-list">
+        <ul className="grid items-start gap-2 sm:grid-cols-2 lg:grid-cols-3" data-testid="provider-list">
           {props.providers.map((p) => (
             <li key={p.provider}>
               <Card data-testid={`provider-${p.provider}`}>
@@ -129,6 +129,7 @@ export function AccountingView(props: {
         </ul>
       )}
 
+      <div className="grid items-start gap-4 lg:grid-cols-2">
       {/* Failed queue with retry */}
       {props.failed.length > 0 && (
         <Card data-testid="failed-queue">
@@ -174,6 +175,7 @@ export function AccountingView(props: {
           </CardContent>
         </Card>
       )}
+      </div>
     </div>
   );
 }

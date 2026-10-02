@@ -69,9 +69,12 @@ export function DataImportScreen({
   };
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-4 p-4">
+    <div className="mx-auto w-full max-w-6xl space-y-4 p-4">
       <h1 className="text-xl font-semibold">Data import</h1>
 
+      <div className="grid gap-4 lg:grid-cols-3">
+        {/* Main column — upload + batch preview fill the width */}
+        <div className="space-y-4 lg:col-span-2">
       <Card>
         <CardHeader className="pb-3"><CardTitle className="text-base">Upload</CardTitle></CardHeader>
         <CardContent className="space-y-3">
@@ -156,7 +159,10 @@ export function DataImportScreen({
           </CardContent>
         </Card>
       )}
+        </div>
 
+        {/* Recent batches rail — sticky on desktop */}
+        <div className="lg:sticky lg:top-2 lg:self-start">
       <Card>
         <CardHeader className="pb-3"><CardTitle className="text-base">Recent batches</CardTitle></CardHeader>
         <CardContent className="space-y-1">
@@ -169,6 +175,8 @@ export function DataImportScreen({
           ))}
         </CardContent>
       </Card>
+        </div>
+      </div>
     </div>
   );
 }

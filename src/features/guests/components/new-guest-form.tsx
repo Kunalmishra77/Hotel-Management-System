@@ -31,15 +31,15 @@ export function NewGuestForm() {
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Guest details</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <Field name="fullName" label="Full name" required autoFocus defaultValue={draft?.fullName}
-            error={fieldError("fullName")} />
-          <Field name="mobile" label="Mobile" required inputMode="tel" maxLength={13}
-            defaultValue={draft?.mobile} error={fieldError("mobile")}
-            hint="Indian mobile — used to spot duplicates." />
-          <Field name="email" label="Email" type="email" inputMode="email"
-            defaultValue={draft?.email} error={fieldError("email")} />
+        <CardContent>
           <div className="grid gap-4 sm:grid-cols-2">
+            <Field name="fullName" label="Full name" required autoFocus defaultValue={draft?.fullName}
+              error={fieldError("fullName")} wrapperClassName="sm:col-span-2" />
+            <Field name="mobile" label="Mobile" required inputMode="tel" maxLength={13}
+              defaultValue={draft?.mobile} error={fieldError("mobile")}
+              hint="Indian mobile — used to spot duplicates." />
+            <Field name="email" label="Email" type="email" inputMode="email"
+              defaultValue={draft?.email} error={fieldError("email")} />
             <Field name="city" label="City" defaultValue={draft?.city} error={fieldError("city")} />
             <Field name="companyName" label="Company" defaultValue={draft?.companyName}
               error={fieldError("companyName")} />
@@ -133,6 +133,7 @@ function Field({
   error,
   hint,
   required,
+  wrapperClassName,
   ...rest
 }: {
   name: string;
@@ -140,12 +141,13 @@ function Field({
   error?: string;
   hint?: string;
   required?: boolean;
+  wrapperClassName?: string;
 } & Omit<React.InputHTMLAttributes<HTMLInputElement>, "name">) {
   const describedBy = [error ? `${name}-error` : null, hint ? `${name}-hint` : null]
     .filter(Boolean)
     .join(" ");
   return (
-    <div className="space-y-1.5">
+    <div className={`space-y-1.5 ${wrapperClassName ?? ""}`}>
       <div className="flex items-center gap-0.5">
         <Label htmlFor={name}>{label}</Label>
         {required && <span aria-hidden="true" className="text-destructive">*</span>}

@@ -54,7 +54,7 @@ export function KitchenScreen({ prep, tickets }: { prep: PrepLine[]; tickets: Ki
   };
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-4 p-4">
+    <div className="mx-auto w-full max-w-6xl space-y-4 p-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Kitchen</h1>
         <Button size="sm" variant="outline" onClick={() => router.refresh()} data-testid="kitchen-refresh">
@@ -62,7 +62,10 @@ export function KitchenScreen({ prep, tickets }: { prep: PrepLine[]; tickets: Ki
         </Button>
       </div>
 
-      <Card>
+      {/* Tickets fill the width; the aggregated prep queue sits alongside (sticky
+          on desktop) and stacks under on phone. */}
+      <div className="grid gap-4 lg:grid-cols-3">
+      <Card className="lg:col-span-2">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Tickets</CardTitle>
         </CardHeader>
@@ -104,7 +107,7 @@ export function KitchenScreen({ prep, tickets }: { prep: PrepLine[]; tickets: Ki
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="lg:sticky lg:top-2 lg:self-start">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Prep queue</CardTitle>
         </CardHeader>
@@ -123,6 +126,7 @@ export function KitchenScreen({ prep, tickets }: { prep: PrepLine[]; tickets: Ki
           )}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

@@ -45,7 +45,7 @@ export function ChannelsView(props: {
   };
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-4 p-4">
+    <div className="mx-auto w-full max-w-6xl space-y-4 p-4">
       <h1 className="text-xl font-semibold">Channels</h1>
       {message && (
         <p role="alert" className="text-sm text-destructive" data-testid="channel-message">
@@ -53,8 +53,11 @@ export function ChannelsView(props: {
         </p>
       )}
 
+      {/* Connect form on the left (sticky on desktop); the attention queue and the
+          channel list fill the remaining width. Single column on phone. */}
+      <div className="grid gap-4 lg:grid-cols-5">
       {/* Connect a new channel */}
-      <Card>
+      <Card className="lg:col-span-2 lg:sticky lg:top-2 lg:self-start">
         <CardContent className="space-y-2 p-3">
           <Label htmlFor="provider">Connect a channel (sandbox)</Label>
           <div className="flex gap-2">
@@ -77,6 +80,7 @@ export function ChannelsView(props: {
         </CardContent>
       </Card>
 
+      <div className="space-y-4 lg:col-span-3">
       {/* Needs-attention (oversell) queue */}
       {props.attention.length > 0 && (
         <Card data-testid="attention-queue">
@@ -151,6 +155,8 @@ export function ChannelsView(props: {
           ))}
         </ul>
       )}
+      </div>
+      </div>
     </div>
   );
 }

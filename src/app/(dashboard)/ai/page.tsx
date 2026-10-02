@@ -39,7 +39,7 @@ export default async function AiPage() {
   const segments = await listSegments(user);
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-4 p-4">
+    <div className="mx-auto w-full max-w-4xl space-y-4 p-4">
       <div>
         <h1 className="text-xl font-semibold tracking-tight">AI Assistant</h1>
         <p className="text-sm text-muted-foreground">
