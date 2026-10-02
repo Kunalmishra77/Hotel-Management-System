@@ -88,10 +88,13 @@ export function ExpensesScreen({
   const selectCls = "h-10 w-full rounded-md border border-input bg-background px-3 text-sm";
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-4 p-4">
+    <div className="mx-auto w-full max-w-5xl space-y-4 p-4">
       <h1 className="text-xl font-semibold">Expenses</h1>
 
-      <Card>
+      {/* Form + recent side-by-side on desktop so the page uses the width and the
+          recent list is visible without scrolling; stacks on phone. */}
+      <div className="grid gap-4 lg:grid-cols-5">
+      <Card className="lg:col-span-3">
         <CardHeader className="pb-3"><CardTitle className="text-base">Record an expense</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
@@ -180,7 +183,7 @@ export function ExpensesScreen({
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="lg:col-span-2 lg:sticky lg:top-2 lg:self-start">
         <CardHeader className="pb-3"><CardTitle className="text-base">Recent · today <span data-testid="today-total">{rupees(todayTotalPaise)}</span></CardTitle></CardHeader>
         <CardContent>
           {expenses.length === 0 ? (
@@ -210,6 +213,7 @@ export function ExpensesScreen({
           )}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

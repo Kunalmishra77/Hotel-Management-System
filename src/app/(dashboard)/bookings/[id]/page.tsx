@@ -96,7 +96,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
     : [];
 
   return (
-    <div className="mx-auto w-full max-w-2xl">
+    <div className="mx-auto w-full max-w-6xl">
       <Breadcrumb
         items={[{ label: "Home", href: "/dashboard" }, { label: "Bookings", href: "/bookings" }, { label: r.code }]}
         className="mb-3"
@@ -146,149 +146,157 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
         </div>
       </PageHeader>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base [&_svg]:size-4 [&_svg]:text-primary">
-              <CalendarDays /> Stay
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1.5 text-sm">
-            {r.externalHotelName ? (
-              <p>
-                <span className="text-muted-foreground">Off-site property:</span>{" "}
-                <span className="font-medium">{r.externalHotelName}</span>
-                {r.externalHotelAddress ? <span className="text-muted-foreground"> · {r.externalHotelAddress}</span> : null}
-              </p>
-            ) : (
-              <p>
-                <span className="text-muted-foreground">Rooms:</span>{" "}
-                <span className="font-mono">{r.roomNumbers.join(", ") || "Unallocated"}</span>
-              </p>
-            )}
-            <p>
-              <span className="text-muted-foreground">Dates:</span> {formatDayMonth(r.checkInDate)} →{" "}
-              {formatDayMonth(r.checkOutDate)} · {r.nights} night(s)
-            </p>
-            {r.needsAttention ? <p className="text-destructive">Needs attention: {r.needsAttention}</p> : null}
-          </CardContent>
-        </Card>
-
-        {canFolio ? (
+      {/* Two-column dashboard: main content fills the width, a summary rail on the
+          right (sticky on desktop). Single column on phone/tablet. */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        {/* ---- Main column ---- */}
+        <div className="space-y-4 lg:col-span-2">
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-base [&_svg]:size-4 [&_svg]:text-primary">
-                <IndianRupee /> Folio
+                <CalendarDays /> Stay
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              {balancePaise === null ? (
-                <p className="text-sm text-muted-foreground">No folio yet — one is created at check-in.</p>
+            <CardContent className="grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2">
+              {r.externalHotelName ? (
+                <p className="sm:col-span-2">
+                  <span className="text-muted-foreground">Off-site property:</span>{" "}
+                  <span className="font-medium">{r.externalHotelName}</span>
+                  {r.externalHotelAddress ? <span className="text-muted-foreground"> · {r.externalHotelAddress}</span> : null}
+                </p>
               ) : (
-                <>
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Balance due</p>
-                  <p
-                    className={`font-display text-2xl font-bold tabular ${balancePaise > 0 ? "text-warning" : "text-success"}`}
-                  >
-                    {formatINR(balancePaise)}
-                  </p>
-                  <Button asChild variant="outline" size="sm" className="mt-3">
-                    <Link href={`/bookings/${r.id}/folio`}>Open folio</Link>
-                  </Button>
-                </>
+                <p>
+                  <span className="text-muted-foreground">Rooms:</span>{" "}
+                  <span className="font-mono">{r.roomNumbers.join(", ") || "Unallocated"}</span>
+                </p>
               )}
+              <p>
+                <span className="text-muted-foreground">Dates:</span> {formatDayMonth(r.checkInDate)} →{" "}
+                {formatDayMonth(r.checkOutDate)} · {r.nights} night(s)
+              </p>
+              {r.needsAttention ? <p className="text-destructive sm:col-span-2">Needs attention: {r.needsAttention}</p> : null}
             </CardContent>
           </Card>
-        ) : null}
-      </div>
 
-      {pending.length > 0 ? (
-        <Card className="mt-4 border-warning/40 bg-warning/5">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base [&_svg]:size-4 [&_svg]:text-warning">
-              <ClipboardCheck /> Pending information
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="mb-2 text-sm text-muted-foreground">
-              Collect these from the guest{r.status === "IN_HOUSE" ? " before checkout" : " at check-in"}:
-            </p>
-            <ul className="space-y-1.5 text-sm">
-              {pending.map((item) => (
-                <li key={item.key} className="flex items-center gap-2">
-                  <span aria-hidden="true" className={item.required ? "text-warning" : "text-muted-foreground"}>●</span>
-                  <span>{item.label}</span>
-                  {item.required ? <Badge variant="warning" className="ml-1">Required</Badge> : <span className="text-xs text-muted-foreground">optional</span>}
-                </li>
-              ))}
-            </ul>
-            {hasPermission(user, "guest:manage") ? (
-              <Button asChild variant="outline" size="sm" className="mt-3">
-                <Link href={`/guests/${r.guestId}/edit`}>Update guest details</Link>
-              </Button>
-            ) : null}
-          </CardContent>
-        </Card>
-      ) : null}
+          {(r.status === "IN_HOUSE" || r.status === "CONFIRMED") && canManageGuests ? (
+            <ExtendStayCard reservationId={r.id} checkOutDate={r.checkOutDate.toISOString().slice(0, 10)} />
+          ) : null}
 
-      {(r.status === "IN_HOUSE" || r.status === "CONFIRMED") && canManageGuests ? (
-        <ExtendStayCard reservationId={r.id} checkOutDate={r.checkOutDate.toISOString().slice(0, 10)} />
-      ) : null}
+          {["ENQUIRY", "CONFIRMED", "IN_HOUSE", "CHECKED_OUT"].includes(r.status) && canManageGuests ? (
+            <EditRoomRateCard reservationId={r.id} currentRatePaise={r.ratePaise} />
+          ) : null}
 
-      {["ENQUIRY", "CONFIRMED", "IN_HOUSE", "CHECKED_OUT"].includes(r.status) && canManageGuests ? (
-        <EditRoomRateCard reservationId={r.id} currentRatePaise={r.ratePaise} />
-      ) : null}
+          {statement?.isTransfer ? <CombinedStatementCard statement={statement} /> : null}
 
-      {statement?.isTransfer ? <CombinedStatementCard statement={statement} /> : null}
+          {canTransfer && transferProperties.length > 1 ? (
+            <TransferPropertyCard
+              reservationId={r.id}
+              currentPropertyId={r.propertyId}
+              checkOutDate={r.checkOutDate.toISOString().slice(0, 10)}
+              properties={transferProperties}
+            />
+          ) : null}
 
-      {canTransfer && transferProperties.length > 1 ? (
-        <TransferPropertyCard
-          reservationId={r.id}
-          currentPropertyId={r.propertyId}
-          checkOutDate={r.checkOutDate.toISOString().slice(0, 10)}
-          properties={transferProperties}
-        />
-      ) : null}
+          {billFolio ? (
+            <BookingBillSummary folio={billFolio} reservationId={r.id} canManageFolio={hasPermission(user, "folio:charge")} />
+          ) : null}
 
-      {canCancel ? (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
-          <span className="text-sm text-muted-foreground">Cancel this booking (guest cancelled by phone/online).</span>
-          <CancelBookingButton reservationId={r.id} />
-        </div>
-      ) : null}
+          {guestPanel ? (
+            <ReservationGuestsCard
+              reservationId={r.id}
+              status={r.status}
+              adults={guestPanel.adults}
+              childCount={guestPanel.children}
+              guests={guestPanel.guests}
+              notes={guestPanel.notes}
+              expectedArrival={guestPanel.expectedArrival}
+              canManage={canManageGuests}
+            />
+          ) : null}
 
-      {billFolio ? (
-        <BookingBillSummary folio={billFolio} reservationId={r.id} canManageFolio={hasPermission(user, "folio:charge")} />
-      ) : null}
-
-      {feedbackQr ? (
-        <Card className="mt-4">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">Guest feedback QR</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
-            {/* eslint-disable-next-line @next/next/no-img-element -- server-generated data-URL QR */}
-            <img src={feedbackQr.dataUrl} alt="Scan to leave feedback" className="size-36 rounded-lg border bg-white p-1" />
-            <div className="min-w-0 space-y-1.5 text-sm">
-              <p className="text-muted-foreground">Show or print this for the guest to scan at / after check-out — a 30-second review that nudges a direct booking next time.</p>
-              <a href={feedbackQr.url} target="_blank" rel="noopener noreferrer" className="inline-block break-all font-medium text-primary underline-offset-4 hover:underline">{feedbackQr.url}</a>
+          {canCancel ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+              <span className="text-sm text-muted-foreground">Cancel this booking (guest cancelled by phone/online).</span>
+              <CancelBookingButton reservationId={r.id} />
             </div>
-          </CardContent>
-        </Card>
-      ) : null}
+          ) : null}
+        </div>
 
-      {guestPanel ? (
-        <ReservationGuestsCard
-          reservationId={r.id}
-          status={r.status}
-          adults={guestPanel.adults}
-          childCount={guestPanel.children}
-          guests={guestPanel.guests}
-          notes={guestPanel.notes}
-          expectedArrival={guestPanel.expectedArrival}
-          canManage={canManageGuests}
-        />
-      ) : null}
+        {/* ---- Summary rail ---- */}
+        <div className="space-y-4 lg:sticky lg:top-2 lg:self-start">
+          {canFolio ? (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base [&_svg]:size-4 [&_svg]:text-primary">
+                  <IndianRupee /> Folio
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {balancePaise === null ? (
+                  <p className="text-sm text-muted-foreground">No folio yet — one is created at check-in.</p>
+                ) : (
+                  <>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Balance due</p>
+                    <p
+                      className={`font-display text-3xl font-bold tabular ${balancePaise > 0 ? "text-warning" : "text-success"}`}
+                    >
+                      {formatINR(balancePaise)}
+                    </p>
+                    <Button asChild variant="outline" size="sm" className="mt-3 w-full">
+                      <Link href={`/bookings/${r.id}/folio`}>Open folio</Link>
+                    </Button>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {pending.length > 0 ? (
+            <Card className="border-warning/40 bg-warning/5">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base [&_svg]:size-4 [&_svg]:text-warning">
+                  <ClipboardCheck /> Pending information
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="mb-2 text-sm text-muted-foreground">
+                  Collect these from the guest{r.status === "IN_HOUSE" ? " before checkout" : " at check-in"}:
+                </p>
+                <ul className="space-y-1.5 text-sm">
+                  {pending.map((item) => (
+                    <li key={item.key} className="flex items-center gap-2">
+                      <span aria-hidden="true" className={item.required ? "text-warning" : "text-muted-foreground"}>●</span>
+                      <span>{item.label}</span>
+                      {item.required ? <Badge variant="warning" className="ml-1">Required</Badge> : <span className="text-xs text-muted-foreground">optional</span>}
+                    </li>
+                  ))}
+                </ul>
+                {hasPermission(user, "guest:manage") ? (
+                  <Button asChild variant="outline" size="sm" className="mt-3 w-full">
+                    <Link href={`/guests/${r.guestId}/edit`}>Update guest details</Link>
+                  </Button>
+                ) : null}
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {feedbackQr ? (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base">Guest feedback QR</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col items-start gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element -- server-generated data-URL QR */}
+                <img src={feedbackQr.dataUrl} alt="Scan to leave feedback" className="size-32 rounded-lg border bg-white p-1" />
+                <div className="min-w-0 space-y-1.5 text-sm">
+                  <p className="text-muted-foreground">Show or print this for the guest to scan at / after check-out — a 30-second review that nudges a direct booking next time.</p>
+                  <a href={feedbackQr.url} target="_blank" rel="noopener noreferrer" className="inline-block break-all font-medium text-primary underline-offset-4 hover:underline">{feedbackQr.url}</a>
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }
