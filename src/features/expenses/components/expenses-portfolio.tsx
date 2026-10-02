@@ -6,15 +6,17 @@
  * the page re-renders server-side with the new `searchParams`. Every figure is the
  * property-scoped, APPROVED-only rollup from `expensePortfolio`.
  */
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatINR, formatDayMonth } from "@/lib/utils";
-import { PAYMENT_MODE_LABEL } from "@/lib/constants/company";
+import { PAYMENT_MODE_LABEL, EXPENSE_HEAD_LABEL } from "@/lib/constants/company";
 import { ExpensesCharts } from "./expenses-charts";
 import { ExportExpensesButton } from "./export-expenses-button";
 import type { ExpensePortfolio } from "../queries";
 
-const HEADS = ["HOUSEKEEPING", "KITCHEN", "MAINTENANCE", "UTILITIES", "STAFF", "ADMINISTRATION", "MISC"] as const;
+const HEADS = ["HOUSEKEEPING", "KITCHEN", "MAINTENANCE", "UTILITIES", "STAFF", "ADMINISTRATION", "MISC", "GST_BILLS"] as const;
+const headLabel = (h: string) => EXPENSE_HEAD_LABEL[h] ?? h;
 const PAY_MODES = ["CASH", "UPI", "BANK_TRANSFER", "CREDIT_CARD", "DEBIT_CARD", "ONLINE", "CORPORATE_CREDIT"] as const;
 
 const payLabel = (m: string | null): string =>
@@ -30,6 +32,11 @@ export function ExpensesPortfolio({
   filters: { propertyId?: string; head?: string; paidVia?: string; from?: string; to?: string };
 }) {
   const cell = "h-10 w-full rounded-md border border-input bg-background px-3 text-sm";
+  // "This month" quick range for a one-month report + export.
+  const now = new Date();
+  const monthFirst = `${now.toISOString().slice(0, 7)}-01`;
+  const monthLast = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).toISOString().slice(0, 10);
+  const thisMonthHref = `?from=${monthFirst}&to=${monthLast}${filters.propertyId ? `&property=${filters.propertyId}` : ""}`;
   return (
     <Card className="mt-6">
       <CardHeader className="pb-3">
@@ -52,7 +59,7 @@ export function ExpensesPortfolio({
           </select>
           <select name="head" defaultValue={filters.head ?? ""} className={cell} aria-label="Category">
             <option value="">All categories</option>
-            {HEADS.map((h) => <option key={h} value={h}>{h}</option>)}
+            {HEADS.map((h) => <option key={h} value={h}>{headLabel(h)}</option>)}
           </select>
           <select name="paidVia" defaultValue={filters.paidVia ?? ""} className={cell} aria-label="Payment method">
             <option value="">All payment methods</option>
@@ -60,7 +67,10 @@ export function ExpensesPortfolio({
           </select>
           <input type="date" name="from" defaultValue={filters.from ?? ""} className={cell} aria-label="From date" />
           <input type="date" name="to" defaultValue={filters.to ?? ""} className={cell} aria-label="To date" />
-          <button type="submit" className="h-10 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">Apply</button>
+          <div className="flex gap-2">
+            <button type="submit" className="h-10 flex-1 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">Apply</button>
+            <Link href={thisMonthHref} className="flex h-10 items-center rounded-md border border-input px-3 text-sm font-medium hover:bg-muted">This month</Link>
+          </div>
         </form>
 
         {/* Totals */}

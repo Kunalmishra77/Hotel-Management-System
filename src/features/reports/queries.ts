@@ -162,8 +162,9 @@ export async function roomsReport(
   input: { propertyIds: string[] },
 ): Promise<RoomsReportRow[]> {
   authorize(user, "report:view-financial", input.propertyIds[0] ?? null);
+  // Only real (active) rooms — inactive/demo rooms must not inflate the inventory.
   const rooms = await db.scoped(user).room.findMany({
-    where: { propertyId: { in: input.propertyIds } },
+    where: { propertyId: { in: input.propertyIds }, isActive: true },
     select: { propertyId: true, status: true, isActive: true },
   });
   const map = new Map<string, RoomsReportRow>();

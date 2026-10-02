@@ -170,12 +170,28 @@
   /* Hand cursor on every interactive control. Browsers default <button>/<select>
      to the arrow cursor, which makes clickable things look inert — a hand pointer
      signals they're clickable. Disabled controls keep the default arrow. */
+  a[href],
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
+  [role="link"]:not([aria-disabled="true"]),
+  [role="tab"]:not([aria-disabled="true"]),
+  [role="menuitem"],
+  [role="option"],
   label[for],
   select:not(:disabled),
-  summary {
+  summary,
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  input[type="submit"]:not(:disabled),
+  input[type="button"]:not(:disabled) {
     cursor: pointer;
+  }
+  /* Disabled controls show the blocked cursor, not a hand. */
+  button:disabled,
+  [aria-disabled="true"],
+  select:disabled,
+  input:disabled {
+    cursor: not-allowed;
   }
 }
 

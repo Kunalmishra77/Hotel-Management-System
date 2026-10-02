@@ -59,6 +59,9 @@ export default async function ExpensesPage({
       paidVia: filters.paidVia,
       from: dayBound(filters.from, false),
       to: dayBound(filters.to, true),
+      // Higher cap so a full-month export isn't truncated (the ledger + its export
+      // share these rows; a month across the small properties stays well under this).
+      limit: 3000,
     }),
     budgetVsActual(user, { propertyIds: budgetPropertyIds, month: budgetMonth }),
   ]);

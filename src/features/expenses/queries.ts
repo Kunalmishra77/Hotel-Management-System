@@ -120,6 +120,9 @@ export type PortfolioExpenseRow = {
   propertyName: string;
   head: string;
   subCategory: string | null;
+  description: string | null;
+  quantity: string | null;
+  gstNumber: string | null;
   amountPaise: number;
   spentOn: Date;
   paidVia: string | null;
@@ -171,6 +174,7 @@ export async function expensePortfolio(
     select: {
       id: true, propertyId: true, head: true, subCategory: true, amountPaise: true,
       spentOn: true, paidVia: true, status: true, vendor: true, billObjectKey: true,
+      description: true, quantity: true, gstNumber: true,
     },
     orderBy: { spentOn: "desc" },
     take: input.limit ?? 500,
@@ -201,6 +205,9 @@ export async function expensePortfolio(
       propertyName: nameById.get(r.propertyId) ?? r.propertyId,
       head: r.head,
       subCategory: r.subCategory,
+      description: r.description,
+      quantity: r.quantity,
+      gstNumber: r.gstNumber,
       amountPaise: r.amountPaise,
       spentOn: r.spentOn,
       paidVia: r.paidVia,
