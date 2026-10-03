@@ -274,6 +274,15 @@ export async function voidInvoice(input: unknown): Promise<Result<InvoiceResult>
     if (!original) throw new NotFoundError("Invoice not found.");
     authorize(user, "invoice:void", original.propertyId, { reason: data.reason });
 
+    // The original's frozen line snapshot → the credit note gets the SAME lines
+    // negated, so the credit-note PDF is self-consistent (negative lines match the
+    // negative totals) instead of rendering the live folio's positive lines.
+    const originalLines = await client.invoiceLine.findMany({
+      where: { invoiceId: original.id },
+      orderBy: { sortOrder: "asc" },
+      select: { type: true, description: true, quantity: true, unitPaise: true, amountPaise: true, taxRateBps: true, cgstPaise: true, sgstPaise: true, igstPaise: true, hsnSac: true },
+    });
+
     return withBillingContext(user, () =>
       db.unscoped().$transaction(async (tx) => {
         // Credit note draws from the SAME company-wide series as the invoice.
@@ -300,6 +309,24 @@ export async function voidInvoice(input: unknown): Promise<Result<InvoiceResult>
           },
           select: { id: true },
         });
+        if (originalLines.length > 0) {
+          await tx.invoiceLine.createMany({
+            data: originalLines.map((l, idx) => ({
+              invoiceId: creditNote.id,
+              type: l.type,
+              description: l.description,
+              quantity: l.quantity,
+              unitPaise: l.unitPaise,
+              amountPaise: -l.amountPaise,
+              taxRateBps: l.taxRateBps,
+              cgstPaise: -l.cgstPaise,
+              sgstPaise: -l.sgstPaise,
+              igstPaise: -l.igstPaise,
+              hsnSac: l.hsnSac,
+              sortOrder: idx,
+            })),
+          });
+        }
         await emitEvent(tx, { type: "InvoiceIssued", aggregateId: creditNote.id, propertyId: original.propertyId, payload: { number, type: "CREDIT_NOTE", cancelsInvoiceId: original.id } });
         await writeAudit(tx, { action: "invoice:void", entityType: "Invoice", entityId: creditNote.id, propertyId: original.propertyId, reason: data.reason, after: { number, cancelsInvoiceId: original.id } });
         return { invoiceId: creditNote.id, number, totalPaise: Number(total) };

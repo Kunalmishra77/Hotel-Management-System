@@ -8,21 +8,11 @@ import { authorize } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { revenueByCategory as revenue06 } from "@/features/billing/queries";
 import { expenseRollup } from "@/features/expenses/queries";
-import { getFinalizedStaffCost } from "@/features/payroll";
+import { getFinalizedStaffCostInRange } from "@/features/payroll";
 import { occupancy, adr, revpar } from "@/features/analytics/domain/metrics";
 import { segments as analyticsSegments, type Segment } from "@/features/analytics/queries";
-import { apportionStaffCost, incomeVsExpense, type Breakdown } from "./domain/profit";
+import { incomeVsExpense, type Breakdown } from "./domain/profit";
 import type { SessionClaims } from "@/lib/auth/claims";
-
-function daysInMonth(month: string): number {
-  const [y, m] = month.split("-").map(Number);
-  return new Date(Date.UTC(y!, m!, 0)).getUTCDate();
-}
-function rangeDaysInclusive(from: Date, to: Date): number {
-  const a = Math.round(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate()) / 86_400_000);
-  const b = Math.round(Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), to.getUTCDate()) / 86_400_000);
-  return Math.max(1, b - a + 1);
-}
 
 export type ProfitReport = {
   breakdown: Breakdown;
@@ -62,10 +52,10 @@ export async function computeProfitReport(
   // Expenses by head (07, approved, excl. STAFF salary by construction).
   const { totals: expenseByHead } = await expenseRollup(user, { propertyIds: input.propertyIds, from: input.from, to: input.to, groupBy: "head" });
 
-  // Staff cost (21) — finalized payroll net, apportioned across the range (once).
-  const month = input.from.toISOString().slice(0, 7);
-  const monthlyNet = await getFinalizedStaffCost(input.propertyIds, month);
-  const staffCost = apportionStaffCost(monthlyNet, daysInMonth(month), rangeDaysInclusive(input.from, input.to));
+  // Staff cost (21) — finalized payroll net summed over EVERY month in the range
+  // (previously only the first month was counted and mis-apportioned, so any
+  // multi-month profit view — this-quarter / this-year on the overview — was wrong).
+  const staffCost = await getFinalizedStaffCostInRange(input.propertyIds, input.from, input.to);
 
   const breakdown = incomeVsExpense(revenueByCategory, expenseByHead, staffCost);
 
