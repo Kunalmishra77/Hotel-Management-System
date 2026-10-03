@@ -96,8 +96,20 @@ export async function searchInvoices(
   const dateFilter = input.from || input.to
     ? { issuedAt: { ...(input.from ? { gte: input.from } : {}), ...(input.to ? { lte: input.to } : {}) } }
     : {};
+  // Keep the operational register CLEAN: show only real, current bills. Voided tax
+  // invoices (cancelled by a credit note), the credit notes themselves, and empty
+  // ₹0 invoices are hidden here — they stay in the DB (GST: issued invoices are
+  // permanent + gap-free) and appear in the dedicated GST register export for filing.
+  const cancelled = await db.scoped(user).invoice.findMany({
+    where: { type: "CREDIT_NOTE", cancelsInvoiceId: { not: null } },
+    select: { cancelsInvoiceId: true },
+  });
+  const cancelledIds = cancelled.map((c) => c.cancelsInvoiceId!).filter(Boolean);
   const rows = await db.scoped(user).invoice.findMany({
     where: {
+      type: "TAX_INVOICE",
+      totalPaise: { not: 0 },
+      ...(cancelledIds.length ? { id: { notIn: cancelledIds } } : {}),
       ...(input.propertyId ? { propertyId: input.propertyId } : {}),
       ...(input.gstOnly ? { customerGstin: { not: null } } : {}),
       ...dateFilter,
@@ -269,7 +281,9 @@ export async function billingOverview(user: SessionClaims, propertyId: string): 
       where: { propertyId, isRefund: false, receivedAt: { gte: dayStart, lt: dayEnd } },
       _sum: { amountPaise: true },
     }),
-    scoped.invoice.count({ where: { propertyId, issuedAt: { gte: monthStart } } }),
+    // Count only REAL tax invoices (exclude credit notes + empty ₹0 ones) so the
+    // portal figure isn't inflated by voided/fake bills.
+    scoped.invoice.count({ where: { propertyId, type: "TAX_INVOICE", totalPaise: { not: 0 }, issuedAt: { gte: monthStart } } }),
   ]);
 
   const charges = new Map<string, bigint>();

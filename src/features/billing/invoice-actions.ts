@@ -15,7 +15,7 @@ import { requireUser } from "@/lib/auth";
 import { authorize, hasPermission } from "@/lib/permissions";
 import { writeAudit } from "@/lib/audit";
 import { emitEvent } from "@/lib/events";
-import { NotFoundError } from "@/lib/errors";
+import { DomainError, ErrorCode, NotFoundError } from "@/lib/errors";
 import { toResult, type Result } from "@/lib/result";
 import { db } from "@/lib/db";
 import { financialYearOf } from "./domain/money";
@@ -146,6 +146,11 @@ export async function generateInvoice(input: unknown, opts: { renderPdf?: boolea
       cgst += l.cgstPaise; sgst += l.sgstPaise; igst += l.igstPaise;
     }
     const totalPaise = taxable + BigInt(cgst + sgst + igst);
+    // Don't issue an empty ₹0 bill (no billable charges) — it just clutters the
+    // register and burns a gap-free invoice number. Add charges first.
+    if (totalPaise === 0n) {
+      throw new DomainError(ErrorCode.VALIDATION_FAILED, "No charges to invoice — add charges to the folio first.");
+    }
     const fy = financialYearOf(new Date(), property.timezone);
     const placeOfSupply = igst > 0 ? (data.billToState ?? property.state) : property.state;
 
