@@ -222,6 +222,17 @@ export const historicalStaySchema = z
 export type HistoricalStayInput = z.input<typeof historicalStaySchema>;
 
 /** Correct free-text booking details (notes, expected arrival) any time. */
+/** Change a booking's source/channel — allowed in ANY status (e.g. an OTA guest
+ *  who walks in and continues as a direct booking after check-in). */
+export const changeBookingSourceSchema = z.object({
+  reservationId: z.string().min(1),
+  source: z.enum([
+    "DIRECT", "WEBSITE", "PHONE", "WALK_IN",
+    "AIRBNB", "BOOKING_COM", "AGODA", "MAKEMYTRIP", "GOIBIBO",
+    "CORPORATE", "TRAVEL_AGENT",
+  ]),
+});
+
 export const updateReservationDetailsSchema = z.object({
   reservationId: z.string().min(1),
   notes: z.string().trim().max(1000).optional().nullable().or(z.literal("").transform(() => null)),

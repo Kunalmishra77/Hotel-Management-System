@@ -32,6 +32,8 @@ export type ReservationListItem = {
   /** #1 off-site booking: the external hotel name/address, else null for a normal stay. */
   externalHotelName: string | null;
   externalHotelAddress: string | null;
+  /** Booking source/channel (editable post-check-in). */
+  source: string;
 };
 
 const LIST_SELECT = {
@@ -48,6 +50,7 @@ const LIST_SELECT = {
   ratePaise: true,
   externalHotelName: true,
   externalHotelAddress: true,
+  source: true,
   guest: { select: { fullName: true } },
   allocations: { select: { room: { select: { number: true } } } },
 } as const;
@@ -66,6 +69,7 @@ type Row = {
   ratePaise: number;
   externalHotelName: string | null;
   externalHotelAddress: string | null;
+  source: string;
   guest: { fullName: string };
   allocations: { room: { number: string } }[];
 };
@@ -87,6 +91,7 @@ function toItem(r: Row): ReservationListItem {
     ratePaise: r.ratePaise,
     externalHotelName: r.externalHotelName,
     externalHotelAddress: r.externalHotelAddress,
+    source: r.source,
   };
 }
 

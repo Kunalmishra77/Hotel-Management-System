@@ -30,9 +30,35 @@ import {
   reservationDb,
   withReservationContext,
 } from "./internal";
-import { modifyReservationSchema, reallocateRoomSchema, extendStaySchema, setRoomRateSchema } from "./schema";
+import { modifyReservationSchema, reallocateRoomSchema, extendStaySchema, setRoomRateSchema, changeBookingSourceSchema } from "./schema";
 
 export type MoveResult = { id: string; status: string; roomId: string };
+
+/**
+ * Change a booking's source/channel in ANY status (03) — e.g. a guest who booked
+ * via MakeMyTrip but, on arrival, cancels the OTA booking and continues directly.
+ * Just updates the source (+ event + audit); revenue-by-source reports then reflect
+ * the correction. No availability/money change.
+ */
+export async function changeBookingSource(input: unknown): Promise<Result<{ id: string; source: string }>> {
+  return toResult(async () => {
+    const data = changeBookingSourceSchema.parse(input);
+    const user = await requireUser();
+    const client = reservationDb(user);
+    const r = await client.reservation.findFirst({ where: { id: data.reservationId }, select: { id: true, propertyId: true, source: true } });
+    if (!r) throw new NotFoundError("Reservation not found.");
+    authorize(user, "reservation:modify", r.propertyId);
+    return withReservationContext(user, () =>
+      client.$transaction(async (tx) => {
+        await tx.reservation.update({ where: { id: r.id }, data: { source: data.source } });
+        await emitEvent(tx, { type: "ReservationUpdated", aggregateId: r.id, propertyId: r.propertyId, payload: { field: "source", from: r.source, to: data.source } });
+        await writeAudit(tx, { action: "reservation:modify", entityType: "Reservation", entityId: r.id, propertyId: r.propertyId, before: { source: r.source }, after: { source: data.source } });
+        revalidatePath(`/bookings/${r.id}`);
+        return { id: r.id, source: data.source };
+      }),
+    );
+  });
+}
 
 /** Modify dates and/or room of a CONFIRMED booking, atomically (AC-11). */
 export async function modifyReservation(input: unknown): Promise<Result<MoveResult>> {

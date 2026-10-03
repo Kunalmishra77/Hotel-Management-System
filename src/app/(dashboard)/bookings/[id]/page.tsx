@@ -15,6 +15,7 @@ import { ConfirmBookingButton } from "@/features/reservations/components/confirm
 import { ReservationGuestsCard } from "@/features/reservations/components/reservation-guests-card";
 import { ExtendStayCard } from "@/features/reservations/components/extend-stay-card";
 import { EditRoomRateCard } from "@/features/reservations/components/edit-room-rate-card";
+import { ChangeSourceCard } from "@/features/reservations/components/change-source-card";
 import { TransferPropertyCard } from "@/features/reservations/components/transfer-property-card";
 import { listProperties } from "@/features/properties/queries";
 import { CancelBookingButton } from "@/features/reservations/components/cancel-booking-button";
@@ -184,6 +185,10 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
 
           {["ENQUIRY", "CONFIRMED", "IN_HOUSE", "CHECKED_OUT"].includes(r.status) && canManageGuests ? (
             <EditRoomRateCard reservationId={r.id} currentRatePaise={r.ratePaise} />
+          ) : null}
+
+          {canManageGuests && !r.externalHotelName ? (
+            <ChangeSourceCard reservationId={r.id} currentSource={r.source} />
           ) : null}
 
           {statement?.isTransfer ? <CombinedStatementCard statement={statement} /> : null}
