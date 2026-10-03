@@ -37,7 +37,10 @@ export const applyDiscountSchema = z.object({
   amountPaise: positivePaise,
   reason: z.string().min(1).max(300),
   mode: z.enum(["PRE_TAX", "FINANCIAL"]).default("PRE_TAX"),
-  rateBps: z.number().int().min(0).max(5000).default(1200),
+  // GST rate the PRE_TAX discount reverses — 5% (500 bps), matching the current
+  // flat GST regime on all charges. (Was 1200/12%, a stale rate that over-reversed
+  // GST and under-charged the guest on any room/F&B discount.)
+  rateBps: z.number().int().min(0).max(5000).default(500),
 });
 
 export const reverseLineSchema = z.object({

@@ -41,18 +41,30 @@ export async function liveTiles(user: SessionClaims, propertyIds: string[]): Pro
   let expenseTodayPaise: number | null = null;
   let pendingPaise: number | null = null;
   if (canSeeMoney) {
-    const [rev, exp, charges, payments] = await Promise.all([
+    const [rev, exp, lineGroups, payGroups] = await Promise.all([
       scoped.folioLine.aggregate({ where: { folio: { propertyId: { in: propertyIds } }, businessDate: { gte: start, lt: next }, type: { notIn: ["TAX"] } }, _sum: { amountPaise: true } }),
       scoped.expense.aggregate({ where: { ...where, status: "APPROVED", spentOn: { gte: start, lt: next } }, _sum: { amountPaise: true } }),
-      scoped.folioLine.aggregate({ where: { folio: { propertyId: { in: propertyIds } } }, _sum: { amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true } }),
-      scoped.payment.aggregate({ where: { ...where }, _sum: { amountPaise: true } }),
+      scoped.folioLine.groupBy({ by: ["folioId"], where: { folio: { propertyId: { in: propertyIds } } }, _sum: { amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true } }),
+      scoped.payment.groupBy({ by: ["folioId", "isRefund"], where: { ...where }, _sum: { amountPaise: true } }),
     ]);
     revenueTodayPaise = Number(rev._sum.amountPaise ?? 0n);
     expenseTodayPaise = Number(exp._sum.amountPaise ?? 0);
-    // Net outstanding ≈ Σ(line + tax) − Σ(non-refund − refund). Refunds are rare;
-    // for a live tile this aggregate is the pending-balance figure.
-    const chargeTotal = Number(charges._sum.amountPaise ?? 0n) + (charges._sum.cgstPaise ?? 0) + (charges._sum.sgstPaise ?? 0) + (charges._sum.igstPaise ?? 0);
-    pendingPaise = Math.max(0, chargeTotal - Number(payments._sum.amountPaise ?? 0n));
+    // Outstanding = Σ of POSITIVE per-folio balances (reporting.md), the SAME basis
+    // as the Billing page. Netting all folios together let an overpaid/advance folio
+    // cancel another's dues (understating the figure); a refund must INCREASE the
+    // balance (money returned), not reduce it. Fixed both here.
+    const paidByFolio = new Map<string, number>();
+    for (const p of payGroups) {
+      const amt = Number(p._sum.amountPaise ?? 0n);
+      paidByFolio.set(p.folioId, (paidByFolio.get(p.folioId) ?? 0) + (p.isRefund ? -amt : amt));
+    }
+    let pending = 0;
+    for (const g of lineGroups) {
+      const chargesWithTax = Number(g._sum.amountPaise ?? 0n) + (g._sum.cgstPaise ?? 0) + (g._sum.sgstPaise ?? 0) + (g._sum.igstPaise ?? 0);
+      const bal = chargesWithTax - (paidByFolio.get(g.folioId) ?? 0);
+      if (bal > 0) pending += bal;
+    }
+    pendingPaise = pending;
   }
 
   return { rooms, occupancyBps, arrivalsToday, departuresToday, revenueTodayPaise, expenseTodayPaise, pendingPaise };

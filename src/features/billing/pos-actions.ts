@@ -54,6 +54,12 @@ export async function settlePosSaleDirect(input: unknown): Promise<Result<{ invo
 
     const invoice = unwrap(await generateInvoice({ folioId, customerName: data.customerName, customerGstin: data.customerGstin }));
 
+    // One walk-in = one bill. Close this direct-sale folio so the NEXT walk-in opens
+    // a FRESH folio — otherwise ensureDirectSaleFolio reuses this one and the next
+    // invoice re-bills every prior sale on it (06 FR-25). The invoice above already
+    // billed only this sale's lines (a fresh folio per walk-in).
+    await db.scoped(user).folio.update({ where: { id: folioId }, data: { isClosed: true } });
+
     return { invoiceId: invoice.invoiceId, paymentId: payment?.id ?? "", folioId };
   });
 }

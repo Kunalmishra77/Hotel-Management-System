@@ -141,7 +141,8 @@ export async function applyCoupon(input: unknown): Promise<Result<{ redemptionId
 
         // Pre-tax DISCOUNT line (GST recomputed via negated proportional split).
         const pos = placeOfSupply("ROOM", ctx.propertyState, ctx.billToState);
-        const draft = discountLine(discount, 1200, ctx.propertyState, pos, "PRE_TAX");
+        // Reverse GST at the current flat rate (5% = 500 bps), not a stale 12%.
+        const draft = discountLine(discount, 500, ctx.propertyState, pos, "PRE_TAX");
         await tx.folioLine.create({
           data: {
             folioId: data.folioId, type: "DISCOUNT", description: `Coupon ${data.code}`,

@@ -43,10 +43,18 @@ async function applyStatus(user: SessionClaims, task: LoadedTask, status: string
     if (!res.apply) throw new DomainError(ErrorCode.SYNC_CONFLICT);
   }
 
-  // Guard 2 (DONE only): 02 validates HOUSEKEEPING→VACANT; a re-occupied room refuses it.
+  // Guard 2 (DONE only): free the room ONLY if it is actually awaiting housekeeping.
+  // - HOUSEKEEPING  → set VACANT (normal clean complete).
+  // - already VACANT → just close the task (don't call VACANT→VACANT, which errors
+  //   and would strand the task forever / drop the offline write as a conflict).
+  // - OCCUPIED / RESERVED / UNDER_MAINTENANCE → the room is back in use; record the
+  //   cleaning as done but NEVER vacate it (would evict a re-occupied guest's room).
   if (status === "DONE") {
-    const moved = await changeRoomStatus({ roomId: task.roomId, to: "VACANT" });
-    if (!moved.ok) throw new DomainError(moved.error.code as ErrorCode, moved.error.message);
+    const room = await hkDb(user).room.findFirst({ where: { id: task.roomId }, select: { status: true } });
+    if (room?.status === "HOUSEKEEPING") {
+      const moved = await changeRoomStatus({ roomId: task.roomId, to: "VACANT" });
+      if (!moved.ok) throw new DomainError(moved.error.code as ErrorCode, moved.error.message);
+    }
   }
 
   return withHkContext(user, () =>
