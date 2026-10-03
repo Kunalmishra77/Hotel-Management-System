@@ -51,7 +51,7 @@ export async function changeBookingSource(input: unknown): Promise<Result<{ id: 
     return withReservationContext(user, () =>
       client.$transaction(async (tx) => {
         await tx.reservation.update({ where: { id: r.id }, data: { source: data.source } });
-        await emitEvent(tx, { type: "ReservationUpdated", aggregateId: r.id, propertyId: r.propertyId, payload: { field: "source", from: r.source, to: data.source } });
+        await emitEvent(tx, { type: "ReservationModified", aggregateId: r.id, propertyId: r.propertyId, payload: { field: "source", from: r.source, to: data.source } });
         await writeAudit(tx, { action: "reservation:modify", entityType: "Reservation", entityId: r.id, propertyId: r.propertyId, before: { source: r.source }, after: { source: data.source } });
         revalidatePath(`/bookings/${r.id}`);
         return { id: r.id, source: data.source };
