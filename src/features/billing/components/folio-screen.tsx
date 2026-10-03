@@ -48,6 +48,11 @@ export function FolioScreen({
   // active bill is the latest TAX_INVOICE that has not been credited.
   const voidedIds = new Set(folio.invoices.filter((i) => i.cancelsInvoiceId).map((i) => i.cancelsInvoiceId!));
   const activeInvoice = [...folio.invoices].reverse().find((i) => i.type === "TAX_INVOICE" && !voidedIds.has(i.id)) ?? null;
+  // The invoice is a frozen snapshot. If charges were added AFTER it was issued
+  // (e.g. food after the room bill), the invoice no longer matches the folio —
+  // warn so staff void & re-issue a single correct bill (room + food together).
+  const folioChargeTotalPaise = folio.lines.reduce((a, l) => a + l.amountPaise + l.cgstPaise + l.sgstPaise + l.igstPaise, 0);
+  const invoiceStale = !!activeInvoice && activeInvoice.totalPaise !== folioChargeTotalPaise;
 
   const generate = () => {
     setError(null);
@@ -146,9 +151,17 @@ export function FolioScreen({
                 </div>
               );
             })}
+            {invoiceStale && activeInvoice && (
+              <div className="mt-1 rounded-md border border-warning/50 bg-warning/10 p-2.5 text-sm" data-testid="invoice-stale">
+                <p className="font-medium text-warning">⚠ Bill {activeInvoice.number} is out of date</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  It was issued for {rupees(activeInvoice.totalPaise)}, but the folio now totals {rupees(folioChargeTotalPaise)} — newer charges (e.g. food) aren&apos;t on it. <b>Void &amp; revise</b>, then <b>Generate GST invoice</b> to issue one bill with everything.
+                </p>
+              </div>
+            )}
             {activeInvoice && (
               <div className="pt-1">
-                <Button size="sm" variant="outline" disabled={pending} onClick={() => setVoidTarget({ id: activeInvoice.id, number: activeInvoice.number })} data-testid="void-invoice">
+                <Button size="sm" variant={invoiceStale ? "default" : "outline"} disabled={pending} onClick={() => setVoidTarget({ id: activeInvoice.id, number: activeInvoice.number })} data-testid="void-invoice">
                   Void &amp; revise this bill
                 </Button>
                 <p className="mt-1 text-xs text-muted-foreground">

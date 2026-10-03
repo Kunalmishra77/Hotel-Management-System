@@ -152,7 +152,7 @@ export function IdentityStep({
       <div>
         <h3 className="text-sm font-semibold">Identity documents</h3>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          Upload the guest&apos;s ID. Aadhaar is required at check-in. Images are stored encrypted; the number is optional.
+          Upload the guest&apos;s ID — Aadhaar, Driving Licence, Voter ID, Passport or Other (any one is enough; a passport is needed for a foreign national). Images are stored encrypted; the number is optional.
         </p>
       </div>
 

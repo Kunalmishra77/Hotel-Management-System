@@ -57,7 +57,6 @@ export function CheckInWizard({
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const hasAadhaar = useMemo(() => ids.some((i) => i.type === "AADHAAR"), [ids]);
   // Form C (FRRO) is for FOREIGN NATIONALS only — it must key off nationality, not
   // off "a passport was captured" (Indians hold passports too, and were wrongly
   // sent to Form C). An explicit Indian nationality never gets Form C; a foreign
@@ -69,6 +68,13 @@ export function CheckInWizard({
     const hasForeignId = ids.some((i) => i.type === "PASSPORT" || i.type === "VISA");
     return nat !== "" || hasForeignId;
   }, [context.guestNationality, ids]);
+  // Identity gate: ANY one ID is enough for a domestic guest (Aadhaar, Driving
+  // Licence, Voter ID, Passport, Other — compliance.md: Aadhaar is NOT mandatory).
+  // A foreign guest needs a passport/visa (for Form C).
+  const identityOk = useMemo(
+    () => (isForeign ? ids.some((i) => i.type === "PASSPORT" || i.type === "VISA") : ids.length > 0),
+    [isForeign, ids],
+  );
   const steps = useMemo(() => ALL_STEPS.filter((s) => s.key !== "cform" || isForeign), [isForeign]);
   const stepIndex = steps.findIndex((s) => s.key === step);
 
@@ -125,9 +131,11 @@ export function CheckInWizard({
             />
           )}
 
-          {step === "identity" && !hasAadhaar && !isForeign ? (
+          {step === "identity" && !identityOk ? (
             <p className="mt-4 text-sm text-warning" data-testid="aadhaar-required">
-              Capture the guest&apos;s Aadhaar (or a passport for a foreign national) to continue.
+              {isForeign
+                ? "Capture the guest's passport to continue (foreign national)."
+                : "Add at least one ID (Aadhaar, Driving Licence, Voter ID, Passport, or Other) to continue."}
             </p>
           ) : null}
 
@@ -162,7 +170,7 @@ export function CheckInWizard({
           <Button
             onClick={() => setStep(steps[stepIndex + 1]!.key)}
             disabled={
-              (step === "identity" && !hasAadhaar && !isForeign) ||
+              (step === "identity" && !identityOk) ||
               (step === "cform" && !cformSaved) ||
               (step === "registration" && !registrationSaved)
             }
