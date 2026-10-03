@@ -53,6 +53,14 @@ export async function attachInvoicePdf(invoiceId: string, folioId: string, meta:
       },
     });
     if (!folio) return null;
+    // Prefer the invoice's FROZEN line snapshot (so the PDF matches its own totals
+    // and can never go stale); fall back to the live folio for pre-snapshot invoices.
+    const snapLines = await db.unscoped().invoiceLine.findMany({
+      where: { invoiceId },
+      orderBy: { sortOrder: "asc" },
+      select: { type: true, description: true, hsnSac: true, quantity: true, unitPaise: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, taxRateBps: true },
+    });
+    const lineSource = snapLines.length > 0 ? snapLines : folio.lines;
     const property = await db.unscoped().property.findFirst({
       where: { id: folio.propertyId },
       select: { name: true, addressLine1: true, city: true, state: true, pincode: true },
@@ -81,8 +89,8 @@ export async function attachInvoicePdf(invoiceId: string, folioId: string, meta:
       customerMobile,
       placeOfSupply: meta.placeOfSupply,
       stayLabel,
-      lines: folio.lines.map((l) => ({
-        type: l.type,
+      lines: lineSource.map((l) => ({
+        type: String(l.type),
         description: l.description,
         hsnSac: l.hsnSac,
         quantity: l.quantity,

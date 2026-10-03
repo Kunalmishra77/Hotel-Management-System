@@ -123,7 +123,13 @@ export async function generateInvoice(input: unknown, opts: { renderPdf?: boolea
       where: { id: data.folioId },
       select: {
         id: true, propertyId: true,
-        lines: { select: { amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, placeOfSupplyState: true } },
+        lines: {
+          select: {
+            type: true, description: true, quantity: true, unitPaise: true, hsnSac: true, taxRateBps: true,
+            amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, placeOfSupplyState: true,
+          },
+          orderBy: { createdAt: "asc" },
+        },
       },
     });
     if (!folio) throw new NotFoundError("Folio not found.");
@@ -173,6 +179,26 @@ export async function generateInvoice(input: unknown, opts: { renderPdf?: boolea
           },
           select: { id: true },
         });
+        // Freeze the invoiced lines (06 FR-21). The PDF renders from these, so the
+        // document can never be stale or inconsistent with its own totals.
+        if (folio.lines.length > 0) {
+          await tx.invoiceLine.createMany({
+            data: folio.lines.map((l, idx) => ({
+              invoiceId: invoice.id,
+              type: String(l.type),
+              description: l.description,
+              quantity: l.quantity,
+              unitPaise: l.unitPaise,
+              amountPaise: l.amountPaise,
+              taxRateBps: l.taxRateBps,
+              cgstPaise: l.cgstPaise,
+              sgstPaise: l.sgstPaise,
+              igstPaise: l.igstPaise,
+              hsnSac: l.hsnSac,
+              sortOrder: idx,
+            })),
+          });
+        }
         await emitEvent(tx, { type: "InvoiceIssued", aggregateId: invoice.id, propertyId: folio.propertyId, payload: { number, totalPaise: Number(totalPaise), type: data.type } });
         await writeAudit(tx, { action: "invoice:generate", entityType: "Invoice", entityId: invoice.id, propertyId: folio.propertyId, after: { number, totalPaise: Number(totalPaise) } });
         return { invoiceId: invoice.id, number };

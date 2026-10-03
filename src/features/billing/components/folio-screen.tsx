@@ -211,7 +211,7 @@ export function FolioScreen({
             <Button size="lg" variant="outline" onClick={() => setMode("addon")} data-testid="add-addon">+ Add-on</Button>
           )}
           <Button size="lg" variant="outline" onClick={() => setMode("discount")} data-testid="apply-discount">− Discount</Button>
-          <Button size="lg" onClick={() => setMode("pay")} data-testid="take-payment" disabled={folio.balancePaise <= 0}>Take payment</Button>
+          <Button size="lg" onClick={() => setMode("pay")} data-testid="take-payment">Take payment</Button>
           <Button size="lg" variant="outline" disabled={pending || folio.lines.length === 0} onClick={generate} data-testid="generate-invoice">Generate GST invoice</Button>
         </div>
       )}
@@ -340,11 +340,19 @@ function PaymentForm({ balancePaise, onSubmit, onCancel, pending }: { balancePai
         </div>
       ))}
       <div className="flex items-center justify-between text-sm">
-        <span>Remaining: <span data-testid="remaining">{rupees(remaining)}</span></span>
+        <span>
+          {remaining > 0
+            ? <>Partial — <span data-testid="remaining">{rupees(remaining)}</span> will remain due</>
+            : remaining < 0
+              ? <>Advance — <span data-testid="remaining">{rupees(-remaining)}</span> credit</>
+              : <>Settles in full (<span data-testid="remaining">{rupees(0)}</span> due)</>}
+        </span>
         <Button variant="ghost" size="sm" onClick={() => setTenders((ts) => [...ts, { mode: "CASH", amountPaise: Math.max(0, remaining) }])}>+ tender</Button>
       </div>
       <div className="flex gap-2">
-        <Button size="lg" disabled={pending || remaining !== 0} onClick={() => onSubmit(tenders)} data-testid="confirm-payment">Confirm</Button>
+        {/* Partial payments / deposits are allowed — any positive amount; the balance
+            simply updates. (Previously this forced an exact full settlement.) */}
+        <Button size="lg" disabled={pending || total <= 0} onClick={() => onSubmit(tenders)} data-testid="confirm-payment">Confirm</Button>
         <Button size="lg" variant="outline" onClick={onCancel}>Cancel</Button>
       </div>
     </CardContent></Card>

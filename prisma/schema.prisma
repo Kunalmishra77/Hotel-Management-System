@@ -1134,9 +1134,33 @@ model Invoice {
   pdfObjectKey      String?
   issuedAt          DateTime    @default(now())
   issuedById        String?
+  // Frozen snapshot of the lines this invoice was issued for (06 FR-21). The PDF
+  // renders from THESE, never from the live folio — so an invoice can never be
+  // stale or self-contradictory (lines always sum to the invoice's own totals).
+  lines             InvoiceLine[]
 
   @@unique([propertyId, number])
   @@index([propertyId, issuedAt])
+}
+
+/** Immutable copy of a folio line as it was at the moment the invoice issued. */
+model InvoiceLine {
+  id          String  @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  type        String
+  description String
+  quantity    Int     @default(1)
+  unitPaise   Int     @default(0)
+  amountPaise BigInt
+  taxRateBps  Int     @default(0)
+  cgstPaise   Int     @default(0)
+  sgstPaise   Int     @default(0)
+  igstPaise   Int     @default(0)
+  hsnSac      String?
+  sortOrder   Int     @default(0)
+
+  @@index([invoiceId])
 }
 
 // ==================== COUPONS (§11 discount coupons; owned by 06) ============
