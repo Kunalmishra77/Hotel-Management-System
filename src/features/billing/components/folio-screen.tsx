@@ -15,6 +15,7 @@ import { postFolioCharge, applyDiscount, reverseFolioLine, correctRoomRate } fro
 import { recordPayment } from "../payment-actions";
 import { generateInvoice, voidInvoice } from "../invoice-actions";
 import { addAddOnToReservation } from "@/features/add-ons/actions";
+import { gstBpsForCharge } from "@/lib/constants/gst";
 import type { FolioView } from "../queries";
 
 type AddOnOption = { id: string; name: string; pricePaise: number };
@@ -196,7 +197,7 @@ export function FolioScreen({
           onCancel={() => setReverseTarget(null)} />
       )}
       {mode === "roomrate" && <RoomRateForm pending={pending} onSubmit={(rate) => run(() => correctRoomRate({ folioId: folio.id, newUnitPaise: toPaise(rate), reason: "room rate correction" }))} onCancel={() => setMode("none")} />}
-      {mode === "charge" && <ChargeForm pending={pending} onSubmit={(type, desc, rupeeAmt) => run(() => postFolioCharge({ folioId: folio.id, type, description: desc, unitPaise: toPaise(rupeeAmt) }))} onCancel={() => setMode("none")} />}
+      {mode === "charge" && <ChargeForm pending={pending} onSubmit={(type, desc, unitPaise) => run(() => postFolioCharge({ folioId: folio.id, type, description: desc, unitPaise }))} onCancel={() => setMode("none")} />}
       {mode === "discount" && <DiscountForm pending={pending} onSubmit={(reason, rupeeAmt) => run(() => applyDiscount({ folioId: folio.id, reason, amountPaise: toPaise(rupeeAmt) }))} onCancel={() => setMode("none")} />}
       {mode === "addon" && reservationId && <AddOnForm addOns={addOns} pending={pending} onSubmit={(addOnId, qty) => run(() => addAddOnToReservation({ reservationId, addOnId, quantity: qty }))} onCancel={() => setMode("none")} />}
       {mode === "pay" && <PaymentForm balancePaise={folio.balancePaise} pending={pending} onSubmit={(tenders) => run(() => recordPayment({ folioId: folio.id, tenders, expectedTotalPaise: tenders.reduce((s, t) => s + t.amountPaise, 0) }))} onCancel={() => setMode("none")} />}
@@ -237,10 +238,18 @@ function RoomRateForm({ onSubmit, onCancel, pending }: { onSubmit: (ratePerNight
   );
 }
 
-function ChargeForm({ onSubmit, onCancel, pending }: { onSubmit: (type: string, desc: string, amt: number) => void; onCancel: () => void; pending: boolean }) {
+function ChargeForm({ onSubmit, onCancel, pending }: { onSubmit: (type: string, desc: string, unitPaise: number) => void; onCancel: () => void; pending: boolean }) {
   const [type, setType] = useState("FOOD");
   const [desc, setDesc] = useState("");
   const [amt, setAmt] = useState(0);
+  const [gstInclusive, setGstInclusive] = useState(false);
+  // GST on food / laundry / taxi / etc. — let staff say whether the amount they type
+  // already INCLUDES GST (back out the taxable) or GST is added ON TOP. Matches the
+  // room-rate toggle so every charge is consistent.
+  const enteredPaise = toPaise(amt);
+  const bps = gstBpsForCharge(type as never, type === "ROOM" ? enteredPaise : undefined);
+  const taxablePaise = gstInclusive ? Math.round((enteredPaise * 10_000) / (10_000 + bps)) : enteredPaise;
+  const gstPaise = Math.round((taxablePaise * bps) / 10_000);
   return (
     <Card><CardContent className="space-y-3 p-4">
       <select value={type} onChange={(e) => setType(e.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" data-testid="charge-type">
@@ -248,8 +257,17 @@ function ChargeForm({ onSubmit, onCancel, pending }: { onSubmit: (type: string, 
       </select>
       <Input placeholder="Description" value={desc} onChange={(e) => setDesc(e.target.value)} data-testid="charge-desc" />
       <Input type="number" inputMode="decimal" step="0.01" placeholder="Amount ₹" value={amt} onChange={(e) => setAmt(Number(e.target.value))} data-testid="charge-amount" />
+      <div className="flex flex-wrap gap-4 text-sm">
+        <label className="flex items-center gap-2"><input type="radio" name="chargeGst" checked={!gstInclusive} onChange={() => setGstInclusive(false)} data-testid="charge-gst-exclusive" /> Add GST on top</label>
+        <label className="flex items-center gap-2"><input type="radio" name="chargeGst" checked={gstInclusive} onChange={() => setGstInclusive(true)} data-testid="charge-gst-inclusive" /> Price includes GST</label>
+      </div>
+      {amt > 0 ? (
+        <p className="rounded-md border bg-muted/40 p-2 text-xs text-muted-foreground" data-testid="charge-gst-preview">
+          GST {bps / 100}%: taxable {rupees(taxablePaise)} + GST {rupees(gstPaise)} = <span className="font-medium text-foreground">{rupees(taxablePaise + gstPaise)}</span>
+        </p>
+      ) : null}
       <div className="flex gap-2">
-        <Button size="lg" disabled={pending || !desc || amt <= 0} onClick={() => onSubmit(type, desc, amt)} data-testid="charge-submit">Add</Button>
+        <Button size="lg" disabled={pending || !desc || amt <= 0} onClick={() => onSubmit(type, desc, taxablePaise)} data-testid="charge-submit">Add</Button>
         <Button size="lg" variant="outline" onClick={onCancel}>Cancel</Button>
       </div>
     </CardContent></Card>
