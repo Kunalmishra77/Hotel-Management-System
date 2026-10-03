@@ -63,11 +63,14 @@ export function CheckInWizard({
   // nationality does; if nationality wasn't captured, fall back to a passport/visa
   // on file so a genuine foreign guest isn't missed.
   const isForeign = useMemo(() => {
+    // Form C (FRRO) is for FOREIGN nationals ONLY — keyed STRICTLY off an explicit
+    // non-Indian nationality. An Indian WITH a passport (very common) must never be
+    // routed to Form C, so there is NO "has a passport" fallback. An un-captured
+    // nationality defaults to domestic (no Form C) rather than guessing from an ID.
     const nat = (context.guestNationality ?? "").trim().toLowerCase();
-    if (nat === "indian" || nat === "india") return false;
-    const hasForeignId = ids.some((i) => i.type === "PASSPORT" || i.type === "VISA");
-    return nat !== "" || hasForeignId;
-  }, [context.guestNationality, ids]);
+    if (nat === "" || nat === "indian" || nat === "india") return false;
+    return true;
+  }, [context.guestNationality]);
   // Identity gate: ANY one ID is enough for a domestic guest (Aadhaar, Driving
   // Licence, Voter ID, Passport, Other — compliance.md: Aadhaar is NOT mandatory).
   // A foreign guest needs a passport/visa (for Form C).
