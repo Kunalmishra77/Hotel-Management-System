@@ -133,25 +133,43 @@ export function FolioScreen({
         <Card>
           <CardHeader className="pb-3"><CardTitle className="text-base">Bills &amp; version history</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm" data-testid="invoice-history">
-            {folio.invoices.map((inv) => {
-              const isCredit = inv.type === "CREDIT_NOTE";
-              const voided = voidedIds.has(inv.id);
-              return (
-                <div key={inv.id} className="flex flex-wrap items-center justify-between gap-2 border-b pb-2 last:border-0 last:pb-0">
-                  <span className="flex items-center gap-2">
-                    <span className="font-mono font-medium">{inv.number}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {isCredit ? "Credit note (voids a bill)" : voided ? "Tax invoice · VOIDED" : "Tax invoice"}
-                      {" · "}{new Date(inv.issuedAt).toLocaleDateString("en-IN")}
+            {(() => {
+              const rowOf = (inv: typeof folio.invoices[number]) => {
+                const isCredit = inv.type === "CREDIT_NOTE";
+                const voided = voidedIds.has(inv.id);
+                return (
+                  <div key={inv.id} className="flex flex-wrap items-center justify-between gap-2 border-b pb-2 last:border-0 last:pb-0">
+                    <span className="flex items-center gap-2">
+                      <span className="font-mono font-medium">{inv.number}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {isCredit ? "Credit note (voids a bill)" : voided ? "Tax invoice · VOIDED" : "Tax invoice"}
+                        {" · "}{new Date(inv.issuedAt).toLocaleDateString("en-IN")}
+                      </span>
                     </span>
-                  </span>
-                  <span className="flex items-center gap-3">
-                    <span className={`tabular ${voided || isCredit ? "text-muted-foreground line-through" : ""}`}>{rupees(inv.totalPaise)}</span>
-                    <a href={`/api/invoices/${inv.id}`} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline underline-offset-2">PDF</a>
-                  </span>
-                </div>
+                    <span className="flex items-center gap-3">
+                      <span className={`tabular ${voided || isCredit ? "text-muted-foreground line-through" : ""}`}>{rupees(inv.totalPaise)}</span>
+                      <a href={`/api/invoices/${inv.id}`} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline underline-offset-2">PDF</a>
+                    </span>
+                  </div>
+                );
+              };
+              // Show only the CURRENT bill(s). Voided invoices + their credit notes are
+              // tucked into a collapsed "Voided (history)" block — they can't be deleted
+              // (GST: issued invoices are permanent + gap-free), but they stay out of the way.
+              const current = folio.invoices.filter((i) => i.type === "TAX_INVOICE" && !voidedIds.has(i.id));
+              const trail = folio.invoices.filter((i) => voidedIds.has(i.id) || i.type === "CREDIT_NOTE");
+              return (
+                <>
+                  {current.length > 0 ? current.map(rowOf) : <p className="text-muted-foreground">No current bill yet — press Generate GST invoice.</p>}
+                  {trail.length > 0 && (
+                    <details className="mt-1 rounded-md border bg-muted/20 p-2">
+                      <summary className="cursor-pointer text-xs text-muted-foreground">Voided bills (history) · {trail.length} — kept for GST records</summary>
+                      <div className="mt-2 space-y-2">{trail.map(rowOf)}</div>
+                    </details>
+                  )}
+                </>
               );
-            })}
+            })()}
             {invoiceStale && activeInvoice && (
               <div className="mt-1 rounded-md border border-warning/50 bg-warning/10 p-2.5 text-sm" data-testid="invoice-stale">
                 <p className="font-medium text-warning">⚠ Bill {activeInvoice.number} is out of date</p>
