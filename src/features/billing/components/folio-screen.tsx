@@ -83,14 +83,19 @@ export function FolioScreen({
       <Card>
         <CardHeader className="pb-3"><CardTitle className="text-base">Charges & payments</CardTitle></CardHeader>
         <CardContent className="space-y-1 text-sm" data-testid="folio-lines">
-          {folio.lines.map((l) => {
-            const canReverse = l.type !== "TAX" && l.type !== "REVERSAL";
-            return (
+          {(() => {
+            // A reversed line + its reversal cancel out — show only the NET current
+            // charges (a 'Fix room rate' leaves the final corrected line here), and
+            // tuck the reversed/adjusted pairs into a collapsed "Corrections" block.
+            const reversedIds = new Set(folio.lines.filter((l) => l.reversalOfId).map((l) => l.reversalOfId!));
+            const activeLines = folio.lines.filter((l) => l.type !== "REVERSAL" && !reversedIds.has(l.id));
+            const corrections = folio.lines.filter((l) => l.type === "REVERSAL" || reversedIds.has(l.id));
+            const lineRow = (l: typeof folio.lines[number], showReverse: boolean) => (
               <div key={l.id} className="flex items-center justify-between gap-2">
                 <span className="text-muted-foreground">{l.type} · {l.description}</span>
                 <span className="flex items-center gap-2">
                   <span className="tabular">{rupees(l.amountPaise + l.cgstPaise + l.sgstPaise + l.igstPaise)}</span>
-                  {canReverse && (
+                  {showReverse && l.type !== "TAX" && l.type !== "REVERSAL" && (
                     <button type="button" onClick={() => setReverseTarget({ id: l.id, description: l.description })}
                       className="text-xs text-muted-foreground underline-offset-2 hover:text-destructive hover:underline" data-testid="reverse-line">
                       reverse
@@ -99,7 +104,18 @@ export function FolioScreen({
                 </span>
               </div>
             );
-          })}
+            return (
+              <>
+                {activeLines.map((l) => lineRow(l, true))}
+                {corrections.length > 0 && (
+                  <details className="rounded-md border bg-muted/20 p-2">
+                    <summary className="cursor-pointer text-xs text-muted-foreground">Corrections (history) · {corrections.length} reversed line(s)</summary>
+                    <div className="mt-2 space-y-1">{corrections.map((l) => lineRow(l, false))}</div>
+                  </details>
+                )}
+              </>
+            );
+          })()}
           {folio.payments.map((p) => (
             <div key={p.id} className="flex items-center justify-between gap-2">
               <span className="text-muted-foreground">

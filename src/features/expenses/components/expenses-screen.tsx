@@ -98,6 +98,8 @@ export function ExpensesScreen({
         <CardHeader className="pb-3"><CardTitle className="text-base">Record an expense</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
+            {/* Date first — enter when the expense happened, then the rest. */}
+            <div className="space-y-1.5 sm:col-span-2"><Label htmlFor="exp-date">Date</Label><Input id="exp-date" type="date" value={spentOn} onChange={(e) => setSpentOn(e.target.value)} data-testid="expense-date" /></div>
             {propertyOptions && (
               <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="exp-prop">Property</Label>
@@ -150,11 +152,9 @@ export function ExpensesScreen({
               </select>
             </div>
 
-            <div className="space-y-1.5"><Label htmlFor="exp-date">Date</Label><Input id="exp-date" type="date" value={spentOn} onChange={(e) => setSpentOn(e.target.value)} data-testid="expense-date" /></div>
-
             <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="exp-desc">Description / details <span className="font-normal text-muted-foreground">(optional)</span></Label>
-              <Input id="exp-desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. Bathroom pipe replacement" data-testid="expense-desc" />
+              <Label htmlFor="exp-desc">Description / details <span className="text-destructive">*</span></Label>
+              <Input id="exp-desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={head === "KITCHEN" ? "What exactly? e.g. tomatoes, onions, potatoes" : "What was this for? e.g. Bathroom pipe replacement"} data-testid="expense-desc" />
             </div>
 
             {isGstBills && (
@@ -166,7 +166,7 @@ export function ExpensesScreen({
           </div>
 
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-          <Button size="lg" disabled={pending || amount <= 0}
+          <Button size="lg" disabled={pending || amount <= 0 || !description.trim()}
             onClick={() => run(() => createExpense({
               propertyId: property,
               head,

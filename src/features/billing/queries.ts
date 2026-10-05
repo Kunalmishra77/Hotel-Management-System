@@ -20,7 +20,7 @@ export type FolioInvoiceView = {
 export type FolioView = {
   id: string;
   balancePaise: number;
-  lines: { id: string; type: string; description: string; amountPaise: number; cgstPaise: number; sgstPaise: number; igstPaise: number }[];
+  lines: { id: string; type: string; description: string; amountPaise: number; cgstPaise: number; sgstPaise: number; igstPaise: number; reversalOfId: string | null }[];
   payments: { id: string; mode: string; amountPaise: number; isRefund: boolean }[];
   // Issued bills on this folio, oldest first — the version history (original →
   // credit note → revised). #22: lets the UI void & revise and show the chain.
@@ -32,7 +32,7 @@ export async function getFolio(user: SessionClaims, folioId: string): Promise<Fo
     where: { id: folioId },
     select: {
       id: true,
-      lines: { select: { id: true, type: true, description: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true }, orderBy: { createdAt: "asc" } },
+      lines: { select: { id: true, type: true, description: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, reversalOfId: true }, orderBy: { createdAt: "asc" } },
       payments: { select: { id: true, mode: true, amountPaise: true, isRefund: true }, orderBy: { receivedAt: "asc" } },
       invoices: { select: { id: true, number: true, type: true, totalPaise: true, cancelsInvoiceId: true, issuedAt: true }, orderBy: { issuedAt: "asc" } },
     },
@@ -55,7 +55,7 @@ export async function getReservationFolio(user: SessionClaims, reservationId: st
     where: { reservationId },
     select: {
       id: true,
-      lines: { select: { id: true, type: true, description: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true }, orderBy: { createdAt: "asc" } },
+      lines: { select: { id: true, type: true, description: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, reversalOfId: true }, orderBy: { createdAt: "asc" } },
       payments: { select: { id: true, mode: true, amountPaise: true, isRefund: true }, orderBy: { receivedAt: "asc" } },
       invoices: { select: { id: true, number: true, type: true, totalPaise: true, cancelsInvoiceId: true, issuedAt: true }, orderBy: { issuedAt: "asc" } },
     },
