@@ -7,6 +7,7 @@ import { requirePermission } from "@/lib/auth/guard";
 import { db } from "@/lib/db";
 import { getGuestProfile } from "@/features/guests/queries";
 import { GuestProfile } from "@/features/guests/components/guest-profile";
+import { MergeDuplicateDialog } from "@/features/guests/components/merge-duplicate-dialog";
 import { getGuestHistory, guestStays } from "@/features/guest-history/queries";
 import { guestTier } from "@/features/guest-history/domain/tier";
 import { GuestHistorySection } from "@/features/guest-history/components/guest-history-section";
@@ -36,6 +37,7 @@ export default async function GuestProfilePage({ params }: { params: Promise<{ i
     select: { id: true },
   });
   const canManage = hasPermission(user, "guest:manage") && activeStay !== null;
+  const canMerge = hasPermission(user, "guest:merge");
 
   const [history, stays] = await Promise.all([getGuestHistory(user, id), guestStays(user, id)]);
   // #24 Conversation — the guest's message history (only for users who can message).
@@ -76,6 +78,7 @@ export default async function GuestProfilePage({ params }: { params: Promise<{ i
             {canManage ? (
               <Button asChild size="sm" data-testid="edit-guest"><Link href={`/guests/${guest.id}/edit`}><UserPen /> Edit</Link></Button>
             ) : null}
+            {canMerge ? <MergeDuplicateDialog survivorId={guest.id} survivorName={guest.fullName} /> : null}
             <Button asChild variant="outline" size="sm"><Link href="/guests">Back</Link></Button>
           </div>
         </div>

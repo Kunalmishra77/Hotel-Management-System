@@ -112,6 +112,12 @@ export const mergeGuestsSchema = z
     path: ["loserId"],
   });
 
+/** Search for a record to merge INTO the current guest (merge-duplicate UI). */
+export const findMergeCandidatesSchema = z.object({
+  query: z.string().trim().max(120).optional().default(""),
+  excludeId: z.string().min(1),
+});
+
 export const guestActionSchema = z.object({
   guestId: z.string().min(1),
   reason: z.string().trim().max(300).optional().nullable(),

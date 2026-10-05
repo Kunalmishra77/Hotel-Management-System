@@ -17,11 +17,42 @@ import { emitEvent } from "@/lib/events";
 import { ConflictError, NotFoundError } from "@/lib/errors";
 import { toResult, type Result } from "@/lib/result";
 import { mergeFields, type MergeableFields } from "./domain/dedupe";
-import { mergeGuestsSchema } from "./schema";
+import { findMergeCandidatesSchema, mergeGuestsSchema } from "./schema";
 import { guestDb, mobileToken, emailToken, withGuestContext } from "./internal";
 import { decryptOptional, encryptOptional } from "@/lib/crypto/encryption";
+import { searchGuests } from "./queries";
 
 export type MergeResult = { survivorId: string; loserId: string; repointed: number };
+
+export type MergeCandidate = {
+  id: string;
+  fullName: string;
+  maskedMobile: string | null;
+  city: string | null;
+  companyName: string | null;
+};
+
+/**
+ * Masked guest search for the "merge a duplicate into this guest" picker. Gated
+ * by `guest:merge` (same permission as the merge itself — only someone who can
+ * merge needs to look for candidates). Reuses the permission-scoped, masked
+ * `searchGuests`, then drops the current guest so you can't pick yourself.
+ * Name-only duplicates (no shared mobile/email) are findable here — the
+ * create-time auto-detector only catches shared contact tokens.
+ */
+export async function findMergeCandidates(input: unknown): Promise<Result<MergeCandidate[]>> {
+  return toResult(async () => {
+    const data = findMergeCandidatesSchema.parse(input);
+    const user = await requireUser();
+    authorize(user, "guest:merge", null);
+    if (data.query.trim() === "") return [];
+
+    const { guests } = await searchGuests(user, { query: data.query, limit: 10, cursor: null });
+    return guests
+      .filter((g) => g.id !== data.excludeId)
+      .map((g) => ({ id: g.id, fullName: g.fullName, maskedMobile: g.maskedMobile, city: g.city, companyName: g.companyName }));
+  });
+}
 
 export async function mergeGuests(input: unknown): Promise<Result<MergeResult>> {
   return toResult(async () => {
