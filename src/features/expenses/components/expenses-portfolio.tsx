@@ -107,10 +107,11 @@ export function ExpensesPortfolio({
           </ul>
         </div>
 
-        {/* Ledger */}
-        <div className="overflow-x-auto">
+        {/* Ledger — capped height with a sticky header so a long month scrolls
+            INSIDE the table instead of stretching the whole page. */}
+        <div className="max-h-[28rem] overflow-auto rounded-md border">
           <table className="w-full min-w-[760px] text-sm">
-            <thead>
+            <thead className="sticky top-0 z-10 bg-background">
               <tr className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <th className="py-2 pr-3 font-medium">Date</th>
                 <th className="py-2 px-3 font-medium">Property</th>
