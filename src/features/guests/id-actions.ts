@@ -25,7 +25,7 @@ import { resolveStorageAdapter, scanObjectKey } from "@/lib/storage";
 import { NotFoundError } from "@/lib/errors";
 import { toResult, type Result } from "@/lib/result";
 import { maskIdValue } from "./domain/masking";
-import { addGuestIdSchema } from "./schema";
+import { addGuestIdSchema, removeGuestIdSchema } from "./schema";
 import { guestDb, withGuestContext } from "./internal";
 
 export type GuestIdAdded = {
@@ -112,6 +112,58 @@ export async function addGuestId(input: unknown): Promise<Result<GuestIdAdded>> 
           maskedValue: row.maskedValue,
           hasScan: row.scanObjectKey !== null || row.backObjectKey !== null,
         };
+      }),
+    );
+  });
+}
+
+/**
+ * Remove a wrongly-added government ID. To CHANGE an ID (wrong type/number/scan)
+ * the front desk removes the wrong one and adds the correct one — a GuestId holds
+ * no financial meaning, so unlike a folio line it can be deleted. Its scan images
+ * are purged from object storage first (best-effort) so no orphan PII remains.
+ * `guest:manage`, audited (type + masked value only, never the full number).
+ */
+export async function removeGuestId(input: unknown): Promise<Result<{ id: string }>> {
+  return toResult(async () => {
+    const data = removeGuestIdSchema.parse(input);
+    const user = await requireUser();
+    authorize(user, "guest:manage");
+
+    const prisma = guestDb();
+    const row = await prisma.guestId.findFirst({
+      where: { id: data.rowId, guest: { orgId: user.orgId, deletedAt: null } },
+      select: { id: true, guestId: true, type: true, maskedValue: true, scanObjectKey: true, backObjectKey: true },
+    });
+    if (!row) throw new NotFoundError("ID not found");
+
+    // Purge scan images before the row is gone — an orphan DB row pointing at a
+    // deleted object is worse than an orphan object, so delete objects best-effort
+    // and never let a storage hiccup block removing the wrong record.
+    const storage = resolveStorageAdapter();
+    for (const key of [row.scanObjectKey, row.backObjectKey]) {
+      if (key) {
+        try { await storage.delete(key); } catch { /* leave the object rather than block the fix */ }
+      }
+    }
+
+    return withGuestContext(user, () =>
+      prisma.$transaction(async (tx) => {
+        await tx.guestId.delete({ where: { id: row.id } });
+        await emitEvent(tx, {
+          type: "GuestIdRemoved",
+          aggregateId: row.guestId,
+          payload: { guestId: row.guestId, idType: row.type },
+        });
+        await writeAudit(tx, {
+          action: "guest:remove-id",
+          entityType: "GuestId",
+          entityId: row.id,
+          reason: data.reason ?? null,
+          before: { guestId: row.guestId, type: row.type, maskedValue: row.maskedValue },
+        });
+        revalidatePath(`/guests/${row.guestId}`);
+        return { id: row.id };
       }),
     );
   });

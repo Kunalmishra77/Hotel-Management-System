@@ -44,6 +44,7 @@ export const DOMAIN_EVENT_TYPES = [
   "GuestCreated",
   "GuestUpdated",
   "GuestIdAdded",
+  "GuestIdRemoved",
   "GuestPiiAccessed",
   "GuestMerged",
   "GuestErased",

@@ -112,6 +112,12 @@ export const mergeGuestsSchema = z
     path: ["loserId"],
   });
 
+/** Remove a wrongly-added government ID from a guest (then the right one is re-added). */
+export const removeGuestIdSchema = z.object({
+  rowId: z.string().min(1),
+  reason: z.string().trim().max(300).optional().nullable(),
+});
+
 /** Search for a record to merge INTO the current guest (merge-duplicate UI). */
 export const findMergeCandidatesSchema = z.object({
   query: z.string().trim().max(120).optional().default(""),

@@ -8,7 +8,7 @@
  * there is no affordance and the server would refuse anyway. Government IDs are
  * shown masked (Aadhaar as last-4, AC-5) and can be added inline.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useActionState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RevealSheet } from "./reveal-sheet";
 import { addGuestIdFormAction, type AddIdFormState } from "../form-actions";
+import { removeGuestId } from "../id-actions";
 import type { GuestProfile as GuestProfileData } from "../queries";
 
 type RevealTarget = { field: "mobile" | "email" | "whatsapp"; label: string };
@@ -106,12 +107,17 @@ export function GuestProfile({
                       </a>
                     )}
                     {id.hasScan && !canRevealPii && <span className="text-xs text-muted-foreground">scan on file</span>}
+                    {canManage && <RemoveIdButton rowId={id.id} label={ID_LABEL[id.type] ?? id.type} />}
                   </span>
                 </li>
               ))}
             </ul>
           )}
-          {/* ID upload only while a stay is active — view-only after checkout. */}
+          {/* ID upload only while a stay is active — view-only after checkout.
+              To FIX a wrong ID: remove it here, then add the correct one below. */}
+          {canManage && guest.ids.length > 0 && (
+            <p className="text-xs text-muted-foreground">Wrong document? Remove it, then add the correct one below.</p>
+          )}
           {canManage && <AddIdForm guestId={guest.id} />}
         </CardContent>
       </Card>
@@ -184,6 +190,33 @@ function ageLabel(dob: string): string {
   const m = now.getMonth() - d.getMonth();
   if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
   return age >= 0 && age < 130 ? `${age} years` : dob;
+}
+
+function RemoveIdButton({ rowId, label }: { rowId: string; label: string }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [err, setErr] = useState<string | null>(null);
+
+  function onRemove() {
+    if (!window.confirm(`Remove this ${label} document? This can't be undone. Add the correct one afterwards.`)) return;
+    setErr(null);
+    start(async () => {
+      const res = await removeGuestId({ rowId });
+      if (res.ok) router.refresh();
+      else setErr(res.error?.message ?? "Could not remove.");
+    });
+  }
+
+  return (
+    <>
+      <button type="button" onClick={onRemove} disabled={pending}
+        className="rounded-md border px-2 py-1 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
+        data-testid={`remove-id-${rowId}`} aria-label={`Remove ${label}`} title="Remove this document">
+        {pending ? "…" : "Remove"}
+      </button>
+      {err && <span className="text-xs text-destructive" role="alert">{err}</span>}
+    </>
+  );
 }
 
 const ADD_INITIAL: AddIdFormState = { status: "idle" };
