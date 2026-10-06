@@ -6,6 +6,7 @@ import { profitReport, revenueSegments, bookingsReport, roomsReport, gstReport, 
 import { perPropertyStats } from "@/features/analytics/queries";
 import { perPropertyBillingRollup } from "@/features/command-center/queries";
 import { listAccessibleProperties } from "@/features/platform/actions";
+import { listCostCenters } from "@/features/properties/queries";
 import { ProfitReportView } from "@/features/reports/components/profit-report-view";
 import { ReportsFilterBar } from "@/features/reports/components/reports-filter-bar";
 import { ExportReportButton } from "@/features/reports/components/export-report-button";
@@ -60,6 +61,11 @@ export default async function ReportsPage({
   const propertyIds = requested.length > 0 ? requested : defaultIds;
   const propsParam = requested.length > 0 ? requested.join(",") : "";
 
+  // Overheads (office/HO/Other) are company-wide — included only in the all-hotels
+  // view, never attributed to a specific hotel's P&L when one is selected.
+  const costCenterIds = (await listCostCenters(user)).map((p) => p.id);
+  const overheadPropertyIds = requested.length === 0 ? costCenterIds : [];
+
   const from = new Date(`${month}-01T00:00:00.000Z`);
   const to = month === currentMonth ? new Date(now.toISOString().slice(0, 10) + "T00:00:00.000Z") : monthEnd(month);
 
@@ -73,7 +79,7 @@ export default async function ReportsPage({
       <ReportTabs active={reportType} month={month} properties={propsParam} />
 
       {reportType === "profit" ? (
-        await ProfitSection({ user, month, propertyIds, from, to, scopeLabel, propertyCount: propertyIds.length })
+        await ProfitSection({ user, month, propertyIds, from, to, scopeLabel, propertyCount: propertyIds.length, overheadPropertyIds })
       ) : reportType === "occupancy" ? (
         await OccupancySection({ user, month, propertyIds, from, to })
       ) : reportType === "bookings" ? (
@@ -93,9 +99,9 @@ export default async function ReportsPage({
 
 type SectionInput = { user: Awaited<ReturnType<typeof requirePermission>>; month: string; propertyIds: string[]; from: Date; to: Date };
 
-async function ProfitSection({ user, month, propertyIds, from, to, scopeLabel, propertyCount }: SectionInput & { scopeLabel: string; propertyCount: number }) {
+async function ProfitSection({ user, month, propertyIds, from, to, scopeLabel, propertyCount, overheadPropertyIds }: SectionInput & { scopeLabel: string; propertyCount: number; overheadPropertyIds: string[] }) {
   const [report, segments] = await Promise.all([
-    profitReport(user, { propertyIds, from, to }),
+    profitReport(user, { propertyIds, from, to, overheadPropertyIds }),
     revenueSegments(user, { propertyIds, from, to }),
   ]);
   return (

@@ -42,19 +42,27 @@ export async function getPortfolio(user: SessionClaims, monthStart: Date, today:
   // Every accessible property (admin org-wide → all; manager/accounts → assigned).
   // Property is not auto-scoped by the client extension, so filter by the caller's
   // accessible ids explicitly — never a bare findMany (would cross the org boundary).
-  const propertyIds = [...user.accessiblePropertyIds];
+  const accessibleIds = [...user.accessiblePropertyIds];
+  if (accessibleIds.length === 0) {
+    return { properties: [], totals: { count: 0, revenuePaise: 0, expensePaise: 0, profitPaise: 0, occupancyBps: 0, adrPaise: 0, revparPaise: 0 } };
+  }
+  const allProps = await db.scoped(user).property.findMany({
+    where: { id: { in: accessibleIds }, deletedAt: null },
+    select: { id: true, name: true, code: true, city: true, isCostCenter: true },
+    orderBy: { code: "asc" },
+  });
+  // Hotels build the per-property cards; cost-centres (office/HO/Other) are not
+  // hotels — their expenses feed the portfolio profit as overheads, never a card.
+  const props = allProps.filter((p) => !p.isCostCenter);
+  const propertyIds = props.map((p) => p.id);
+  const costCenterIds = allProps.filter((p) => p.isCostCenter).map((p) => p.id);
   if (propertyIds.length === 0) {
     return { properties: [], totals: { count: 0, revenuePaise: 0, expensePaise: 0, profitPaise: 0, occupancyBps: 0, adrPaise: 0, revparPaise: 0 } };
   }
-  const props = await db.scoped(user).property.findMany({
-    where: { id: { in: propertyIds }, deletedAt: null },
-    select: { id: true, name: true, code: true, city: true },
-    orderBy: { code: "asc" },
-  });
 
   const [stats, profit, managerRows] = await Promise.all([
     perPropertyStats(user, { propertyIds, from: monthStart, to: today }), // gates report:view-financial
-    profitReport(user, { propertyIds, from: monthStart, to: today }),
+    profitReport(user, { propertyIds, from: monthStart, to: today, overheadPropertyIds: costCenterIds }),
     // Managers per property — MANAGER assignments whose scope includes the property.
     db.unscoped().roleAssignment.findMany({
       where: { role: "MANAGER", propertyIds: { hasSome: propertyIds } },

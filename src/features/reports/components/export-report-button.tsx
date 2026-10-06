@@ -43,6 +43,7 @@ export function ExportReportButton({
     rows.push(["Expenses", "Total", rupees(b.expensePaise)]);
     for (const [head, v] of Object.entries(b.expenseByHead)) rows.push(["Expenses", head, rupees(v)]);
     rows.push(["Expenses", "Staff (payroll)", rupees(b.staffCostPaise)]);
+    if (b.overheadsPaise > 0) rows.push(["Expenses", "Overheads (office / HO)", rupees(b.overheadsPaise)]);
     rows.push(["Profit", "Total", rupees(b.profitPaise)]);
     rows.push([]);
     rows.push(["Metrics", "Occupancy %", (report.metrics.occupancyBps / 100).toFixed(1)]);

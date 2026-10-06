@@ -62,6 +62,12 @@ model Property {
   ownerContact String?
   isActive     Boolean      @default(true)
 
+  // A non-hotel cost-centre (A2 office, Woodpecker head-office, "Other") used
+  // ONLY to attribute overhead EXPENSES. It has no rooms/bookings and is hidden
+  // from every hotel-facing surface (choosers, occupancy, per-hotel profit);
+  // its expenses surface as a separate "Overheads" line in Profit (reporting.md).
+  isCostCenter Boolean @default(false)
+
   // 27 owner-portal: the operator's management fee for this property, in basis
   // points of revenue (1500 = 15%). Drives the owner payout (Net = Revenue −
   // Expenses − fee×Revenue). Set by owner:manage.

@@ -33,6 +33,7 @@ export type PropertyListItem = {
   timezone: string;
   gstin: string | null;
   isActive: boolean;
+  isCostCenter: boolean;
 };
 
 export type PropertyOverviewItem = PropertyListItem & {
@@ -48,6 +49,7 @@ const PROPERTY_SELECT = {
   timezone: true,
   gstin: true,
   isActive: true,
+  isCostCenter: true,
 } as const;
 
 /**
@@ -59,7 +61,7 @@ const PROPERTY_SELECT = {
  */
 export async function listProperties(
   user: SessionClaims,
-  options: { includeInactive?: boolean } = {},
+  options: { includeInactive?: boolean; includeCostCenters?: boolean } = {},
 ): Promise<PropertyListItem[]> {
   if (user.accessiblePropertyIds.length === 0) return [];
 
@@ -68,7 +70,21 @@ export async function listProperties(
       id: { in: [...user.accessiblePropertyIds] },
       orgId: user.orgId,
       ...(options.includeInactive ? {} : { isActive: true, deletedAt: null }),
+      // Cost-centres (office/HO/"Other") are hidden from hotel-facing surfaces by
+      // default; only the expense flows opt them in. Keeps every chooser,
+      // occupancy rollup and per-hotel report hotels-only without auditing each.
+      ...(options.includeCostCenters ? {} : { isCostCenter: false }),
     },
+    select: PROPERTY_SELECT,
+    orderBy: { code: "asc" },
+  });
+}
+
+/** Cost-centres only (A2 office / Woodpecker HO / Other) — overhead expense targets. */
+export async function listCostCenters(user: SessionClaims): Promise<PropertyListItem[]> {
+  if (user.accessiblePropertyIds.length === 0) return [];
+  return prisma.property.findMany({
+    where: { id: { in: [...user.accessiblePropertyIds] }, orgId: user.orgId, isActive: true, deletedAt: null, isCostCenter: true },
     select: PROPERTY_SELECT,
     orderBy: { code: "asc" },
   });

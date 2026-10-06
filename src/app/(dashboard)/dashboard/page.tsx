@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { PageHeader } from "@/components/ui/page-header";
 import { redirect } from "next/navigation";
 import { portalNavItems, resolvePortal } from "@/features/platform/portals";
+import { listAccessibleProperties } from "@/features/platform/actions";
 import { NavIcon } from "@/features/platform/components/nav-icon";
 import { liveTiles, trend } from "@/features/analytics/queries";
 import { DashboardTiles } from "@/features/analytics/components/dashboard-tiles";
@@ -95,7 +96,7 @@ export default async function DashboardPage() {
     return (
       <ManagerDashboard
         name={claims.name}
-        propertyCount={claims.accessiblePropertyIds.length}
+        propertyCount={portfolio.totals.count}
         portfolio={portfolio}
         revenueTrend={revTrend.map((p) => ({ label: p.businessDate, value: p.value }))}
         approvals={approvals}
@@ -185,7 +186,8 @@ export default async function DashboardPage() {
       : Promise.resolve(null),
   ]);
 
-  const props = claims.accessiblePropertyIds.length;
+  // Hotels in scope (cost-centres like office/HO are not hotels, so excluded).
+  const props = (await listAccessibleProperties()).length;
   const roleText = claims.roleAssignments.map((r) => ROLE_LABELS[r.role]).join(", ");
 
   // Role-appropriate quick actions — show what this ROLE actually does day-to-day,

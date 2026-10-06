@@ -40,4 +40,24 @@ describe("incomeVsExpense (AC-1/8) — staff cost counted once", () => {
   it("reuses 14's profit function", () => {
     expect(Number(profit(68_000_000n, 36_000_000n))).toBe(32_000_000);
   });
+
+  it("overheads (office/HO) add to expense + reduce profit as their own line", () => {
+    const b = incomeVsExpense(
+      { ROOM: 60_000_000, FOOD: 8_000_000 },
+      { HOUSEKEEPING: 5_000_000, UTILITIES: 16_000_000 },
+      15_000_000,
+      2_000_000, // ₹20,000 overheads
+    );
+    expect(b.overheadsPaise).toBe(2_000_000);
+    expect(b.expensePaise).toBe(38_000_000); // 36,00,000 + 2,00,000 overheads
+    expect(b.profitPaise).toBe(30_000_000);  // ₹3,00,000
+    // overheads are NOT folded into any 07 head
+    expect(Object.values(b.expenseByHead).reduce((a, x) => a + x, 0)).toBe(21_000_000);
+  });
+
+  it("defaults overheads to 0 (backward-compatible callers)", () => {
+    const b = incomeVsExpense({ ROOM: 100 }, { HOUSEKEEPING: 50 }, 40);
+    expect(b.overheadsPaise).toBe(0);
+    expect(b.profitPaise).toBe(10); // 100 − (50+40+0)
+  });
 });

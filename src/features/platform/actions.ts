@@ -98,7 +98,10 @@ export async function listAccessibleProperties(): Promise<PropertyOption[]> {
   if (claims.accessiblePropertyIds.length === 0) return [];
 
   return prisma.property.findMany({
-    where: { id: { in: [...claims.accessiblePropertyIds] } },
+    // Cost-centres (office/HO/Other) are overhead-expense targets, never hotels —
+    // keep them out of every property chooser/switcher; expenses opt them in via
+    // listProperties({ includeCostCenters: true }).
+    where: { id: { in: [...claims.accessiblePropertyIds] }, isCostCenter: false },
     select: { id: true, name: true, code: true },
     orderBy: { code: "asc" },
   });

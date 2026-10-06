@@ -22,28 +22,35 @@ export type Breakdown = {
   expensePaise: number;
   expenseByHead: Record<string, number>;
   staffCostPaise: number;
+  /** Non-hotel cost-centre (office/HO/Other) expenses — company overheads, shown
+   *  as their own line, NOT charged to any single hotel's P&L (reporting.md). */
+  overheadsPaise: number;
   profitPaise: number;
 };
 
 /**
  * Assemble the income-vs-expense breakdown. `expenseByHead` is 07 heads only;
  * `staffCost` (the apportioned 21 term) is added to the expense total exactly
- * once and is never folded into `expenseByHead` (FR-3/6).
+ * once and is never folded into `expenseByHead` (FR-3/6). `overheadsPaise` is the
+ * cost-centre total (office/HO/Other) — included in the expense total and in
+ * profit, but kept as its own line so no hotel absorbs it.
  */
 export function incomeVsExpense(
   revenueByCategory: Record<string, number>,
   expenseByHead: Record<string, number>,
   staffCostPaise: number,
+  overheadsPaise = 0,
 ): Breakdown {
   const revenuePaise = Object.values(revenueByCategory).reduce((a, b) => a + b, 0);
   const expense07 = Object.values(expenseByHead).reduce((a, b) => a + b, 0);
-  const expensePaise = expense07 + staffCostPaise;
+  const expensePaise = expense07 + staffCostPaise + overheadsPaise;
   return {
     revenuePaise,
     revenueByCategory,
     expensePaise,
     expenseByHead,
     staffCostPaise,
+    overheadsPaise,
     profitPaise: revenuePaise - expensePaise,
   };
 }

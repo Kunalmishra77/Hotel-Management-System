@@ -58,6 +58,9 @@ export function ProfitReportView({
           <Row key={head} label={`  ${head}`} value={rupees(v)} muted />
         ))}
         <Row label="  Staff (payroll)" value={rupees(b.staffCostPaise)} muted />
+        {b.overheadsPaise > 0 && (
+          <Row label="  Overheads (office / HO)" value={rupees(b.overheadsPaise)} muted testid="report-overheads" />
+        )}
         <div className="my-1 border-t" />
         <Row label="Profit" value={rupees(b.profitPaise)} strong testid="report-profit" />
       </section>

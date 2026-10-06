@@ -21,7 +21,7 @@ export type ProfitReport = {
 
 export async function profitReport(
   user: SessionClaims,
-  input: { propertyIds: string[]; from: Date; to: Date },
+  input: { propertyIds: string[]; from: Date; to: Date; overheadPropertyIds?: string[] },
 ): Promise<ProfitReport> {
   authorize(user, "report:view-financial", input.propertyIds[0] ?? null); // FR-7/8
   return computeProfitReport(user, input);
@@ -36,7 +36,7 @@ export async function profitReport(
  */
 export async function computeProfitReport(
   user: SessionClaims,
-  input: { propertyIds: string[]; from: Date; to: Date },
+  input: { propertyIds: string[]; from: Date; to: Date; overheadPropertyIds?: string[] },
 ): Promise<ProfitReport> {
   // Revenue by category (06), merged across the scoped properties. Fan the
   // per-property reads out concurrently — a portfolio (command centre/owner) has
@@ -57,7 +57,14 @@ export async function computeProfitReport(
   // multi-month profit view — this-quarter / this-year on the overview — was wrong).
   const staffCost = await getFinalizedStaffCostInRange(input.propertyIds, input.from, input.to);
 
-  const breakdown = incomeVsExpense(revenueByCategory, expenseByHead, staffCost);
+  // Overheads = approved expenses on cost-centre properties (office/HO/Other) in
+  // scope — company-wide, shown as their own line, never charged to a hotel.
+  const overheadIds = input.overheadPropertyIds ?? [];
+  const overheadsPaise = overheadIds.length === 0
+    ? 0
+    : (await expenseRollup(user, { propertyIds: overheadIds, from: input.from, to: input.to, groupBy: "head" })).totalPaise;
+
+  const breakdown = incomeVsExpense(revenueByCategory, expenseByHead, staffCost, overheadsPaise);
 
   // Metrics from immutable snapshots over the range (14 definitions).
   const snaps = await db.scoped(user).dailyStatSnapshot.aggregate({

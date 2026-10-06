@@ -21,10 +21,12 @@ export default async function ExpensesPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const user = await requirePermission("expense:create");
-  // "All hotels" scope (activePropertyId null) still shows the centralized ledger;
-  // the entry form defaults to the first accessible property (multi-property users
-  // pick the property in the form itself).
-  const propertyId = user.activePropertyId ?? user.accessiblePropertyIds[0] ?? null;
+  // The picker offers hotels AND cost-centres (A2 office / Woodpecker HO / Other),
+  // so office/overhead expenses can be recorded; the form defaults to a HOTEL
+  // (never a cost-centre, even though one may sort first by code).
+  const pickerProperties = await listProperties(user, { includeCostCenters: true });
+  const hotels = pickerProperties.filter((p) => !p.isCostCenter);
+  const propertyId = user.activePropertyId ?? hotels[0]?.id ?? pickerProperties[0]?.id ?? null;
   if (!propertyId) {
     return <NoProperty what="This page" canCreate={hasPermission(user, "property:manage")} />;
   }
@@ -49,10 +51,9 @@ export default async function ExpensesPage({
   // read-only portfolio aggregate. Current calendar month.
   const budgetMonth = dayStr.slice(0, 7);
   const budgetPropertyIds = user.activePropertyId ? [user.activePropertyId] : accessible;
-  const [expenses, roll, properties, portfolio, budget] = await Promise.all([
+  const [expenses, roll, portfolio, budget] = await Promise.all([
     listExpenses(user, { propertyId, limit: 50 }),
     expenseRollup(user, { propertyIds: [propertyId], from, to, groupBy: "day" }),
-    listProperties(user),
     expensePortfolio(user, {
       propertyIds: filters.propertyId ? [filters.propertyId] : accessible,
       head: filters.head,
@@ -70,7 +71,7 @@ export default async function ExpensesPage({
     <>
       <ExpensesScreen
         propertyId={propertyId}
-        properties={properties.map((p) => ({ id: p.id, name: p.name }))}
+        properties={pickerProperties.map((p) => ({ id: p.id, name: p.name }))}
         expenses={expenses}
         canApprove={hasPermission(user, "expense:approve")}
         todayTotalPaise={roll.totalPaise}
@@ -85,7 +86,7 @@ export default async function ExpensesPage({
         />
         <ExpensesPortfolio
           data={portfolio}
-          properties={properties.map((p) => ({ id: p.id, name: p.name }))}
+          properties={pickerProperties.map((p) => ({ id: p.id, name: p.name }))}
           filters={filters}
         />
       </div>
