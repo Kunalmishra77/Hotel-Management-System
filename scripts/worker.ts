@@ -22,6 +22,7 @@ import { syncWorker } from "../src/features/accounting/sync";
 import { registerImportJobs, JOBS_IMPORT } from "../src/features/data-onboarding/job";
 import { channelsProcessInbox, pullActiveChannels, deadLetterStalePushes } from "../src/features/channels/jobs";
 import { runPricingEngine } from "../src/features/dynamic-pricing/engine";
+import { runNightAudit } from "../src/features/analytics/night-audit";
 import { releaseExpiredWebOrders } from "../src/features/booking-engine/public";
 import { assembleClaims } from "../src/lib/auth/claims";
 import { runBackup } from "../src/lib/backup";
@@ -39,6 +40,7 @@ export const JOBS = {
   runPricing: "run-pricing",
   releaseWebOrders: "release-web-orders",
   syncAccounting: "sync-accounting",
+  nightAudit: "night-audit",
 } as const;
 
 const prisma = new PrismaClient();
@@ -156,6 +158,30 @@ async function main(): Promise<void> {
     if (r.processed > 0) logger.info("worker.accounting_sync", { ...r });
   });
 
+  // --- 14 night audit: close each property's business day --------------
+  // Posts room-nights (idempotent — most are already posted at check-in),
+  // marks no-shows, snapshots occupancy/ADR/RevPAR, and ROLLS the business
+  // date. Closes YESTERDAY (property-local) each night, so a stale business
+  // date self-heals to today on the first run — it never replays the frozen
+  // backlog (which would double-charge). Idempotent per (property, businessDate).
+  await boss.work(JOBS.nightAudit, async () => {
+    const props = await prisma.property.findMany({
+      where: { isActive: true, deletedAt: null, isCostCenter: false },
+      select: { id: true, code: true, timezone: true },
+    });
+    for (const p of props) {
+      const tz = p.timezone ?? "Asia/Kolkata";
+      const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: tz });
+      const yesterday = new Date(new Date(`${todayStr}T00:00:00.000Z`).getTime() - 86_400_000);
+      try {
+        const res = await runNightAudit(p.id, yesterday);
+        logger.info("worker.night_audit", { property: p.code, businessDate: yesterday.toISOString().slice(0, 10), status: res.status });
+      } catch (e) {
+        logger.error("worker.night_audit_failed", { property: p.code, error: (e as Error).message });
+      }
+    }
+  });
+
   // Schedules. Cron is interpreted in the property-local operating timezone;
   // the backup runs before the 03:00 night-audit window so a restore point
   // exists for the day just closed.
@@ -166,7 +192,8 @@ async function main(): Promise<void> {
   await boss.schedule(JOBS.scheduleComms, "*/5 * * * *", undefined, { tz: "Asia/Kolkata" });
   await boss.schedule(JOBS.pullChannels, "* * * * *", undefined, { tz: "Asia/Kolkata" });
   await boss.schedule(JOBS.channelDeadLetter, "*/5 * * * *", undefined, { tz: "Asia/Kolkata" });
-  await boss.schedule(JOBS.runPricing, "0 3 * * *", undefined, { tz: "Asia/Kolkata" });
+  await boss.schedule(JOBS.nightAudit, "0 3 * * *", undefined, { tz: "Asia/Kolkata" });
+  await boss.schedule(JOBS.runPricing, "30 3 * * *", undefined, { tz: "Asia/Kolkata" });
   await boss.schedule(JOBS.releaseWebOrders, "* * * * *", undefined, { tz: "Asia/Kolkata" });
   await boss.schedule(JOBS.syncAccounting, "* * * * *", undefined, { tz: "Asia/Kolkata" });
 

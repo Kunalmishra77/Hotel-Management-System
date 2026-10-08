@@ -187,15 +187,16 @@ export async function extendStay(input: unknown): Promise<Result<MoveResult>> {
     const nights = computeNights(r.checkInDate, newCheckOut, r.property.timezone);
     const roomId = r.allocations[0]!.roomId;
 
-    // Extra nights already elapsed (property-local) get billed now; the rest post
-    // via the night audit as they pass.
-    const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: r.property.timezone });
-    const todayMs = new Date(`${todayStr}T00:00:00.000Z`).getTime();
+    // Full-stay billing: every ADDED night is billed now for an in-house guest
+    // (their booked stay was posted in full at check-in, so the extension's nights
+    // must be added too). A not-yet-arrived (CONFIRMED) extension posts nothing
+    // now — check-in posts the whole, now-longer stay.
     const dayMs = 86_400_000;
     const extraNights: Date[] = [];
     for (let t = r.checkOutDate.getTime(); t < newCheckOut.getTime(); t += dayMs) {
-      if (t <= todayMs) extraNights.push(new Date(t));
+      extraNights.push(new Date(t));
     }
+    const billExtra = r.status === "IN_HOUSE";
 
     return withReservationContext(user, () =>
       bookingAttempt(() =>
@@ -214,10 +215,13 @@ export async function extendStay(input: unknown): Promise<Result<MoveResult>> {
               data: { checkOutDate: newCheckOut, nights },
             });
 
-            // Bill the elapsed extra nights now (idempotent per folio+date).
-            if (extraNights.length > 0 && r.ratePaise > 0) {
+            // Bill the added nights now for an in-house guest (idempotent per folio+date).
+            if (billExtra && extraNights.length > 0 && r.ratePaise > 0) {
               const folioId = r.folio?.id ?? (await ensureFolio(tx, { reservationId: r.id, propertyId: r.propertyId }));
+              const existing = await tx.folioLine.findMany({ where: { folioId, type: "ROOM" }, select: { businessDate: true } });
+              const posted = new Set(existing.map((l) => l.businessDate.toISOString().slice(0, 10)));
               for (const businessDate of extraNights) {
+                if (posted.has(businessDate.toISOString().slice(0, 10))) continue;
                 await postRoomChargeTx(tx as unknown as BillingPostTx, {
                   folioId,
                   propertyId: r.propertyId,

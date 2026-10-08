@@ -354,6 +354,16 @@ describe("lifecycle: check-in / check-out / cancel / reallocate (T-17/18/19/20)"
     expect(await prisma.domainEvent.findFirst({ where: { type: "GuestCheckedIn", aggregateId: id } })).not.toBeNull();
   });
 
+  it("posts the full booked stay at check-in (charge-full-at-check-in model)", async () => {
+    const id = await makeConfirmed(); // 3-night stay (2027-07-12 → 2027-07-15)
+    const ci = await checkIn({ reservationId: id });
+    expect(ci.ok).toBe(true);
+    const folio = await prisma.folio.findFirstOrThrow({ where: { reservationId: id } });
+    // Every booked night is billed up-front, so the folio shows the whole amount.
+    const roomNights = await prisma.folioLine.count({ where: { folioId: folio.id, type: "ROOM" } });
+    expect(roomNights).toBe(3);
+  });
+
   it("blocks check-out on an unsettled balance without folio:defer (AC-16)", async () => {
     const id = await makeConfirmed(); // advance 5,000 < total 13,410 → balance due
     await checkIn({ reservationId: id });

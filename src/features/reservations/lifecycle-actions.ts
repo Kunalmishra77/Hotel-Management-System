@@ -154,19 +154,22 @@ export async function checkIn(input: unknown): Promise<Result<LifecycleResult>> 
           }
         }
 
-        // T5 (Option A): the agreed booking's NON-room charges (extra bed, other,
-        // discount) become folio lines here, so the checkout gate reads the full
-        // bill — not the room-only folio (which would drop the discount and
-        // over-charge the guest). Room-nights are posted by night audit / checkout.
-        // Idempotent: only if these line types are absent (check-in runs once).
-        if (r.extraBedPaise > 0 || r.otherChargesPaise > 0 || r.discountPaise > 0) {
-          const already = await tx.folioLine.findFirst({
-            where: { folioId, type: { in: ["EXTRA_BED", "MISC", "DISCOUNT"] } },
-            select: { id: true },
-          });
-          if (!already) {
-            const property = await tx.property.findFirst({ where: { id: r.propertyId }, select: { state: true } });
-            if (property) {
+        // Full-stay billing (transparency): at check-in the folio shows the WHOLE
+        // booked amount — the non-room extras AND every booked room-night — rather
+        // than trickling in via the night audit. So reception sees exactly what the
+        // guest owes for the nights booked and collects it, with no "₹0 / why is it
+        // 0" confusion. Both postings are idempotent: the EXTRA_BED/MISC/DISCOUNT
+        // guard and the ROOM (folioId, businessDate) unique index mean a re-run OR
+        // the nightly audit never double-charges. An early check-out later reverses
+        // the unused future nights.
+        const property = await tx.property.findFirst({ where: { id: r.propertyId }, select: { state: true } });
+        if (property) {
+          if (r.extraBedPaise > 0 || r.otherChargesPaise > 0 || r.discountPaise > 0) {
+            const already = await tx.folioLine.findFirst({
+              where: { folioId, type: { in: ["EXTRA_BED", "MISC", "DISCOUNT"] } },
+              select: { id: true },
+            });
+            if (!already) {
               await postBookingExtrasTx(tx as unknown as BillingPostTx, {
                 folioId,
                 propertyId: r.propertyId,
@@ -178,6 +181,23 @@ export async function checkIn(input: unknown): Promise<Result<LifecycleResult>> 
                 postedById: user.userId,
               });
             }
+          }
+
+          const roomLines = await tx.folioLine.findMany({ where: { folioId, type: "ROOM" }, select: { businessDate: true } });
+          const posted = new Set(roomLines.map((l) => dateKey(l.businessDate)));
+          const nightDates = stayNightDates(r.checkInDate, r.checkOutDate);
+          // Day-use (check-in === check-out) is a single billable day.
+          const toCharge = nightDates.length > 0 ? nightDates : [r.checkInDate];
+          for (const businessDate of toCharge) {
+            if (posted.has(dateKey(businessDate))) continue;
+            await postRoomChargeTx(tx as unknown as BillingPostTx, {
+              folioId,
+              propertyId: r.propertyId,
+              propertyState: property.state,
+              ratePaise: r.ratePaise,
+              businessDate,
+              postedById: user.userId,
+            });
           }
         }
 
@@ -288,6 +308,33 @@ export async function checkOut(input: unknown): Promise<Result<LifecycleResult>>
                 ratePaise: r.ratePaise,
                 businessDate,
                 postedById: user.userId,
+              });
+            }
+          }
+
+          // Early departure (full-stay billing): the unused FUTURE nights were
+          // posted at check-in, so reverse every active ROOM line on/after the
+          // effective check-out — the guest pays only for nights actually stayed.
+          if (isEarly) {
+            const reversedOf = new Set(
+              (await tx.folioLine.findMany({ where: { folioId: folio.id, type: "REVERSAL" }, select: { reversalOfId: true } }))
+                .map((l) => l.reversalOfId).filter((id): id is string => id !== null),
+            );
+            const unused = await tx.folioLine.findMany({
+              where: { folioId: folio.id, type: "ROOM", businessDate: { gte: effectiveCheckOut } },
+              select: { id: true, description: true, unitPaise: true, amountPaise: true, taxRateBps: true, cgstPaise: true, sgstPaise: true, igstPaise: true, hsnSac: true, placeOfSupplyState: true },
+            });
+            for (const l of unused) {
+              if (reversedOf.has(l.id)) continue; // already reversed — don't double
+              await tx.folioLine.create({
+                data: {
+                  folioId: folio.id, type: "REVERSAL",
+                  description: `Reversal: ${l.description} (early check-out)`,
+                  quantity: 1, unitPaise: -l.unitPaise, amountPaise: -l.amountPaise,
+                  taxRateBps: l.taxRateBps, cgstPaise: -l.cgstPaise, sgstPaise: -l.sgstPaise, igstPaise: -l.igstPaise,
+                  hsnSac: l.hsnSac, placeOfSupplyState: l.placeOfSupplyState,
+                  businessDate: new Date(), reversalOfId: l.id, postedById: user.userId,
+                },
               });
             }
           }
