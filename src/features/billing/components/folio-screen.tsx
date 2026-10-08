@@ -232,7 +232,7 @@ export function FolioScreen({
       )}
       {mode === "roomrate" && <RoomRateForm pending={pending} onSubmit={(rate) => run(() => correctRoomRate({ folioId: folio.id, newUnitPaise: toPaise(rate), reason: "room rate correction" }))} onCancel={() => setMode("none")} />}
       {mode === "charge" && <ChargeForm pending={pending} onSubmit={(type, desc, unitPaise) => run(() => postFolioCharge({ folioId: folio.id, type, description: desc, unitPaise }))} onCancel={() => setMode("none")} />}
-      {mode === "discount" && <DiscountForm pending={pending} onSubmit={(reason, rupeeAmt) => run(() => applyDiscount({ folioId: folio.id, reason, amountPaise: toPaise(rupeeAmt) }))} onCancel={() => setMode("none")} />}
+      {mode === "discount" && <DiscountForm pending={pending} onSubmit={(reason, rupeeAmt) => run(() => applyDiscount({ folioId: folio.id, reason, amountPaise: toPaise(rupeeAmt), mode: "FINANCIAL" }))} onCancel={() => setMode("none")} />}
       {mode === "addon" && reservationId && <AddOnForm addOns={addOns} pending={pending} onSubmit={(addOnId, qty) => run(() => addAddOnToReservation({ reservationId, addOnId, quantity: qty }))} onCancel={() => setMode("none")} />}
       {mode === "pay" && <PaymentForm balancePaise={folio.balancePaise} pending={pending} onSubmit={(tenders) => run(() => recordPayment({ folioId: folio.id, tenders, expectedTotalPaise: tenders.reduce((s, t) => s + t.amountPaise, 0) }))} onCancel={() => setMode("none")} />}
 
@@ -366,7 +366,7 @@ function DiscountForm({ onSubmit, onCancel, pending }: { onSubmit: (reason: stri
   const [amt, setAmt] = useState(0);
   return (
     <Card><CardContent className="space-y-3 p-4">
-      <p className="text-sm text-muted-foreground">Reduce the bill — a discount posts as a negative line and the balance recalculates. Over the org threshold needs a manager&apos;s permission.</p>
+      <p className="text-sm text-muted-foreground">Reduce the bill by exactly this amount — a ₹10 discount takes ₹10 off the total (no GST adjustment). Over the org threshold needs a manager&apos;s permission.</p>
       <Input placeholder="Reason (e.g. loyalty, corporate rate)" value={reason} onChange={(e) => setReason(e.target.value)} data-testid="discount-reason" />
       <Input type="number" inputMode="decimal" step="0.01" placeholder="Discount ₹" value={amt} onChange={(e) => setAmt(Number(e.target.value))} data-testid="discount-amount" />
       <div className="flex gap-2">
