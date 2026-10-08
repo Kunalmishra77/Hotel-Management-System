@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { NoProperty } from "@/features/platform/components/no-property";
 import { hasPermission } from "@/lib/permissions";
 import { requirePermission } from "@/lib/auth/guard";
-import { listExpenses, expenseRollup, expensePortfolio, budgetVsActual } from "@/features/expenses/queries";
+import { listExpenses, expenseRollup, expensePortfolio, budgetVsActual, expenseSuggestions } from "@/features/expenses/queries";
 import { listProperties } from "@/features/properties/queries";
 import { ExpensesScreen } from "@/features/expenses/components/expenses-screen";
 import { ExpensesPortfolio } from "@/features/expenses/components/expenses-portfolio";
@@ -51,7 +51,7 @@ export default async function ExpensesPage({
   // read-only portfolio aggregate. Current calendar month.
   const budgetMonth = dayStr.slice(0, 7);
   const budgetPropertyIds = user.activePropertyId ? [user.activePropertyId] : accessible;
-  const [expenses, roll, portfolio, budget] = await Promise.all([
+  const [expenses, roll, portfolio, budget, suggestions] = await Promise.all([
     listExpenses(user, { propertyId, limit: 50 }),
     expenseRollup(user, { propertyIds: [propertyId], from, to, groupBy: "day" }),
     expensePortfolio(user, {
@@ -65,6 +65,7 @@ export default async function ExpensesPage({
       limit: 3000,
     }),
     budgetVsActual(user, { propertyIds: budgetPropertyIds, month: budgetMonth }),
+    expenseSuggestions(user),
   ]);
 
   return (
@@ -75,6 +76,7 @@ export default async function ExpensesPage({
         expenses={expenses}
         canApprove={hasPermission(user, "expense:approve")}
         todayTotalPaise={roll.totalPaise}
+        suggestions={suggestions}
       />
       <div className="mx-auto w-full max-w-[1600px] px-4 pb-8">
         <ExpensesBudget

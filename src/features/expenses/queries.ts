@@ -241,6 +241,47 @@ export async function listExpenses(
   }));
 }
 
+/**
+ * Autocomplete suggestions for the expense form — distinct values the operator
+ * has entered before, so repeat entries (a supplier's GSTIN, a vendor, "tomatoes,
+ * onions") are a tap away. Across the caller's accessible properties. GSTIN maps
+ * to its last-seen vendor so picking a GSTIN can auto-fill the vendor name.
+ */
+export type ExpenseSuggestions = {
+  gstins: { gstNumber: string; vendor: string | null }[];
+  vendors: string[];
+  subCategories: string[];
+  descriptions: string[];
+};
+
+export async function expenseSuggestions(user: SessionClaims): Promise<ExpenseSuggestions> {
+  const ids = [...user.accessiblePropertyIds];
+  if (ids.length === 0) return { gstins: [], vendors: [], subCategories: [], descriptions: [] };
+  const rows = await db.scoped(user).expense.findMany({
+    where: { propertyId: { in: ids } },
+    select: { gstNumber: true, vendor: true, subCategory: true, description: true },
+    orderBy: { createdAt: "desc" },
+    take: 1500,
+  });
+  const gst = new Map<string, string | null>();
+  const vendors = new Set<string>();
+  const subs = new Set<string>();
+  const descs = new Set<string>();
+  for (const r of rows) {
+    const g = r.gstNumber?.trim();
+    if (g && !gst.has(g)) gst.set(g, r.vendor?.trim() || null);
+    if (r.vendor?.trim()) vendors.add(r.vendor.trim());
+    if (r.subCategory?.trim()) subs.add(r.subCategory.trim());
+    if (r.description?.trim()) descs.add(r.description.trim());
+  }
+  return {
+    gstins: [...gst].map(([gstNumber, vendor]) => ({ gstNumber, vendor })).slice(0, 100),
+    vendors: [...vendors].slice(0, 100),
+    subCategories: [...subs].slice(0, 200),
+    descriptions: [...descs].slice(0, 200),
+  };
+}
+
 export const EXPENSE_HEADS = ["HOUSEKEEPING", "KITCHEN", "MAINTENANCE", "UTILITIES", "STAFF", "ADMINISTRATION", "MISC"] as const;
 
 export type BudgetVsActualRow = { head: string; budgetPaise: number; actualPaise: number };

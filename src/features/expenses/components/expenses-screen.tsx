@@ -16,7 +16,7 @@ import {
   EXPENSE_HEADS, EXPENSE_HEAD_LABEL, EXPENSE_SUBCATEGORIES,
   FREE_TEXT_SUBCATEGORY, QUANTITY_HEADS, GST_BILLS_HEAD, type ExpenseHeadKey,
 } from "../subcategories";
-import type { ExpenseListItem } from "../queries";
+import type { ExpenseListItem, ExpenseSuggestions } from "../queries";
 
 const PAY_MODES: { value: string; label: string }[] = [
   { value: "CASH", label: "Cash" },
@@ -36,12 +36,14 @@ export function ExpensesScreen({
   expenses,
   canApprove,
   todayTotalPaise,
+  suggestions,
 }: {
   propertyId: string;
   properties?: { id: string; name: string }[];
   expenses: ExpenseListItem[];
   canApprove: boolean;
   todayTotalPaise: number;
+  suggestions?: ExpenseSuggestions;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -65,6 +67,14 @@ export function ExpensesScreen({
   const showQuantity = QUANTITY_HEADS.has(head);
   const isGstBills = head === GST_BILLS_HEAD;
   const effectiveSub = (headIsFreeText || sub === "Other" ? subText : sub).trim();
+
+  // Autocomplete from past entries. Picking a known GSTIN auto-fills its vendor.
+  const sugg = suggestions ?? { gstins: [], vendors: [], subCategories: [], descriptions: [] };
+  function onGstChange(v: string) {
+    setGstNumber(v);
+    const hit = sugg.gstins.find((g) => g.gstNumber.toLowerCase() === v.trim().toLowerCase());
+    if (hit?.vendor) setVendor(hit.vendor);
+  }
 
   function changeHead(h: ExpenseHeadKey) {
     setHead(h);
@@ -125,14 +135,14 @@ export function ExpensesScreen({
                   <option value="Other">Other…</option>
                 </select>
               ) : (
-                <Input id="exp-sub" value={subText} onChange={(e) => setSubText(e.target.value)} placeholder={isGstBills ? "e.g. Building work, Large purchase" : "Type the item/expense"} data-testid="expense-sub" />
+                <Input id="exp-sub" list="dl-sub" value={subText} onChange={(e) => setSubText(e.target.value)} placeholder={isGstBills ? "e.g. Building work, Large purchase" : "Type the item/expense"} data-testid="expense-sub" />
               )}
             </div>
 
             {showSubText && subList.length > 0 && (
               <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="exp-sub-other">Specify</Label>
-                <Input id="exp-sub-other" value={subText} onChange={(e) => setSubText(e.target.value)} placeholder="Type the item/expense" data-testid="expense-sub-other" />
+                <Input id="exp-sub-other" list="dl-sub" value={subText} onChange={(e) => setSubText(e.target.value)} placeholder="Type the item/expense" data-testid="expense-sub-other" />
               </div>
             )}
 
@@ -154,16 +164,23 @@ export function ExpensesScreen({
 
             <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="exp-desc">Description / details <span className="text-destructive">*</span></Label>
-              <Input id="exp-desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={head === "KITCHEN" ? "What exactly? e.g. tomatoes, onions, potatoes" : "What was this for? e.g. Bathroom pipe replacement"} data-testid="expense-desc" />
+              <Input id="exp-desc" list="dl-desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={head === "KITCHEN" ? "What exactly? e.g. tomatoes, onions, potatoes" : "What was this for? e.g. Bathroom pipe replacement"} data-testid="expense-desc" />
             </div>
 
             {isGstBills && (
               <>
-                <div className="space-y-1.5"><Label htmlFor="exp-gstin">GSTIN</Label><Input id="exp-gstin" value={gstNumber} onChange={(e) => setGstNumber(e.target.value)} placeholder="Supplier GST number" data-testid="expense-gstin" /></div>
-                <div className="space-y-1.5"><Label htmlFor="exp-vendor">Vendor / supplier</Label><Input id="exp-vendor" value={vendor} onChange={(e) => setVendor(e.target.value)} placeholder="Business name" data-testid="expense-vendor" /></div>
+                <div className="space-y-1.5"><Label htmlFor="exp-gstin">GSTIN</Label><Input id="exp-gstin" list="dl-gstin" value={gstNumber} onChange={(e) => onGstChange(e.target.value)} placeholder="Supplier GST number" data-testid="expense-gstin" /></div>
+                <div className="space-y-1.5"><Label htmlFor="exp-vendor">Vendor / supplier</Label><Input id="exp-vendor" list="dl-vendor" value={vendor} onChange={(e) => setVendor(e.target.value)} placeholder="Business name" data-testid="expense-vendor" /></div>
               </>
             )}
           </div>
+
+          {/* Autocomplete lists from past entries — type to filter, tap to fill.
+              Picking a GSTIN also fills the vendor (see onGstChange). */}
+          <datalist id="dl-gstin">{sugg.gstins.map((g) => <option key={g.gstNumber} value={g.gstNumber} label={g.vendor ?? undefined} />)}</datalist>
+          <datalist id="dl-vendor">{sugg.vendors.map((v) => <option key={v} value={v} />)}</datalist>
+          <datalist id="dl-sub">{sugg.subCategories.map((s) => <option key={s} value={s} />)}</datalist>
+          <datalist id="dl-desc">{sugg.descriptions.map((d) => <option key={d} value={d} />)}</datalist>
 
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
           <Button size="lg" disabled={pending || amount <= 0 || !description.trim()}
