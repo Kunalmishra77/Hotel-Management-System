@@ -25,7 +25,9 @@ import { runWithSystemContext } from "../src/lib/context";
 import { postRoomChargeTx, type BillingPostTx } from "../src/features/billing";
 
 const APPLY = process.env.CONFIRM === "YES";
-const prisma = new PrismaClient();
+// Use the DIRECT (session-mode) connection, not the transaction pooler — interactive
+// $transaction()s break over pgbouncer transaction mode ("Transaction not found").
+const prisma = new PrismaClient({ datasources: { db: { url: process.env.DIRECT_URL ?? process.env.DATABASE_URL } } });
 const key = (d: Date) => d.toISOString().slice(0, 10);
 const inr = (p: number) => `₹${(p / 100).toLocaleString("en-IN")}`;
 
@@ -76,19 +78,30 @@ async function main() {
       const amt = missing.length * r.ratePaise;
       console.log(`  ${r.code}: ${key(r.checkInDate)}->${key(r.checkOutDate)} booked ${toCharge.length}n, have ${postedDates.size}, MISSING ${missing.length}n @ ${inr(r.ratePaise)} = ${inr(amt)} + GST`);
       if (missing.length === 0 || r.ratePaise <= 0) continue;
-      posted += missing.length; postedPaise += amt;
-      if (!APPLY) continue;
-      await runWithSystemContext(p.orgId, () =>
-        prisma.$transaction(async (tx) => {
-          for (const businessDate of missing) {
-            await postRoomChargeTx(tx as unknown as BillingPostTx, {
-              folioId: r.folio!.id, propertyId: p.id, propertyState: p.state,
-              ratePaise: r.ratePaise, businessDate, postedById: null,
+      if (!APPLY) { posted += missing.length; postedPaise += amt; continue; }
+      // ONE transaction per night (like the night audit) — a long interactive
+      // transaction would time out / drop over the pooler on a 97-night folio.
+      let ok = 0;
+      await runWithSystemContext(p.orgId, async () => {
+        for (const businessDate of missing) {
+          try {
+            await prisma.$transaction(async (tx) => {
+              await postRoomChargeTx(tx as unknown as BillingPostTx, {
+                folioId: r.folio!.id, propertyId: p.id, propertyState: p.state,
+                ratePaise: r.ratePaise, businessDate, postedById: null,
+              });
             });
+            ok += 1;
+          } catch (e) {
+            // A duplicate (idempotent re-run) is fine; anything else is surfaced.
+            const msg = (e as Error).message;
+            if (/Unique constraint|duplicate key/i.test(msg)) continue;
+            console.log(`    ⚠ ${key(businessDate)}: ${msg.split("\n")[0]}`);
           }
-        }),
-      );
-      console.log(`    ✅ posted ${missing.length} night(s)`);
+        }
+      });
+      posted += ok; postedPaise += ok * r.ratePaise;
+      console.log(`    ✅ posted ${ok}/${missing.length} night(s)`);
     }
   }
   console.log(`\n${APPLY ? "APPLIED" : "DRY RUN"} — ${posted} room-night(s) ${APPLY ? "posted" : "to post"}, ${inr(postedPaise)} + GST.`);
