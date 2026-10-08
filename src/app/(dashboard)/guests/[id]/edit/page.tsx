@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { requirePermission } from "@/lib/auth/guard";
 import { db } from "@/lib/db";
-import { getGuestForEdit } from "@/features/guests/queries";
+import { getGuestForEdit, guestSuggestions } from "@/features/guests/queries";
 import { EditGuestForm } from "@/features/guests/components/edit-guest-form";
 import { PageHeader } from "@/components/ui/page-header";
 
@@ -27,10 +27,12 @@ export default async function EditGuestPage({ params }: { params: Promise<{ id: 
   });
   if (!activeStay) notFound();
 
+  const suggestions = await guestSuggestions(user);
+
   return (
     <div className="mx-auto w-full max-w-4xl p-4">
       <PageHeader title={`Edit ${guest.fullName}`} description="Correct any detail while the guest is staying (fix a mistake made at check-in)." />
-      <EditGuestForm guest={guest} />
+      <EditGuestForm guest={guest} suggestions={suggestions} />
     </div>
   );
 }

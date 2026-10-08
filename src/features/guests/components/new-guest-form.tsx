@@ -16,11 +16,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createGuestFormAction, type GuestFormState } from "../form-actions";
+import type { GuestSuggestions } from "../queries";
 
 const INITIAL: GuestFormState = { status: "idle" };
 
-export function NewGuestForm() {
+export function NewGuestForm({ suggestions }: { suggestions?: GuestSuggestions }) {
   const [state, submit, pending] = useActionState(createGuestFormAction, INITIAL);
+  const sugg = suggestions ?? { cities: [], companies: [], gstins: [], states: [], countries: [], occupations: [] };
   const fieldError = (name: string) =>
     state.status === "error" ? state.fieldErrors?.[name]?.[0] : undefined;
   const draft = state.status === "duplicate" ? state.draft : undefined;
@@ -40,10 +42,12 @@ export function NewGuestForm() {
               hint="Indian mobile — used to spot duplicates." />
             <Field name="email" label="Email" type="email" inputMode="email"
               defaultValue={draft?.email} error={fieldError("email")} />
-            <Field name="city" label="City" defaultValue={draft?.city} error={fieldError("city")} />
-            <Field name="companyName" label="Company" defaultValue={draft?.companyName}
+            <Field name="city" label="City" list="dl-city" defaultValue={draft?.city} error={fieldError("city")} />
+            <Field name="companyName" label="Company" list="dl-company" defaultValue={draft?.companyName}
               error={fieldError("companyName")} />
           </div>
+          <datalist id="dl-city">{sugg.cities.map((c) => <option key={c} value={c} />)}</datalist>
+          <datalist id="dl-company">{sugg.companies.map((c) => <option key={c} value={c} />)}</datalist>
         </CardContent>
       </Card>
 

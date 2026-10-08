@@ -413,6 +413,44 @@ export async function getGuestForEdit(user: SessionClaims, guestId: string): Pro
   };
 }
 
+/**
+ * Autocomplete suggestions for guest forms — distinct non-PII values entered
+ * before (city, company, GSTIN, state, country, occupation). Org-scoped. These
+ * fields are stored plaintext (only contact is encrypted), so they're safe to
+ * suggest; names/phone/email are deliberately NOT suggested.
+ */
+export type GuestSuggestions = {
+  cities: string[];
+  companies: string[];
+  gstins: string[];
+  states: string[];
+  countries: string[];
+  occupations: string[];
+};
+
+export async function guestSuggestions(user: SessionClaims): Promise<GuestSuggestions> {
+  const rows = await db.unscoped().guest.findMany({
+    where: { orgId: user.orgId, deletedAt: null },
+    select: { city: true, companyName: true, gstNumber: true, state: true, country: true, occupation: true },
+    orderBy: { createdAt: "desc" },
+    take: 2000,
+  });
+  const cities = new Set<string>(), companies = new Set<string>(), gstins = new Set<string>(),
+    states = new Set<string>(), countries = new Set<string>(), occupations = new Set<string>();
+  for (const r of rows) {
+    if (r.city?.trim()) cities.add(r.city.trim());
+    if (r.companyName?.trim()) companies.add(r.companyName.trim());
+    if (r.gstNumber?.trim()) gstins.add(r.gstNumber.trim());
+    if (r.state?.trim()) states.add(r.state.trim());
+    if (r.country?.trim()) countries.add(r.country.trim());
+    if (r.occupation?.trim()) occupations.add(r.occupation.trim());
+  }
+  return {
+    cities: [...cities].slice(0, 200), companies: [...companies].slice(0, 200), gstins: [...gstins].slice(0, 200),
+    states: [...states].slice(0, 60), countries: [...countries].slice(0, 60), occupations: [...occupations].slice(0, 100),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Duplicate lookup for the new-guest dedupe sheet (T-20 / FR-5, AC-3)
 // ---------------------------------------------------------------------------

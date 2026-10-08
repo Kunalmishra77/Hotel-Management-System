@@ -15,13 +15,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { updateGuestFormAction, type GuestFormState } from "../form-actions";
-import type { GuestEditData } from "../queries";
+import type { GuestEditData, GuestSuggestions } from "../queries";
 
 const INITIAL: GuestFormState = { status: "idle" };
 
-export function EditGuestForm({ guest }: { guest: GuestEditData }) {
+export function EditGuestForm({ guest, suggestions }: { guest: GuestEditData; suggestions?: GuestSuggestions }) {
   const [state, submit, pending] = useActionState(updateGuestFormAction, INITIAL);
   const fieldError = (name: string) => (state.status === "error" ? state.fieldErrors?.[name]?.[0] : undefined);
+  const sugg = suggestions ?? { cities: [], companies: [], gstins: [], states: [], countries: [], occupations: [] };
 
   return (
     <form action={submit} className="space-y-4" data-testid="edit-guest-form">
@@ -37,7 +38,7 @@ export function EditGuestForm({ guest }: { guest: GuestEditData }) {
             <Field name="gender" label="Gender" defaultValue={guest.gender ?? ""} error={fieldError("gender")} />
             <Field name="nationality" label="Nationality" defaultValue={guest.nationality ?? ""} error={fieldError("nationality")} />
           </div>
-          <Field name="occupation" label="Occupation" defaultValue={guest.occupation ?? ""} error={fieldError("occupation")} />
+          <Field name="occupation" label="Occupation" list="dl-occupation" defaultValue={guest.occupation ?? ""} error={fieldError("occupation")} />
         </CardContent>
       </Card>
 
@@ -58,9 +59,9 @@ export function EditGuestForm({ guest }: { guest: GuestEditData }) {
         <CardContent className="space-y-4">
           <Field name="addressLine" label="Address" defaultValue={guest.addressLine ?? ""} error={fieldError("addressLine")} />
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field name="city" label="City" defaultValue={guest.city ?? ""} error={fieldError("city")} />
-            <Field name="state" label="State" defaultValue={guest.state ?? ""} error={fieldError("state")} />
-            <Field name="country" label="Country" defaultValue={guest.country ?? ""} error={fieldError("country")} />
+            <Field name="city" label="City" list="dl-city" defaultValue={guest.city ?? ""} error={fieldError("city")} />
+            <Field name="state" label="State" list="dl-state" defaultValue={guest.state ?? ""} error={fieldError("state")} />
+            <Field name="country" label="Country" list="dl-country" defaultValue={guest.country ?? ""} error={fieldError("country")} />
             <Field name="pincode" label="PIN code" inputMode="numeric" defaultValue={guest.pincode ?? ""} error={fieldError("pincode")} />
           </div>
         </CardContent>
@@ -70,8 +71,8 @@ export function EditGuestForm({ guest }: { guest: GuestEditData }) {
         <CardHeader className="pb-3"><CardTitle className="text-base">Company &amp; stay</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field name="companyName" label="Company" defaultValue={guest.companyName ?? ""} error={fieldError("companyName")} />
-            <Field name="gstNumber" label="GSTIN" defaultValue={guest.gstNumber ?? ""} error={fieldError("gstNumber")} />
+            <Field name="companyName" label="Company" list="dl-company" defaultValue={guest.companyName ?? ""} error={fieldError("companyName")} />
+            <Field name="gstNumber" label="GSTIN" list="dl-gstin" defaultValue={guest.gstNumber ?? ""} error={fieldError("gstNumber")} />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field name="purposeOfVisit" label="Purpose of visit" defaultValue={guest.purposeOfVisit ?? ""} error={fieldError("purposeOfVisit")} />
@@ -81,6 +82,14 @@ export function EditGuestForm({ guest }: { guest: GuestEditData }) {
           <TextArea name="medicalNotes" label="Medical notes" defaultValue={guest.medicalNotes ?? ""} error={fieldError("medicalNotes")} />
         </CardContent>
       </Card>
+
+      {/* Autocomplete from past guests — type to filter, tap to fill. */}
+      <datalist id="dl-city">{sugg.cities.map((c) => <option key={c} value={c} />)}</datalist>
+      <datalist id="dl-state">{sugg.states.map((c) => <option key={c} value={c} />)}</datalist>
+      <datalist id="dl-country">{sugg.countries.map((c) => <option key={c} value={c} />)}</datalist>
+      <datalist id="dl-company">{sugg.companies.map((c) => <option key={c} value={c} />)}</datalist>
+      <datalist id="dl-gstin">{sugg.gstins.map((c) => <option key={c} value={c} />)}</datalist>
+      <datalist id="dl-occupation">{sugg.occupations.map((c) => <option key={c} value={c} />)}</datalist>
 
       {state.status === "error" && <p role="alert" className="text-sm text-destructive">{state.message}</p>}
 
