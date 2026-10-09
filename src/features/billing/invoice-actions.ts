@@ -125,6 +125,7 @@ export async function generateInvoice(input: unknown, opts: { renderPdf?: boolea
         id: true, propertyId: true,
         lines: {
           select: {
+            id: true, reversalOfId: true,
             type: true, description: true, quantity: true, unitPaise: true, hsnSac: true, taxRateBps: true,
             amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, placeOfSupplyState: true,
           },
@@ -139,9 +140,15 @@ export async function generateInvoice(input: unknown, opts: { renderPdf?: boolea
       select: { code: true, gstin: true, state: true, timezone: true },
     });
 
+    // A reversed line + its REVERSAL cancel out (net zero), so the invoice shows
+    // only the ACTIVE lines — a clean bill with no reversal clutter for the guest.
+    // Excluding both of a cancelling pair leaves the totals unchanged.
+    const reversedIds = new Set(folio.lines.filter((l) => l.reversalOfId).map((l) => l.reversalOfId));
+    const activeLines = folio.lines.filter((l) => l.type !== "REVERSAL" && !reversedIds.has(l.id));
+
     // Totals are net-of-discount (discount lines are negative), tax-excluded taxable.
     let taxable = 0n, cgst = 0, sgst = 0, igst = 0;
-    for (const l of folio.lines) {
+    for (const l of activeLines) {
       taxable += BigInt(l.amountPaise);
       cgst += l.cgstPaise; sgst += l.sgstPaise; igst += l.igstPaise;
     }
@@ -186,9 +193,9 @@ export async function generateInvoice(input: unknown, opts: { renderPdf?: boolea
         });
         // Freeze the invoiced lines (06 FR-21). The PDF renders from these, so the
         // document can never be stale or inconsistent with its own totals.
-        if (folio.lines.length > 0) {
+        if (activeLines.length > 0) {
           await tx.invoiceLine.createMany({
-            data: folio.lines.map((l, idx) => ({
+            data: activeLines.map((l, idx) => ({
               invoiceId: invoice.id,
               type: String(l.type),
               description: l.description,

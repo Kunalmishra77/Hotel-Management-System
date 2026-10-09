@@ -39,7 +39,7 @@ export async function attachInvoicePdf(invoiceId: string, folioId: string, meta:
       select: {
         propertyId: true,
         lines: {
-          select: { type: true, description: true, hsnSac: true, quantity: true, unitPaise: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, taxRateBps: true },
+          select: { id: true, reversalOfId: true, type: true, description: true, hsnSac: true, quantity: true, unitPaise: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, taxRateBps: true },
           orderBy: { createdAt: "asc" },
         },
         payments: { where: { isRefund: false }, select: { mode: true } },
@@ -60,7 +60,11 @@ export async function attachInvoicePdf(invoiceId: string, folioId: string, meta:
       orderBy: { sortOrder: "asc" },
       select: { type: true, description: true, hsnSac: true, quantity: true, unitPaise: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, taxRateBps: true },
     });
-    const lineSource = snapLines.length > 0 ? snapLines : folio.lines;
+    // Fallback (pre-snapshot invoices): hide reversed pairs so the live-folio PDF
+    // is also clean (a reversed line + its REVERSAL cancel out).
+    const reversedIds = new Set(folio.lines.filter((l) => l.reversalOfId).map((l) => l.reversalOfId));
+    const activeFolioLines = folio.lines.filter((l) => l.type !== "REVERSAL" && !reversedIds.has(l.id));
+    const lineSource = snapLines.length > 0 ? snapLines : activeFolioLines;
     const property = await db.unscoped().property.findFirst({
       where: { id: folio.propertyId },
       select: { name: true, addressLine1: true, city: true, state: true, pincode: true },
