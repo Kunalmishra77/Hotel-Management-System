@@ -386,7 +386,7 @@ function PaymentForm({ balancePaise, onSubmit, onCancel, pending }: { balancePai
       {tenders.map((t, i) => (
         <div key={i} className="flex gap-2">
           <select value={t.mode} onChange={(e) => setTenders((ts) => ts.map((x, j) => (j === i ? { ...x, mode: e.target.value } : x)))} className="h-10 rounded-md border border-input bg-background px-2 text-sm" data-testid={`tender-mode-${i}`}>
-            {["UPI", "CASH", "CREDIT_CARD", "DEBIT_CARD", "BANK_TRANSFER"].map((m) => <option key={m} value={m}>{m.replace(/_/g, " ")}</option>)}
+            {["UPI", "CASH", "CREDIT_CARD", "DEBIT_CARD", "BANK_TRANSFER", "ONLINE"].map((m) => <option key={m} value={m}>{m === "ONLINE" ? "Online / OTA prepaid (MMT, Booking.com)" : m.replace(/_/g, " ")}</option>)}
           </select>
           <Input type="number" inputMode="decimal" step="0.01" value={t.amountPaise / 100} onChange={(e) => setTenders((ts) => ts.map((x, j) => (j === i ? { ...x, amountPaise: toPaise(Number(e.target.value)) } : x)))} data-testid={`tender-amount-${i}`} />
         </div>
