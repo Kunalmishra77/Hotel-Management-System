@@ -147,12 +147,17 @@ export async function generateInvoice(input: unknown, opts: { renderPdf?: boolea
     const activeLines = folio.lines.filter((l) => l.type !== "REVERSAL" && !reversedIds.has(l.id));
 
     // Totals are net-of-discount (discount lines are negative), tax-excluded taxable.
-    let taxable = 0n, cgst = 0, sgst = 0, igst = 0;
+    // The whole-rupee "Round off" line (added at check-out) is NOT taxable value —
+    // it only adjusts the grand total, so it's excluded from taxable/tax and added
+    // back to the total (standard Indian GST invoice presentation).
+    const isRoundOff = (l: { type: string; description: string }) => l.type === "MISC" && l.description === "Round off";
+    let taxable = 0n, cgst = 0, sgst = 0, igst = 0, roundOff = 0n;
     for (const l of activeLines) {
+      if (isRoundOff(l)) { roundOff += BigInt(l.amountPaise); continue; }
       taxable += BigInt(l.amountPaise);
       cgst += l.cgstPaise; sgst += l.sgstPaise; igst += l.igstPaise;
     }
-    const totalPaise = taxable + BigInt(cgst + sgst + igst);
+    const totalPaise = taxable + BigInt(cgst + sgst + igst) + roundOff;
     // Don't issue an empty ₹0 bill (no billable charges) — it just clutters the
     // register and burns a gap-free invoice number. Add charges first.
     if (totalPaise === 0n) {

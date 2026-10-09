@@ -71,6 +71,7 @@ export { getBalance } from "./queries";
  *  derive the LIVE balance from folio rows it has read INSIDE its own locked
  *  transaction — the gate must be atomic with the status flip (no TOCTOU). */
 export { folioBalance } from "./domain/balance";
+export { roundOffPaise } from "./domain/money";
 
 /**
  * Transaction-composable folio posting (3C, T1). 03's check-in/out compose these

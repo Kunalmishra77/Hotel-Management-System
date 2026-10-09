@@ -11,6 +11,15 @@ export function splitSumsTo(parts: Array<bigint | number>, totalPaise: bigint | 
 }
 
 /**
+ * Whole-rupee round-off (Indian GST invoice convention): the adjustment, in paise,
+ * that brings a total to the nearest whole rupee. e.g. ₹14,899.50 (1489950 paise)
+ * → +50 paise; ₹14,900.40 → −40 paise. Within ±50 paise, zero when already whole.
+ */
+export function roundOffPaise(totalPaise: number): number {
+  return Math.round(totalPaise / 100) * 100 - totalPaise;
+}
+
+/**
  * Indian financial year for a date, in property-local time (FR-12, AC-13).
  * The year runs 1 April → 31 March: Jan–Mar of year N belong to FY `(N-1)-(N)`.
  * Returns "YYYY-YY" (e.g. `2026-27`).

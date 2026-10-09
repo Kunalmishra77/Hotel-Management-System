@@ -21,6 +21,7 @@ import {
   postPaymentTx,
   postRoomChargeTx,
   autoIssueInvoiceOnCheckout,
+  roundOffPaise,
   type BillingPostTx,
 } from "@/features/billing";
 import { canTransition } from "./domain/transitions";
@@ -336,6 +337,24 @@ export async function checkOut(input: unknown): Promise<Result<LifecycleResult>>
                   businessDate: new Date(), reversalOfId: l.id, postedById: user.userId,
                 },
               });
+            }
+          }
+
+          // Whole-rupee round-off (standard GST invoice convention): make the final
+          // bill land on a whole rupee so the balance never shows a confusing paisa
+          // (e.g. −₹0.50 → −₹1). One MISC "Round off" line, added once at check-out.
+          if (property) {
+            const cur = await tx.folioLine.findMany({ where: { folioId: folio.id }, select: { amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, type: true, description: true } });
+            const hasRoundOff = cur.some((l) => l.type === "MISC" && l.description === "Round off");
+            let chargesTotal = 0n;
+            for (const l of cur) chargesTotal += BigInt(l.amountPaise) + BigInt(l.cgstPaise) + BigInt(l.sgstPaise) + BigInt(l.igstPaise);
+            const adj = roundOffPaise(Number(chargesTotal));
+            if (adj !== 0 && !hasRoundOff) {
+              await tx.folioLine.create({ data: {
+                folioId: folio.id, type: "MISC", description: "Round off", quantity: 1,
+                unitPaise: adj, amountPaise: BigInt(adj), taxRateBps: 0, cgstPaise: 0, sgstPaise: 0, igstPaise: 0,
+                hsnSac: null, placeOfSupplyState: property.state, businessDate: new Date(), postedById: user.userId,
+              } });
             }
           }
 

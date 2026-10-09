@@ -5,7 +5,7 @@
 import { describe, expect, it } from "vitest";
 import { computeGst, placeOfSupply, roundPaiseHalfUp } from "@/features/billing/domain/gst";
 import { folioBalance, netPaid, refundWithinNetPaid } from "@/features/billing/domain/balance";
-import { discountLine, financialYearOf, splitSumsTo } from "@/features/billing/domain/money";
+import { discountLine, financialYearOf, splitSumsTo, roundOffPaise } from "@/features/billing/domain/money";
 import { amountInWords } from "@/features/billing/domain/words";
 import { formatInvoiceNumber } from "@/features/billing/domain/invoice-number";
 import { computeCouponDiscount } from "@/features/billing/domain/coupon-discount";
@@ -88,6 +88,22 @@ describe("splitSumsTo (T-6, FR-23, AC-8/9)", () => {
   });
   it("rejects a mismatched split (AC-9)", () => {
     expect(splitSumsTo([500_000, 800_000], 1_341_000)).toBe(false);
+  });
+});
+
+describe("roundOffPaise (whole-rupee round-off)", () => {
+  it("rounds ₹14,899.50 up by 50 paise", () => {
+    expect(roundOffPaise(1_489_950)).toBe(50);
+    expect(1_489_950 + roundOffPaise(1_489_950)).toBe(1_490_000);
+  });
+  it("rounds ₹14,900.40 down by 40 paise", () => {
+    expect(roundOffPaise(1_490_040)).toBe(-40);
+  });
+  it("is zero when already a whole rupee", () => {
+    expect(roundOffPaise(1_490_000)).toBe(0);
+  });
+  it("rounds a bare 1-paisa overpay leftover to zero", () => {
+    expect(roundOffPaise(708_01)).toBe(-1); // ₹708.01 → ₹708.00
   });
 });
 
