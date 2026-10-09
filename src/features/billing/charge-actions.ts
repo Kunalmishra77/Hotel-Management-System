@@ -149,7 +149,7 @@ export async function correctRoomRate(input: unknown): Promise<Result<{ reversed
 
     const lines = await client.folioLine.findMany({
       where: { folioId: data.folioId },
-      select: { id: true, type: true, description: true, quantity: true, unitPaise: true, amountPaise: true, taxRateBps: true, cgstPaise: true, sgstPaise: true, igstPaise: true, hsnSac: true, placeOfSupplyState: true, reversalOfId: true },
+      select: { id: true, type: true, description: true, quantity: true, unitPaise: true, amountPaise: true, taxRateBps: true, cgstPaise: true, sgstPaise: true, igstPaise: true, hsnSac: true, placeOfSupplyState: true, reversalOfId: true, businessDate: true },
     });
     // A ROOM line is "active" if nothing has already reversed it.
     const reversedIds = new Set(lines.filter((l) => l.reversalOfId).map((l) => l.reversalOfId));
@@ -160,7 +160,17 @@ export async function correctRoomRate(input: unknown): Promise<Result<{ reversed
     const nights = activeRoom.reduce((n, l) => n + l.quantity, 0);
     const baseDesc = (activeRoom[0]?.description ?? "Room").split(" · ")[0] || "Room";
 
-    const businessDate = ctx.currentBusinessDate ?? new Date();
+    // The corrected line is type ROOM, so it must land on a (folio, businessDate)
+    // that has NO existing ROOM line — the room-night unique index counts reversed
+    // lines too. Scan forward from the current business date for a free date;
+    // otherwise an in-house correction (today already has a room-night) fails with
+    // a unique violation ("something went wrong").
+    const usedRoomDates = new Set(lines.filter((l) => l.type === "ROOM").map((l) => l.businessDate.toISOString().slice(0, 10)));
+    const base0 = ctx.currentBusinessDate ?? new Date();
+    let businessDate = new Date(Date.UTC(base0.getUTCFullYear(), base0.getUTCMonth(), base0.getUTCDate()));
+    while (usedRoomDates.has(businessDate.toISOString().slice(0, 10))) {
+      businessDate = new Date(businessDate.getTime() + 86_400_000);
+    }
     const amountPaise = data.newUnitPaise * nights;
     const pos = placeOfSupply("ROOM", ctx.propertyState, ctx.billToState);
     const rateBps = gstBpsForCharge("ROOM", data.newUnitPaise);
