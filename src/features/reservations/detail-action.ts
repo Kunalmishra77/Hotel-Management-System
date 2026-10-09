@@ -55,7 +55,7 @@ export async function getReservationDetail(id: string): Promise<ReservationDetai
       allocations: { select: { room: { select: { number: true } } } },
       folio: {
         select: {
-          lines: { select: { type: true, description: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true } },
+          lines: { select: { id: true, reversalOfId: true, type: true, description: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true } },
           payments: { select: { mode: true, amountPaise: true, isRefund: true } },
         },
       },
@@ -83,12 +83,20 @@ export async function getReservationDetail(id: string): Promise<ReservationDetai
     onlineCheckInAt: r.onlineCheckInAt,
     expectedArrival: r.expectedArrival,
     balancePaise,
-    lines: (r.folio?.lines ?? []).map((l) => ({
-      type: l.type,
-      description: l.description,
-      amountPaise: Number(l.amountPaise),
-      taxPaise: l.cgstPaise + l.sgstPaise + l.igstPaise,
-    })),
+    // Hide reversed pairs (a reversed line + its REVERSAL cancel out) so the
+    // quick-view charges show only the net active lines — no reversal clutter.
+    lines: (() => {
+      const all = r.folio?.lines ?? [];
+      const reversedIds = new Set(all.filter((l) => l.reversalOfId).map((l) => l.reversalOfId));
+      return all
+        .filter((l) => l.type !== "REVERSAL" && !reversedIds.has(l.id))
+        .map((l) => ({
+          type: l.type,
+          description: l.description,
+          amountPaise: Number(l.amountPaise),
+          taxPaise: l.cgstPaise + l.sgstPaise + l.igstPaise,
+        }));
+    })(),
     payments: (r.folio?.payments ?? []).map((p) => ({ mode: p.mode, amountPaise: Number(p.amountPaise), isRefund: p.isRefund })),
   };
 }

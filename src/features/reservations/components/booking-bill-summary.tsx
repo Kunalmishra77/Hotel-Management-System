@@ -26,6 +26,11 @@ export function BookingBillSummary({
   const total = taxable + tax;
   const paid = folio.payments.reduce((s, p) => s + (p.isRefund ? -p.amountPaise : p.amountPaise), 0);
 
+  // A reversed line + its REVERSAL cancel out — show only the NET active charges
+  // (totals above already net them out). The guest's bill never shows reversals.
+  const reversedIds = new Set(folio.lines.filter((l) => l.reversalOfId).map((l) => l.reversalOfId));
+  const activeLines = folio.lines.filter((l) => l.type !== "REVERSAL" && !reversedIds.has(l.id));
+
   return (
     <Card className="mt-4">
       <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
@@ -40,11 +45,11 @@ export function BookingBillSummary({
         {/* Charges & discounts */}
         <div>
           <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Charges</p>
-          {folio.lines.length === 0 ? (
+          {activeLines.length === 0 ? (
             <p className="text-muted-foreground">No charges posted yet.</p>
           ) : (
             <ul className="space-y-1">
-              {folio.lines.map((l) => {
+              {activeLines.map((l) => {
                 const lineTotal = l.amountPaise + l.cgstPaise + l.sgstPaise + l.igstPaise;
                 return (
                   <li key={l.id} className="flex justify-between gap-3">
