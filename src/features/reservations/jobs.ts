@@ -105,8 +105,12 @@ export async function markNoShows(
   await runWithSystemContext(property.orgId, () =>
     prisma.$transaction(async (tx) => {
       for (const r of candidates) {
-        // A no-show is a booking whose check-in day has passed with no check-in.
-        if (utcEpochDay(r.checkInDate) > businessDay) continue;
+        // Grace of one day: only no-show a booking whose check-in day is STRICTLY
+        // before the day being closed — never on the arrival day itself. A guest
+        // who arrives late at night (or after midnight), or whom a busy front desk
+        // hasn't checked in yet, is not wrongly no-showed; they can still be checked
+        // in the next day. Staff mark a genuine no-show manually before then.
+        if (utcEpochDay(r.checkInDate) >= businessDay) continue;
 
         const current = await tx.reservation.findUnique({
           where: { id: r.id },

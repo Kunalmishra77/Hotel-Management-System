@@ -19,7 +19,9 @@ const ALLOWED: Record<ReservationStatus, readonly ReservationStatus[]> = {
   IN_HOUSE: ["CHECKED_OUT"],
   CHECKED_OUT: [],
   CANCELLED: [],
-  NO_SHOW: [],
+  // A no-show can be UNDONE back to CONFIRMED (the guest actually arrived, or the
+  // front desk was too busy to check them in) so it can then be checked in.
+  NO_SHOW: ["CONFIRMED"],
 };
 
 export function canTransition(from: ReservationStatus, to: ReservationStatus): boolean {

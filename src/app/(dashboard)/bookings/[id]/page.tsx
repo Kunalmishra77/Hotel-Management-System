@@ -20,6 +20,7 @@ import { TransferPropertyCard } from "@/features/reservations/components/transfe
 import { listProperties } from "@/features/properties/queries";
 import { CancelBookingButton } from "@/features/reservations/components/cancel-booking-button";
 import { CheckOutButton } from "@/features/reservations/components/check-out-button";
+import { ReactivateNoShowButton } from "@/features/reservations/components/reactivate-no-show-button";
 import { getBalance } from "@/features/billing";
 import { getReservationFolio } from "@/features/billing/queries";
 import { BookingBillSummary } from "@/features/reservations/components/booking-bill-summary";
@@ -112,6 +113,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
         actions={
           <>
             {canConfirm ? <ConfirmBookingButton reservationId={r.id} /> : null}
+            {r.status === "NO_SHOW" && canManageGuests ? <ReactivateNoShowButton reservationId={r.id} /> : null}
             {canCheckIn ? (
               <Button asChild size="sm">
                 <Link href={`/bookings/${r.id}/check-in`} data-testid="start-checkin">

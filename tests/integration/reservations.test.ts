@@ -586,11 +586,18 @@ describe("no-show sweep (T-21, FR-18, AC-22)", () => {
     track(res);
     if (!res.ok) throw new Error("create failed");
 
-    const out = await markNoShows(PROP_A_ID, d("2027-11-10"));
+    // Grace of one day: the arrival day itself (2027-11-10) does NOT no-show —
+    // a late/after-midnight arrival or a busy desk is protected.
+    const graceRun = await markNoShows(PROP_A_ID, d("2027-11-10"));
+    expect((await prisma.reservation.findUniqueOrThrow({ where: { id: res.data.id } })).status).toBe("CONFIRMED");
+
+    // The DAY AFTER check-in, the un-arrived booking is a genuine no-show.
+    const out = await markNoShows(PROP_A_ID, d("2027-11-11"));
     expect(out.marked).toBeGreaterThanOrEqual(1);
     expect((await prisma.reservation.findUniqueOrThrow({ where: { id: res.data.id } })).status).toBe("NO_SHOW");
     expect(await prisma.roomAllocation.count({ where: { reservationId: res.data.id } })).toBe(0);
     expect((await prisma.room.findUniqueOrThrow({ where: { id: ROOM_101_ID } })).status).toBe("VACANT");
+    void graceRun;
   });
 });
 

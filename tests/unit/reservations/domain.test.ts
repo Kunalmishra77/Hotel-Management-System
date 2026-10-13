@@ -89,6 +89,11 @@ describe("canTransition (T-7, FR-11/AC-18)", () => {
   it("rejects self-loops (a room move is a different action)", () => {
     expect(canTransition("IN_HOUSE", "IN_HOUSE")).toBe(false);
   });
+
+  it("allows undoing a no-show back to CONFIRMED (not straight to in-house)", () => {
+    expect(canTransition("NO_SHOW", "CONFIRMED")).toBe(true);
+    expect(canTransition("NO_SHOW", "IN_HOUSE")).toBe(false);
+  });
 });
 
 describe("overlaps (T-8, FR-2/AC-8)", () => {

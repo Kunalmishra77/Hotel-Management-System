@@ -431,6 +431,34 @@ export async function checkOut(input: unknown): Promise<Result<LifecycleResult>>
   });
 }
 
+/**
+ * Undo a no-show (NO_SHOW → CONFIRMED). The night audit may have marked a guest a
+ * no-show who actually arrived (late / after midnight) or whom a busy front desk
+ * hadn't checked in yet. This reactivates the booking so it can be checked in; the
+ * room was released at no-show, so reception re-assigns a room before check-in.
+ */
+export async function reactivateNoShow(input: unknown): Promise<Result<LifecycleResult>> {
+  return toResult(async () => {
+    const { reservationId } = checkInSchema.parse(input);
+    const user = await requireUser();
+    const client = reservationDb(user);
+    const r = await client.reservation.findFirst({ where: { id: reservationId }, select: { id: true, status: true, propertyId: true, code: true } });
+    if (!r) throw new NotFoundError("Reservation not found.");
+    authorize(user, "reservation:modify", r.propertyId);
+    if (!canTransition(r.status as never, "CONFIRMED")) throw new DomainError(ErrorCode.ILLEGAL_TRANSITION);
+
+    return withReservationContext(user, () =>
+      client.$transaction(async (tx) => {
+        const flipped = await tx.reservation.updateMany({ where: { id: r.id, status: r.status as never }, data: { status: "CONFIRMED" } });
+        if (flipped.count !== 1) throw new DomainError(ErrorCode.CONFLICT, "This booking is no longer a no-show.");
+        await emitEvent(tx, { type: "ReservationModified", aggregateId: r.id, propertyId: r.propertyId, payload: { code: r.code, from: "NO_SHOW", to: "CONFIRMED", reason: "guest arrived — no-show undone" } });
+        await writeAudit(tx, { action: "reservation:reactivate", entityType: "Reservation", entityId: r.id, propertyId: r.propertyId, before: { status: "NO_SHOW" }, after: { status: "CONFIRMED" } });
+        return { id: r.id, status: "CONFIRMED" };
+      }),
+    );
+  });
+}
+
 /** The tx capabilities `freeRooms` needs — structural, like `EventCapableTx`. */
 type RoomStatusTx = EventCapableTx & {
   room: {
