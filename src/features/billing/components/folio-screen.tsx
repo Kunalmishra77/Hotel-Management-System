@@ -10,6 +10,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { postFolioCharge, applyDiscount, reverseFolioLine, correctRoomRate } from "../charge-actions";
 import { recordPayment } from "../payment-actions";
@@ -384,11 +385,17 @@ function PaymentForm({ balancePaise, onSubmit, onCancel, pending }: { balancePai
   return (
     <Card><CardContent className="space-y-3 p-4">
       {tenders.map((t, i) => (
-        <div key={i} className="flex gap-2">
-          <select value={t.mode} onChange={(e) => setTenders((ts) => ts.map((x, j) => (j === i ? { ...x, mode: e.target.value } : x)))} className="h-10 rounded-md border border-input bg-background px-2 text-sm" data-testid={`tender-mode-${i}`}>
-            {["UPI", "CASH", "CREDIT_CARD", "DEBIT_CARD", "BANK_TRANSFER", "ONLINE"].map((m) => <option key={m} value={m}>{m === "ONLINE" ? "Online / OTA prepaid (MMT, Booking.com)" : m.replace(/_/g, " ")}</option>)}
-          </select>
-          <Input type="number" inputMode="decimal" step="0.01" value={t.amountPaise / 100} onChange={(e) => setTenders((ts) => ts.map((x, j) => (j === i ? { ...x, amountPaise: toPaise(Number(e.target.value)) } : x)))} data-testid={`tender-amount-${i}`} />
+        <div key={i} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="space-y-1 sm:w-64">
+            <Label className="text-xs text-muted-foreground">Payment mode</Label>
+            <select value={t.mode} onChange={(e) => setTenders((ts) => ts.map((x, j) => (j === i ? { ...x, mode: e.target.value } : x)))} className="h-10 w-full rounded-md border border-input bg-background px-2 text-sm" data-testid={`tender-mode-${i}`}>
+              {["UPI", "CASH", "CREDIT_CARD", "DEBIT_CARD", "BANK_TRANSFER", "ONLINE"].map((m) => <option key={m} value={m}>{m === "ONLINE" ? "Online / OTA prepaid (MMT, Booking.com)" : m.replace(/_/g, " ")}</option>)}
+            </select>
+          </div>
+          <div className="flex-1 space-y-1">
+            <Label htmlFor={`tender-amount-${i}`} className="text-xs text-muted-foreground">Amount (₹)</Label>
+            <Input id={`tender-amount-${i}`} type="number" inputMode="decimal" step="0.01" min={0} placeholder="e.g. 2500" value={t.amountPaise ? t.amountPaise / 100 : ""} onChange={(e) => setTenders((ts) => ts.map((x, j) => (j === i ? { ...x, amountPaise: toPaise(Number(e.target.value)) } : x)))} data-testid={`tender-amount-${i}`} />
+          </div>
         </div>
       ))}
       <div className="flex items-center justify-between text-sm">

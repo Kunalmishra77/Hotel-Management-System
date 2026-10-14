@@ -340,15 +340,19 @@ export async function checkOut(input: unknown): Promise<Result<LifecycleResult>>
             }
           }
 
-          // Whole-rupee round-off (standard GST invoice convention): make the final
-          // bill land on a whole rupee so the balance never shows a confusing paisa
-          // (e.g. −₹0.50 → −₹1). One MISC "Round off" line, added once at check-out.
+          // Whole-rupee round-off: make the BALANCE DUE land on a whole rupee so the
+          // amount to collect/refund is clean and a confusing paisa (e.g. −₹0.50 →
+          // −₹1) never shows. Rounds the BALANCE, not the bill — so a folio already
+          // settled to ₹0 (e.g. an OTA prepay that matched a paisa-level total) stays
+          // ₹0 and check-out is never blocked by a phantom ₹0.02. One line, once.
           if (property) {
             const cur = await tx.folioLine.findMany({ where: { folioId: folio.id }, select: { amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, type: true, description: true } });
+            const pays = await tx.payment.findMany({ where: { folioId: folio.id }, select: { amountPaise: true, isRefund: true } });
             const hasRoundOff = cur.some((l) => l.type === "MISC" && l.description === "Round off");
-            let chargesTotal = 0n;
-            for (const l of cur) chargesTotal += BigInt(l.amountPaise) + BigInt(l.cgstPaise) + BigInt(l.sgstPaise) + BigInt(l.igstPaise);
-            const adj = roundOffPaise(Number(chargesTotal));
+            let balanceNow = 0n;
+            for (const l of cur) balanceNow += BigInt(l.amountPaise) + BigInt(l.cgstPaise) + BigInt(l.sgstPaise) + BigInt(l.igstPaise);
+            for (const q of pays) balanceNow += q.isRefund ? BigInt(q.amountPaise) : -BigInt(q.amountPaise);
+            const adj = roundOffPaise(Number(balanceNow));
             if (adj !== 0 && !hasRoundOff) {
               await tx.folioLine.create({ data: {
                 folioId: folio.id, type: "MISC", description: "Round off", quantity: 1,
