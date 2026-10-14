@@ -17,6 +17,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDayMonth, formatINR } from "@/lib/utils";
 import { checkIn } from "../lifecycle-actions";
+import { isForeignNationality } from "../domain/nationality";
 import { IdentityStep } from "./check-in-identity-step";
 import { CFormStep } from "./check-in-cform-step";
 import { RegistrationStep } from "./check-in-registration-step";
@@ -62,15 +63,12 @@ export function CheckInWizard({
   // sent to Form C). An explicit Indian nationality never gets Form C; a foreign
   // nationality does; if nationality wasn't captured, fall back to a passport/visa
   // on file so a genuine foreign guest isn't missed.
-  const isForeign = useMemo(() => {
-    // Form C (FRRO) is for FOREIGN nationals ONLY — keyed STRICTLY off an explicit
-    // non-Indian nationality. An Indian WITH a passport (very common) must never be
-    // routed to Form C, so there is NO "has a passport" fallback. An un-captured
-    // nationality defaults to domestic (no Form C) rather than guessing from an ID.
-    const nat = (context.guestNationality ?? "").trim().toLowerCase();
-    if (nat === "" || nat === "indian" || nat === "india") return false;
-    return true;
-  }, [context.guestNationality]);
+  // Form C (FRRO) is for FOREIGN nationals ONLY — keyed STRICTLY off an explicit
+  // non-Indian nationality. An Indian WITH a passport (very common) must never be
+  // routed to Form C, so there is NO "has a passport" fallback. Every Indian
+  // spelling ("India", "Indian", the ISO codes "IND"/"IN", blank) is domestic; see
+  // isForeignNationality — a narrow string match wrongly sent "IND" guests to Form C.
+  const isForeign = useMemo(() => isForeignNationality(context.guestNationality), [context.guestNationality]);
   // Identity gate: ANY one ID is enough for a domestic guest (Aadhaar, Driving
   // Licence, Voter ID, Passport, Other — compliance.md: Aadhaar is NOT mandatory).
   // A foreign guest needs a passport/visa (for Form C).
