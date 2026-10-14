@@ -281,6 +281,21 @@ export const transferPropertySchema = z.object({
 });
 export type TransferPropertyInput = z.infer<typeof transferPropertySchema>;
 
+/**
+ * Relocate a NOT-YET-ARRIVED booking (ENQUIRY/CONFIRMED) to another property (03).
+ * Unlike a mid-stay transfer this is NOT a split — the guest never stayed at the
+ * origin, so the SAME booking simply moves: same dates/guest, a new room at the
+ * destination, optionally a new rate. Used when a guest dislikes the property on
+ * arrival (before check-in) and should be checked in elsewhere instead.
+ */
+export const relocatePropertySchema = z.object({
+  reservationId: z.string().min(1),
+  toPropertyId: z.string().min(1),
+  toRoomId: z.string().min(1),
+  ratePaise: z.number().int().min(0).optional(),
+});
+export type RelocatePropertyInput = z.infer<typeof relocatePropertySchema>;
+
 export const checkInSchema = z.object({ reservationId: z.string().min(1) });
 export const checkOutSchema = z.object({
   reservationId: z.string().min(1),

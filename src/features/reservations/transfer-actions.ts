@@ -32,9 +32,10 @@ import {
   reservationDb,
   withReservationContext,
 } from "./internal";
-import { transferPropertySchema } from "./schema";
+import { transferPropertySchema, relocatePropertySchema } from "./schema";
 
 export type TransferResult = { originId: string; newId: string; newCode: string };
+export type RelocateResult = { id: string; code: string; toPropertyId: string; toRoomId: string };
 
 const dateKey = (d: Date): string => d.toISOString().slice(0, 10);
 /** Business-date list [from, to) — one entry per night. */
@@ -183,6 +184,103 @@ export async function transferToProperty(input: unknown): Promise<Result<Transfe
             });
 
             return { originId: r.id, newId: created.id, newCode: created.code };
+          },
+          { isolationLevel: "Serializable", maxWait: 10_000, timeout: 15_000 },
+        ),
+      ),
+    );
+  });
+}
+
+/**
+ * Relocate a NOT-YET-ARRIVED booking to another property (03).
+ *
+ * The guest booked property A but, on arrival (or beforehand), wants property B —
+ * they never stayed at A, so this is NOT a split: the SAME booking just moves.
+ * The origin room is released, a chosen free room at B is allocated, the folio
+ * (with any advance already taken) follows to B, and dates/guest/source are kept.
+ * Only an ENQUIRY/CONFIRMED booking with NO posted charges may move (posted GST
+ * lines carry the origin's place-of-supply; a stay with charges must transfer
+ * mid-stay instead). Reception then runs the normal check-in flow at B.
+ */
+export async function relocateBeforeCheckIn(input: unknown): Promise<Result<RelocateResult>> {
+  return toResult(async () => {
+    const data = relocatePropertySchema.parse(input);
+    const user = await requireUser();
+    const client = reservationDb(user);
+
+    const r = await client.reservation.findFirst({
+      where: { id: data.reservationId },
+      select: {
+        id: true, code: true, propertyId: true, status: true, ratePaise: true,
+        checkInDate: true, checkOutDate: true,
+        allocations: { select: { id: true, roomId: true } },
+        folio: { select: { id: true, lines: { select: { id: true }, take: 1 } } },
+      },
+    });
+    if (!r) throw new NotFoundError("Reservation not found.");
+    authorize(user, "reservation:modify", r.propertyId); // move out of origin
+    authorize(user, "reservation:create", data.toPropertyId); // place at destination
+
+    if (r.status !== "CONFIRMED" && r.status !== "ENQUIRY") {
+      throw new DomainError(ErrorCode.ILLEGAL_TRANSITION, "Only a not-yet-arrived booking can be relocated.", {
+        publicMessage: "This guest has already checked in — use Transfer to another property instead.",
+      });
+    }
+    if (data.toPropertyId === r.propertyId) {
+      throw new DomainError(ErrorCode.VALIDATION_FAILED, "Same property.", {
+        publicMessage: "That's the same property. To change room within a property, use Move room instead.",
+      });
+    }
+    if (r.folio && r.folio.lines.length > 0) {
+      throw new DomainError(ErrorCode.VALIDATION_FAILED, "Folio already has charges.", {
+        publicMessage: "This booking already has charges posted and can't be relocated. Transfer mid-stay instead.",
+      });
+    }
+
+    const toProp = await client.property.findFirst({ where: { id: data.toPropertyId }, select: { id: true } });
+    if (!toProp) throw new NotFoundError("Destination property not found.");
+    const originRoomId = r.allocations[0]?.roomId ?? null;
+    const newRatePaise = data.ratePaise ?? r.ratePaise;
+
+    return withReservationContext(user, () =>
+      bookingAttempt(() =>
+        client.$transaction(
+          async (tx) => {
+            // Verify the destination room is free for the (unchanged) stay range.
+            const free = await freeRoomIdsFor(tx as unknown as RoomFinder, data.toPropertyId, [data.toRoomId], r.checkInDate, r.checkOutDate);
+            if (!free.has(data.toRoomId)) throw new DomainError(ErrorCode.ROOM_UNAVAILABLE);
+
+            // Re-point the booking; code stays the same unless it collides at B.
+            const moved = await tx.reservation.updateMany({
+              where: { id: r.id, status: r.status },
+              data: { propertyId: data.toPropertyId, ratePaise: newRatePaise },
+            });
+            if (moved.count !== 1) throw new DomainError(ErrorCode.CONFLICT, "This booking is no longer available to relocate.");
+
+            // Release the origin room, re-allocate at the destination.
+            await tx.roomAllocation.deleteMany({ where: { reservationId: r.id } });
+            await tx.roomAllocation.create({
+              data: { propertyId: data.toPropertyId, reservationId: r.id, roomId: data.toRoomId, startDate: r.checkInDate, endDate: r.checkOutDate },
+            });
+            if (originRoomId) {
+              await tx.room.updateMany({ where: { id: originRoomId }, data: { status: "VACANT" } });
+              await emitEvent(tx, { type: "RoomStatusChanged", aggregateId: originRoomId, propertyId: r.propertyId, payload: { to: "VACANT", reason: "relocate-out" } });
+            }
+            await tx.room.updateMany({ where: { id: data.toRoomId }, data: { status: "RESERVED" } });
+            await emitEvent(tx, { type: "RoomStatusChanged", aggregateId: data.toRoomId, propertyId: data.toPropertyId, payload: { to: "RESERVED", reason: "relocate-in", reservationId: r.id } });
+
+            // The folio (and any advance already on it) follows the booking to B.
+            if (r.folio) await tx.folio.updateMany({ where: { id: r.folio.id }, data: { propertyId: data.toPropertyId } });
+
+            await emitEvent(tx, { type: "ReservationModified", aggregateId: r.id, propertyId: data.toPropertyId, payload: { relocatedFromPropertyId: r.propertyId, toRoomId: data.toRoomId } });
+            await writeAudit(tx, {
+              action: "reservation:relocate", entityType: "Reservation", entityId: r.id, propertyId: data.toPropertyId,
+              before: { propertyId: r.propertyId, roomId: originRoomId, ratePaise: r.ratePaise },
+              after: { propertyId: data.toPropertyId, roomId: data.toRoomId, ratePaise: newRatePaise },
+            });
+
+            return { id: r.id, code: r.code, toPropertyId: data.toPropertyId, toRoomId: data.toRoomId };
           },
           { isolationLevel: "Serializable", maxWait: 10_000, timeout: 15_000 },
         ),
