@@ -187,11 +187,16 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
           </Card>
 
           {(r.status === "IN_HOUSE" || r.status === "CONFIRMED") && canManageGuests ? (
-            <ExtendStayCard reservationId={r.id} checkOutDate={r.checkOutDate.toISOString().slice(0, 10)} />
+            <ExtendStayCard reservationId={r.id} checkOutDate={r.checkOutDate.toISOString().slice(0, 10)} currentRatePaise={r.ratePaise} />
           ) : null}
 
           {["ENQUIRY", "CONFIRMED", "IN_HOUSE", "CHECKED_OUT"].includes(r.status) && canManageGuests ? (
-            <EditRoomRateCard reservationId={r.id} currentRatePaise={r.ratePaise} />
+            <EditRoomRateCard
+              reservationId={r.id}
+              currentRatePaise={r.ratePaise}
+              stayFrom={r.checkInDate.toISOString().slice(0, 10)}
+              stayTo={r.checkOutDate.toISOString().slice(0, 10)}
+            />
           ) : null}
 
           {canManageGuests && !r.externalHotelName ? (

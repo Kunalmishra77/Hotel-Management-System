@@ -22,7 +22,14 @@ import { writeAudit } from "@/lib/audit";
 import { emitEvent } from "@/lib/events";
 import { DomainError, ErrorCode, NotFoundError } from "@/lib/errors";
 import { toResult, type Result } from "@/lib/result";
-import { ensureFolio, postRoomChargeTx, type BillingPostTx } from "@/features/billing";
+import {
+  ensureFolio,
+  postRoomChargeTx,
+  activeLines,
+  activeRoomNightKeys,
+  nextRoomRevision,
+  type BillingPostTx,
+} from "@/features/billing";
 import { nights as computeNights } from "./domain/nights";
 import { freeRoomIdsFor, type RoomFinder } from "./availability";
 import {
@@ -103,7 +110,6 @@ export async function transferToProperty(input: unknown): Promise<Result<Transfe
     const nightsA = computeNights(r.checkInDate, transferDate, r.property.timezone);
     const nightsB = computeNights(transferDate, newCheckOut, toProp.timezone);
     const originRoomId = r.allocations[0]!.roomId;
-    const todayKey = new Date().toISOString().slice(0, 10);
 
     return withReservationContext(user, () =>
       bookingAttempt(() =>
@@ -113,15 +119,42 @@ export async function transferToProperty(input: unknown): Promise<Result<Transfe
             const folioAId = r.folio?.id ?? (await ensureFolio(tx as never, { reservationId: r.id, propertyId: r.propertyId }));
             await tx.roomAllocation.updateMany({ where: { id: r.allocations[0]!.id }, data: { endDate: transferDate } });
 
-            const postedA = new Set(
-              (await tx.folioLine.findMany({ where: { folioId: folioAId, type: "ROOM" }, select: { businessDate: true } }))
-                .map((l) => dateKey(l.businessDate)),
-            );
+            const linesA = await tx.folioLine.findMany({
+              where: { folioId: folioAId },
+              select: { id: true, type: true, description: true, unitPaise: true, amountPaise: true, taxRateBps: true, cgstPaise: true, sgstPaise: true, igstPaise: true, hsnSac: true, placeOfSupplyState: true, businessDate: true, revision: true, reversalOfId: true },
+            });
+
+            // The origin's WHOLE booked stay was posted at check-in (full-stay
+            // billing), so every night from the transfer date onward now belongs to
+            // the destination — and was being billed TWICE, once on each folio. A
+            // transfer IS an early departure from the origin, so reverse those
+            // nights exactly as `checkOut` does; otherwise a 5-night journey split
+            // 2 + 3 bills 8 nights. ("Transfer karein to rate minus bhi hona chahiye.")
+            for (const l of activeLines(linesA)) {
+              if (l.type !== "ROOM" || dateKey(l.businessDate) < dateKey(transferDate)) continue;
+              await tx.folioLine.create({
+                data: {
+                  folioId: folioAId, type: "REVERSAL",
+                  description: `Reversal: ${l.description} (transferred to another property)`,
+                  quantity: 1, unitPaise: -l.unitPaise, amountPaise: -l.amountPaise,
+                  taxRateBps: l.taxRateBps, cgstPaise: -l.cgstPaise, sgstPaise: -l.sgstPaise, igstPaise: -l.igstPaise,
+                  hsnSac: l.hsnSac, placeOfSupplyState: l.placeOfSupplyState,
+                  businessDate: new Date(), reversalOfId: l.id, postedById: user.userId,
+                },
+                select: { id: true },
+              });
+            }
+
+            // Then make sure every night actually STAYED at the origin is billed.
+            // Keys on the nights still carrying an ACTIVE charge, so a night
+            // reversed earlier (by a rate correction) is re-billed, not skipped.
+            const postedA = activeRoomNightKeys(linesA);
             for (const bd of nightDates(r.checkInDate, transferDate)) {
               if (!postedA.has(dateKey(bd)) && r.ratePaise > 0) {
                 await postRoomChargeTx(tx as unknown as BillingPostTx, {
                   folioId: folioAId, propertyId: r.propertyId, propertyState: r.property.state,
-                  ratePaise: r.ratePaise, businessDate: bd, postedById: user.userId,
+                  ratePaise: r.ratePaise, businessDate: bd,
+                  revision: nextRoomRevision(linesA, bd), postedById: user.userId,
                 });
               }
             }
@@ -165,9 +198,14 @@ export async function transferToProperty(input: unknown): Promise<Result<Transfe
             await tx.room.updateMany({ where: { id: data.toRoomId }, data: { status: "OCCUPIED" } });
             await emitEvent(tx, { type: "RoomStatusChanged", aggregateId: data.toRoomId, propertyId: data.toPropertyId, payload: { to: "OCCUPIED", reason: "transfer-in", reservationId: created.id } });
 
+            // Full-stay billing, the same policy check-in applies: the continuation
+            // posts EVERY booked night now, so reception sees the whole amount owed
+            // at the destination instead of a part-bill that grows silently. (Only
+            // the elapsed nights used to post, which is why staff hand-posted the
+            // missing nights as ad-hoc "1 day stay more" charges.) Leaving early
+            // reverses the unused nights through the normal check-out path.
             const folioBId = await ensureFolio(tx as never, { reservationId: created.id, propertyId: data.toPropertyId });
-            const postedNightsB = nightDates(transferDate, newCheckOut).filter((bd) => dateKey(bd) <= todayKey);
-            for (const bd of postedNightsB) {
+            for (const bd of nightDates(transferDate, newCheckOut)) {
               if (data.ratePaise > 0) {
                 await postRoomChargeTx(tx as unknown as BillingPostTx, {
                   folioId: folioBId, propertyId: data.toPropertyId, propertyState: toProp.state,

@@ -244,17 +244,36 @@ export const reallocateRoomSchema = z.object({
   toRoomId: z.string().min(1).optional(),
 });
 
-/** Extend an in-house guest's stay to a later check-out date (03 FR-8). */
+/**
+ * Extend an in-house guest's stay to a later check-out date (03 FR-8),
+ * optionally AT A DIFFERENT NIGHTLY RATE.
+ *
+ * The added nights are routinely negotiated at a new tariff (a long-stay
+ * discount, or an OTA stay continuing direct). Previously extend could only bill
+ * the added nights at the booking's existing rate, and the only way to change
+ * the rate re-priced the WHOLE stay — wiping out the originally agreed earlier
+ * nights. So the rate belongs here: it applies to the added nights and to
+ * everything posted from now on, never retroactively.
+ */
 export const extendStaySchema = z.object({
   reservationId: z.string().min(1),
   newCheckOutDate: dateInput,
+  /** Nightly rate for the ADDED nights. Omit to keep the booking's current rate. */
+  ratePaise: z.coerce.number().int().positive().max(100_000_00).optional(),
+  /** Whether `ratePaise` already includes GST (back it out) or GST is added on top. */
+  gstMode: z.enum(["inclusive", "exclusive"]).default("exclusive"),
 });
 export type ExtendStayInput = z.infer<typeof extendStaySchema>;
 
 /**
  * Edit the nightly room rate of a booking after it's created/checked-in. Updates
  * the reservation's rate (so future night-audit/checkout postings use it) and
- * re-posts any already-charged room-nights at the new rate. Amount in paise.
+ * re-posts already-charged room-nights at the new rate. Amount in paise.
+ *
+ * `fromNight`/`toNight` (exclusive) bound WHICH nights are re-priced, so a stay
+ * that legitimately carries two agreed rates — the common "extended at a
+ * different tariff" case — can have one period corrected without touching the
+ * other. Omit both to re-price the whole stay.
  */
 export const setRoomRateSchema = z.object({
   reservationId: z.string().min(1),
@@ -262,6 +281,8 @@ export const setRoomRateSchema = z.object({
   // Whether the entered rate already includes GST (back it out) or GST is added on
   // top. Defaults to exclusive (add-on), matching the live booking path.
   gstMode: z.enum(["inclusive", "exclusive"]).default("exclusive"),
+  fromNight: dateInput.optional(),
+  toNight: dateInput.optional(),
 });
 export type SetRoomRateInput = z.infer<typeof setRoomRateSchema>;
 

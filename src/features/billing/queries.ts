@@ -6,6 +6,7 @@
 import { db } from "@/lib/db";
 import { authorize } from "@/lib/permissions";
 import { folioBalance } from "./domain/balance";
+import { activeLines } from "./domain/reversal";
 import type { SessionClaims } from "@/lib/auth/claims";
 
 export type FolioInvoiceView = {
@@ -229,18 +230,82 @@ export async function listBillingFolios(
   return rows.slice(0, limit);
 }
 
-/** Revenue by charge category — net of discount, TAX-EXCLUDED (FR-24, AC-24). */
+/**
+ * Net taxable revenue EARNED in a business-date window, across properties —
+ * tax-excluded, net of discounts and of reversals (FR-24).
+ *
+ * "Earned in the window" is the point: a reversal is posted on the day the
+ * correction is MADE, so summing signed amounts by business date charges a
+ * correction against whichever day it was keyed to. Reverse last month's night
+ * today and "revenue today" drops by a night that was never today's. Resolving
+ * reversals against the lines they cancel keeps each day reporting what that day
+ * actually earned, the same basis as the DailyStatSnapshot.
+ */
+export async function netRevenueBetween(
+  user: SessionClaims,
+  input: { propertyIds: string[]; from: Date; to: Date },
+): Promise<number> {
+  if (input.propertyIds.length === 0) return 0;
+  const scoped = db.scoped(user);
+  const lineSelect = { id: true, type: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, businessDate: true, revision: true, reversalOfId: true } as const;
+  const windowLines = await scoped.folioLine.findMany({
+    where: { folio: { propertyId: { in: input.propertyIds } }, businessDate: { gte: input.from, lt: input.to } },
+    select: lineSelect,
+  });
+  if (windowLines.length === 0) return 0;
+  const reversals = await scoped.folioLine.findMany({
+    where: { folio: { propertyId: { in: input.propertyIds } }, reversalOfId: { in: windowLines.map((l) => l.id) } },
+    select: lineSelect,
+  });
+  const inWindow = new Set(windowLines.map((l) => l.id));
+  let sum = 0;
+  for (const l of activeLines([...windowLines, ...reversals])) {
+    if (!inWindow.has(l.id) || l.type === "TAX") continue;
+    sum += Number(l.amountPaise);
+  }
+  return sum;
+}
+
+/**
+ * Revenue by charge category — net of discount AND of reversals, TAX-EXCLUDED
+ * (FR-24, AC-24).
+ *
+ * A `groupBy type` over the window reported each category GROSS and dumped the
+ * corrections into a separate negative REVERSAL bucket, so "room revenue" was
+ * overstated by every reversed night. Worse, a reversal posts on the day the
+ * correction is made: when that fell outside the window (a September stay
+ * corrected in October) the month under review kept the full original revenue
+ * and the next month carried an unexplained negative. Resolving reversals
+ * against the lines they cancel puts each correction in the right category and,
+ * through the window test below, the right period.
+ */
 export async function revenueByCategory(
   user: SessionClaims,
   input: { propertyId: string; from: Date; to: Date },
 ): Promise<Record<string, number>> {
-  const grouped = await db.scoped(user).folioLine.groupBy({
-    by: ["type"],
+  const scoped = db.scoped(user);
+  const lineSelect = { id: true, type: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, businessDate: true, revision: true, reversalOfId: true } as const;
+  const windowLines = await scoped.folioLine.findMany({
     where: { folio: { propertyId: input.propertyId }, businessDate: { gte: input.from, lte: input.to } },
-    _sum: { amountPaise: true },
+    select: lineSelect,
   });
+  if (windowLines.length === 0) return {};
+
+  // Pull the reversals of this window's lines by TARGET — they may well sit on a
+  // later date, outside the window.
+  const reversals = await scoped.folioLine.findMany({
+    where: { folio: { propertyId: input.propertyId }, reversalOfId: { in: windowLines.map((l) => l.id) } },
+    select: lineSelect,
+  });
+
+  const inWindow = new Set(windowLines.map((l) => l.id));
   const out: Record<string, number> = {};
-  for (const g of grouped) out[g.type] = Number(g._sum.amountPaise ?? 0n);
+  for (const l of activeLines([...windowLines, ...reversals])) {
+    // Keep only the window's own survivors; the reversals were loaded purely to
+    // decide which of those lines still count.
+    if (!inWindow.has(l.id)) continue;
+    out[l.type] = (out[l.type] ?? 0) + Number(l.amountPaise);
+  }
   return out;
 }
 

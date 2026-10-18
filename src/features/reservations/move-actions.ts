@@ -20,9 +20,17 @@ import { emitEvent } from "@/lib/events";
 import { DomainError, ErrorCode, NotFoundError } from "@/lib/errors";
 import { toResult, type Result } from "@/lib/result";
 import { revalidatePath } from "next/cache";
-import { ensureFolio, postRoomChargeTx, correctRoomRate, type BillingPostTx } from "@/features/billing";
-import { roomGstBps } from "@/lib/constants/gst";
+import {
+  ensureFolio,
+  postRoomChargeTx,
+  correctRoomRate,
+  activeRoomNightKeys,
+  nextRoomRevision,
+  folioDateKey,
+  type BillingPostTx,
+} from "@/features/billing";
 import { nights as computeNights } from "./domain/nights";
+import { preTaxRatePaise } from "./domain/pricing";
 import { freeRoomIdsFor, findFreeRooms, type RoomFinder } from "./availability";
 import {
   assertBookingDatesValid,
@@ -187,10 +195,20 @@ export async function extendStay(input: unknown): Promise<Result<MoveResult>> {
     const nights = computeNights(r.checkInDate, newCheckOut, r.property.timezone);
     const roomId = r.allocations[0]!.roomId;
 
+    // An extension is routinely agreed at a DIFFERENT nightly rate. That rate
+    // applies to the added nights and to everything posted from here on — never
+    // retroactively, so the nights already agreed keep their price. (Re-pricing
+    // the whole stay is exactly how a 6→14 Oct stay at ₹2,268 lost its agreed
+    // rate when it was extended at ₹2,250.) The stored rate is PRE-TAX
+    // (glossary), so back GST out of a GST-inclusive figure.
+    const extensionRatePaise = data.ratePaise === undefined
+      ? r.ratePaise
+      : preTaxRatePaise(data.ratePaise, data.gstMode);
+
     // Full-stay billing: every ADDED night is billed now for an in-house guest
     // (their booked stay was posted in full at check-in, so the extension's nights
     // must be added too). A not-yet-arrived (CONFIRMED) extension posts nothing
-    // now — check-in posts the whole, now-longer stay.
+    // now — check-in posts the whole, now-longer stay at the updated rate.
     const dayMs = 86_400_000;
     const extraNights: Date[] = [];
     for (let t = r.checkOutDate.getTime(); t < newCheckOut.getTime(); t += dayMs) {
@@ -212,32 +230,43 @@ export async function extendStay(input: unknown): Promise<Result<MoveResult>> {
             });
             await tx.reservation.updateMany({
               where: { id: r.id },
-              data: { checkOutDate: newCheckOut, nights },
+              // The extension's rate becomes the booking's going-forward rate, so
+              // the night audit and check-out post the remaining nights at it too.
+              // Already-posted nights are deliberately left alone.
+              data: { checkOutDate: newCheckOut, nights, ratePaise: extensionRatePaise },
             });
 
-            // Bill the added nights now for an in-house guest (idempotent per folio+date).
-            if (billExtra && extraNights.length > 0 && r.ratePaise > 0) {
+            // Bill the added nights now for an in-house guest. Idempotency keys on
+            // the nights that still carry an ACTIVE room charge — a date-only check
+            // counts a REVERSED night as billed and skips it, which is how a night
+            // that had been reversed by a rate correction went unbilled entirely.
+            if (billExtra && extraNights.length > 0 && extensionRatePaise > 0) {
               const folioId = r.folio?.id ?? (await ensureFolio(tx, { reservationId: r.id, propertyId: r.propertyId }));
-              const existing = await tx.folioLine.findMany({ where: { folioId, type: "ROOM" }, select: { businessDate: true } });
-              const posted = new Set(existing.map((l) => l.businessDate.toISOString().slice(0, 10)));
+              const existing = await tx.folioLine.findMany({
+                where: { folioId },
+                select: { id: true, type: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, businessDate: true, revision: true, reversalOfId: true },
+              });
+              const posted = activeRoomNightKeys(existing);
               for (const businessDate of extraNights) {
-                if (posted.has(businessDate.toISOString().slice(0, 10))) continue;
+                if (posted.has(folioDateKey(businessDate))) continue;
                 await postRoomChargeTx(tx as unknown as BillingPostTx, {
                   folioId,
                   propertyId: r.propertyId,
                   propertyState: r.property.state,
-                  ratePaise: r.ratePaise,
+                  ratePaise: extensionRatePaise,
                   businessDate,
+                  revision: nextRoomRevision(existing, businessDate),
                   postedById: user.userId,
                   description: `Room ${r.allocations[0]!.room?.number ?? ""} · night (extended)`.trim(),
                 });
               }
             }
 
-            await emitEvent(tx, { type: "ReservationModified", aggregateId: r.id, propertyId: r.propertyId, payload: { checkOutDate: newCheckOut, extended: true } });
+            await emitEvent(tx, { type: "ReservationModified", aggregateId: r.id, propertyId: r.propertyId, payload: { checkOutDate: newCheckOut, extended: true, ratePaise: extensionRatePaise } });
             await writeAudit(tx, {
               action: "reservation:extend", entityType: "Reservation", entityId: r.id, propertyId: r.propertyId,
-              before: { checkOutDate: r.checkOutDate }, after: { checkOutDate: newCheckOut, nights },
+              before: { checkOutDate: r.checkOutDate, ratePaise: r.ratePaise },
+              after: { checkOutDate: newCheckOut, nights, ratePaise: extensionRatePaise },
             });
             return { id: r.id, status: r.status, roomId };
           },
@@ -276,20 +305,24 @@ export async function setRoomRate(input: unknown): Promise<Result<{ id: string; 
       });
     }
 
-    // The booking's stored rate is PRE-TAX (glossary). If the operator entered a
-    // GST-inclusive figure, back the tax out to the taxable unit; otherwise the
-    // entered rate IS the taxable unit (GST added on top, like a live booking).
-    const bps = roomGstBps(data.newRatePaise);
-    const preTaxPaise = data.gstMode === "inclusive"
-      ? Math.round((data.newRatePaise * 10_000) / (10_000 + bps))
-      : data.newRatePaise;
+    // The booking's stored rate is PRE-TAX (glossary): back the tax out of a
+    // GST-inclusive figure, otherwise the entered rate IS the taxable unit.
+    const preTaxPaise = preTaxRatePaise(data.newRatePaise, data.gstMode);
 
-    // Correct already-posted room charges to the new rate first (proven path). A
-    // VALIDATION_FAILED means "nothing posted yet" — fine; the rate update below
-    // makes the un-accrued nights post at the new rate. Any other failure aborts
-    // before the rate changes, so folio and booking never diverge.
+    // Correct already-posted room charges to the new rate first (proven path),
+    // restricted to the requested night window so a stay that legitimately holds
+    // two agreed rates keeps the period that wasn't being edited. A
+    // VALIDATION_FAILED means "nothing posted in that window" — fine; the rate
+    // update below makes the un-accrued nights post at the new rate. Any other
+    // failure aborts before the rate changes, so folio and booking never diverge.
     if (r.folio) {
-      const res = await correctRoomRate({ folioId: r.folio.id, newUnitPaise: preTaxPaise, reason: "room rate edited" });
+      const res = await correctRoomRate({
+        folioId: r.folio.id,
+        newUnitPaise: preTaxPaise,
+        reason: "room rate edited",
+        fromNight: data.fromNight,
+        toNight: data.toNight,
+      });
       if (!res.ok && res.error.code !== ErrorCode.VALIDATION_FAILED) {
         throw new DomainError(res.error.code, res.error.message, { publicMessage: res.error.message });
       }

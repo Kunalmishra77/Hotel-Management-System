@@ -22,6 +22,8 @@ import {
   postRoomChargeTx,
   autoIssueInvoiceOnCheckout,
   roundOffPaise,
+  activeRoomNightKeys,
+  nextRoomRevision,
   type BillingPostTx,
 } from "@/features/billing";
 import { canTransition } from "./domain/transitions";
@@ -184,8 +186,14 @@ export async function checkIn(input: unknown): Promise<Result<LifecycleResult>> 
             }
           }
 
-          const roomLines = await tx.folioLine.findMany({ where: { folioId, type: "ROOM" }, select: { businessDate: true } });
-          const posted = new Set(roomLines.map((l) => dateKey(l.businessDate)));
+          // Keys on nights that still carry an ACTIVE room charge: a REVERSED
+          // night (an earlier rate correction, a transfer) must be billable
+          // again, and a date-only check would treat it as already billed.
+          const roomLines = await tx.folioLine.findMany({
+            where: { folioId },
+            select: { id: true, type: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, businessDate: true, revision: true, reversalOfId: true },
+          });
+          const posted = activeRoomNightKeys(roomLines);
           const nightDates = stayNightDates(r.checkInDate, r.checkOutDate);
           // Day-use (check-in === check-out) is a single billable day.
           const toCharge = nightDates.length > 0 ? nightDates : [r.checkInDate];
@@ -197,6 +205,7 @@ export async function checkIn(input: unknown): Promise<Result<LifecycleResult>> 
               propertyState: property.state,
               ratePaise: r.ratePaise,
               businessDate,
+              revision: nextRoomRevision(roomLines, businessDate),
               postedById: user.userId,
             });
           }
@@ -293,10 +302,12 @@ export async function checkOut(input: unknown): Promise<Result<LifecycleResult>>
           await tx.$executeRaw`SELECT id FROM "Folio" WHERE id = ${folio.id} FOR UPDATE`;
 
           const roomLines = await tx.folioLine.findMany({
-            where: { folioId: folio.id, type: "ROOM" },
-            select: { businessDate: true },
+            where: { folioId: folio.id },
+            select: { id: true, type: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, businessDate: true, revision: true, reversalOfId: true },
           });
-          const posted = new Set(roomLines.map((l) => dateKey(l.businessDate)));
+          // Nights that still carry an ACTIVE charge — a night reversed earlier
+          // (rate correction) has to be re-billed, not treated as already paid for.
+          const posted = activeRoomNightKeys(roomLines);
           // Bill only up to the EFFECTIVE check-out (today for an early departure), so
           // a guest leaving early is never charged for nights they didn't stay.
           const toPost = stayNightDates(r.checkInDate, effectiveCheckOut).filter((d) => !posted.has(dateKey(d)));
@@ -308,6 +319,7 @@ export async function checkOut(input: unknown): Promise<Result<LifecycleResult>>
                 propertyState: property.state,
                 ratePaise: r.ratePaise,
                 businessDate,
+                revision: nextRoomRevision(roomLines, businessDate),
                 postedById: user.userId,
               });
             }

@@ -998,6 +998,13 @@ model FolioLine {
   hsnSac             String?
   placeOfSupplyState String? // for intra/inter-state GST determination
   businessDate       DateTime   @db.Date
+  // Correction generation of a ROOM night. The night as first posted is 0; each
+  // rate correction reverses the active line and re-posts the SAME night at
+  // revision+1 — so a corrected night keeps its own business date (per-night
+  // revenue and every businessDate-keyed metric stay correct) while the partial
+  // unique index (folioId, businessDate, revision) WHERE type='ROOM' still makes
+  // night-audit posting idempotent. Set at INSERT only; FolioLine is append-only.
+  revision           Int        @default(0)
   reversalOfId       String?
   postedById         String?
   createdAt          DateTime   @default(now())

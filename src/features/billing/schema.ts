@@ -48,13 +48,25 @@ export const reverseLineSchema = z.object({
   reason: z.string().min(1).max(300),
 });
 
-/** One-step room-rate correction: reverse the wrong room-night charges and re-post
- *  at the correct per-night rate (client req — OTA bookings that auto-picked the
- *  wrong rate). Keeps append-only integrity (reversals + a fresh charge). */
+/**
+ * Room-rate correction: reverse the wrongly-priced room-nights and re-post each
+ * one ON ITS OWN NIGHT at the correct per-night rate (client req — OTA bookings
+ * that auto-picked the wrong rate). Append-only: reversals + fresh charges,
+ * never an edit.
+ *
+ * `fromNight`/`toNight` bound WHICH nights are corrected, so one stay can carry
+ * more than one agreed rate — the real case being an extension negotiated at a
+ * different tariff (6→14 Oct at one rate, 14→21 Oct at another). Omit both to
+ * correct every priced night, which is what a plain "wrong rate throughout"
+ * correction wants. `toNight` is EXCLUSIVE, like a check-out date, so a window
+ * reads exactly like a stay range.
+ */
 export const correctRoomRateSchema = z.object({
   folioId: z.string().min(1),
   newUnitPaise: z.coerce.number().int().min(0).max(100_000_000),
   reason: z.string().max(300).optional(),
+  fromNight: z.coerce.date().optional(),
+  toNight: z.coerce.date().optional(),
 });
 export type CorrectRoomRateInput = z.infer<typeof correctRoomRateSchema>;
 

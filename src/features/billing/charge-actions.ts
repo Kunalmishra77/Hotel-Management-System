@@ -15,6 +15,7 @@ import { toResult, type Result } from "@/lib/result";
 import { gstBpsForCharge, hsnSacForCharge } from "@/lib/constants/gst";
 import { computeGst, placeOfSupply } from "./domain/gst";
 import { discountLine } from "./domain/money";
+import { activeLines, dateKey, nextRoomRevision } from "./domain/reversal";
 import { billingDb, loadFolioContext, withBillingContext } from "./internal";
 
 /** Calendar-day number from a date's UTC parts (for the closed-date comparison). */
@@ -131,12 +132,24 @@ export async function applyDiscount(input: unknown): Promise<Result<{ lineId: st
 }
 
 /**
- * Correct the room rate in one step (client req): a booking that auto-picked the
- * wrong nightly rate (e.g. an OTA/Booking.com stay) is fixed by REVERSING every
- * still-active ROOM charge and re-posting the stay's nights at the correct rate.
- * Append-only throughout (reversals + one fresh ROOM line), works after checkout.
- * The corrected line posts on the current business date so it never collides with
- * the original nights' room-night uniqueness.
+ * Correct the room rate (client req): a booking that carries the wrong nightly
+ * rate (e.g. an OTA/Booking.com stay that auto-picked a tariff) is fixed by
+ * REVERSING each wrongly-priced room-night and re-posting that SAME NIGHT at the
+ * correct rate. Append-only throughout (reversals + fresh ROOM lines), and it
+ * works after check-out.
+ *
+ * Per-night, not aggregate. The previous version folded the whole stay into ONE
+ * ROOM line parked on a scavenged free business date, because the room-night
+ * unique index counted reversed lines and so refused a re-post on the real
+ * night. That shipped three bugs: per-day room revenue (and therefore ADR,
+ * RevPAR and the daily revenue trend) collapsed onto one arbitrary date; the
+ * date-keyed "already billed" guards mis-read which nights were posted, so an
+ * extend silently skipped a night; and a stay could only ever hold one rate.
+ * `FolioLine.revision` now carries the correction generation, so the corrected
+ * night keeps its own date and night-audit idempotency still holds.
+ *
+ * `fromNight`/`toNight` (exclusive) bound the window, so an extension agreed at
+ * a different tariff is corrected WITHOUT rewriting the earlier nights.
  */
 export async function correctRoomRate(input: unknown): Promise<Result<{ reversed: number; nights: number; lineId: string }>> {
   return toResult(async () => {
@@ -149,35 +162,26 @@ export async function correctRoomRate(input: unknown): Promise<Result<{ reversed
 
     const lines = await client.folioLine.findMany({
       where: { folioId: data.folioId },
-      select: { id: true, type: true, description: true, quantity: true, unitPaise: true, amountPaise: true, taxRateBps: true, cgstPaise: true, sgstPaise: true, igstPaise: true, hsnSac: true, placeOfSupplyState: true, reversalOfId: true, businessDate: true },
+      select: { id: true, type: true, description: true, quantity: true, unitPaise: true, amountPaise: true, taxRateBps: true, cgstPaise: true, sgstPaise: true, igstPaise: true, hsnSac: true, placeOfSupplyState: true, reversalOfId: true, businessDate: true, revision: true },
     });
-    // A ROOM line is "active" if nothing has already reversed it.
-    const reversedIds = new Set(lines.filter((l) => l.reversalOfId).map((l) => l.reversalOfId));
-    const activeRoom = lines.filter((l) => l.type === "ROOM" && !reversedIds.has(l.id));
+    // Only nights still carrying a charge are correctable, and only those inside
+    // the requested window. `toNight` is exclusive so the window reads like a stay.
+    const inWindow = (d: Date): boolean =>
+      (!data.fromNight || dateKey(d) >= dateKey(data.fromNight)) &&
+      (!data.toNight || dateKey(d) < dateKey(data.toNight));
+    const activeRoom = activeLines(lines)
+      .filter((l) => l.type === "ROOM" && inWindow(l.businessDate))
+      .sort((a, b) => a.businessDate.getTime() - b.businessDate.getTime());
     if (activeRoom.length === 0) {
       throw new DomainError(ErrorCode.VALIDATION_FAILED, "No room charges to correct on this folio.");
     }
     const nights = activeRoom.reduce((n, l) => n + l.quantity, 0);
-    const baseDesc = (activeRoom[0]?.description ?? "Room").split(" · ")[0] || "Room";
-
-    // The corrected line is type ROOM, so it must land on a (folio, businessDate)
-    // that has NO existing ROOM line — the room-night unique index counts reversed
-    // lines too. Scan forward from the current business date for a free date;
-    // otherwise an in-house correction (today already has a room-night) fails with
-    // a unique violation ("something went wrong").
-    const usedRoomDates = new Set(lines.filter((l) => l.type === "ROOM").map((l) => l.businessDate.toISOString().slice(0, 10)));
-    const base0 = ctx.currentBusinessDate ?? new Date();
-    let businessDate = new Date(Date.UTC(base0.getUTCFullYear(), base0.getUTCMonth(), base0.getUTCDate()));
-    while (usedRoomDates.has(businessDate.toISOString().slice(0, 10))) {
-      businessDate = new Date(businessDate.getTime() + 86_400_000);
-    }
-    const amountPaise = data.newUnitPaise * nights;
     const pos = placeOfSupply("ROOM", ctx.propertyState, ctx.billToState);
     const rateBps = gstBpsForCharge("ROOM", data.newUnitPaise);
-    const gst = computeGst(amountPaise, rateBps, ctx.propertyState, pos);
 
     return withBillingContext(user, () =>
       client.$transaction(async (tx) => {
+        let lastLineId = "";
         for (const l of activeRoom) {
           await tx.folioLine.create({
             data: {
@@ -190,21 +194,42 @@ export async function correctRoomRate(input: unknown): Promise<Result<{ reversed
             },
             select: { id: true },
           });
+
+          // Re-post the night on its OWN business date, one revision past the
+          // highest that night has ever used (the unique index counts reversed
+          // revisions too). `quantity` is preserved so a legacy aggregate line
+          // re-prices without being silently split into nights we can't name.
+          const amountPaise = data.newUnitPaise * l.quantity;
+          const gst = computeGst(amountPaise, rateBps, ctx.propertyState, pos);
+          const baseDesc = (l.description || "Room").split(" · ")[0] || "Room";
+          const suffix = l.quantity > 1 ? ` · corrected rate × ${l.quantity} night(s)` : " · night (corrected rate)";
+          const reposted = await tx.folioLine.create({
+            data: {
+              folioId: data.folioId, type: "ROOM",
+              description: `${baseDesc}${suffix}`,
+              quantity: l.quantity, unitPaise: data.newUnitPaise, amountPaise: BigInt(amountPaise),
+              taxRateBps: rateBps, cgstPaise: gst.cgstPaise, sgstPaise: gst.sgstPaise, igstPaise: gst.igstPaise,
+              hsnSac: hsnSacForCharge("ROOM"), placeOfSupplyState: pos,
+              businessDate: l.businessDate, revision: nextRoomRevision(lines, l.businessDate),
+              postedById: user.userId,
+            },
+            select: { id: true },
+          });
+          lastLineId = reposted.id;
         }
-        const line = await tx.folioLine.create({
-          data: {
-            folioId: data.folioId, type: "ROOM",
-            description: `${baseDesc} · corrected rate × ${nights} night(s)`,
-            quantity: nights, unitPaise: data.newUnitPaise, amountPaise: BigInt(amountPaise),
-            taxRateBps: rateBps, cgstPaise: gst.cgstPaise, sgstPaise: gst.sgstPaise, igstPaise: gst.igstPaise,
-            hsnSac: hsnSacForCharge("ROOM"), placeOfSupplyState: pos,
-            businessDate, postedById: user.userId,
+
+        const totalPaise = data.newUnitPaise * nights;
+        await emitEvent(tx, { type: "FolioCharged", aggregateId: data.folioId, propertyId: ctx.propertyId, payload: { lineId: lastLineId, type: "ROOM", amountPaise: totalPaise, rateCorrected: true, nights } });
+        await writeAudit(tx, {
+          action: "folio:correct-rate", entityType: "FolioLine", entityId: lastLineId, propertyId: ctx.propertyId,
+          reason: data.reason ?? "room rate correction",
+          after: {
+            newUnitPaise: data.newUnitPaise, nights, reversed: activeRoom.length,
+            fromNight: data.fromNight ? dateKey(data.fromNight) : null,
+            toNight: data.toNight ? dateKey(data.toNight) : null,
           },
-          select: { id: true },
         });
-        await emitEvent(tx, { type: "FolioCharged", aggregateId: data.folioId, propertyId: ctx.propertyId, payload: { lineId: line.id, type: "ROOM", amountPaise, rateCorrected: true } });
-        await writeAudit(tx, { action: "folio:correct-rate", entityType: "FolioLine", entityId: line.id, propertyId: ctx.propertyId, reason: data.reason ?? "room rate correction", after: { newUnitPaise: data.newUnitPaise, nights, reversed: activeRoom.length } });
-        return { reversed: activeRoom.length, nights, lineId: line.id };
+        return { reversed: activeRoom.length, nights, lineId: lastLineId };
       }),
     );
   });

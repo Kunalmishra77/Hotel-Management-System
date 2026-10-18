@@ -4,7 +4,8 @@
  */
 import { describe, expect, it } from "vitest";
 import { nights } from "@/features/reservations/domain/nights";
-import { priceReservation } from "@/features/reservations/domain/pricing";
+import { priceReservation, preTaxRatePaise } from "@/features/reservations/domain/pricing";
+import { roomGstBps } from "@/lib/constants/gst";
 import { canTransition } from "@/features/reservations/domain/transitions";
 import { overlaps } from "@/features/reservations/domain/overlaps";
 import { validateOccupancy } from "@/features/reservations/domain/occupancy";
@@ -163,5 +164,40 @@ describe("checkRateFloor (T-10, FR-19/AC-25)", () => {
 
   it("skips the floor check when the category has no floor", () => {
     expect(checkRateFloor({ floorPaise: null }, 1, 0, opts(false))).toEqual({ ok: true, override: false });
+  });
+});
+
+describe("preTaxRatePaise — what reception typed → the stored pre-tax rate", () => {
+  it("takes an exclusive figure as the taxable rate unchanged", () => {
+    expect(preTaxRatePaise(250_000, "exclusive")).toBe(250_000);
+    expect(preTaxRatePaise(226_800, "exclusive")).toBe(226_800);
+  });
+
+  it("backs 5% GST out of an all-in figure", () => {
+    // ₹2,625 all-in at 5% → ₹2,500 taxable (2,500 + 125).
+    expect(preTaxRatePaise(262_500, "inclusive")).toBe(250_000);
+  });
+
+  it("round-trips: pre-tax + its OWN band's GST re-derives the entered all-in figure", () => {
+    for (const allIn of [262_500, 236_250, 100_000, 787_500, 1_000_000, 2_360_000]) {
+      const pre = preTaxRatePaise(allIn, "inclusive");
+      expect(pre + Math.round((pre * roomGstBps(pre)) / 10_000)).toBe(allIn);
+    }
+  });
+
+  it("resolves the band self-consistently across the ₹7,500 threshold", () => {
+    // ₹7,875 all-in. Dividing by the band of the all-in figure (18%) yields
+    // ₹6,673 — a tariff that is itself in the 5% band, so the stay would bill
+    // ₹7,007 and under-charge the guest. The answer is the tariff whose own band
+    // reproduces what was typed: ₹7,500 + 5% = ₹7,875.
+    expect(preTaxRatePaise(787_500, "inclusive")).toBe(750_000);
+    expect(roomGstBps(750_000)).toBe(500);
+  });
+
+  it("backs 18% out of a genuinely above-threshold all-in rate", () => {
+    // ₹10,000 all-in cannot come from the 5% band (₹9,524 > ₹7,500), so 18% applies.
+    const pre = preTaxRatePaise(1_000_000, "inclusive");
+    expect(roomGstBps(pre)).toBe(1800);
+    expect(pre + Math.round((pre * 1800) / 10_000)).toBe(1_000_000);
   });
 });

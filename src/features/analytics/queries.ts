@@ -5,6 +5,7 @@
  */
 import { db } from "@/lib/db";
 import { authorize, hasPermission } from "@/lib/permissions";
+import { netRevenueBetween } from "@/features/billing/queries";
 import { adr, occupancy, revpar } from "./domain/metrics";
 import { dayBounds } from "./internal";
 import type { SessionClaims } from "@/lib/auth/claims";
@@ -42,12 +43,15 @@ export async function liveTiles(user: SessionClaims, propertyIds: string[]): Pro
   let pendingPaise: number | null = null;
   if (canSeeMoney) {
     const [rev, exp, lineGroups, payGroups] = await Promise.all([
-      scoped.folioLine.aggregate({ where: { folio: { propertyId: { in: propertyIds } }, businessDate: { gte: start, lt: next }, type: { notIn: ["TAX"] } }, _sum: { amountPaise: true } }),
+      // Net of reversals, and attributed to the day each line was EARNED. A plain
+      // signed sum over today's lines let a reversal of an OLDER night cut today's
+      // revenue, while leaving that reversed night counted on its own day.
+      netRevenueBetween(user, { propertyIds, from: start, to: next }),
       scoped.expense.aggregate({ where: { ...where, status: "APPROVED", spentOn: { gte: start, lt: next } }, _sum: { amountPaise: true } }),
       scoped.folioLine.groupBy({ by: ["folioId"], where: { folio: { propertyId: { in: propertyIds } } }, _sum: { amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true } }),
       scoped.payment.groupBy({ by: ["folioId", "isRefund"], where: { ...where }, _sum: { amountPaise: true } }),
     ]);
-    revenueTodayPaise = Number(rev._sum.amountPaise ?? 0n);
+    revenueTodayPaise = rev;
     expenseTodayPaise = Number(exp._sum.amountPaise ?? 0);
     // Outstanding = Σ of POSITIVE per-folio balances (reporting.md), the SAME basis
     // as the Billing page. Netting all folios together let an overpaid/advance folio

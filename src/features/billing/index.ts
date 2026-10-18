@@ -74,6 +74,20 @@ export { folioBalance } from "./domain/balance";
 export { roundOffPaise } from "./domain/money";
 
 /**
+ * The append-only ledger's "which lines still count" rules. Public because 03's
+ * check-in / extend / transfer / check-out all ask the same question — *is this
+ * night still billed?* — and a date-only guess (the old behaviour) treats a
+ * REVERSED night as billed, which silently skips nights or double-bills them.
+ */
+export {
+  activeLines,
+  activeRoomNightKeys,
+  nextRoomRevision,
+  dateKey as folioDateKey,
+  type LedgerLine,
+} from "./domain/reversal";
+
+/**
  * Transaction-composable folio posting (3C, T1). 03's check-in/out compose these
  * into their own transaction so the folio becomes the single money truth.
  */

@@ -45,6 +45,14 @@ export type RoomChargeInput = {
   propertyState: string;
   ratePaise: number;
   businessDate: Date;
+  /**
+   * Correction generation for this night (default 0 = first posting). A re-post
+   * after a reversal passes the next revision, so the corrected night lands on
+   * its OWN business date without tripping the room-night unique index
+   * `(folioId, businessDate, revision) WHERE type='ROOM'`. See
+   * `domain/reversal.nextRoomRevision`.
+   */
+  revision?: number;
   postedById?: string | null;
   description?: string;
 };
@@ -71,6 +79,7 @@ export function roomChargeLineData(input: RoomChargeInput): Prisma.FolioLineUnch
     hsnSac: "996311",
     placeOfSupplyState: input.propertyState,
     businessDate: input.businessDate,
+    revision: input.revision ?? 0,
     postedById: input.postedById ?? null,
   };
 }

@@ -16,7 +16,7 @@ import { runWithSystemContext } from "@/lib/context";
 import { emitEvent } from "@/lib/events";
 import { writeAudit } from "@/lib/audit";
 import { NotFoundError } from "@/lib/errors";
-import { postRoomCharges } from "@/features/billing/night-audit";
+import { postRoomCharges, revenueForBusinessDate } from "@/features/billing/night-audit";
 import { markNoShows } from "@/features/reservations/jobs";
 import { snapshotFrom } from "./domain/metrics";
 import { dayBounds } from "./internal";
@@ -38,16 +38,21 @@ export async function computeInputs(propertyId: string, date: Date) {
   const activeRooms = await prisma.room.count({ where: { propertyId, isActive: true, status: { not: "UNDER_MAINTENANCE" } } });
   const blockedRoomIds = await prisma.roomBlock.findMany({ where: { propertyId, startDate: { lte: date }, endDate: { gt: date } }, select: { roomId: true } });
   const occupied = await prisma.roomAllocation.count({ where: { propertyId, startDate: { lte: date }, endDate: { gt: date }, reservation: { status: { in: ["IN_HOUSE", "CHECKED_OUT"] } } } });
-  const roomRev = await prisma.folioLine.aggregate({ where: { folio: { propertyId }, businessDate: date, type: "ROOM" }, _sum: { amountPaise: true } });
-  const totalRev = await prisma.folioLine.aggregate({ where: { folio: { propertyId }, businessDate: date, type: { notIn: ["TAX"] } }, _sum: { amountPaise: true } });
+  // Revenue comes from 06's reversal-aware reader, not a raw per-type aggregate:
+  // a reversed room-night must stop counting on the night it cancels, and a
+  // corrected one must count at its CORRECTED price on that same night. Summing
+  // `type='ROOM'` by business date counted reversed nights forever, so room
+  // revenue / ADR / RevPAR stayed overstated after any early check-out, rate
+  // correction or transfer.
+  const rev = await revenueForBusinessDate(propertyId, date);
   const expenses = await prisma.expense.aggregate({ where: { propertyId, status: "APPROVED", spentOn: { gte: start, lt: next } }, _sum: { amountPaise: true } });
   const blocked = new Set(blockedRoomIds.map((b) => b.roomId)).size;
 
   return {
     availableRoomNights: Math.max(0, activeRooms - blocked),
     occupiedRoomNights: occupied,
-    roomRevenuePaise: BigInt(roomRev._sum.amountPaise ?? 0n),
-    totalRevenuePaise: BigInt(totalRev._sum.amountPaise ?? 0n),
+    roomRevenuePaise: rev.roomPaise,
+    totalRevenuePaise: rev.totalPaise,
     expensePaise: BigInt(expenses._sum.amountPaise ?? 0), // 07-only; 08 adds apportioned staff cost
   };
 }
@@ -60,13 +65,22 @@ export async function computeInputs(propertyId: string, date: Date) {
  * it — the same snapshot the night audit would have produced from the same rows.
  * A genuinely closed day (a COMPLETED night audit) is left untouched (immutable).
  */
-export async function recomputeHistoricalSnapshot(propertyId: string, businessDate: Date): Promise<void> {
+export async function recomputeHistoricalSnapshot(
+  propertyId: string,
+  businessDate: Date,
+  opts?: { force?: boolean },
+): Promise<void> {
   const prisma = db.unscoped();
   const run = await prisma.nightAuditRun.findUnique({
     where: { propertyId_businessDate: { propertyId, businessDate } },
     select: { status: true },
   });
-  if (run?.status === "COMPLETED") return;
+  // A closed day's snapshot is immutable — EXCEPT for a deliberate restatement.
+  // Snapshots are derived figures, so one computed by a formula since found wrong
+  // (room revenue that ignored reversals) is not history worth preserving: it is
+  // a stale derivation of folio rows that are themselves the real history. `force`
+  // is how a correction is re-derived; callers are expected to audit the reason.
+  if (run?.status === "COMPLETED" && !opts?.force) return;
   const stats = snapshotFrom(await computeInputs(propertyId, businessDate));
   const data = {
     availableRoomNights: stats.availableRoomNights,
