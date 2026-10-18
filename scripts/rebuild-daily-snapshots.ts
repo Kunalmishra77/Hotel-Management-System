@@ -17,8 +17,12 @@
  * snapshot is re-derived from the same folio/allocation rows the night audit
  * would read, so this is a re-derivation, not an adjustment.
  *
- *   npx tsx scripts/rebuild-daily-snapshots.ts                      (dry-run)
- *   $env:CONFIRM="YES"; npx tsx scripts/rebuild-daily-snapshots.ts  (apply)
+ *   npx tsx scripts/rebuild-daily-snapshots.ts                      (dry-run, all)
+ *   $env:CONFIRM="YES"; npx tsx scripts/rebuild-daily-snapshots.ts  (apply, all)
+ *
+ * Narrow it with PROPERTY_ID / FROM / TO (YYYY-MM-DD) — a whole-history pass is
+ * several hundred round-trips against a pooled remote database, so after a
+ * targeted repair it is worth recomputing only the dates that repair touched.
  */
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
@@ -31,7 +35,19 @@ const inr = (p: number | bigint) => `₹${(Number(p) / 100).toLocaleString("en-I
 const pct = (bps: number) => `${(bps / 100).toFixed(2)}%`;
 
 async function main() {
+  const utc = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
   const existing = await prisma.dailyStatSnapshot.findMany({
+    where: {
+      ...(process.env.PROPERTY_ID ? { propertyId: process.env.PROPERTY_ID } : {}),
+      ...(process.env.FROM || process.env.TO
+        ? {
+            businessDate: {
+              ...(process.env.FROM ? { gte: utc(process.env.FROM) } : {}),
+              ...(process.env.TO ? { lte: utc(process.env.TO) } : {}),
+            },
+          }
+        : {}),
+    },
     select: { propertyId: true, businessDate: true, roomRevenuePaise: true, totalRevenuePaise: true, adrPaise: true, revparPaise: true, occupancyBps: true, occupiedRoomNights: true },
     orderBy: [{ propertyId: "asc" }, { businessDate: "asc" }],
   });
