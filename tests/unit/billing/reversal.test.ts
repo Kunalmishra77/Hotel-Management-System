@@ -172,3 +172,41 @@ describe("netAmountByDate — per-night revenue for MIS (ADR / RevPAR / daily re
     expect(net.get("2026-10-06") ?? 0n).toBe(0n);
   });
 });
+
+describe("the 'nothing was billed' check that a balance gate cannot see", () => {
+  /** What check-out now measures before letting a stay walk: net ROOM revenue. */
+  const roomCharged = (lines: LedgerLine[]): bigint =>
+    activeLines(lines).reduce((sum, l) => (l.type === "ROOM" ? sum + BigInt(l.amountPaise) : sum), 0n);
+
+  it("is zero for a stay booked at a ₹0 rate — balance is ₹0, yet nothing was earned", () => {
+    // The hole: a hand-entered OTA stay saved with no tariff posts ₹0 room-nights,
+    // settles to ₹0 and checks out silently. `balance > 0` never fires.
+    const nights = [room("a", "2026-10-18", 0), room("b", "2026-10-19", 0)];
+    expect(roomCharged(nights)).toBe(0n);
+  });
+
+  it("is positive for a normally billed stay", () => {
+    expect(roomCharged([room("a", "2026-10-18", 210_000), room("b", "2026-10-19", 210_000)])).toBe(420_000n);
+  });
+
+  it("is zero once every night has been reversed — a transfer must not leave a billable husk", () => {
+    const a = room("a", "2026-10-18", 250_000);
+    const b = room("b", "2026-10-19", 250_000);
+    const lines = [a, b, reversal("r1", "2026-10-20", a), reversal("r2", "2026-10-20", b)];
+    expect(roomCharged(lines)).toBe(0n);
+  });
+
+  it("counts the corrected amount, not the reversed original", () => {
+    const v0 = room("v0", "2026-10-18", 300_000, 0);
+    const v1 = room("v1", "2026-10-18", 210_000, 1);
+    expect(roomCharged([v0, reversal("r", "2026-10-20", v0), v1])).toBe(210_000n);
+  });
+
+  it("ignores non-room revenue — a food-only folio is still an unbilled STAY", () => {
+    const food: LedgerLine = {
+      id: "f", type: "FOOD", amountPaise: 60_000, cgstPaise: 1_500, sgstPaise: 1_500, igstPaise: 0,
+      businessDate: d("2026-10-18"), revision: 0, reversalOfId: null,
+    };
+    expect(roomCharged([food])).toBe(0n);
+  });
+});

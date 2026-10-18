@@ -29,6 +29,7 @@ export const ErrorCode = {
   OCCUPANCY_EXCEEDED: "OCCUPANCY_EXCEEDED",
   RATE_BELOW_FLOOR: "RATE_BELOW_FLOOR",
   BALANCE_UNSETTLED: "BALANCE_UNSETTLED",
+  NOTHING_BILLED: "NOTHING_BILLED",
 
   // Billing (06)
   INVALID_AMOUNT: "INVALID_AMOUNT",
@@ -125,6 +126,7 @@ const HTTP_STATUS: Record<ErrorCode, number> = {
   OCCUPANCY_EXCEEDED: 422,
   RATE_BELOW_FLOOR: 422,
   BALANCE_UNSETTLED: 409,
+  NOTHING_BILLED: 409,
   INVALID_AMOUNT: 422,
   SPLIT_MISMATCH: 422,
   REFUND_EXCEEDS_PAID: 422,
@@ -193,6 +195,7 @@ const USER_MESSAGE: Record<ErrorCode, string> = {
   OCCUPANCY_EXCEEDED: "That's more guests than the room allows. Add an extra bed or choose a larger category.",
   RATE_BELOW_FLOOR: "That rate or discount needs a manager's approval.",
   BALANCE_UNSETTLED: "There's an unsettled balance. Settle it or defer with permission before checking out.",
+  NOTHING_BILLED: "This stay has no room charge — set the room rate before checking out, or override with permission.",
   INVALID_AMOUNT: "Enter an amount greater than zero.",
   SPLIT_MISMATCH: "The payment parts don't add up to the amount due.",
   REFUND_EXCEEDS_PAID: "That refund is more than what's been paid.",

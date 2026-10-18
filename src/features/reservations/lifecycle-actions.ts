@@ -22,6 +22,7 @@ import {
   postRoomChargeTx,
   autoIssueInvoiceOnCheckout,
   roundOffPaise,
+  activeLines,
   activeRoomNightKeys,
   nextRoomRevision,
   type BillingPostTx,
@@ -295,6 +296,9 @@ export async function checkOut(input: unknown): Promise<Result<LifecycleResult>>
         const folio = await tx.folio.findFirst({ where: { reservationId: r.id }, select: { id: true } });
 
         let balancePaise: number;
+        // What this stay has actually been billed for its room — the figure the
+        // balance gate cannot see, because an unbilled stay balances to exactly 0.
+        let roomChargedPaise: number;
         if (folio) {
           // Row-lock the folio: a concurrent FolioLine insert (POS charge, night audit)
           // takes a FOR KEY SHARE on this row for FK validation and blocks until we
@@ -377,11 +381,16 @@ export async function checkOut(input: unknown): Promise<Result<LifecycleResult>>
           const full = await tx.folio.findFirstOrThrow({
             where: { id: folio.id },
             select: {
-              lines: { select: { amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true } },
+              lines: { select: { id: true, type: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, businessDate: true, revision: true, reversalOfId: true } },
               payments: { select: { amountPaise: true, isRefund: true } },
             },
           });
           balancePaise = Number(folioBalance(full.lines, full.payments));
+          // Net of reversals: a night reversed by an early departure or a transfer
+          // is not billed, and a re-posted correction is.
+          roomChargedPaise = Number(
+            activeLines(full.lines).reduce((sum, l) => (l.type === "ROOM" ? sum + BigInt(l.amountPaise) : sum), 0n),
+          );
         } else {
           // No folio — a booking that never checked in. Fall back to the snapshot.
           balancePaise = priceReservation({
@@ -389,11 +398,25 @@ export async function checkOut(input: unknown): Promise<Result<LifecycleResult>>
             extraBedPaise: r.extraBedPaise, otherChargesPaise: r.otherChargesPaise,
             taxPaise: r.taxPaise, advancePaise: r.advancePaise,
           }).balancePaise;
+          roomChargedPaise = r.ratePaise * effectiveNights;
         }
 
         // Deferring an unsettled balance is an elevated, permissioned act (AC-16/17).
         if (balancePaise > 0 && (!defer || !hasPermission(user, "folio:defer"))) {
           throw new DomainError(ErrorCode.BALANCE_UNSETTLED, undefined, { details: { balancePaise } });
+        }
+
+        // A stay that was never BILLED also walks out clean, because its balance is
+        // exactly 0 — the gate above only catches money still OWED. A booking saved
+        // with no room rate (common on hand-entered OTA stays, where the tariff and
+        // the prepaid amount are both meant to be typed in) therefore posts ₹0
+        // room-nights, settles to ₹0 and checks out silently: the revenue is lost
+        // and the occupied night drags ADR/RevPAR down. So an unbilled stay is
+        // blocked on the same terms as an unsettled one — overridable with
+        // `folio:defer`, because a genuinely complimentary stay is a real thing and
+        // should be a deliberate, permissioned act rather than an accident.
+        if (roomChargedPaise <= 0 && (!defer || !hasPermission(user, "folio:defer"))) {
+          throw new DomainError(ErrorCode.NOTHING_BILLED, undefined, { details: { ratePaise: r.ratePaise } });
         }
 
         // Compare-and-swap: only flip if the status is still what we observed, so a

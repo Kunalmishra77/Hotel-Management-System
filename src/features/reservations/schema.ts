@@ -45,11 +45,22 @@ const bookingFields = {
   notes: z.string().max(1000).optional(),
 };
 
-export const createReservationSchema = z.object({
-  ...bookingFields,
-  // One or more rooms — a group booking allocates all atomically (FR-15).
-  roomIds: z.array(z.string().min(1)).min(1),
-});
+export const createReservationSchema = z
+  .object({
+    ...bookingFields,
+    // One or more rooms — a group booking allocates all atomically (FR-15).
+    roomIds: z.array(z.string().min(1)).min(1),
+  })
+  // "Already paid" with no amount is a contradiction the folio cannot express:
+  // check-in posts the prepayment only `if (advancePaise > 0)`, so the booking
+  // claims the OTA collected the money while no payment row is ever created and
+  // the bill shows nothing. Hand-entered OTA stays hit this constantly — the
+  // tariff and the prepaid amount are both meant to be typed in, and when they
+  // are left at zero the stay silently earns ₹0 and still checks out.
+  .refine((v) => v.settlementIntent !== "ALREADY_PAID" || v.advancePaise > 0, {
+    message: "Enter how much was already paid — an 'Already paid' booking needs the amount collected.",
+    path: ["advancePaise"],
+  });
 export type CreateReservationInput = z.infer<typeof createReservationSchema>;
 
 /** #1 "Other" off-site stay — a booking recorded at a property we don't run. No

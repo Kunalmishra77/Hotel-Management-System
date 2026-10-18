@@ -168,6 +168,17 @@ export function BookingForm({
   const balancePaise = totalPaise - advancePaise;
   const roomEnteredPaise = toPaise(rate) * nights; // what reception typed (all-in if inclusive)
 
+  // Two ways a booking silently earns nothing, both common on hand-entered OTA
+  // stays. A ₹0 rate posts ₹0 room-nights, so the stay bills nothing yet still
+  // occupies a room — revenue lost, ADR and RevPAR dragged down. And "Already
+  // paid" with no amount records no payment at all, because check-in posts the
+  // prepayment only when there is one: the booking claims the OTA collected the
+  // money while the bill shows neither the charge nor the payment. The server
+  // rejects both (`createReservationSchema`); these stop it at the keyboard.
+  const rateMissing = toPaise(rate) <= 0;
+  const prepaidNeedsAmount = settlement === "ALREADY_PAID" && advancePaise <= 0;
+  const moneyIncomplete = rateMissing || prepaidNeedsAmount;
+
   const runSearch = () => {
     startSearch(async () => {
       setSelectedRooms([]);
@@ -398,7 +409,14 @@ export function BookingForm({
               </Labeled>
               <Labeled label="Discount (₹)"><Input type="number" inputMode="decimal" step="0.01" value={discount} onChange={(e) => setDiscount(Number(e.target.value))} /></Labeled>
               <Labeled label="Extra bed (₹)"><Input type="number" inputMode="decimal" step="0.01" value={extraBed} onChange={(e) => setExtraBed(Number(e.target.value))} /></Labeled>
-              <Labeled label="Advance (₹)"><Input type="number" inputMode="decimal" step="0.01" value={advance} onChange={(e) => setAdvance(Number(e.target.value))} data-testid="advance" /></Labeled>
+              <Labeled label="Advance (₹)">
+                <Input type="number" inputMode="decimal" step="0.01" value={advance} onChange={(e) => setAdvance(Number(e.target.value))} data-testid="advance" />
+                {prepaidNeedsAmount && (
+                  <p role="alert" className="mt-1 text-xs font-medium text-destructive" data-testid="advance-required">
+                    “Already paid” needs the amount collected — otherwise no payment is recorded and the bill shows nothing.
+                  </p>
+                )}
+              </Labeled>
             </div>
             <Labeled label="Payment status">
               <select
@@ -413,6 +431,11 @@ export function BookingForm({
                 <option value="UNPAID_ONLINE">Unpaid (online link)</option>
               </select>
             </Labeled>
+            {rateMissing && (
+              <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-sm text-destructive" data-testid="rate-required">
+                Set a rate per night. At ₹0 the stay bills nothing — the revenue is lost, and the occupied night still pulls ADR and RevPAR down.
+              </p>
+            )}
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" name="extraBed" className="size-4" /> Extra bed override (exceeds category occupancy)
             </label>
@@ -437,7 +460,7 @@ export function BookingForm({
       {state.status === "error" && <p role="alert" className="text-sm text-destructive">{state.message}</p>}
 
       <div className="flex flex-col gap-2 sm:flex-row-reverse">
-        <Button type="submit" size="lg" className="sm:min-w-40" disabled={selectedRooms.length === 0 || !guest || pending} data-testid="confirm-booking">
+        <Button type="submit" size="lg" className="sm:min-w-40" disabled={selectedRooms.length === 0 || !guest || pending || moneyIncomplete} data-testid="confirm-booking">
           {pending ? "Confirming…" : "Confirm booking"}
         </Button>
         <Button
@@ -446,7 +469,7 @@ export function BookingForm({
           value="true"
           variant="secondary"
           size="lg"
-          disabled={selectedRooms.length === 0 || !guest || pending}
+          disabled={selectedRooms.length === 0 || !guest || pending || moneyIncomplete}
           data-testid="confirm-checkin-now"
         >
           Book &amp; check in now
