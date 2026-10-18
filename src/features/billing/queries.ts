@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { authorize } from "@/lib/permissions";
 import { folioBalance } from "./domain/balance";
 import { activeLines } from "./domain/reversal";
+import { outstandingAcrossJourneys, type JourneyFolio } from "./domain/journey";
 import type { SessionClaims } from "@/lib/auth/claims";
 
 export type FolioInvoiceView = {
@@ -416,19 +417,32 @@ export async function guestBilling(
   const folios = await db.unscoped().folio.findMany({
     where: { reservation: { guestId, property: { orgId: user.orgId } } },
     select: {
+      reservation: { select: { id: true, transferredFromId: true } },
       lines: { select: { amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, type: true } },
       payments: { select: { amountPaise: true, isRefund: true } },
       invoices: { select: { id: true } },
     },
   });
   let revenue = 0n;
-  let out = 0n;
   let invoiceCount = 0;
+  const legs: JourneyFolio[] = [];
   for (const f of folios) {
     for (const l of f.lines) if (l.type !== "TAX") revenue += BigInt(l.amountPaise); // tax-excluded, net-of-discount
-    const bal = folioBalance(f.lines, f.payments);
-    if (bal > 0n) out += bal;
     invoiceCount += f.invoices.length;
+    if (f.reservation) {
+      legs.push({
+        reservationId: f.reservation.id,
+        transferredFromId: f.reservation.transferredFromId,
+        balancePaise: folioBalance(f.lines, f.payments),
+      });
+    }
   }
+  // Σ of POSITIVE balances, but netted within each linked journey first — a stay
+  // split across properties is billed per folio and settled as one statement, so
+  // the leg holding the payment must offset the leg holding the charge. Summing
+  // every folio's positive balance reported guests as owing money they had
+  // already paid. Unrelated stays are still kept apart, so one stay's credit
+  // never masks another's due.
+  const out = outstandingAcrossJourneys(legs);
   return { revenuePaise: Number(revenue), outstandingPaise: Number(out), invoiceCount };
 }
