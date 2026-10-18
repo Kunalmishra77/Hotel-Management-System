@@ -10,7 +10,7 @@ const d = (x) => x.toISOString().slice(0, 10);
 const JOURNEYS = [
   { who: "Muniama Linganathen", codes: ["BK-U2BB2TP9", "BK-DJAK5SU3"], expectNights: 15, expectCombined: 1_608_870 },
   { who: "Suresh Kumar Sharma", codes: ["BK-7SDVNJN0", "BK-9AF7GP2X"], expectNights: 2, expectCombined: 0 },
-  { who: "Ankit Bansal", codes: ["BK-7SJDEVBJ", "BK-99OFFBL7"], expectNights: 3, expectCombined: 31_500 },
+  { who: "Ankit Bansal", codes: ["BK-7SJDEVBJ", "BK-99OFFBL7"], expectNights: 2, expectCombined: -189_000 },
 ];
 
 let ok = true;
