@@ -30,8 +30,28 @@ export const TRANSACTION_TIMEOUT_MS = Number(process.env.DB_TX_TIMEOUT_MS ?? 15_
 
 export function createPrismaClient(): PrismaClient {
   return new PrismaClient({
-    // Query logs are noisy and can contain PII values in dev; keep to problems.
-    log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
+    /**
+     * Query logs are noisy and can contain PII values, so they stay off unless
+     * `DB_LOG_QUERIES=true` asks for them.
+     *
+     * That switch exists because this application's latency is dominated by the
+     * NUMBER of database round trips, not by query cost — the database sits in a
+     * different region from the app server, so a query that executes in 0.1ms
+     * still costs a round trip on the wire. "How many queries did this page
+     * make?" is therefore the first question of any slowness investigation, and
+     * without this flag there is no way to answer it. Count them with:
+     *
+     *   DB_LOG_QUERIES=true npm run dev     # then load the page and count
+     *
+     * Never enable it in production: the log would then carry query parameters,
+     * which include guest PII (compliance.md).
+     */
+    log:
+      process.env.DB_LOG_QUERIES === "true"
+        ? ["query", "warn", "error"]
+        : process.env.NODE_ENV === "development"
+          ? ["warn", "error"]
+          : ["error"],
     transactionOptions: {
       maxWait: TRANSACTION_MAX_WAIT_MS,
       timeout: TRANSACTION_TIMEOUT_MS,

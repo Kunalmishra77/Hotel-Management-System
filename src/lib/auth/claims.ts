@@ -68,15 +68,27 @@ export async function assembleClaims(
     propertyIds: r.propertyIds,
   }));
 
-  // Overrides are per-role and org-scoped; only those for roles the user
-  // actually holds can affect them (resolvePermissions enforces that too).
-  const overrides = await db.permissionOverride.findMany({
-    select: { role: true, permission: true, granted: true },
-  });
-
+  // The scope is pure role arithmetic — no I/O — so both remaining reads depend
+  // only on the user row and on nothing from each other. They therefore share
+  // ONE round trip.
+  //
+  // They used to await one another. On a database in another region that cost
+  // every page in the product an extra ~130ms for a query that measures ~0.1ms:
+  // latency here is round-trip COUNT, not query cost, and this function runs on
+  // every request (FR-12 rebuilds claims from live data rather than trusting the
+  // cookie). `tests/unit/auth/claims-round-trips.test.ts` fails if they are ever
+  // serialised again.
   const propertyScope = resolvePropertyScope(roleAssignments);
+  const [overrides, accessiblePropertyIds] = await Promise.all([
+    // Overrides are per-role; only those for roles the user actually holds can
+    // affect them (resolvePermissions enforces that too).
+    db.permissionOverride.findMany({
+      select: { role: true, permission: true, granted: true },
+    }),
+    resolveAccessiblePropertyIds(db, user.orgId, propertyScope),
+  ]);
+
   const resolvedPermissions = resolvePermissions(roleAssignments, overrides);
-  const accessiblePropertyIds = await resolveAccessiblePropertyIds(db, user.orgId, propertyScope);
 
   return {
     userId: user.id,

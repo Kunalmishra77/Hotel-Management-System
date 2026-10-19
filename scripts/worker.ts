@@ -55,11 +55,25 @@ function bossConnectionString(): string {
   return url;
 }
 
+/**
+ * pg-boss's own connection pool size.
+ *
+ * It defaults to 10, which is most of Supabase's SESSION-mode budget on its
+ * own: that pooler caps total session clients at `pool_size` (15 on this
+ * project — exceeding it fails hard with
+ * `FATAL: (EMAXCONNSESSION) max clients reached in session mode`, and the app
+ * starts returning 503, not a slow response). The web app, this worker's Prisma
+ * client and pg-boss all draw on that one budget, so the default cannot stand
+ * unclaimed. See `.env.example` for the whole budget and how to divide it.
+ */
+const BOSS_POOL_SIZE = Number(process.env.PGBOSS_POOL_SIZE ?? 4);
+
 async function main(): Promise<void> {
   const boss = new PgBoss({
     connectionString: bossConnectionString(),
     // Its own schema so pg-boss tables never collide with the domain schema.
     schema: "pgboss",
+    max: BOSS_POOL_SIZE,
   });
 
   boss.on("error", (error) => logger.error("pgboss.error", { error: error.message }));

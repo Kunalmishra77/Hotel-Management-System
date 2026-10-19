@@ -11,6 +11,7 @@
  * flow lands in T-4 — until then, "requires TOTP" means "no session", which is
  * the safe direction to be incomplete in.
  */
+import { cache } from "react";
 import NextAuth, { type NextAuthResult } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { headers } from "next/headers";
@@ -181,13 +182,40 @@ export const signOut = result.signOut;
  * Two hops on purpose: Auth.js gives us the opaque token, then the database
  * gives us authority. Skipping the second hop would mean trusting a token the
  * client holds — exactly what security.md forbids.
+ *
+ * MEMOISED PER REQUEST (React `cache`), and that deserves an explanation
+ * because at a glance it looks like it weakens security.md's "every request
+ * re-checks `Session.revokedAt` server-side". It does not. `cache` is scoped to
+ * a single server request: the first caller within a request resolves the
+ * session against the database, and later callers in that SAME request reuse
+ * the result. The next request resolves from scratch, so a force-logout or a
+ * role change still takes effect no later than the next request — exactly what
+ * FR-12 and security.md require. What is deduplicated is asking the same
+ * question four times inside one answer, which cannot have four answers.
+ *
+ * Why it matters: resolving costs five sequential reads (session → user →
+ * roles → overrides → properties), and one dashboard request used to run that
+ * whole chain FOUR times — the route-group layout, `listAccessibleProperties`
+ * inside it, the page's own `requireUser`, then `listAccessibleProperties`
+ * again. With the database in a different region from the app server that was
+ * ~20 round trips and seconds of pure network wait, per page. There are 270+
+ * `requireUser`/`requireSession`/`requirePermission` call sites, so the
+ * duplication grows with the product; memoising here fixes every one of them
+ * and leaves each call site free to just ask for the caller it needs.
+ *
+ * Do NOT widen this to a longer-lived cache (module scope, `unstable_cache`,
+ * Redis). Authority would then outlive the request that checked it and a
+ * revoked session would keep working — the exact hole a DB-backed session
+ * exists to close.
  */
-export async function getCurrentSession(): Promise<ResolvedSession | null> {
-  const authSession = await auth();
-  const token = authSession?.sessionToken;
-  if (!token) return null;
-  return resolveSession(prisma, token);
-}
+export const getCurrentSession = cache(
+  async function getCurrentSession(): Promise<ResolvedSession | null> {
+    const authSession = await auth();
+    const token = authSession?.sessionToken;
+    if (!token) return null;
+    return resolveSession(prisma, token);
+  },
+);
 
 export async function getCurrentUser(): Promise<SessionClaims | null> {
   return (await getCurrentSession())?.claims ?? null;

@@ -176,7 +176,7 @@ export default async function DashboardPage() {
 
   const today = new Date();
   const trendFrom = new Date(today.getTime() - 13 * 86_400_000);
-  const [tiles, ad, revTrend] = await Promise.all([
+  const [tiles, ad, revTrend, accessibleProps] = await Promise.all([
     canOperational && propertyId ? liveTiles(claims, [propertyId]) : Promise.resolve(null),
     canReservations && propertyId
       ? arrivalsDepartures(claims, { propertyId, date: today })
@@ -184,10 +184,14 @@ export default async function DashboardPage() {
     canFinancial && propertyId
       ? trend(claims, { metric: "revenue", from: trendFrom, to: today, propertyIds: [propertyId] })
       : Promise.resolve(null),
+    // Hotels in scope (cost-centres like office/HO are not hotels, so excluded).
+    // In the Promise.all deliberately: it feeds one word of the page subtitle and
+    // depends on nothing above it, so it must not cost its own sequential round
+    // trip to a database in another region.
+    listAccessibleProperties(),
   ]);
 
-  // Hotels in scope (cost-centres like office/HO are not hotels, so excluded).
-  const props = (await listAccessibleProperties()).length;
+  const props = accessibleProps.length;
   const roleText = claims.roleAssignments.map((r) => ROLE_LABELS[r.role]).join(", ");
 
   // Role-appropriate quick actions — show what this ROLE actually does day-to-day,
