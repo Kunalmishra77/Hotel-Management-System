@@ -671,6 +671,8 @@ export async function arrivalsDeparturesPortfolio(
 
 export type TransferSegment = {
   reservationId: string;
+  /** Null when the booking has no folio yet (never checked in). */
+  folioId: string | null;
   code: string;
   propertyName: string;
   checkInDate: Date;
@@ -723,7 +725,7 @@ export async function transferStatement(user: SessionClaims, reservationId: stri
     select: {
       id: true, code: true, status: true, checkInDate: true, checkOutDate: true,
       property: { select: { name: true } },
-      folio: { select: { lines: { select: { amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true } }, payments: { select: { amountPaise: true, isRefund: true } } } },
+      folio: { select: { id: true, lines: { select: { amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true } }, payments: { select: { amountPaise: true, isRefund: true } } } },
     },
     orderBy: { checkInDate: "asc" },
   });
@@ -735,7 +737,7 @@ export async function transferStatement(user: SessionClaims, reservationId: stri
     const taxPaise = lines.reduce((n, l) => n + l.cgstPaise + l.sgstPaise + l.igstPaise, 0);
     const paidPaise = payments.reduce((n, p) => n + (p.isRefund ? -Number(p.amountPaise) : Number(p.amountPaise)), 0);
     return {
-      reservationId: r.id, code: r.code, propertyName: r.property?.name ?? "—",
+      reservationId: r.id, folioId: r.folio?.id ?? null, code: r.code, propertyName: r.property?.name ?? "—",
       checkInDate: r.checkInDate, checkOutDate: r.checkOutDate, status: r.status,
       chargesPaise, taxPaise, paidPaise, balancePaise: Number(folioBalance(lines, payments)),
     };

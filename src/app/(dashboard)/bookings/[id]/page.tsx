@@ -8,6 +8,7 @@ import QRCode from "qrcode";
 import { getReservation, getReservationGuestPanel, transferStatement } from "@/features/reservations/queries";
 import { reviewUrl } from "@/features/feedback/review-token";
 import { CombinedStatementCard } from "@/features/reservations/components/combined-statement-card";
+import { MoveCreditCard } from "@/features/reservations/components/move-credit-card";
 import { getGuestProfile } from "@/features/guests/queries";
 import { pendingGuestInfo } from "@/features/reservations/domain/guest-checklist";
 import { ClipboardCheck } from "lucide-react";
@@ -204,6 +205,26 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
           ) : null}
 
           {statement?.isTransfer ? <CombinedStatementCard statement={statement} /> : null}
+
+          {/* A split stay is paid once but billed per leg, so the paying leg can
+              sit in credit while this one still shows a due — and check-out gates
+              folio by folio. Offer the move only when that is actually the case. */}
+          {(() => {
+            if (!statement?.isTransfer || !canManageGuests) return null;
+            const here = statement.segments.find((s) => s.reservationId === r.id);
+            if (!here?.folioId || here.balancePaise <= 0) return null;
+            const credited = statement.segments.find((s) => s.folioId && s.reservationId !== r.id && s.balancePaise < 0);
+            if (!credited?.folioId) return null;
+            return (
+              <MoveCreditCard
+                fromFolioId={credited.folioId}
+                toFolioId={here.folioId}
+                fromCode={credited.code}
+                creditPaise={-credited.balancePaise}
+                duePaise={here.balancePaise}
+              />
+            );
+          })()}
 
           {canTransfer && transferProperties.length > 1 ? (
             <TransferPropertyCard

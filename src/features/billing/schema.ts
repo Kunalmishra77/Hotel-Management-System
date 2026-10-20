@@ -100,6 +100,26 @@ export const voidInvoiceSchema = z.object({
   reason: z.string().min(1).max(300),
 });
 
+/**
+ * Move a credit sitting on one folio onto another folio of the SAME guest
+ * journey (a transfer, or an OTA stay continuing direct).
+ *
+ * Payment lands whole on whichever folio was in front of the cashier, so the
+ * earlier leg ends in credit while the later leg still shows a due. The guest has
+ * already handed the money over — collecting it again would charge them twice —
+ * but check-out gates folio by folio, so the due has to be met on the folio that
+ * carries it. This reallocates what was already received; it is not a new
+ * collection and never touches a charge, so revenue and GST are untouched.
+ */
+export const moveFolioCreditSchema = z.object({
+  fromFolioId: z.string().min(1),
+  toFolioId: z.string().min(1),
+  /** Omit to move the whole credit. */
+  amountPaise: positivePaise.optional(),
+  reason: z.string().max(300).optional(),
+});
+export type MoveFolioCreditInput = z.infer<typeof moveFolioCreditSchema>;
+
 export const settleCorporateSchema = z.object({
   folioId: z.string().min(1),
   corporateId: z.string().min(1),

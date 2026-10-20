@@ -13,10 +13,11 @@ import { writeAudit } from "@/lib/audit";
 import { emitEvent } from "@/lib/events";
 import { DomainError, ErrorCode, NotFoundError } from "@/lib/errors";
 import { toResult, type Result } from "@/lib/result";
+import { revalidatePath } from "next/cache";
 import { splitSumsTo } from "./domain/money";
-import { refundWithinNetPaid } from "./domain/balance";
+import { folioBalance, refundWithinNetPaid } from "./domain/balance";
 import { billingDb, loadFolioContext, withBillingContext } from "./internal";
-import { recordPaymentSchema, refundSchema } from "./schema";
+import { recordPaymentSchema, refundSchema, moveFolioCreditSchema } from "./schema";
 
 export type PaymentResult = { batchId: string; totalPaise: number };
 
@@ -99,6 +100,124 @@ export async function refund(input: unknown): Promise<Result<RefundResult>> {
         await emitEvent(tx, { type: "PaymentRefunded", aggregateId: data.folioId, propertyId: ctx.propertyId, payload: { paymentId: payment.id, amountPaise: data.amountPaise } });
         await writeAudit(tx, { action: "folio:refund", entityType: "Payment", entityId: payment.id, propertyId: ctx.propertyId, reason: data.reason, after: { amountPaise: data.amountPaise } });
         return { paymentId: payment.id };
+      }),
+    );
+  });
+}
+
+export type MoveCreditResult = { movedPaise: number; fromBalancePaise: number; toBalancePaise: number };
+
+/**
+ * Move a credit from one folio onto another folio of the SAME guest journey.
+ *
+ * Full-stay billing plus a split stay leaves money in the wrong place: the guest
+ * pays once, at one desk, but the stay is billed on a folio per leg. The leg that
+ * took the payment ends up in credit while the other still shows a due, and
+ * check-out gates folio by folio — so reception is asked to collect money the
+ * guest has already handed over. Collecting it twice, or deferring a balance that
+ * was never owed, are both wrong; the money just needs to sit where the charge is.
+ *
+ * This reallocates what was ALREADY received. It writes two payment rows (out of
+ * one folio, into the other) and never a charge, so revenue, GST and invoices are
+ * untouched and the cash total across the journey is unchanged.
+ *
+ * Guards: both folios must belong to the same guest AND the same linked journey
+ * (`transferredFromId` chain), the source must actually be in credit, and the
+ * move cannot exceed that credit. Same-journey is the point — this is not a way
+ * to shuffle money between unrelated guests.
+ */
+export async function moveFolioCredit(input: unknown): Promise<Result<MoveCreditResult>> {
+  return toResult(async () => {
+    const data = moveFolioCreditSchema.parse(input);
+    if (data.fromFolioId === data.toFolioId) {
+      throw new DomainError(ErrorCode.VALIDATION_FAILED, "Pick two different folios.", { publicMessage: "Pick two different folios." });
+    }
+    const user = await requireUser();
+    const client = billingDb(user);
+
+    const folios = await client.folio.findMany({
+      where: { id: { in: [data.fromFolioId, data.toFolioId] } },
+      select: {
+        id: true, propertyId: true,
+        reservation: { select: { id: true, code: true, guestId: true, transferredFromId: true } },
+        lines: { select: { amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true } },
+        payments: { select: { amountPaise: true, isRefund: true } },
+      },
+    });
+    const from = folios.find((f) => f.id === data.fromFolioId);
+    const to = folios.find((f) => f.id === data.toFolioId);
+    if (!from || !to) throw new NotFoundError("Folio not found.");
+    authorize(user, "folio:charge", from.propertyId);
+    authorize(user, "folio:charge", to.propertyId);
+
+    if (!from.reservation || !to.reservation || from.reservation.guestId !== to.reservation.guestId) {
+      throw new DomainError(ErrorCode.VALIDATION_FAILED, "Both folios must belong to the same guest.", {
+        publicMessage: "Both bookings must belong to the same guest.",
+      });
+    }
+    // One journey: either one leg continues the other.
+    const linked =
+      to.reservation.transferredFromId === from.reservation.id ||
+      from.reservation.transferredFromId === to.reservation.id;
+    if (!linked) {
+      throw new DomainError(ErrorCode.VALIDATION_FAILED, "Folios are not legs of one stay.", {
+        publicMessage: "These bookings aren't linked legs of one stay, so a credit can't move between them.",
+      });
+    }
+
+    const fromBalance = folioBalance(from.lines, from.payments);
+    const credit = -fromBalance; // positive when the folio is in credit
+    if (credit <= 0n) {
+      throw new DomainError(ErrorCode.VALIDATION_FAILED, "That folio has no credit to move.", {
+        publicMessage: "That booking has no credit to move.",
+      });
+    }
+    const amount = BigInt(data.amountPaise ?? Number(credit));
+    if (amount > credit) {
+      throw new DomainError(ErrorCode.VALIDATION_FAILED, "Amount exceeds the credit.", {
+        publicMessage: `Only ${Number(credit) / 100} is in credit on that booking.`,
+      });
+    }
+
+    const reason = data.reason ?? `credit moved to ${to.reservation.code}`;
+    const batch = randomUUID();
+
+    return withBillingContext(user, () =>
+      client.$transaction(async (tx) => {
+        // Out of the paying folio. `isRefund` is the only direction the schema
+        // has; the reference says plainly that no cash left the till.
+        const out = await tx.payment.create({
+          data: {
+            propertyId: from.propertyId, folioId: from.id, mode: "CASH",
+            amountPaise: amount, isRefund: true, settlementBatchId: batch,
+            reference: `Credit moved to ${to.reservation!.code}`, receivedById: user.userId,
+          },
+          select: { id: true },
+        });
+        const into = await tx.payment.create({
+          data: {
+            propertyId: to.propertyId, folioId: to.id, mode: "CASH",
+            amountPaise: amount, isRefund: false, settlementBatchId: batch,
+            reference: `Credit moved from ${from.reservation!.code}`, receivedById: user.userId,
+          },
+          select: { id: true },
+        });
+        await emitEvent(tx, {
+          type: "PaymentReceived", aggregateId: to.id, propertyId: to.propertyId,
+          payload: { folioId: to.id, settlementBatchId: batch, movedFromFolioId: from.id, tenders: [{ mode: "CASH", amountPaise: Number(amount) }] },
+        });
+        await writeAudit(tx, {
+          action: "folio:move-credit", entityType: "Payment", entityId: into.id, propertyId: to.propertyId, reason,
+          before: { fromFolioId: from.id, fromBalancePaise: Number(fromBalance) },
+          after: { toFolioId: to.id, amountPaise: Number(amount), outPaymentId: out.id },
+        });
+        revalidatePath(`/bookings/${from.reservation!.id}`);
+        revalidatePath(`/bookings/${to.reservation!.id}`);
+        return {
+          movedPaise: Number(amount),
+          fromBalancePaise: Number(fromBalance + amount),
+          toBalancePaise: Number(folioBalance(to.lines, to.payments) - amount),
+        };
       }),
     );
   });
