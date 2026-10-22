@@ -19,6 +19,7 @@ import { EditRoomRateCard } from "@/features/reservations/components/edit-room-r
 import { ChangeSourceCard } from "@/features/reservations/components/change-source-card";
 import { TransferPropertyCard } from "@/features/reservations/components/transfer-property-card";
 import { RelocatePropertyCard } from "@/features/reservations/components/relocate-property-card";
+import { MoveRoomCard } from "@/features/reservations/components/move-room-card";
 import { listProperties } from "@/features/properties/queries";
 import { CancelBookingButton } from "@/features/reservations/components/cancel-booking-button";
 import { CheckOutButton } from "@/features/reservations/components/check-out-button";
@@ -62,6 +63,9 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
   // Pre-arrival relocation: a not-yet-arrived booking can be moved whole to another
   // property (guest dislikes this one on arrival); no mid-stay split.
   const canRelocate = (r.status === "ENQUIRY" || r.status === "CONFIRMED") && !r.externalHotelName && canManageGuests && hasPermission(user, "reservation:create");
+  // Same-property room move: a single-room confirmed/in-house booking can be shifted
+  // to another room at this property (reallocateRoom re-checks availability atomically).
+  const canMoveRoom = (r.status === "CONFIRMED" || r.status === "IN_HOUSE") && r.roomNumbers.length === 1 && !r.externalHotelName && canManageGuests;
   const otherProperties = canTransfer || canRelocate ? (await listProperties(user)).map((p) => ({ id: p.id, name: p.name })) : [];
   const transferProperties = canTransfer ? otherProperties : [];
   // Combined bill across a transfer chain (only when this booking is part of one).
@@ -243,6 +247,16 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
               checkOutDate={r.checkOutDate.toISOString().slice(0, 10)}
               nights={r.nights}
               properties={otherProperties}
+            />
+          ) : null}
+
+          {canMoveRoom ? (
+            <MoveRoomCard
+              reservationId={r.id}
+              propertyId={r.propertyId}
+              checkInDate={r.checkInDate.toISOString().slice(0, 10)}
+              checkOutDate={r.checkOutDate.toISOString().slice(0, 10)}
+              currentRoom={r.roomNumbers[0] ?? null}
             />
           ) : null}
 
