@@ -28,8 +28,21 @@ export function BookingBillSummary({
 
   // A reversed line + its REVERSAL cancel out — show only the NET active charges
   // (totals above already net them out). The guest's bill never shows reversals.
+  // A sub-rupee "Round off" MISC line is a rounding adjustment, not a real charge, so
+  // it's kept out of the itemised list (it's still in the totals) — the bill reads as
+  // plain "what was charged for what".
   const reversedIds = new Set(folio.lines.filter((l) => l.reversalOfId).map((l) => l.reversalOfId));
-  const activeLines = folio.lines.filter((l) => l.type !== "REVERSAL" && !reversedIds.has(l.id));
+  const activeLines = folio.lines.filter(
+    (l) => l.type !== "REVERSAL" && !reversedIds.has(l.id) && !(l.type === "MISC" && l.description === "Round off"),
+  );
+
+  // Net payments by mode (received − refunded); a mode that nets to zero (a reversed or
+  // duplicate tender) is hidden entirely, so the bill shows only the real money taken.
+  const netByMode = new Map<string, number>();
+  for (const p of folio.payments) {
+    netByMode.set(p.mode, (netByMode.get(p.mode) ?? 0) + (p.isRefund ? -p.amountPaise : p.amountPaise));
+  }
+  const netPayments = [...netByMode.entries()].filter(([, amt]) => amt !== 0);
 
   return (
     <Card className="mt-4">
@@ -67,15 +80,15 @@ export function BookingBillSummary({
           )}
         </div>
 
-        {/* Payments */}
-        {folio.payments.length > 0 && (
+        {/* Payments — netted per mode; reversed/duplicate tenders don't show. */}
+        {netPayments.length > 0 && (
           <div>
             <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Payments</p>
             <ul className="space-y-1">
-              {folio.payments.map((p) => (
-                <li key={p.id} className="flex justify-between gap-3">
-                  <span className="text-muted-foreground">{p.mode}{p.isRefund ? " (refund)" : ""}</span>
-                  <span className="shrink-0 tabular">{p.isRefund ? "+" : "−"} {formatINR(p.amountPaise)}</span>
+              {netPayments.map(([mode, amt]) => (
+                <li key={mode} className="flex justify-between gap-3">
+                  <span className="text-muted-foreground">{mode.replace(/_/g, " ")}{amt < 0 ? " (refund)" : ""}</span>
+                  <span className="shrink-0 tabular">{amt < 0 ? "+" : "−"} {formatINR(Math.abs(amt))}</span>
                 </li>
               ))}
             </ul>
