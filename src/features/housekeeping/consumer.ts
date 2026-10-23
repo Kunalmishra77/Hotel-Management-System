@@ -9,6 +9,7 @@
 import { db } from "@/lib/db";
 import { runWithSystemContext } from "@/lib/context";
 import { writeAudit } from "@/lib/audit";
+import { emitEvent } from "@/lib/events";
 import { registerConsumer, type EventConsumer, type EventEnvelope } from "@/lib/events/dispatch";
 
 async function handle(envelope: EventEnvelope): Promise<void> {
@@ -18,7 +19,7 @@ async function handle(envelope: EventEnvelope): Promise<void> {
 
   const open = await prisma.housekeepingTask.findFirst({
     where: { roomId, status: { in: ["PENDING", "IN_PROGRESS"] } },
-    select: { id: true },
+    select: { id: true, propertyId: true },
   });
 
   if (payload.to === "HOUSEKEEPING") {
@@ -35,9 +36,24 @@ async function handle(envelope: EventEnvelope): Promise<void> {
     return;
   }
 
-  // A different status change (e.g. re-occupation) advances the conflict clock.
+  // The room left HOUSEKEEPING. If it is now OCCUPIED (a new guest is in it) or VACANT
+  // (clean and ready), the cleaning task is no longer pending work — auto-close it, so
+  // the housekeeping board never shows phantom "to clean" for a room that has already
+  // been handled (a re-let room is always cleaned before the next check-in). For other
+  // transitions (RESERVED / UNDER_MAINTENANCE) just advance the conflict clock (AC-6)
+  // and leave the task open, since the room may still be awaiting cleaning.
   if (open) {
-    await prisma.housekeepingTask.updateMany({ where: { id: open.id }, data: { serverStatusChangedAt: envelope.occurredAt } });
+    if (payload.to === "OCCUPIED" || payload.to === "VACANT") {
+      await runWithSystemContext(envelope.orgId, () =>
+        prisma.$transaction(async (tx) => {
+          await tx.housekeepingTask.updateMany({ where: { id: open.id }, data: { status: "DONE", serverStatusChangedAt: envelope.occurredAt } });
+          await emitEvent(tx, { type: "HousekeepingTaskDone", aggregateId: open.id, propertyId: open.propertyId, payload: { roomId, autoClosed: true, reason: payload.to } });
+          await writeAudit(tx, { action: "housekeeping:auto-close", entityType: "HousekeepingTask", entityId: open.id, propertyId: open.propertyId, reason: `room became ${payload.to} — cleaning task superseded`, after: { status: "DONE" } });
+        }),
+      );
+    } else {
+      await prisma.housekeepingTask.updateMany({ where: { id: open.id }, data: { serverStatusChangedAt: envelope.occurredAt } });
+    }
   }
 }
 
