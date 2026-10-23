@@ -242,15 +242,17 @@ describe("availability = allocations + blocks (T-11, FR-2, AC-7/9/10)", () => {
 });
 
 describe("occupancy + rate floor (T-9/T-10, FR-17/19, AC-4/25)", () => {
-  it("rejects 3 adults in Deluxe without an extra bed (AC-4)", async () => {
+  // Client decision: occupancy is ADVISORY, never a hard gate — party size must
+  // never block a booking (an extra guest takes a mattress). Supersedes the old AC-4
+  // rejection; a 3-adults-in-Deluxe booking now succeeds with or without an extra bed.
+  it("accepts 3 adults in Deluxe WITHOUT an extra bed (occupancy is advisory)", async () => {
     await actAs(USER_RECEPTION_A_ID);
     const res = await createReservation(booking([ROOM_101_ID], { adults: 3, extraBed: false }));
     track(res);
-    expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.error.code).toBe("OCCUPANCY_EXCEEDED");
+    expect(res.ok).toBe(true);
   });
 
-  it("accepts 3 adults with an extra-bed override (AC-4)", async () => {
+  it("accepts 3 adults with an extra-bed override", async () => {
     await actAs(USER_RECEPTION_A_ID);
     const res = await createReservation(booking([ROOM_101_ID], { adults: 3, extraBed: true }));
     track(res);

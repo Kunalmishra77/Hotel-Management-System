@@ -16,7 +16,6 @@ import { emitEvent } from "@/lib/events";
 import { DomainError, ErrorCode, NotFoundError } from "@/lib/errors";
 import { ensureFolio } from "@/features/billing";
 import { nights as computeNights } from "./domain/nights";
-import { validateOccupancy } from "./domain/occupancy";
 import { checkRateFloor } from "./domain/rate-floor";
 import { freeRoomIdsFor, type RoomFinder } from "./availability";
 import {
@@ -76,11 +75,11 @@ export async function createBooking(
     throw new NotFoundError("One or more rooms were not found in this property.");
   }
 
-  // --- Occupancy (single room; group splits guests across rooms) ----------
-  if (rooms.length === 1) {
-    const occ = validateOccupancy(rooms[0]!.category, data.adults, data.children, data.extraBed);
-    if (!occ.ok) throw new DomainError(ErrorCode.OCCUPANCY_EXCEEDED);
-  }
+  // --- Occupancy is ADVISORY, never a hard gate (client decision) ---------
+  // The client's rule: party size must never block a booking — an extra guest just
+  // takes a mattress. The category's max is informational only (consistent with
+  // availability.ts, which already refuses to hide a room by occupancy). So we do
+  // NOT reject an over-capacity booking here; staff add an extra bed/charge as needed.
 
   // --- Rate floor / discount threshold (against the primary category) -----
   const settings = await client.securitySettings.findFirst({
