@@ -26,6 +26,8 @@ export type ReservationListItem = {
   checkInAt: Date | null;
   nights: number;
   roomNumbers: string[];
+  /** The allocated rooms with ids — lets the room-move card target one room of a group. */
+  rooms: { id: string; number: string }[];
   needsAttention: string | null;
   /** Booking's nightly room rate (paise, pre-tax) — powers the "edit room rate" card. */
   ratePaise: number;
@@ -52,7 +54,7 @@ const LIST_SELECT = {
   externalHotelAddress: true,
   source: true,
   guest: { select: { fullName: true } },
-  allocations: { select: { room: { select: { number: true } } } },
+  allocations: { select: { room: { select: { id: true, number: true } } } },
 } as const;
 
 type Row = {
@@ -71,7 +73,7 @@ type Row = {
   externalHotelAddress: string | null;
   source: string;
   guest: { fullName: string };
-  allocations: { room: { number: string } }[];
+  allocations: { room: { id: string; number: string } }[];
 };
 
 function toItem(r: Row): ReservationListItem {
@@ -87,6 +89,7 @@ function toItem(r: Row): ReservationListItem {
     checkInAt: r.checkInAt,
     nights: r.nights,
     roomNumbers: r.allocations.map((a) => a.room.number),
+    rooms: r.allocations.map((a) => ({ id: a.room.id, number: a.room.number })),
     needsAttention: r.needsAttention,
     ratePaise: r.ratePaise,
     externalHotelName: r.externalHotelName,

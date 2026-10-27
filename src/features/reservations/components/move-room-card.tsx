@@ -12,6 +12,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { DoorOpen, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { searchAvailability } from "../availability-action";
 import { reallocateRoom } from "../move-actions";
@@ -24,15 +25,17 @@ export function MoveRoomCard({
   propertyId,
   checkInDate,
   checkOutDate,
-  currentRoom,
+  currentRooms,
 }: {
   reservationId: string;
   propertyId: string;
   checkInDate: string; // ISO yyyy-mm-dd
   checkOutDate: string;
-  currentRoom: string | null;
+  currentRooms: { id: string; number: string }[];
 }) {
   const router = useRouter();
+  const isGroup = currentRooms.length > 1;
+  const [fromRoomId, setFromRoomId] = useState(currentRooms.length === 1 ? currentRooms[0]!.id : "");
   const [rooms, setRooms] = useState<AvailableRoom[] | null>(null);
   const [toRoomId, setToRoomId] = useState("");
   const [searching, startSearch] = useTransition();
@@ -56,11 +59,15 @@ export function MoveRoomCard({
   };
 
   const submit = (roomId: string, number: string) => {
+    if (isGroup && !fromRoomId) {
+      setError("Choose which room of this booking to move first.");
+      return;
+    }
     setError(null);
     setDone(null);
     setToRoomId(roomId);
     start(async () => {
-      const res = await reallocateRoom({ reservationId, toRoomId: roomId });
+      const res = await reallocateRoom({ reservationId, toRoomId: roomId, fromRoomId: fromRoomId || undefined });
       if (!res.ok) {
         setError(res.error.message);
         return;
@@ -79,8 +86,28 @@ export function MoveRoomCard({
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          Shift this guest to a different room in {currentRoom ? <>the same property (currently {currentRoom})</> : "this property"} — same dates and rate.
+          Shift this guest to a different room in the same property — same dates and rate.
         </p>
+
+        {isGroup && (
+          <div className="space-y-1.5">
+            <Label htmlFor="move-from-room">Which room to move</Label>
+            <select
+              id="move-from-room"
+              value={fromRoomId}
+              onChange={(e) => setFromRoomId(e.target.value)}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              data-testid="move-from-room"
+            >
+              <option value="">Select a room…</option>
+              {currentRooms.map((rm) => (
+                <option key={rm.id} value={rm.id}>
+                  {rm.number}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <Button type="button" variant="outline" size="sm" disabled={searching} onClick={find} data-testid="move-room-find">
           <Search className="size-4" /> {searching ? "Finding rooms…" : "Find free rooms"}

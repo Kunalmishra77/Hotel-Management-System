@@ -63,9 +63,10 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
   // Pre-arrival relocation: a not-yet-arrived booking can be moved whole to another
   // property (guest dislikes this one on arrival); no mid-stay split.
   const canRelocate = (r.status === "ENQUIRY" || r.status === "CONFIRMED") && !r.externalHotelName && canManageGuests && hasPermission(user, "reservation:create");
-  // Same-property room move: a single-room confirmed/in-house booking can be shifted
-  // to another room at this property (reallocateRoom re-checks availability atomically).
-  const canMoveRoom = (r.status === "CONFIRMED" || r.status === "IN_HOUSE") && r.roomNumbers.length === 1 && !r.externalHotelName && canManageGuests;
+  // Same-property room move: a confirmed/in-house booking (single OR group) can have a
+  // room shifted at this property (reallocateRoom re-checks availability atomically; a
+  // group booking picks which room to move).
+  const canMoveRoom = (r.status === "CONFIRMED" || r.status === "IN_HOUSE") && r.roomNumbers.length >= 1 && !r.externalHotelName && canManageGuests;
   const otherProperties = canTransfer || canRelocate ? (await listProperties(user)).map((p) => ({ id: p.id, name: p.name })) : [];
   const transferProperties = canTransfer ? otherProperties : [];
   // Combined bill across a transfer chain (only when this booking is part of one).
@@ -191,7 +192,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
             </CardContent>
           </Card>
 
-          {(r.status === "IN_HOUSE" || r.status === "CONFIRMED") && canManageGuests ? (
+          {(r.status === "IN_HOUSE" || r.status === "CONFIRMED") && canManageGuests && !r.externalHotelName && r.roomNumbers.length > 0 ? (
             <ExtendStayCard reservationId={r.id} checkOutDate={r.checkOutDate.toISOString().slice(0, 10)} currentRatePaise={r.ratePaise} />
           ) : null}
 
@@ -256,7 +257,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
               propertyId={r.propertyId}
               checkInDate={r.checkInDate.toISOString().slice(0, 10)}
               checkOutDate={r.checkOutDate.toISOString().slice(0, 10)}
-              currentRoom={r.roomNumbers[0] ?? null}
+              currentRooms={r.rooms}
             />
           ) : null}
 

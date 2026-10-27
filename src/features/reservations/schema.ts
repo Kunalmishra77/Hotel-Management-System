@@ -253,6 +253,9 @@ export const updateReservationDetailsSchema = z.object({
 export const reallocateRoomSchema = z.object({
   reservationId: z.string().min(1),
   toRoomId: z.string().min(1).optional(),
+  // For a group (multi-room) booking: which of its rooms to move. Required only when
+  // the booking has more than one room; a single-room booking ignores it.
+  fromRoomId: z.string().min(1).optional(),
 });
 
 /**

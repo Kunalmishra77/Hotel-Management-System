@@ -222,19 +222,18 @@ export async function extendStay(input: unknown): Promise<Result<MoveResult>> {
       bookingAttempt(() =>
         client.$transaction(
           async (tx) => {
-            // Re-stretch EVERY room's allocation: drop + recreate for the new range,
-            // checking each room is free for the added nights (their own old
-            // allocations are gone). Any one room taken fails the whole extension.
-            await tx.roomAllocation.deleteMany({ where: { reservationId: r.id } });
-            const free = await freeRoomIdsFor(tx as unknown as RoomFinder, r.propertyId, roomIds, r.checkInDate, newCheckOut);
+            // Stretch EVERY room's allocation to the new check-out. We verify only the
+            // ADDED slice [oldCheckOut, newCheckOut) is free — never re-check the whole
+            // original range, which (after a mid-stay room move, when an allocation
+            // starts later than check-in) would collide with the room's earlier occupant
+            // and wrongly refuse the extension. The own allocations end exactly at
+            // oldCheckOut, so they don't overlap the added slice; a plain endDate update
+            // then extends them without touching the already-stayed nights.
+            const free = await freeRoomIdsFor(tx as unknown as RoomFinder, r.propertyId, roomIds, r.checkOutDate, newCheckOut);
             for (const roomId of roomIds) {
-              if (!free.has(roomId)) throw new DomainError(ErrorCode.ROOM_UNAVAILABLE);
+              if (!free.has(roomId)) throw new DomainError(ErrorCode.ROOM_UNAVAILABLE, "A room isn't free for the added nights.", { publicMessage: `Room ${roomLabel || "this booking"} isn't free for the added nights.` });
             }
-            for (const roomId of roomIds) {
-              await tx.roomAllocation.create({
-                data: { propertyId: r.propertyId, reservationId: r.id, roomId, startDate: r.checkInDate, endDate: newCheckOut },
-              });
-            }
+            await tx.roomAllocation.updateMany({ where: { reservationId: r.id }, data: { endDate: newCheckOut } });
             await tx.reservation.updateMany({
               where: { id: r.id },
               // The extension's rate becomes the booking's going-forward rate, so
@@ -363,40 +362,67 @@ export async function reallocateRoom(input: unknown): Promise<Result<MoveResult>
       where: { id: data.reservationId },
       select: {
         id: true, propertyId: true, status: true, checkInDate: true, checkOutDate: true,
-        allocations: { select: { id: true, roomId: true, room: { select: { categoryId: true } } } },
+        property: { select: { timezone: true } },
+        allocations: { select: { id: true, roomId: true, startDate: true, room: { select: { number: true, categoryId: true } } } },
       },
     });
     if (!r) throw new NotFoundError("Reservation not found.");
     authorize(user, "reservation:modify", r.propertyId);
 
     if (r.status !== "IN_HOUSE" && r.status !== "CONFIRMED") {
-      throw new DomainError(ErrorCode.ILLEGAL_TRANSITION);
+      throw new DomainError(ErrorCode.ILLEGAL_TRANSITION, "Only a confirmed or in-house booking's room can be changed.", {
+        publicMessage: "Only a confirmed or in-house booking's room can be changed.",
+      });
     }
-    if (r.allocations.length !== 1) {
-      throw new DomainError(ErrorCode.VALIDATION_FAILED, "Only a single-room booking can be moved.");
+    if (r.allocations.length === 0) {
+      throw new DomainError(ErrorCode.VALIDATION_FAILED, "This booking has no room to move.", {
+        publicMessage: "This booking has no room allocated to move.",
+      });
     }
-    const alloc = r.allocations[0]!;
+    // Which room to move: the only one, or (for a group booking) the caller-named room.
+    const alloc = data.fromRoomId
+      ? r.allocations.find((a) => a.roomId === data.fromRoomId)
+      : r.allocations.length === 1
+        ? r.allocations[0]
+        : undefined;
+    if (!alloc) {
+      throw new DomainError(ErrorCode.VALIDATION_FAILED, "Pick which room of this booking to move.", {
+        publicMessage: "This booking has several rooms — choose which one to move.",
+      });
+    }
     // Room statuses depend on whether the guest is already in-house.
     const [vacatedStatus, occupiedStatus] =
       r.status === "IN_HOUSE" ? (["HOUSEKEEPING", "OCCUPIED"] as const) : (["VACANT", "RESERVED"] as const);
 
-    // Mid-stay move: an in-house guest who has already stayed some nights only needs
-    // the NEW room free for the nights STILL TO COME — the past nights were in the old
-    // room. So the availability re-check and the new allocation start from TODAY, not
-    // from the original check-in. (A room occupied earlier in the stay but free now can
-    // therefore still receive the guest — the "no free rooms" that blocked a move to a
-    // room that was taken days ago.) A not-yet-arrived (CONFIRMED) move still uses the
-    // whole range.
-    const now = new Date();
-    const todayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-    const midStay = r.status === "IN_HOUSE" && todayUtc > r.checkInDate && todayUtc < r.checkOutDate;
-    const windowStart = midStay ? todayUtc : r.checkInDate;
+    // Window = the nights STILL TO COME, in PROPERTY-LOCAL time. An in-house guest who
+    // has already stayed some nights only needs the new room free from today onward —
+    // the past nights stay attributed to the old room (so a room occupied earlier in
+    // the stay but free now can still receive the guest). "Today" is the property's
+    // local day (reception working after midnight IST must not jump a day). A stay with
+    // no nights left (ended / overstaying) can't be moved — it must be extended first.
+    const todayStr = r.property.timezone
+      ? new Date().toLocaleDateString("en-CA", { timeZone: r.property.timezone })
+      : new Date().toISOString().slice(0, 10);
+    const todayDate = new Date(`${todayStr}T00:00:00.000Z`);
+    if (todayDate.getTime() >= r.checkOutDate.getTime()) {
+      throw new DomainError(ErrorCode.VALIDATION_FAILED, "No remaining nights to move.", {
+        publicMessage: "This stay has no remaining nights to move — extend the stay first.",
+      });
+    }
+    const windowStart = todayDate.getTime() > r.checkInDate.getTime() ? todayDate : r.checkInDate;
+    // Shorten (keep the already-stayed nights in the old room) only when the guest is
+    // in-house AND the old room's allocation actually has a pre-window portion; else drop.
+    const shortenOld = r.status === "IN_HOUSE" && windowStart.getTime() > alloc.startDate.getTime();
 
     return withReservationContext(user, () =>
       bookingAttempt(() =>
         client.$transaction(
           async (tx) => {
-            await tx.roomAllocation.deleteMany({ where: { id: alloc.id } });
+            if (shortenOld) {
+              await tx.roomAllocation.updateMany({ where: { id: alloc.id }, data: { endDate: windowStart } });
+            } else {
+              await tx.roomAllocation.deleteMany({ where: { id: alloc.id } });
+            }
 
             // Resolve the target: explicit, or the first free same-category room —
             // free for the REMAINING window (windowStart → checkout).

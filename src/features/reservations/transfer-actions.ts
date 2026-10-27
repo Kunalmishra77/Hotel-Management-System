@@ -270,6 +270,14 @@ export async function relocateBeforeCheckIn(input: unknown): Promise<Result<Relo
         publicMessage: "That's the same property. To change room within a property, use Move room instead.",
       });
     }
+    // A group booking holds several rooms; relocating only re-allocates ONE room at the
+    // destination and would silently drop the rest, leaving their inventory/status
+    // wrong. Refuse until multi-room relocation is supported.
+    if (r.allocations.length > 1) {
+      throw new DomainError(ErrorCode.VALIDATION_FAILED, "Group relocation not supported.", {
+        publicMessage: "This booking has several rooms — a multi-room relocation isn't supported yet. Move/cancel the rooms individually.",
+      });
+    }
     if (r.folio && r.folio.lines.length > 0) {
       throw new DomainError(ErrorCode.VALIDATION_FAILED, "Folio already has charges.", {
         publicMessage: "This booking already has charges posted and can't be relocated. Transfer mid-stay instead.",
