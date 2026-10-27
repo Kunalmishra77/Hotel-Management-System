@@ -144,10 +144,11 @@ export async function modifyReservation(input: unknown): Promise<Result<MoveResu
  * Extend an in-house (or confirmed) guest's stay to a later check-out date.
  *
  * `modifyReservation` only handles CONFIRMED bookings; a guest who has already
- * checked in and wants to stay longer needs this. It stretches the same room's
- * allocation to the new range (re-checking the room is free for the added nights),
+ * checked in and wants to stay longer needs this. It stretches EVERY room's
+ * allocation to the new range (re-checking each room is free for the added nights),
  * updates the dates/nights, and bills the extra nights that have already elapsed
  * (property-local) onto the folio now — future nights post via the night audit.
+ * Works for a single room or a multi-room group booking (all rooms move together).
  */
 export async function extendStay(input: unknown): Promise<Result<MoveResult>> {
   return toResult(async () => {
@@ -172,9 +173,9 @@ export async function extendStay(input: unknown): Promise<Result<MoveResult>> {
         publicMessage: "Only a confirmed or in-house stay can be extended.",
       });
     }
-    if (r.allocations.length !== 1) {
-      throw new DomainError(ErrorCode.VALIDATION_FAILED, "Group bookings can't be extended in one step.", {
-        publicMessage: "Group bookings can't be extended in one step.",
+    if (r.allocations.length === 0) {
+      throw new DomainError(ErrorCode.VALIDATION_FAILED, "This booking has no room to extend.", {
+        publicMessage: "This booking has no room allocated, so there's nothing to extend.",
       });
     }
     const newCheckOut = data.newCheckOutDate;
@@ -193,7 +194,8 @@ export async function extendStay(input: unknown): Promise<Result<MoveResult>> {
       allowPast: true,
     });
     const nights = computeNights(r.checkInDate, newCheckOut, r.property.timezone);
-    const roomId = r.allocations[0]!.roomId;
+    const roomIds = r.allocations.map((a) => a.roomId);
+    const roomLabel = r.allocations.map((a) => a.room?.number).filter(Boolean).join(", ");
 
     // An extension is routinely agreed at a DIFFERENT nightly rate. That rate
     // applies to the added nights and to everything posted from here on — never
@@ -220,14 +222,19 @@ export async function extendStay(input: unknown): Promise<Result<MoveResult>> {
       bookingAttempt(() =>
         client.$transaction(
           async (tx) => {
-            // Re-stretch the allocation: drop + recreate for the new range, checking
-            // the room is free for the added nights (its own old allocation is gone).
-            await tx.roomAllocation.deleteMany({ where: { id: r.allocations[0]!.id } });
-            const free = await freeRoomIdsFor(tx as unknown as RoomFinder, r.propertyId, [roomId], r.checkInDate, newCheckOut);
-            if (!free.has(roomId)) throw new DomainError(ErrorCode.ROOM_UNAVAILABLE);
-            await tx.roomAllocation.create({
-              data: { propertyId: r.propertyId, reservationId: r.id, roomId, startDate: r.checkInDate, endDate: newCheckOut },
-            });
+            // Re-stretch EVERY room's allocation: drop + recreate for the new range,
+            // checking each room is free for the added nights (their own old
+            // allocations are gone). Any one room taken fails the whole extension.
+            await tx.roomAllocation.deleteMany({ where: { reservationId: r.id } });
+            const free = await freeRoomIdsFor(tx as unknown as RoomFinder, r.propertyId, roomIds, r.checkInDate, newCheckOut);
+            for (const roomId of roomIds) {
+              if (!free.has(roomId)) throw new DomainError(ErrorCode.ROOM_UNAVAILABLE);
+            }
+            for (const roomId of roomIds) {
+              await tx.roomAllocation.create({
+                data: { propertyId: r.propertyId, reservationId: r.id, roomId, startDate: r.checkInDate, endDate: newCheckOut },
+              });
+            }
             await tx.reservation.updateMany({
               where: { id: r.id },
               // The extension's rate becomes the booking's going-forward rate, so
@@ -257,7 +264,7 @@ export async function extendStay(input: unknown): Promise<Result<MoveResult>> {
                   businessDate,
                   revision: nextRoomRevision(existing, businessDate),
                   postedById: user.userId,
-                  description: `Room ${r.allocations[0]!.room?.number ?? ""} · night (extended)`.trim(),
+                  description: `Room ${roomLabel} · night (extended)`.trim(),
                 });
               }
             }
@@ -268,7 +275,7 @@ export async function extendStay(input: unknown): Promise<Result<MoveResult>> {
               before: { checkOutDate: r.checkOutDate, ratePaise: r.ratePaise },
               after: { checkOutDate: newCheckOut, nights, ratePaise: extensionRatePaise },
             });
-            return { id: r.id, status: r.status, roomId };
+            return { id: r.id, status: r.status, roomId: roomIds[0]! };
           },
           { isolationLevel: "Serializable", maxWait: 10_000, timeout: 15_000 },
         ),
