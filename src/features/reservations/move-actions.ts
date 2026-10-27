@@ -380,31 +380,44 @@ export async function reallocateRoom(input: unknown): Promise<Result<MoveResult>
     const [vacatedStatus, occupiedStatus] =
       r.status === "IN_HOUSE" ? (["HOUSEKEEPING", "OCCUPIED"] as const) : (["VACANT", "RESERVED"] as const);
 
+    // Mid-stay move: an in-house guest who has already stayed some nights only needs
+    // the NEW room free for the nights STILL TO COME — the past nights were in the old
+    // room. So the availability re-check and the new allocation start from TODAY, not
+    // from the original check-in. (A room occupied earlier in the stay but free now can
+    // therefore still receive the guest — the "no free rooms" that blocked a move to a
+    // room that was taken days ago.) A not-yet-arrived (CONFIRMED) move still uses the
+    // whole range.
+    const now = new Date();
+    const todayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const midStay = r.status === "IN_HOUSE" && todayUtc > r.checkInDate && todayUtc < r.checkOutDate;
+    const windowStart = midStay ? todayUtc : r.checkInDate;
+
     return withReservationContext(user, () =>
       bookingAttempt(() =>
         client.$transaction(
           async (tx) => {
             await tx.roomAllocation.deleteMany({ where: { id: alloc.id } });
 
-            // Resolve the target: explicit, or the first free same-category room.
+            // Resolve the target: explicit, or the first free same-category room —
+            // free for the REMAINING window (windowStart → checkout).
             let toRoomId = data.toRoomId;
             if (!toRoomId) {
               const candidates = await findFreeRooms(tx as unknown as RoomFinder, {
                 propertyId: r.propertyId, categoryId: alloc.room.categoryId,
-                checkInDate: r.checkInDate, checkOutDate: r.checkOutDate,
+                checkInDate: windowStart, checkOutDate: r.checkOutDate,
               });
               const pick = candidates.find((c) => c.id !== alloc.roomId);
               if (!pick) throw new DomainError(ErrorCode.ROOM_UNAVAILABLE);
               toRoomId = pick.id;
             } else {
               const free = await freeRoomIdsFor(
-                tx as unknown as RoomFinder, r.propertyId, [toRoomId], r.checkInDate, r.checkOutDate,
+                tx as unknown as RoomFinder, r.propertyId, [toRoomId], windowStart, r.checkOutDate,
               );
               if (!free.has(toRoomId)) throw new DomainError(ErrorCode.ROOM_UNAVAILABLE);
             }
 
             await tx.roomAllocation.create({
-              data: { propertyId: r.propertyId, reservationId: r.id, roomId: toRoomId, startDate: r.checkInDate, endDate: r.checkOutDate },
+              data: { propertyId: r.propertyId, reservationId: r.id, roomId: toRoomId, startDate: windowStart, endDate: r.checkOutDate },
             });
             await tx.room.updateMany({ where: { id: alloc.roomId }, data: { status: vacatedStatus } });
             await tx.room.updateMany({ where: { id: toRoomId }, data: { status: occupiedStatus } });

@@ -45,7 +45,12 @@ export function MoveRoomCard({
     setRooms(null);
     setToRoomId("");
     startSearch(async () => {
-      const res = await searchAvailability({ propertyId, checkInDate, checkOutDate });
+      // A guest already mid-stay only needs the new room free for the nights still to
+      // come, so search from today (not the original check-in) — otherwise a room that
+      // was occupied earlier in the stay but is free now wrongly shows as unavailable.
+      const todayIso = new Date().toISOString().slice(0, 10);
+      const searchStart = checkInDate > todayIso ? checkInDate : todayIso;
+      const res = await searchAvailability({ propertyId, checkInDate: searchStart, checkOutDate });
       setRooms(res.ok ? res.data.rooms : []);
     });
   };
