@@ -125,6 +125,14 @@ export async function checkIn(input: unknown): Promise<Result<LifecycleResult>> 
     if (!canTransition(r.status as never, "IN_HOUSE")) {
       throw new DomainError(ErrorCode.ILLEGAL_TRANSITION); // AC-18
     }
+    // Never check a guest in with no room — that creates an IN_HOUSE booking that is
+    // billed full-stay but has nowhere to put the guest (and then can't be extended or
+    // moved). A reactivated no-show, whose rooms were released, must be re-assigned first.
+    if (r.allocations.length === 0) {
+      throw new DomainError(ErrorCode.VALIDATION_FAILED, "No room assigned.", {
+        publicMessage: "Assign a room to this booking before checking in.",
+      });
+    }
 
     return withReservationContext(user, () =>
       client.$transaction(async (tx) => {

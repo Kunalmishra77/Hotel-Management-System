@@ -35,6 +35,7 @@ export function MoveRoomCard({
 }) {
   const router = useRouter();
   const isGroup = currentRooms.length > 1;
+  const isAssign = currentRooms.length === 0; // no room yet → assign one
   const [fromRoomId, setFromRoomId] = useState(currentRooms.length === 1 ? currentRooms[0]!.id : "");
   const [rooms, setRooms] = useState<AvailableRoom[] | null>(null);
   const [toRoomId, setToRoomId] = useState("");
@@ -81,12 +82,14 @@ export function MoveRoomCard({
     <Card className="mt-4">
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-base [&_svg]:size-4 [&_svg]:text-primary">
-          <DoorOpen /> Move to another room
+          <DoorOpen /> {isAssign ? "Assign a room" : "Move to another room"}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          Shift this guest to a different room in the same property — same dates and rate.
+          {isAssign
+            ? "This booking has no room assigned. Find a free room and assign one so the guest can be managed and checked out."
+            : "Shift this guest to a different room in the same property — same dates and rate."}
         </p>
 
         {isGroup && (
@@ -152,7 +155,7 @@ export function MoveRoomCard({
             className="rounded-md border border-emerald-600/30 bg-emerald-500/10 p-2 text-sm text-emerald-700 dark:text-emerald-400"
             data-testid="move-room-done"
           >
-            ✔ Moved to room {done}.
+            ✔ {isAssign ? "Assigned" : "Moved to"} room {done}.
           </p>
         )}
       </CardContent>

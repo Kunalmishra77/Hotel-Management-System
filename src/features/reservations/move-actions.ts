@@ -374,20 +374,25 @@ export async function reallocateRoom(input: unknown): Promise<Result<MoveResult>
         publicMessage: "Only a confirmed or in-house booking's room can be changed.",
       });
     }
-    if (r.allocations.length === 0) {
-      throw new DomainError(ErrorCode.VALIDATION_FAILED, "This booking has no room to move.", {
-        publicMessage: "This booking has no room allocated to move.",
-      });
-    }
-    // Which room to move: the only one, or (for a group booking) the caller-named room.
-    const alloc = data.fromRoomId
-      ? r.allocations.find((a) => a.roomId === data.fromRoomId)
-      : r.allocations.length === 1
-        ? r.allocations[0]
-        : undefined;
-    if (!alloc) {
+    // `alloc` = the room being moved; null when the booking has NO room yet (an
+    // unallocated booking being ASSIGNED a room — e.g. a reactivated no-show). The only
+    // one, or (for a group) the caller-named room.
+    const alloc =
+      r.allocations.length === 0
+        ? null
+        : data.fromRoomId
+          ? (r.allocations.find((a) => a.roomId === data.fromRoomId) ?? null)
+          : r.allocations.length === 1
+            ? r.allocations[0]!
+            : null;
+    if (r.allocations.length > 0 && !alloc) {
       throw new DomainError(ErrorCode.VALIDATION_FAILED, "Pick which room of this booking to move.", {
         publicMessage: "This booking has several rooms — choose which one to move.",
+      });
+    }
+    if (!alloc && !data.toRoomId) {
+      throw new DomainError(ErrorCode.VALIDATION_FAILED, "Choose a room to assign.", {
+        publicMessage: "Choose a room to assign to this booking.",
       });
     }
     // Room statuses depend on whether the guest is already in-house.
@@ -412,22 +417,28 @@ export async function reallocateRoom(input: unknown): Promise<Result<MoveResult>
     const windowStart = todayDate.getTime() > r.checkInDate.getTime() ? todayDate : r.checkInDate;
     // Shorten (keep the already-stayed nights in the old room) only when the guest is
     // in-house AND the old room's allocation actually has a pre-window portion; else drop.
-    const shortenOld = r.status === "IN_HOUSE" && windowStart.getTime() > alloc.startDate.getTime();
+    const shortenOld = !!alloc && r.status === "IN_HOUSE" && windowStart.getTime() > alloc.startDate.getTime();
 
     return withReservationContext(user, () =>
       bookingAttempt(() =>
         client.$transaction(
           async (tx) => {
-            if (shortenOld) {
-              await tx.roomAllocation.updateMany({ where: { id: alloc.id }, data: { endDate: windowStart } });
-            } else {
-              await tx.roomAllocation.deleteMany({ where: { id: alloc.id } });
+            // Free the OLD room from the window onward — only when MOVING (an assign to an
+            // unallocated booking has no old room). Shorten (keep already-stayed nights)
+            // or drop entirely.
+            if (alloc) {
+              if (shortenOld) {
+                await tx.roomAllocation.updateMany({ where: { id: alloc.id }, data: { endDate: windowStart } });
+              } else {
+                await tx.roomAllocation.deleteMany({ where: { id: alloc.id } });
+              }
             }
 
-            // Resolve the target: explicit, or the first free same-category room —
-            // free for the REMAINING window (windowStart → checkout).
+            // Resolve the target: explicit, or (only when moving) the first free
+            // same-category room — free for the REMAINING window (windowStart → checkout).
             let toRoomId = data.toRoomId;
             if (!toRoomId) {
+              if (!alloc) throw new DomainError(ErrorCode.VALIDATION_FAILED, "Choose a room to assign.");
               const candidates = await findFreeRooms(tx as unknown as RoomFinder, {
                 propertyId: r.propertyId, categoryId: alloc.room.categoryId,
                 checkInDate: windowStart, checkOutDate: r.checkOutDate,
@@ -445,14 +456,16 @@ export async function reallocateRoom(input: unknown): Promise<Result<MoveResult>
             await tx.roomAllocation.create({
               data: { propertyId: r.propertyId, reservationId: r.id, roomId: toRoomId, startDate: windowStart, endDate: r.checkOutDate },
             });
-            await tx.room.updateMany({ where: { id: alloc.roomId }, data: { status: vacatedStatus } });
+            if (alloc) {
+              await tx.room.updateMany({ where: { id: alloc.roomId }, data: { status: vacatedStatus } });
+              await emitEvent(tx, { type: "RoomStatusChanged", aggregateId: alloc.roomId, propertyId: r.propertyId, payload: { to: vacatedStatus, reason: "room-move" } });
+            }
             await tx.room.updateMany({ where: { id: toRoomId }, data: { status: occupiedStatus } });
-            await emitEvent(tx, { type: "RoomStatusChanged", aggregateId: alloc.roomId, propertyId: r.propertyId, payload: { to: vacatedStatus, reason: "room-move" } });
-            await emitEvent(tx, { type: "RoomStatusChanged", aggregateId: toRoomId, propertyId: r.propertyId, payload: { to: occupiedStatus, reason: "room-move" } });
+            await emitEvent(tx, { type: "RoomStatusChanged", aggregateId: toRoomId, propertyId: r.propertyId, payload: { to: occupiedStatus, reason: alloc ? "room-move" : "assign-room" } });
             await emitEvent(tx, { type: "ReservationModified", aggregateId: r.id, propertyId: r.propertyId, payload: { movedTo: toRoomId } });
             await writeAudit(tx, {
-              action: "reservation:reallocate", entityType: "Reservation", entityId: r.id, propertyId: r.propertyId,
-              before: { roomId: alloc.roomId }, after: { roomId: toRoomId },
+              action: alloc ? "reservation:reallocate" : "reservation:assign-room", entityType: "Reservation", entityId: r.id, propertyId: r.propertyId,
+              before: { roomId: alloc?.roomId ?? null }, after: { roomId: toRoomId },
             });
             return { id: r.id, status: r.status, roomId: toRoomId };
           },
