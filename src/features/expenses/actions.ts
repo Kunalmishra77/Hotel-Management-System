@@ -16,7 +16,7 @@ import { DomainError, ErrorCode, NotFoundError } from "@/lib/errors";
 import { toResult, type Result } from "@/lib/result";
 import { resolveStorageAdapter } from "@/lib/storage";
 import { expenseDb, withExpenseContext } from "./internal";
-import { createExpenseSchema, approveExpenseSchema, rejectExpenseSchema, setExpenseBudgetSchema } from "./schema";
+import { createExpenseSchema, createExpensesSchema, approveExpenseSchema, rejectExpenseSchema, setExpenseBudgetSchema, type CreateExpenseInput } from "./schema";
 import { requiresSuperApproval } from "./domain/escalation";
 
 export type ExpenseResult = { id: string; status: string };
@@ -59,50 +59,85 @@ export async function setExpenseBudget(input: unknown): Promise<Result<{ ok: tru
 
 const SALARY_SUB = /salary|wages|payroll/i;
 
+/**
+ * Prepare one expense item for insertion: enforce the salary guard and upload its
+ * bill (if any) to storage, returning the row's `data`. Bill upload happens BEFORE
+ * the DB write so we never persist a row referencing a scan that failed to upload
+ * (AC-8) — key only, encrypted at rest. Shared by the single + batch create paths.
+ */
+async function prepareExpenseRow(data: CreateExpenseInput, userId: string) {
+  // FR-6 / AC-7: salary belongs to payroll (21), never a hand-keyed STAFF expense.
+  if (data.head === "STAFF" && data.subCategory && SALARY_SUB.test(data.subCategory)) {
+    throw new DomainError(ErrorCode.VALIDATION_FAILED, "Salary/wages are recorded in payroll (21), not as a STAFF expense.");
+  }
+  let billObjectKey: string | null = null;
+  if (data.billBase64) {
+    const key = `expenses/${data.propertyId}/${randomUUID()}`;
+    await resolveStorageAdapter().put(key, Buffer.from(data.billBase64, "base64"), { contentType: "image/jpeg" });
+    billObjectKey = key;
+  }
+  return {
+    propertyId: data.propertyId,
+    head: data.head,
+    subCategory: data.subCategory ?? null,
+    description: data.description ?? null,
+    quantity: data.quantity ?? null,
+    amountPaise: data.amountPaise,
+    spentOn: data.spentOn,
+    paidVia: data.paidVia ?? null,
+    vendor: data.vendor ?? null,
+    gstNumber: data.gstNumber ?? null,
+    billObjectKey,
+    status: "DRAFT" as const,
+    createdById: userId,
+  };
+}
+
 /** Record an expense (FR-1/2/3/6). STAFF-head salary spend is refused (FR-6). */
 export async function createExpense(input: unknown): Promise<Result<ExpenseResult>> {
   return toResult(async () => {
     const data = createExpenseSchema.parse(input);
     const user = await requireUser();
     authorize(user, "expense:create", data.propertyId);
-
-    // FR-6 / AC-7: salary belongs to payroll (21), never a hand-keyed STAFF expense.
-    if (data.head === "STAFF" && data.subCategory && SALARY_SUB.test(data.subCategory)) {
-      throw new DomainError(ErrorCode.VALIDATION_FAILED, "Salary/wages are recorded in payroll (21), not as a STAFF expense.");
-    }
-
-    // Store the bill BEFORE the row so we never persist an expense referencing a
-    // scan that failed to upload (AC-8) — key only, encrypted at rest.
-    let billObjectKey: string | null = null;
-    if (data.billBase64) {
-      const key = `expenses/${data.propertyId}/${randomUUID()}`;
-      await resolveStorageAdapter().put(key, Buffer.from(data.billBase64, "base64"), { contentType: "image/jpeg" });
-      billObjectKey = key;
-    }
+    const row = await prepareExpenseRow(data, user.userId);
 
     return withExpenseContext(user, () =>
       expenseDb(user).$transaction(async (tx) => {
-        const expense = await tx.expense.create({
-          data: {
-            propertyId: data.propertyId,
-            head: data.head,
-            subCategory: data.subCategory ?? null,
-            description: data.description ?? null,
-            quantity: data.quantity ?? null,
-            amountPaise: data.amountPaise,
-            spentOn: data.spentOn,
-            paidVia: data.paidVia ?? null,
-            vendor: data.vendor ?? null,
-            gstNumber: data.gstNumber ?? null,
-            billObjectKey,
-            status: "DRAFT",
-            createdById: user.userId,
-          },
-          select: { id: true, status: true },
-        });
+        const expense = await tx.expense.create({ data: row, select: { id: true, status: true } });
         await emitEvent(tx, { type: "ExpenseRecorded", aggregateId: expense.id, propertyId: data.propertyId, payload: { head: data.head, amountPaise: data.amountPaise } });
-        await writeAudit(tx, { action: "expense:create", entityType: "Expense", entityId: expense.id, propertyId: data.propertyId, after: { head: data.head, amountPaise: data.amountPaise, hasBill: billObjectKey !== null } });
+        await writeAudit(tx, { action: "expense:create", entityType: "Expense", entityId: expense.id, propertyId: data.propertyId, after: { head: data.head, amountPaise: data.amountPaise, hasBill: row.billObjectKey !== null } });
         return expense;
+      }),
+    );
+  });
+}
+
+/**
+ * Record several expense line items in one submit (#multi-item) — e.g. a grocery
+ * run of milk, bread, eggs. Each is its own DRAFT row (so approval + rollups are
+ * unchanged); all are written in ONE transaction so a partial batch can't land.
+ * Authorized per distinct property; the salary guard runs on every item.
+ */
+export async function createExpenses(input: unknown): Promise<Result<{ count: number; ids: string[] }>> {
+  return toResult(async () => {
+    const { items } = createExpensesSchema.parse(input);
+    const user = await requireUser();
+    for (const propertyId of new Set(items.map((i) => i.propertyId))) {
+      authorize(user, "expense:create", propertyId);
+    }
+    // Upload bills + run guards for every item before opening the transaction.
+    const rows = await Promise.all(items.map((i) => prepareExpenseRow(i, user.userId)));
+
+    return withExpenseContext(user, () =>
+      expenseDb(user).$transaction(async (tx) => {
+        const ids: string[] = [];
+        for (const row of rows) {
+          const expense = await tx.expense.create({ data: row, select: { id: true } });
+          ids.push(expense.id);
+          await emitEvent(tx, { type: "ExpenseRecorded", aggregateId: expense.id, propertyId: row.propertyId, payload: { head: row.head, amountPaise: row.amountPaise } });
+          await writeAudit(tx, { action: "expense:create", entityType: "Expense", entityId: expense.id, propertyId: row.propertyId, after: { head: row.head, amountPaise: row.amountPaise, hasBill: row.billObjectKey !== null, batch: true } });
+        }
+        return { count: ids.length, ids };
       }),
     );
   });

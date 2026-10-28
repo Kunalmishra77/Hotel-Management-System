@@ -13,7 +13,7 @@ vi.mock("next/cache", () => ({ revalidatePath: () => {}, revalidateTag: () => {}
 
 import { PROP_A_ID, USER_ACCOUNTS_ID, USER_RECEPTION_A_ID, USER_MANAGER_ID, USER_ADMIN_ID } from "../../prisma/seed/fixtures";
 import { assembleClaims } from "@/lib/auth/claims";
-import { createExpense, approveExpense, rejectExpense } from "@/features/expenses/actions";
+import { createExpense, createExpenses, approveExpense, rejectExpense } from "@/features/expenses/actions";
 import { expenseRollup } from "@/features/expenses/queries";
 
 const prisma = createPrismaClient();
@@ -76,6 +76,49 @@ describe("createExpense (T-4, FR-1/2/3/6, AC-1/2/3/7/8)", () => {
     await actAs(USER_RECEPTION_A_ID);
     const res = await createExpense(veg());
     track(res);
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error.code).toBe("FORBIDDEN");
+  });
+});
+
+describe("createExpenses — multi-item batch", () => {
+  it("records several items in one call, each its own DRAFT row with event + audit", async () => {
+    await actAs(USER_ACCOUNTS_ID);
+    const res = await createExpenses({
+      items: [
+        veg({ subCategory: "Milk", description: "Milk", amountPaise: 6_000 }),
+        veg({ subCategory: "Bread", description: "Bread", amountPaise: 4_500 }),
+        veg({ subCategory: "Eggs", description: "Eggs", amountPaise: 9_000 }),
+      ],
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    created.push(...res.data.ids);
+    expect(res.data.count).toBe(3);
+    const rows = await prisma.expense.findMany({ where: { id: { in: res.data.ids } } });
+    expect(rows).toHaveLength(3);
+    expect(rows.every((r) => r.status === "DRAFT")).toBe(true);
+    expect(await prisma.domainEvent.count({ where: { type: "ExpenseRecorded", aggregateId: { in: res.data.ids } } })).toBe(3);
+    expect(await prisma.auditLog.count({ where: { action: "expense:create", entityId: { in: res.data.ids } } })).toBe(3);
+  });
+
+  it("is atomic — one bad item (STAFF salary) rolls back the whole batch", async () => {
+    await actAs(USER_ACCOUNTS_ID);
+    const before = await prisma.expense.count({ where: { propertyId: PROP_A_ID } });
+    const res = await createExpenses({
+      items: [
+        veg({ subCategory: "Milk", description: "Milk", amountPaise: 6_000 }),
+        veg({ head: "STAFF", subCategory: "July Salary", description: "Salary", amountPaise: 50_000 }),
+      ],
+    });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error.code).toBe("VALIDATION_FAILED");
+    expect(await prisma.expense.count({ where: { propertyId: PROP_A_ID } })).toBe(before);
+  });
+
+  it("denies Reception (no expense:create) → FORBIDDEN", async () => {
+    await actAs(USER_RECEPTION_A_ID);
+    const res = await createExpenses({ items: [veg({ description: "Milk" })] });
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.error.code).toBe("FORBIDDEN");
   });

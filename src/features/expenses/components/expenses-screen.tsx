@@ -1,9 +1,12 @@
 "use client";
 
 /**
- * Expenses screen — 07 + restructure (#12–20). Dynamic entry: pick a Head and the
- * Subcategory options change; Kitchen shows a quantity; "Only GST Bills" captures a
- * GSTIN + vendor. Amounts in ₹; the STAFF-salary guard + RBAC are server-enforced.
+ * Expenses screen — 07 + restructure (#12–20) + multi-item batch. Dynamic entry:
+ * pick a Head and the Subcategory options change; Kitchen shows a quantity; "Only
+ * GST Bills" captures a GSTIN + vendor. Date + Property + Payment method are shared
+ * across a batch; several items (milk, bread, eggs…) are added to a list and saved
+ * together in one transaction. Amounts in ₹; STAFF-salary guard + RBAC are
+ * server-enforced.
  */
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -11,12 +14,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { createExpense, approveExpense, rejectExpense } from "../actions";
+import { createExpenses, approveExpense, rejectExpense } from "../actions";
 import {
   EXPENSE_HEADS, EXPENSE_HEAD_LABEL, EXPENSE_SUBCATEGORIES,
   FREE_TEXT_SUBCATEGORY, QUANTITY_HEADS, GST_BILLS_HEAD, type ExpenseHeadKey,
 } from "../subcategories";
 import type { ExpenseListItem, ExpenseSuggestions } from "../queries";
+
+/** One pending line item in the batch cart (amount in ₹, resolved for display). */
+type ExpenseLine = {
+  key: string;
+  head: ExpenseHeadKey;
+  subCategory: string;
+  description: string;
+  quantity: string;
+  amount: number;
+  gstNumber: string;
+  vendor: string;
+};
 
 const PAY_MODES: { value: string; label: string }[] = [
   { value: "CASH", label: "Cash" },
@@ -59,6 +74,7 @@ export function ExpensesScreen({
   const [vendor, setVendor] = useState("");
   const [property, setProperty] = useState(propertyId);
   const [spentOn, setSpentOn] = useState(new Date().toISOString().slice(0, 10));
+  const [lines, setLines] = useState<ExpenseLine[]>([]); // batch cart
   const propertyOptions = properties && properties.length > 1 ? properties : null;
 
   const subList = EXPENSE_SUBCATEGORIES[head] ?? [];
@@ -82,9 +98,56 @@ export function ExpensesScreen({
     setSubText("");
   }
 
-  function reset() {
+  /** Clear the per-item editor fields; keeps Head so a run of similar items is fast. */
+  function clearItem() {
     setSub(""); setSubText(""); setDescription(""); setQuantity(""); setAmount(0); setGstNumber(""); setVendor("");
   }
+
+  /** Reset everything after a save: item editor + the batch cart. Shared Date /
+   *  Property / Payment method stay, since the next batch is usually the same day. */
+  function reset() {
+    clearItem();
+    setLines([]);
+  }
+
+  const itemValid = amount > 0 && description.trim().length > 0;
+
+  /** Snapshot the current editor fields as a cart line. */
+  function editorLine(): ExpenseLine {
+    return { key: crypto.randomUUID(), head, subCategory: effectiveSub, description: description.trim(), quantity, amount, gstNumber, vendor };
+  }
+
+  /** Add the current editor item to the cart and clear it for the next one. */
+  function addItem() {
+    if (!itemValid) { setError("Enter an amount and description before adding the item."); return; }
+    setError(null);
+    setLines((prev) => [...prev, editorLine()]);
+    clearItem();
+  }
+
+  const lineToInput = (l: ExpenseLine) => ({
+    propertyId: property,
+    head: l.head,
+    subCategory: l.subCategory || undefined,
+    description: l.description || undefined,
+    quantity: QUANTITY_HEADS.has(l.head) && l.quantity ? l.quantity : undefined,
+    amountPaise: toPaise(l.amount),
+    spentOn,
+    paidVia: paidVia as never,
+    gstNumber: l.head === GST_BILLS_HEAD && l.gstNumber ? l.gstNumber : undefined,
+    vendor: l.head === GST_BILLS_HEAD && l.vendor ? l.vendor : undefined,
+  });
+
+  /** Save all cart lines plus the current editor item (if filled) in one batch. */
+  function saveAll() {
+    const batch = [...lines];
+    if (itemValid) batch.push(editorLine());
+    if (batch.length === 0) { setError("Add at least one item to save."); return; }
+    run(() => createExpenses({ items: batch.map(lineToInput) }), reset);
+  }
+
+  const cartTotalPaise = lines.reduce((s, l) => s + toPaise(l.amount), 0) + (itemValid ? toPaise(amount) : 0);
+  const saveCount = lines.length + (itemValid ? 1 : 0);
 
   const run = (fn: () => Promise<{ ok: boolean; error?: { message: string } }>, onOk?: () => void) => {
     setError(null);
@@ -118,6 +181,16 @@ export function ExpensesScreen({
                 </select>
               </div>
             )}
+
+            {/* Payment method is shared across every item in this batch. */}
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="exp-pay">Payment method</Label>
+              <select id="exp-pay" value={paidVia} onChange={(e) => setPaidVia(e.target.value)} className={selectCls} data-testid="expense-paidvia">
+                {PAY_MODES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+              </select>
+            </div>
+
+            <p className="sm:col-span-2 pt-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Item</p>
 
             <div className="space-y-1.5">
               <Label htmlFor="exp-head">Head</Label>
@@ -155,13 +228,6 @@ export function ExpensesScreen({
 
             <div className="space-y-1.5"><Label htmlFor="exp-amt">Amount (₹)</Label><Input id="exp-amt" type="number" inputMode="decimal" step="0.01" min={0} value={amount || ""} onChange={(e) => setAmount(Number(e.target.value))} data-testid="expense-amount" /></div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="exp-pay">Payment method</Label>
-              <select id="exp-pay" value={paidVia} onChange={(e) => setPaidVia(e.target.value)} className={selectCls} data-testid="expense-paidvia">
-                {PAY_MODES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-              </select>
-            </div>
-
             <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="exp-desc">Description / details <span className="text-destructive">*</span></Label>
               <Input id="exp-desc" list="dl-desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={head === "KITCHEN" ? "What exactly? e.g. tomatoes, onions, potatoes" : "What was this for? e.g. Bathroom pipe replacement"} data-testid="expense-desc" />
@@ -182,21 +248,39 @@ export function ExpensesScreen({
           <datalist id="dl-sub">{sugg.subCategories.map((s) => <option key={s} value={s} />)}</datalist>
           <datalist id="dl-desc">{sugg.descriptions.map((d) => <option key={d} value={d} />)}</datalist>
 
+          {/* Batch cart: items added so far. Save All writes these + the item
+              currently in the editor (if filled) together in one transaction. */}
+          {lines.length > 0 && (
+            <ul className="divide-y rounded-md border" data-testid="expense-cart">
+              {lines.map((l, i) => (
+                <li key={l.key} className="flex items-center justify-between gap-2 p-2.5 text-sm" data-testid={`cart-line-${i}`}>
+                  <span className="min-w-0 truncate">
+                    <span className="font-medium">{EXPENSE_HEAD_LABEL[l.head]}</span>
+                    {l.subCategory ? ` · ${l.subCategory}` : ""}{l.description ? ` — ${l.description}` : ""}
+                  </span>
+                  <span className="flex shrink-0 items-center gap-2">
+                    <span className="font-medium tabular-nums">{rupees(toPaise(l.amount))}</span>
+                    <button type="button" aria-label="Remove item" className="text-muted-foreground hover:text-destructive"
+                      onClick={() => setLines((prev) => prev.filter((x) => x.key !== l.key))} data-testid={`cart-remove-${i}`}>✕</button>
+                  </span>
+                </li>
+              ))}
+              <li className="flex items-center justify-between gap-2 p-2.5 text-sm font-semibold">
+                <span>Total</span><span className="tabular-nums" data-testid="cart-total">{rupees(cartTotalPaise)}</span>
+              </li>
+            </ul>
+          )}
+
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-          <Button size="lg" disabled={pending || amount <= 0 || !description.trim()}
-            onClick={() => run(() => createExpense({
-              propertyId: property,
-              head,
-              subCategory: effectiveSub || undefined,
-              description: description || undefined,
-              quantity: showQuantity && quantity ? quantity : undefined,
-              amountPaise: toPaise(amount),
-              spentOn,
-              paidVia: paidVia as never,
-              gstNumber: isGstBills && gstNumber ? gstNumber : undefined,
-              vendor: isGstBills && vendor ? vendor : undefined,
-            }), reset)}
-            data-testid="expense-save">Save</Button>
+
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button variant="outline" className="sm:flex-1" disabled={pending || !itemValid} onClick={addItem} data-testid="expense-add-item">
+              + Add another item
+            </Button>
+            <Button size="lg" className="sm:flex-1" disabled={pending || saveCount === 0} onClick={saveAll} data-testid="expense-save">
+              {saveCount <= 1 ? "Save" : `Save all ${saveCount} items`}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
