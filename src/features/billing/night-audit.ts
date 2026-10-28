@@ -76,8 +76,9 @@ export async function postRoomCharges(
 
   const inHouse = await prisma.reservation.findMany({
     where: { propertyId, status: "IN_HOUSE" },
-    select: { id: true, ratePaise: true, folio: { select: { id: true } } },
+    select: { id: true, ratePaise: true, checkOutDate: true, folio: { select: { id: true } }, allocations: { select: { roomId: true } } },
   });
+  const dayMs = 86_400_000;
 
   let posted = 0;
   let skipped = 0;
@@ -117,6 +118,31 @@ export async function postRoomCharges(
           skipped += 1; // already posted for this folio+date — idempotent re-run
         } else {
           throw e;
+        }
+      }
+
+      // Overstay: charging a night for a guest whose booked check-out has already passed
+      // means they are STILL here, so the booking + inventory must say so — extend the
+      // stay by this night and hold the room(s). Without this the allocation ended at the
+      // booked check-out, the room showed FREE, and another booking could be taken on top
+      // (overbooking). If another booking already holds a room for the night, that's a
+      // genuine oversell → flag it for reception instead of silently overbooking.
+      // Idempotent: once extended, checkOutDate > businessDate, so a re-run is a no-op.
+      if (res.checkOutDate.getTime() <= businessDate.getTime() && res.allocations.length > 0) {
+        const nextDay = new Date(businessDate.getTime() + dayMs);
+        const roomIds = res.allocations.map((a) => a.roomId);
+        const conflict = await prisma.roomAllocation.count({
+          where: { roomId: { in: roomIds }, reservationId: { not: res.id }, startDate: { lt: nextDay }, endDate: { gt: businessDate } },
+        });
+        if (conflict === 0) {
+          await prisma.$transaction(async (tx) => {
+            await tx.roomAllocation.updateMany({ where: { reservationId: res.id }, data: { endDate: nextDay } });
+            await tx.reservation.updateMany({ where: { id: res.id }, data: { checkOutDate: nextDay, nights: { increment: 1 } } });
+            await emitEvent(tx, { type: "ReservationModified", aggregateId: res.id, propertyId, payload: { overstayExtended: true, checkOutDate: nextDay.toISOString().slice(0, 10) } });
+            await writeAudit(tx, { action: "reservation:overstay-extend", entityType: "Reservation", entityId: res.id, propertyId, after: { checkOutDate: nextDay.toISOString().slice(0, 10) } });
+          });
+        } else {
+          await prisma.reservation.updateMany({ where: { id: res.id, needsAttention: null }, data: { needsAttention: "OVERSELL" } });
         }
       }
 

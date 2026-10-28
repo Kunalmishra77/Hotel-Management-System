@@ -277,6 +277,11 @@ export async function checkOut(input: unknown): Promise<Result<LifecycleResult>>
     let effectiveCheckOut = r.checkOutDate;
     if (todayDate.getTime() < r.checkOutDate.getTime()) {
       effectiveCheckOut = todayDate.getTime() < minCheckOut.getTime() ? minCheckOut : todayDate;
+    } else if (todayDate.getTime() > r.checkOutDate.getTime()) {
+      // Overstay: the guest stayed past their booked check-out (e.g. the night audit
+      // hadn't posted the extra nights yet). Bill through today so the overstay nights
+      // are charged, not silently lost at ₹0.
+      effectiveCheckOut = todayDate;
     }
     const isEarly = effectiveCheckOut.getTime() < r.checkOutDate.getTime();
     const effectiveNights = stayNightDates(r.checkInDate, effectiveCheckOut).length;
@@ -438,17 +443,22 @@ export async function checkOut(input: unknown): Promise<Result<LifecycleResult>>
           throw new DomainError(ErrorCode.CONFLICT, "This booking is no longer available to check out.");
         }
 
-        // Early departure: record the real (shorter) stay and shrink the allocation so
-        // the room is sellable again for the freed nights.
-        if (isEarly) {
+        // Record the real stay length whenever it differs from the booking — an early
+        // departure (shorter) OR an overstay billed through today (longer). For an early
+        // departure also shrink the allocation so the freed nights are sellable again; an
+        // overstay's allocation was kept current by the night audit, so it isn't widened
+        // here (which could clash with a room since re-let) — the guest is leaving now.
+        if (effectiveCheckOut.getTime() !== r.checkOutDate.getTime()) {
           await tx.reservation.updateMany({
             where: { id: r.id },
             data: { checkOutDate: effectiveCheckOut, nights: effectiveNights },
           });
-          await tx.roomAllocation.updateMany({
-            where: { reservationId: r.id },
-            data: { endDate: effectiveCheckOut },
-          });
+          if (isEarly) {
+            await tx.roomAllocation.updateMany({
+              where: { reservationId: r.id },
+              data: { endDate: effectiveCheckOut },
+            });
+          }
         }
 
         await freeRooms(tx as unknown as RoomStatusTx, r, "HOUSEKEEPING", "check-out");

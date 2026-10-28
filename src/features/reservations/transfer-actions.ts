@@ -103,6 +103,32 @@ export async function transferToProperty(input: unknown): Promise<Result<Transfe
         publicMessage: "The new check-out must be at least one night after the transfer date.",
       });
     }
+    // Upper + today bounds (the holes): a transfer date AFTER the booked check-out would
+    // widen the origin allocation past it with no availability re-check (overbooking), and
+    // a FUTURE transfer date would check the guest out and seize the destination room now
+    // for a day that hasn't happened. The transfer date is on/before today and on/before
+    // the origin's booked check-out.
+    const todayStr = r.property.timezone
+      ? new Date().toLocaleDateString("en-CA", { timeZone: r.property.timezone })
+      : new Date().toISOString().slice(0, 10);
+    if (dateKey(transferDate) > dateKey(r.checkOutDate)) {
+      throw new DomainError(ErrorCode.VALIDATION_FAILED, "Transfer date after check-out.", {
+        publicMessage: "The transfer date can't be after the guest's booked check-out — extend the stay first if needed.",
+      });
+    }
+    if (dateKey(transferDate) > todayStr) {
+      throw new DomainError(ErrorCode.VALIDATION_FAILED, "Transfer date in the future.", {
+        publicMessage: "The transfer date can't be in the future.",
+      });
+    }
+    // Don't orphan an open POS order on the origin (it is checked out by the transfer; a
+    // settle-to-folio would then be impossible) — same guard as a normal check-out.
+    const pendingPos = await client.posOrder.count({
+      where: { reservationId: r.id, status: { in: ["REQUESTED", "OPEN"] } },
+    });
+    if (pendingPos > 0) {
+      throw new DomainError(ErrorCode.POS_ORDERS_PENDING, undefined, { details: { pendingPos } });
+    }
 
     const toProp = await client.property.findFirst({ where: { id: data.toPropertyId }, select: { state: true, timezone: true } });
     if (!toProp) throw new NotFoundError("Destination property not found.");
