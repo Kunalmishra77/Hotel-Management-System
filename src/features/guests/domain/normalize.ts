@@ -87,3 +87,18 @@ export function normalizeGstin(input: string | null | undefined): string | null 
 export function normalizeName(input: string): string {
   return input.trim().replace(/\s+/g, " ");
 }
+
+/**
+ * Same person by NAME, for duplicate detection: case, spacing and punctuation
+ * don't count ("S.Prabhaharan" = "S Prabhaharan", "Ankit bansal" = "Ankit Bansal").
+ * Deliberately exact on the letters — a group booked under one coordinator's
+ * mobile has DIFFERENT names per guest, and those must stay separate people.
+ */
+export function nameKey(input: string): string {
+  return input.toLowerCase().replace(/[^\p{L}]/gu, "");
+}
+
+export function sameGuestName(a: string, b: string): boolean {
+  const ka = nameKey(a);
+  return ka !== "" && ka === nameKey(b);
+}

@@ -7,7 +7,7 @@
 import { db } from "@/lib/db";
 import { newRequestId, runWithContext } from "@/lib/context";
 import { encryptOptional, keyedHash } from "@/lib/crypto/encryption";
-import { normalizeEmail, normalizePhone } from "./domain/normalize";
+import { normalizeEmail, normalizePhone, sameGuestName } from "./domain/normalize";
 import type { SessionClaims } from "@/lib/auth/claims";
 
 /** Guests carry `orgId`, not `propertyId` — org-scoped, not property-scoped. */
@@ -43,6 +43,32 @@ export function mobileToken(mobile: string | null | undefined): string | null {
 export function emailToken(email: string | null | undefined): string | null {
   const normalized = normalizeEmail(email);
   return normalized ? keyedHash(normalized) : null;
+}
+
+/**
+ * An existing guest who is clearly the SAME person: same mobile (or email) AND
+ * the same name (case/spacing/punctuation ignored). Data Entry uses this to reuse
+ * the profile instead of creating a duplicate on every backfilled stay. Same
+ * contact with a DIFFERENT name is not matched — a group booked on one
+ * coordinator's number is several people. Oldest profile wins.
+ */
+export async function findSameGuest(
+  orgId: string,
+  input: { fullName: string; mobile?: string | null; email?: string | null },
+): Promise<string | null> {
+  const mobileHash = mobileToken(input.mobile);
+  const emailHash = emailToken(input.email);
+  if (!mobileHash && !emailHash) return null;
+  const candidates = await guestDb().guest.findMany({
+    where: {
+      orgId,
+      deletedAt: null,
+      OR: [...(mobileHash ? [{ mobileHash }] : []), ...(emailHash ? [{ emailHash }] : [])],
+    },
+    select: { id: true, fullName: true },
+    orderBy: { createdAt: "asc" },
+  });
+  return candidates.find((g) => sameGuestName(g.fullName, input.fullName))?.id ?? null;
 }
 
 /**

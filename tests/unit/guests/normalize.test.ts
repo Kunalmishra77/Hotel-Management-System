@@ -11,7 +11,26 @@ import {
   normalizeEmail,
   normalizeGstin,
   normalizePhone,
+  sameGuestName,
 } from "@/features/guests/domain/normalize";
+
+describe("sameGuestName — duplicate detection by name", () => {
+  it("ignores case, spacing and punctuation", () => {
+    expect(sameGuestName("Kumar Balwant", "kumar  balwant")).toBe(true);
+    expect(sameGuestName("S.Prabhaharan", "S Prabhaharan")).toBe(true);
+    expect(sameGuestName("Ankit bansal", "Ankit Bansal")).toBe(true);
+  });
+
+  it("keeps different people apart (a group on one coordinator's mobile)", () => {
+    expect(sameGuestName("Anjaly Krishna P S", "Fathimathul Rimna")).toBe(false);
+    expect(sameGuestName("Shaji", "Shaji Paul")).toBe(false);
+  });
+
+  it("never matches an empty / punctuation-only name", () => {
+    expect(sameGuestName("", "")).toBe(false);
+    expect(sameGuestName("...", "...")).toBe(false);
+  });
+});
 
 describe("normalizePhone — Indian mobile numbers (FR-5/FR-6)", () => {
   it("reduces every common written form to the same 10 digits", () => {

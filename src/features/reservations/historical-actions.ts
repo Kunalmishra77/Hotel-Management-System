@@ -30,7 +30,7 @@ import { roomGstBps, gstBpsForCharge } from "@/lib/constants/gst";
 import { recomputeHistoricalSnapshot } from "@/features/analytics/night-audit";
 import { createGuest } from "@/features/guests/actions";
 import { addGuestId } from "@/features/guests/id-actions";
-import { mobileToken } from "@/features/guests/internal";
+import { mobileToken, findSameGuest } from "@/features/guests/internal";
 import { normalizePhone } from "@/features/guests/domain/normalize";
 import { reservationDb, withReservationContext, generateReservationCode, overlapWhere } from "./internal";
 import { historicalStaySchema } from "./schema";
@@ -85,6 +85,13 @@ export async function createHistoricalStay(input: unknown): Promise<Result<{ res
     const data = historicalStaySchema.parse(input);
     const user = await requireUser();
     authorize(user, "reservation:create", data.propertyId);
+    // Every stay gets a bill. A ₹0 rate used to save the stay as "history only"
+    // with NO folio — the booking then showed no bill at all and the room revenue
+    // vanished from the reports (OTA stays especially, where the rate was skipped).
+    if (!data.ratePaise || data.ratePaise <= 0) {
+      const msg = "Enter the room rate per night — for an OTA booking, the per-night amount the OTA paid.";
+      throw new DomainError(ErrorCode.VALIDATION_FAILED, msg, { publicMessage: msg });
+    }
 
     const property = await reservationDb(user).property.findFirst({
       where: { id: data.propertyId, deletedAt: null },
@@ -93,10 +100,14 @@ export async function createHistoricalStay(input: unknown): Promise<Result<{ res
     if (!property) throw new NotFoundError("Property not found.");
 
     // 1. Guest — a returning guest is REUSED (no duplicate); otherwise create one.
+    //    Even when staff didn't pick them from the search, a guest with the same
+    //    mobile/email AND the same name is the same person — reuse that profile
+    //    (every backfilled stay used to mint a fresh duplicate, e.g. 3× "Kumar Balwant").
     let guestId: string;
-    if (data.guestId) {
+    const reuseId = data.guestId ?? (await findSameGuest(user.orgId, { fullName: data.fullName, mobile: data.mobile, email: data.email }));
+    if (reuseId) {
       const existing = await db.unscoped().guest.findFirst({
-        where: { id: data.guestId, orgId: user.orgId, deletedAt: null },
+        where: { id: reuseId, orgId: user.orgId, deletedAt: null },
         select: { id: true },
       });
       if (!existing) throw new NotFoundError("Selected guest not found.");

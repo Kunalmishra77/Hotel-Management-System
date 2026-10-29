@@ -17,6 +17,7 @@ import { toResult, type Result } from "@/lib/result";
 import { extractGuestFields, type GuestFields } from "@/features/ai/guest-extract";
 import { createGuest } from "./actions";
 import { addGuestId } from "./id-actions";
+import { findSameGuest } from "./internal";
 import type { GuestFormState } from "./form-actions";
 
 /** AI-assist: propose guest fields from pasted record text (never auto-saves). */
@@ -36,15 +37,29 @@ function field(fd: FormData, name: string): string {
 }
 
 /**
- * Create a guest from a historical record. Dedupe guard is lifted
- * (`confirmDuplicate`) — historical entry deliberately creates the record; any
- * duplicate is reconciled later via merge. An attached ID photo is stored after.
+ * Create a guest from a historical record. The interactive "possible duplicate"
+ * prompt is skipped (`confirmDuplicate`) so bulk entry flows, BUT a guest with the
+ * same mobile/email AND the same name is the same person — that profile is reused
+ * (and the ID photo attached to it) instead of minting a duplicate. An attached
+ * ID photo is stored after.
  */
 export async function dataEntryCreateGuestAction(
   _prev: GuestFormState,
   formData: FormData,
 ): Promise<GuestFormState> {
   const mobile = field(formData, "mobile");
+  const user = await requireUser();
+  authorize(user, "guest:create");
+  const existingId = await findSameGuest(user.orgId, {
+    fullName: field(formData, "fullName"),
+    mobile,
+    email: field(formData, "email") || null,
+  });
+  if (existingId) {
+    await attachIdPhoto(existingId, formData);
+    redirect(`/guests/${existingId}`);
+  }
+
   const result = await createGuest({
     fullName: field(formData, "fullName"),
     mobile,
@@ -68,17 +83,20 @@ export async function dataEntryCreateGuestAction(
     return { status: "error", message: result.error.message, fieldErrors: result.error.fieldErrors };
   }
 
-  // Optional: attach the source ID photo (encrypted, masked) to the new guest.
+  await attachIdPhoto(result.data.id, formData);
+  redirect(`/guests/${result.data.id}`);
+}
+
+/** Optional: attach the source ID photo (encrypted, masked) to the guest. */
+async function attachIdPhoto(guestId: string, formData: FormData): Promise<void> {
   const idType = field(formData, "idType");
   const scanBase64 = typeof formData.get("scanBase64") === "string" ? (formData.get("scanBase64") as string) : "";
   if (idType && scanBase64) {
     await addGuestId({
-      guestId: result.data.id,
+      guestId,
       type: idType,
       scanBase64,
       scanContentType: field(formData, "scanContentType") || "image/jpeg",
     });
   }
-
-  redirect(`/guests/${result.data.id}`);
 }
