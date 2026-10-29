@@ -135,7 +135,7 @@ afterAll(async () => {
 });
 
 describe("createReservation (T-12, FR-3/6/7, AC-1/2/3)", () => {
-  it("creates a CONFIRMED booking with an allocation, folio, event and RESERVED room (AC-1/3)", async () => {
+  it("creates a CONFIRMED booking with an allocation, folio and event; a FUTURE stay leaves the room's board status alone (AC-1/3, F-ROOM-2)", async () => {
     await actAs(USER_RECEPTION_A_ID);
     const res = await createReservation(booking([ROOM_101_ID]));
     track(res);
@@ -149,8 +149,11 @@ describe("createReservation (T-12, FR-3/6/7, AC-1/2/3)", () => {
     const alloc = await prisma.roomAllocation.findFirst({ where: { reservationId: r.id } });
     expect(alloc?.roomId).toBe(ROOM_101_ID);
 
+    // The stay starts in the future: the board derives "reserved" on the arrival
+    // day from the allocation; the stored status no longer flips months ahead
+    // (that marked rooms "Reserved" while another guest slept in them).
     const room = await prisma.room.findUniqueOrThrow({ where: { id: ROOM_101_ID } });
-    expect(room.status).toBe("RESERVED");
+    expect(room.status).toBe("VACANT");
 
     const folio = await prisma.folio.findUnique({ where: { reservationId: r.id } });
     expect(folio).not.toBeNull();

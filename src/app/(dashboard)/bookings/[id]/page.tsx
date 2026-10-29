@@ -181,7 +181,14 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
               ) : (
                 <p>
                   <span className="text-muted-foreground">Rooms:</span>{" "}
-                  <span className="font-mono">{r.roomNumbers.join(", ") || "Unallocated"}</span>
+                  {/* Split stay / mid-stay move: show which room for which nights. */}
+                  {new Set(r.roomPlan.map((p) => p.from)).size > 1 ? (
+                    <span className="font-mono" data-testid="room-plan">
+                      {r.roomPlan.map((p) => `${p.number} (${formatDayMonth(new Date(`${p.from}T00:00:00Z`))}→${formatDayMonth(new Date(`${p.to}T00:00:00Z`))})`).join(" · ")}
+                    </span>
+                  ) : (
+                    <span className="font-mono">{r.roomNumbers.join(", ") || "Unallocated"}</span>
+                  )}
                 </p>
               )}
               <p>

@@ -150,6 +150,27 @@ export async function postRoomCharges(
         }
       }
 
+      // Split stay / planned move: the guest changes room the morning after this
+      // night. The room they leave needs cleaning; the room they go to is now
+      // theirs. Idempotent — re-running only re-sets the same statuses.
+      {
+        const switchT = businessDate.getTime() + dayMs;
+        const leaving = res.allocations.filter((a) => a.endDate.getTime() === switchT && switchT < res.checkOutDate.getTime()).map((a) => a.roomId);
+        const arriving = res.allocations.filter((a) => a.startDate.getTime() === switchT).map((a) => a.roomId).filter((id) => !leaving.includes(id));
+        const moves: [string[], "HOUSEKEEPING" | "OCCUPIED"][] = [[leaving.filter((id) => !arriving.includes(id)), "HOUSEKEEPING"], [arriving, "OCCUPIED"]];
+        if (leaving.length > 0 || arriving.length > 0) {
+          await prisma.$transaction(async (tx) => {
+            for (const [ids, to] of moves) {
+              if (ids.length === 0) continue;
+              await tx.room.updateMany({ where: { id: { in: ids } }, data: { status: to } });
+              for (const roomId of ids) {
+                await emitEvent(tx, { type: "RoomStatusChanged", aggregateId: roomId, propertyId, payload: { to, reason: "split-stay-switch", reservationId: res.id } });
+              }
+            }
+          });
+        }
+      }
+
       // FR-20 / AC-20: a folio still owing at close raises a reminder event.
       const f = await prisma.folio.findUnique({
         where: { id: res.folio.id },

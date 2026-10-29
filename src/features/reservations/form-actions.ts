@@ -59,11 +59,25 @@ export async function createReservationFormAction(
     ? (settlementRaw as SettlementIntentValue)
     : "PAY_AT_HOTEL";
 
+  // Split stay: a JSON list of {roomId, startDate, endDate} from the night picker.
+  // Malformed input is dropped here and the schema/booking core re-validates.
+  let segments: { roomId: string; startDate: string; endDate: string }[] | undefined;
+  const segmentsRaw = str(formData, "segments");
+  if (segmentsRaw) {
+    try {
+      const parsed: unknown = JSON.parse(segmentsRaw);
+      if (Array.isArray(parsed) && parsed.length > 0) segments = parsed as typeof segments;
+    } catch {
+      return { status: "error", message: "The split-stay plan couldn't be read — pick the rooms again." };
+    }
+  }
+
   const result = await createReservation({
     propertyId,
     guestId,
     source,
     roomIds,
+    ...(segments ? { segments } : {}),
     checkInDate: str(formData, "checkInDate"),
     checkOutDate: str(formData, "checkOutDate"),
     adults: num(formData, "adults") || 1,

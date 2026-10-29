@@ -4,7 +4,8 @@
  * front desk must see to run the board).
  */
 import { db } from "@/lib/db";
-import { authorize } from "@/lib/permissions";
+import { authorize, hasPermission } from "@/lib/permissions";
+import { availabilityGrid, type AvailabilityGrid } from "./availability-grid";
 import { resolveStorageAdapter } from "@/lib/storage";
 import { NotFoundError } from "@/lib/errors";
 import { getGuestProfile } from "@/features/guests/queries";
@@ -29,6 +30,8 @@ export type ReservationListItem = {
   roomNumbers: string[];
   /** The allocated rooms with ids — lets the room-move card target one room of a group. */
   rooms: { id: string; number: string }[];
+  /** Every allocation segment, oldest first — a split stay / mid-stay move shows "R3 24→26, R1 26→28". */
+  roomPlan: { number: string; from: string; to: string }[];
   needsAttention: string | null;
   /** Booking's nightly room rate (paise, pre-tax) — powers the "edit room rate" card. */
   ratePaise: number;
@@ -96,6 +99,7 @@ function toItem(r: Row): ReservationListItem {
     roomNumbers: r.allocations.map((a) => a.room.number),
     // Current room(s) only — after a mid-stay move the old room is history, not movable.
     rooms: tailAllocations(r.allocations, r.checkOutDate).map((a) => ({ id: a.room.id, number: a.room.number })),
+    roomPlan: r.allocations.map((a) => ({ number: a.room.number, from: a.startDate.toISOString().slice(0, 10), to: a.endDate.toISOString().slice(0, 10) })),
     needsAttention: r.needsAttention,
     ratePaise: r.ratePaise,
     externalHotelName: r.externalHotelName,
@@ -765,3 +769,16 @@ export async function transferStatement(user: SessionClaims, reservationId: stri
 
 // Bookings finder (filterable list for the Bookings pages) — see finder-queries.ts.
 export { findBookings, type BookingFinderRow, type BookingFinderResult } from "./finder-queries";
+
+/**
+ * Room × night availability for a date range (Rooms → Availability). Readable by
+ * anyone who sees the room board; guest names only with reservation:view.
+ */
+export async function roomAvailabilityCalendar(
+  user: SessionClaims,
+  input: { propertyId: string; from: string; to: string },
+): Promise<AvailabilityGrid> {
+  authorize(user, "room:view-status", input.propertyId);
+  return availabilityGrid(db.scoped(user), { ...input, showGuest: hasPermission(user, "reservation:view") });
+}
+export type { AvailabilityGrid } from "./availability-grid";

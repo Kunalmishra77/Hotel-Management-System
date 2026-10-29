@@ -28,7 +28,7 @@ import {
   type BillingPostTx,
 } from "@/features/billing";
 import { canTransition } from "./domain/transitions";
-import { earlyCheckoutPlan, tailAllocations } from "./domain/allocations";
+import { allocationsOn, earlyCheckoutPlan, tailAllocations } from "./domain/allocations";
 import { priceReservation } from "./domain/pricing";
 import { reservationDb, withReservationContext } from "./internal";
 import { cancelReservationSchema, checkInSchema, checkOutSchema } from "./schema";
@@ -88,7 +88,14 @@ export async function cancelReservation(input: unknown): Promise<Result<Lifecycl
           throw new DomainError(ErrorCode.CONFLICT, "This booking is no longer available to cancel.");
         }
         await tx.roomAllocation.deleteMany({ where: { reservationId: r.id } });
-        await freeRooms(tx as unknown as RoomStatusTx, r, "VACANT", "cancelled");
+        // Only a room this booking was holding as RESERVED goes back to vacant —
+        // cancelling a future stay used to mark a room VACANT while another guest
+        // was sleeping in it (or while it still needed cleaning).
+        const held = await tx.room.findMany({
+          where: { id: { in: r.allocations.map((a) => a.roomId) }, status: "RESERVED" },
+          select: { id: true },
+        });
+        await freeRooms(tx as unknown as RoomStatusTx, r, "VACANT", "cancelled", held.map((h) => h.id));
         await emitEvent(tx, {
           type: "ReservationCancelled",
           aggregateId: r.id,
@@ -221,7 +228,10 @@ export async function checkIn(input: unknown): Promise<Result<LifecycleResult>> 
           }
         }
 
-        await freeRooms(tx as unknown as RoomStatusTx, r, "OCCUPIED", "check-in");
+        // Only the room(s) the guest sleeps in from arrival: a split stay's later
+        // room is still someone else's (or free) until the switch night.
+        const arrivalRooms = allocationsOn(r.allocations, r.checkInDate);
+        await freeRooms(tx as unknown as RoomStatusTx, r, "OCCUPIED", "check-in", arrivalRooms.length > 0 ? arrivalRooms.map((a) => a.roomId) : undefined);
         await emitEvent(tx, {
           type: "GuestCheckedIn",
           aggregateId: r.id,

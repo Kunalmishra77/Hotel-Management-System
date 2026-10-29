@@ -50,6 +50,14 @@ export const createReservationSchema = z
     ...bookingFields,
     // One or more rooms — a group booking allocates all atomically (FR-15).
     roomIds: z.array(z.string().min(1)).min(1),
+    // Split stay: one room per night-range, tiling [checkIn, checkOut). When
+    // present it replaces "every room for the whole stay"; `roomIds` then lists
+    // the distinct rooms used. Validated against the dates in the booking core.
+    segments: z
+      .array(z.object({ roomId: z.string().min(1), startDate: dateInput, endDate: dateInput }))
+      .min(1)
+      .max(62)
+      .optional(),
   })
   // "Already paid" with no amount is a contradiction the folio cannot express:
   // check-in posts the prepayment only `if (advancePaise > 0)`, so the booking

@@ -53,5 +53,11 @@ Ordered, small, test-first for domain. Each ends at `rules/definition-of-done.md
 - [ ] T-37 Form C register UI at `/bookings/form-c` (cards on phone) + record-submission dialog + PDF download route + nav item (`reservation:view`). (FR-25/26)
 - [ ] T-38 Integration tests: submission lifecycle + idempotency, RBAC (HK denied, ACC view-only), register scoping + no-PII-in-payload. (AC-28/29/30)
 
+## Addendum 2026-10-29 — split stay (FR-27/28/29)
+- [x] T-39 Pure `domain/split-stay.ts` (night keys, picks→segments, suggest, validate) + unit tests.
+- [x] T-40 `availabilityGrid` + `searchAvailabilityGrid` action; `createBooking` accepts `segments`; check-in arrival-room only; night-audit room switch; reallocate never claims an earlier segment's nights.
+- [x] T-41 Booking form: partly-free rooms + split-stay night picker; booking page shows the room plan.
+- [x] T-42 Integration tests `tests/integration/split-stay.test.ts` (grid, segments, overlap refused, gap refused, arrival-room check-in, cancel guard).
+
 ## Done
 - [x] T-33 `/review-module` clean; every AC mapped to a green test; DoD satisfied.

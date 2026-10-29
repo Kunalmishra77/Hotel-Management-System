@@ -464,7 +464,10 @@ export async function reallocateRoom(input: unknown): Promise<Result<MoveResult>
         publicMessage: "This stay has no remaining nights to move — extend the stay first.",
       });
     }
-    const windowStart = todayDate.getTime() > r.checkInDate.getTime() ? todayDate : r.checkInDate;
+    // Never earlier than the moved segment's own start: a split stay's later room
+    // starts mid-stay, and moving it must not claim the nights of the earlier room.
+    const floorTime = Math.max(todayDate.getTime(), r.checkInDate.getTime(), alloc?.startDate.getTime() ?? 0);
+    const windowStart = new Date(floorTime);
     // Shorten (keep the already-stayed nights in the old room) only when the guest is
     // in-house AND the old room's allocation actually has a pre-window portion; else drop.
     const shortenOld = !!alloc && r.status === "IN_HOUSE" && windowStart.getTime() > alloc.startDate.getTime();

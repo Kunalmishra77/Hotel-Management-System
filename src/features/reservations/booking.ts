@@ -25,7 +25,10 @@ import {
   isUniqueViolation,
   reservationDb,
   RESERVATION_SELECT,
+  todayLocalEpochDay,
+  utcEpochDay,
 } from "./internal";
+import { validateSegments } from "./domain/split-stay";
 import type { CreateReservationInput, HoldReservationInput } from "./schema";
 import type { SessionClaims } from "@/lib/auth/claims";
 
@@ -98,6 +101,25 @@ export async function createBooking(
   if (!floorCheck.ok) throw new DomainError(ErrorCode.RATE_BELOW_FLOOR);
   const isOverride = floorCheck.override;
 
+  // Split stay: the allocation plan is the submitted segments; otherwise every room
+  // for the whole stay. Each segment's room must be one of the booking's rooms.
+  const segments = "segments" in data && data.segments && data.segments.length > 0 ? data.segments : null;
+  if (segments) {
+    const problem = validateSegments(segments, data.checkInDate, data.checkOutDate);
+    if (problem) throw new DomainError(ErrorCode.VALIDATION_FAILED, problem, { publicMessage: problem });
+    if (segments.some((s) => !data.roomIds.includes(s.roomId))) {
+      throw new DomainError(ErrorCode.VALIDATION_FAILED, "Split-stay room not in the booking.");
+    }
+  }
+  const plan = segments
+    ? segments.map((s) => ({ roomId: s.roomId, startDate: s.startDate, endDate: s.endDate }))
+    : data.roomIds.map((roomId) => ({ roomId, startDate: data.checkInDate, endDate: data.checkOutDate }));
+  // Board status: only a stay starting today (or earlier) flips its first room(s) to
+  // RESERVED. A future booking used to overwrite the board status now — marking a
+  // room someone is sleeping in tonight as "Reserved".
+  const startsNow = utcEpochDay(data.checkInDate) <= todayLocalEpochDay(property.timezone);
+  const firstRoomIds = [...new Set(plan.filter((p) => p.startDate.getTime() === data.checkInDate.getTime()).map((p) => p.roomId))];
+
   const holdExpiresAt = opts.hold
     ? new Date(Date.now() + property.holdTtlHours * 3_600_000)
     : null;
@@ -109,15 +131,9 @@ export async function createBooking(
       async (tx) => {
         // Re-check the specific candidates under the serializable lock. Any
         // candidate now taken (by allocation OR block) fails the WHOLE group.
-        const free = await freeRoomIdsFor(
-          tx as unknown as RoomFinder,
-          data.propertyId,
-          data.roomIds,
-          data.checkInDate,
-          data.checkOutDate,
-        );
-        for (const roomId of data.roomIds) {
-          if (!free.has(roomId)) throw new DomainError(ErrorCode.ROOM_UNAVAILABLE);
+        for (const seg of plan) {
+          const free = await freeRoomIdsFor(tx as unknown as RoomFinder, data.propertyId, [seg.roomId], seg.startDate, seg.endDate);
+          if (!free.has(seg.roomId)) throw new DomainError(ErrorCode.ROOM_UNAVAILABLE);
         }
 
         // Insert the reservation, regenerating the code on the rare collision.
@@ -158,28 +174,33 @@ export async function createBooking(
         }
         if (!reservation) throw new DomainError(ErrorCode.CONFLICT, "Could not allocate a booking code.");
 
-        // One allocation per room — the exclusion constraint guarantees no overlap.
-        for (const roomId of data.roomIds) {
+        // One allocation per room (or per split-stay segment) — the exclusion
+        // constraint guarantees no overlap.
+        for (const seg of plan) {
           await tx.roomAllocation.create({
             data: {
               propertyId: data.propertyId,
               reservationId: reservation.id,
-              roomId,
-              startDate: data.checkInDate,
-              endDate: data.checkOutDate,
+              roomId: seg.roomId,
+              startDate: seg.startDate,
+              endDate: seg.endDate,
             },
           });
         }
 
-        // Rooms are now RESERVED (they were free/vacant — VACANT→RESERVED is legal).
-        await tx.room.updateMany({ where: { id: { in: data.roomIds } }, data: { status: "RESERVED" } });
-        for (const roomId of data.roomIds) {
-          await emitEvent(tx, {
-            type: "RoomStatusChanged",
-            aggregateId: roomId,
-            propertyId: data.propertyId,
-            payload: { to: "RESERVED", reason: "reservation", reservationId: reservation.id },
-          });
+        // An arriving-today booking marks its (vacant) first room(s) RESERVED. Only
+        // VACANT rooms flip — a room still being cleaned stays HOUSEKEEPING.
+        if (startsNow) {
+          const flipped = await tx.room.findMany({ where: { id: { in: firstRoomIds }, status: "VACANT" }, select: { id: true } });
+          await tx.room.updateMany({ where: { id: { in: flipped.map((f) => f.id) } }, data: { status: "RESERVED" } });
+          for (const { id: roomId } of flipped) {
+            await emitEvent(tx, {
+              type: "RoomStatusChanged",
+              aggregateId: roomId,
+              propertyId: data.propertyId,
+              payload: { to: "RESERVED", reason: "reservation", reservationId: reservation.id },
+            });
+          }
         }
 
         // A confirmed booking gets its folio now (FR-7); a hold does not.
@@ -205,7 +226,10 @@ export async function createBooking(
           entityType: "Reservation",
           entityId: reservation.id,
           propertyId: data.propertyId,
-          after: { code: reservation.code, status, roomIds: data.roomIds },
+          after: {
+            code: reservation.code, status, roomIds: data.roomIds,
+            ...(segments ? { splitStay: plan.map((p) => ({ roomId: p.roomId, from: p.startDate.toISOString().slice(0, 10), to: p.endDate.toISOString().slice(0, 10) })) } : {}),
+          },
         });
 
         // FR-19: an over-threshold rate/discount is allowed only with permission

@@ -16,7 +16,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { roomGstBps, gstBpsForCharge } from "@/lib/constants/gst";
 import { nights as computeNights } from "../domain/nights";
-import { searchAvailability } from "../availability-action";
+import { searchAvailability, searchAvailabilityGrid } from "../availability-action";
+import type { AvailabilityGrid } from "../availability-grid";
+import { segmentsFromPicks, type NightPicks } from "../domain/split-stay";
+import { SplitStayPicker } from "./split-stay-picker";
 import {
   createGuestForBooking,
   createReservationFormAction,
@@ -62,6 +65,11 @@ export function BookingForm({
   const [selectedRooms, setSelectedRooms] = useState<AvailableRoom[]>([]);
   const [rateTouched, setRateTouched] = useState(false);
   const [searching, startSearch] = useTransition();
+  // Split stay: per-night availability + the room picked for each night.
+  const [grid, setGrid] = useState<AvailabilityGrid | null>(null);
+  const [splitMode, setSplitMode] = useState(false);
+  const [picks, setPicks] = useState<NightPicks>({});
+  const splitSegments = splitMode && grid ? segmentsFromPicks(grid.nights, picks) : null;
 
   // Switching property resets the property-dependent picks.
   function onPropertyChange(pid: string) {
@@ -70,6 +78,28 @@ export function BookingForm({
     setRooms(null);
     setSelectedRooms([]);
     setRateTouched(false);
+    setGrid(null);
+    setSplitMode(false);
+    setPicks({});
+  }
+
+  // A complete split plan books its distinct rooms; the nightly rate defaults to
+  // the first room's (one guest in one room each night — not the sum).
+  function onPicksChange(next: NightPicks) {
+    setPicks(next);
+    const segs = grid ? segmentsFromPicks(grid.nights, next) : null;
+    if (!segs || !grid) { setSelectedRooms([]); return; }
+    const used = [...new Set(segs.map((s) => s.roomId))]
+      .map((id) => grid.rooms.find((r) => r.id === id))
+      .filter((r): r is NonNullable<typeof r> => !!r)
+      .map((r) => ({ id: r.id, number: r.number, categoryId: r.categoryId, categoryName: r.categoryName, baseRatePaise: r.baseRatePaise, floorId: null, floorName: r.floorName }));
+    setSelectedRooms(used);
+    const first = grid.rooms.find((r) => r.id === segs[0]!.roomId);
+    if (!rateTouched && first) setRate(first.baseRatePaise / 100);
+  }
+  function onSplitModeChange(v: boolean) {
+    setSplitMode(v);
+    setSelectedRooms([]);
   }
 
   // Default the nightly rate to the SUM of the selected rooms' base rates (the whole
@@ -82,11 +112,12 @@ export function BookingForm({
     }
   }
   const toggleRoom = (r: AvailableRoom) => {
+    if (splitMode) { setSplitMode(false); setPicks({}); applySelection([r]); return; }
     const has = selectedRooms.some((x) => x.id === r.id);
     applySelection(has ? selectedRooms.filter((x) => x.id !== r.id) : [...selectedRooms, r]);
   };
   const selectAll = () => applySelection(rooms ?? []);
-  const isSelected = (id: string) => selectedRooms.some((x) => x.id === id);
+  const isSelected = (id: string) => !splitMode && selectedRooms.some((x) => x.id === id);
 
   // Group free rooms by floor = apartment unit (a 2/3-BHK occupies one floor), so
   // the user can book a whole apartment (one floor) or the whole property (every
@@ -185,10 +216,19 @@ export function BookingForm({
     startSearch(async () => {
       setSelectedRooms([]);
       setRateTouched(false);
+      setSplitMode(false);
+      setPicks({});
       // Empty category → search ALL free rooms across the property, so a group can
-      // pick several rooms (any category) to book together under one guest.
-      const res = await searchAvailability({ propertyId, checkInDate, checkOutDate, categoryId: categoryId || undefined, adults, children });
+      // pick several rooms (any category) to book together under one guest. The
+      // grid adds rooms free for only PART of the stay (split stay).
+      const [res, g] = await Promise.all([
+        searchAvailability({ propertyId, checkInDate, checkOutDate, categoryId: categoryId || undefined, adults, children }),
+        checkOutDate > checkInDate
+          ? searchAvailabilityGrid({ propertyId, from: checkInDate, to: checkOutDate, categoryId: categoryId || undefined })
+          : Promise.resolve(null),
+      ]);
       setRooms(res.ok ? res.data.rooms : []);
+      setGrid(g && g.ok ? g.data : null);
     });
   };
 
@@ -205,6 +245,7 @@ export function BookingForm({
       <input type="hidden" name="adults" value={adults} />
       <input type="hidden" name="children" value={children} />
       <input type="hidden" name="roomIds" value={selectedRooms.map((r) => r.id).join(",")} />
+      <input type="hidden" name="segments" value={splitSegments ? JSON.stringify(splitSegments) : ""} />
       <input type="hidden" name="guestId" value={guest?.id ?? ""} />
       <input type="hidden" name="ratePaise" value={ratePaiseSubmit} />
       <input type="hidden" name="discountPaise" value={discountPaise} />
@@ -268,7 +309,9 @@ export function BookingForm({
           </CardHeader>
           <CardContent>
             {rooms.length === 0 ? (
-              <p className="text-sm text-muted-foreground" data-testid="no-availability">No rooms free for those dates.</p>
+              <p className="text-sm text-muted-foreground" data-testid="no-availability">
+                No single room is free for every night{grid && grid.rooms.some((r) => r.freeNights > 0) ? " — rooms free for part of the stay are listed below; you can split the stay." : "."}
+              </p>
             ) : (
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
@@ -316,7 +359,7 @@ export function BookingForm({
                     </div>
                   </div>
                 )}
-                {selectedRooms.length > 0 && (
+                {selectedRooms.length > 0 && !splitMode && (
                   <p className="rounded-md border bg-muted/40 p-2 text-sm" data-testid="rooms-selected">
                     {selectedRooms.length === 1
                       ? `1 room selected · ${selectedRooms[0]!.number}`
@@ -324,6 +367,11 @@ export function BookingForm({
                     {" · "}<span className="font-medium">{rupees(selectedRooms.reduce((n, r) => n + r.baseRatePaise, 0))}/night</span>
                   </p>
                 )}
+              </div>
+            )}
+            {grid && (
+              <div className="mt-3">
+                <SplitStayPicker grid={grid} active={splitMode} onActiveChange={onSplitModeChange} picks={picks} onPicksChange={onPicksChange} />
               </div>
             )}
           </CardContent>
