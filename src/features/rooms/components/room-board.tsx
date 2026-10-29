@@ -45,7 +45,8 @@ export function RoomBoard({
 
   // AC-11: a status change on another device refreshes this board within the
   // 2s budget. Scoped to this property so an unrelated one does not churn it.
-  useRealtime({ types: ["RoomStatusChanged"], propertyId });
+  // The board is derived from bookings too, so a booking change refreshes it.
+  useRealtime({ types: ["RoomStatusChanged", "ReservationCreated", "ReservationModified", "ReservationCancelled", "GuestCheckedIn", "GuestCheckedOut"], propertyId });
 
   const visible = useMemo(
     () => (filter === "ALL" ? board.rooms : board.rooms.filter((r) => r.status === filter)),
@@ -107,7 +108,7 @@ export function RoomBoard({
                 {floorName === "Unassigned" ? "No floor" : `Floor ${floorName}`}
               </h2>
               <ul
-                className="grid grid-cols-4 gap-2 xs:grid-cols-5 sm:grid-cols-8 lg:grid-cols-12"
+                className="grid grid-cols-2 gap-2 xs:grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8"
                 data-testid="room-grid"
               >
                 {rooms.map((room) => (

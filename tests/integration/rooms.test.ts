@@ -308,9 +308,13 @@ describe("roomBoard (FR-9 / AC-10)", () => {
     const board = await roomBoard(admin, { propertyId: PROP_A_ID });
 
     expect(board.total).toBe(10);
-    expect(board.counts.VACANT).toBe(6);
-    expect(board.counts.OCCUPIED).toBe(3);
+    // The board is DERIVED from bookings: the seed's 3 rooms whose stored status
+    // is OCCUPIED have no in-house booking, so they read as free — with the stale
+    // stored value kept for the manual reset.
+    expect(board.counts.VACANT).toBe(9);
+    expect(board.counts.OCCUPIED).toBe(0);
     expect(board.counts.UNDER_MAINTENANCE).toBe(1);
+    expect(board.rooms.filter((r) => r.storedStatus === "OCCUPIED" && r.status === "VACANT")).toHaveLength(3);
 
     const r101 = board.rooms.find((r) => r.id === ROOM_101_ID);
     expect(r101?.categoryName).toBe("Deluxe");
@@ -319,9 +323,9 @@ describe("roomBoard (FR-9 / AC-10)", () => {
 
   it("filters by status", async () => {
     const admin = await claimsFor(USER_ADMIN_ID);
-    const board = await roomBoard(admin, { propertyId: PROP_A_ID, status: "OCCUPIED" });
-    expect(board.total).toBe(3);
-    expect(board.rooms.every((r) => r.status === "OCCUPIED")).toBe(true);
+    const board = await roomBoard(admin, { propertyId: PROP_A_ID, status: "UNDER_MAINTENANCE" });
+    expect(board.total).toBe(1);
+    expect(board.rooms.every((r) => r.status === "UNDER_MAINTENANCE")).toBe(true);
   });
 
   it("filters by category", async () => {

@@ -30,6 +30,21 @@ const STATUS_CLASS: Record<RoomStatus, string> = {
     "bg-status-maintenance/15 text-status-maintenance border-status-maintenance/40",
 };
 
+/** "30 Oct" from yyyy-mm-dd. */
+export const shortDate = (ymd: string) =>
+  new Date(`${ymd}T00:00:00Z`).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "UTC" });
+
+/** One line under the room number: who / until when / next booking. */
+export function roomLine(room: BoardRoom): string | null {
+  if (room.status === "OCCUPIED" && room.booking) {
+    const who = room.booking.guestName?.split(/\s+/)[0] ?? "Guest";
+    return room.departingToday ? `${who} · leaves today` : `${who} · till ${shortDate(room.booking.until)}`;
+  }
+  if (room.status === "RESERVED" && room.booking) return `${room.booking.guestName?.split(/\s+/)[0] ?? "Guest"} · arriving`;
+  if (room.next) return `free till ${shortDate(room.next.from)}`;
+  return room.status === "VACANT" ? "free" : null;
+}
+
 export function RoomChip({
   room,
   onSelect,
@@ -37,6 +52,7 @@ export function RoomChip({
   room: BoardRoom;
   onSelect: (room: BoardRoom) => void;
 }) {
+  const line = roomLine(room);
   return (
     <button
       type="button"
@@ -45,19 +61,20 @@ export function RoomChip({
       data-status={room.status}
       aria-label={`Room ${room.number}, ${room.categoryName}, ${STATUS_LABEL[room.status]}${
         room.blockedToday ? ", blocked" : ""
-      }`}
+      }${line ? `, ${line}` : ""}`}
       className={cn(
-        "relative flex min-h-touch min-w-touch flex-col items-center justify-center gap-0.5",
-        "rounded-md border px-2 py-1.5 text-sm font-semibold transition-colors",
+        "relative flex min-h-touch w-full flex-col items-start justify-center gap-0.5",
+        "rounded-md border px-2.5 py-2 text-left text-sm font-semibold transition-colors",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         STATUS_CLASS[room.status],
       )}
     >
-      <span className="tabular-nums">{room.number}</span>
-      {/* Redundant text label — never colour alone (WCAG 1.4.1). */}
-      <span className="text-[10px] font-normal opacity-80">
-        {STATUS_LABEL[room.status].slice(0, 4)}
+      <span className="flex w-full items-baseline justify-between gap-2">
+        <span className="tabular-nums">{room.number}</span>
+        {/* Redundant text label — never colour alone (WCAG 1.4.1). */}
+        <span className="text-[10px] font-normal opacity-80">{STATUS_LABEL[room.status]}</span>
       </span>
+      {line && <span className="w-full truncate text-[11px] font-normal text-foreground/80">{line}</span>}
       {room.blockedToday && (
         <span
           aria-hidden="true"

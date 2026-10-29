@@ -27,6 +27,11 @@ Model the sellable inventory — room categories, rooms, and their live status �
 - **FR-9 (ubiquitous):** The system shall present a room "board" per property showing every room with its live status and category, filterable by floor/category/status.
 - **FR-10 (ubiquitous):** All reads/writes are property-scoped and authorized server-side.
 
+### Addendum 2026-10-29 — board derived from bookings (client audit #3, decision D5)
+- **FR-11 (live status):** The room board and the all-hotels rollup DERIVE each room's status for the property-local today: OCCUPIED ← an in-house allocation covers today (or ends today, guest not yet checked out); RESERVED ← a confirmed arrival covers today; out-of-order and "needs cleaning" come from blocks / the stored status. A stored status with no booking behind it no longer shows as occupied/reserved; the sheet offers a manual reset.
+- **FR-12 (who / until / next):** Each room shows the guest (only with `reservation:view`), the free-again date, "leaves today", and the next booking's arrival date. Header tiles: rooms, occupied, free now, arriving, leaving, cleaning, out of order, occupancy now.
+- **FR-13 (availability by date):** Rooms → "Availability by date" shows room × night free/booked/out-of-order for any range (≤ 62 nights) with a free-rooms count per night; booked nights link to the booking.
+
 ## Non-functional (cited)
 - Room board renders p95 < 1.5s for a 200-room property; status change reflects on other devices < 2s (`rules/non-functional-requirements.md`).
 - Mobile-first board (tap a room → status/actions).
