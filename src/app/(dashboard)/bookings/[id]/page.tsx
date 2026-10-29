@@ -11,7 +11,7 @@ import { CombinedStatementCard } from "@/features/reservations/components/combin
 import { MoveCreditCard } from "@/features/reservations/components/move-credit-card";
 import { getGuestProfile } from "@/features/guests/queries";
 import { pendingGuestInfo } from "@/features/reservations/domain/guest-checklist";
-import { ClipboardCheck } from "lucide-react";
+import { PendingInfoCard } from "@/features/reservations/components/pending-info-card";
 import { ConfirmBookingButton } from "@/features/reservations/components/confirm-booking-button";
 import { ReservationGuestsCard } from "@/features/reservations/components/reservation-guests-card";
 import { ExtendStayCard } from "@/features/reservations/components/extend-stay-card";
@@ -315,33 +315,16 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
             </Card>
           ) : null}
 
-          {pending.length > 0 ? (
-            <Card className="border-warning/40 bg-warning/5">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-base [&_svg]:size-4 [&_svg]:text-warning">
-                  <ClipboardCheck /> Pending information
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="mb-2 text-sm text-muted-foreground">
-                  Collect these from the guest{r.status === "IN_HOUSE" ? " before checkout" : " at check-in"}:
-                </p>
-                <ul className="space-y-1.5 text-sm">
-                  {pending.map((item) => (
-                    <li key={item.key} className="flex items-center gap-2">
-                      <span aria-hidden="true" className={item.required ? "text-warning" : "text-muted-foreground"}>●</span>
-                      <span>{item.label}</span>
-                      {item.required ? <Badge variant="warning" className="ml-1">Required</Badge> : <span className="text-xs text-muted-foreground">optional</span>}
-                    </li>
-                  ))}
-                </ul>
-                {hasPermission(user, "guest:manage") ? (
-                  <Button asChild variant="outline" size="sm" className="mt-3 w-full">
-                    <Link href={`/guests/${r.guestId}/edit`}>Update guest details</Link>
-                  </Button>
-                ) : null}
-              </CardContent>
-            </Card>
+          {pending.length > 0 && guestProfile ? (
+            <PendingInfoCard
+              guestId={r.guestId}
+              reservationId={r.id}
+              items={pending}
+              stayStatus={r.status}
+              canEdit={hasPermission(user, "guest:manage")}
+              address={{ addressLine: guestProfile.addressLine, city: guestProfile.city, state: guestProfile.state, pincode: guestProfile.pincode, country: guestProfile.country }}
+              existingIdType={guestProfile.ids.find((i) => !i.hasScan)?.type ?? null}
+            />
           ) : null}
 
           {feedbackQr ? (
