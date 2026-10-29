@@ -391,25 +391,30 @@ function DiscountForm({ onSubmit, onCancel, pending }: { onSubmit: (reason: stri
 }
 
 function PaymentForm({ balancePaise, onSubmit, onCancel, pending }: { balancePaise: number; onSubmit: (t: Tender[]) => void; onCancel: () => void; pending: boolean }) {
-  const [tenders, setTenders] = useState<Tender[]>([{ mode: "UPI", amountPaise: balancePaise }]);
+  // No default mode: a pre-selected "UPI" was silently accepted for cash/card
+  // payments and recorded the wrong mode. Staff enter the amount, then must pick
+  // the mode explicitly — Confirm stays disabled until every tender has one.
+  const [tenders, setTenders] = useState<Tender[]>([{ mode: "", amountPaise: balancePaise }]);
   const total = tenders.reduce((s, t) => s + t.amountPaise, 0);
   const remaining = balancePaise - total;
+  const missingMode = tenders.some((t) => t.amountPaise > 0 && !t.mode);
   return (
     <Card><CardContent className="space-y-3 p-4">
       {/* Stacked, each full-width: the actions rail is only ~1/3 of the page, so a
           side-by-side mode+amount squeezed the amount box and clipped large totals
-          (e.g. ₹7,051.2 showed as "705"). */}
+          (e.g. ₹7,051.2 showed as "705"). Amount first, then the mode. */}
       {tenders.map((t, i) => (
         <div key={i} className="space-y-2">
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Payment mode</Label>
-            <select value={t.mode} onChange={(e) => setTenders((ts) => ts.map((x, j) => (j === i ? { ...x, mode: e.target.value } : x)))} className="h-10 w-full rounded-md border border-input bg-background px-2 text-sm" data-testid={`tender-mode-${i}`}>
-              {["UPI", "CASH", "CREDIT_CARD", "DEBIT_CARD", "BANK_TRANSFER", "ONLINE"].map((m) => <option key={m} value={m}>{m === "ONLINE" ? "Online / OTA prepaid (MMT, Booking.com)" : m.replace(/_/g, " ")}</option>)}
-            </select>
-          </div>
-          <div className="space-y-1">
             <Label htmlFor={`tender-amount-${i}`} className="text-xs text-muted-foreground">Amount (₹)</Label>
             <Input id={`tender-amount-${i}`} type="number" inputMode="decimal" step="0.01" min={0} placeholder="e.g. 2500" value={t.amountPaise ? t.amountPaise / 100 : ""} onChange={(e) => setTenders((ts) => ts.map((x, j) => (j === i ? { ...x, amountPaise: toPaise(Number(e.target.value)) } : x)))} className="w-full" data-testid={`tender-amount-${i}`} />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor={`tender-mode-${i}`} className="text-xs text-muted-foreground">Payment mode <span className="text-destructive">*</span></Label>
+            <select id={`tender-mode-${i}`} value={t.mode} onChange={(e) => setTenders((ts) => ts.map((x, j) => (j === i ? { ...x, mode: e.target.value } : x)))} className={`h-10 w-full rounded-md border bg-background px-2 text-sm ${t.amountPaise > 0 && !t.mode ? "border-amber-500" : "border-input"}`} data-testid={`tender-mode-${i}`}>
+              <option value="" disabled>Select payment mode…</option>
+              {["CASH", "UPI", "CREDIT_CARD", "DEBIT_CARD", "BANK_TRANSFER", "ONLINE"].map((m) => <option key={m} value={m}>{m === "ONLINE" ? "Online / OTA prepaid (MMT, Booking.com)" : m.replace(/_/g, " ")}</option>)}
+            </select>
           </div>
         </div>
       ))}
@@ -428,12 +433,15 @@ function PaymentForm({ balancePaise, onSubmit, onCancel, pending }: { balancePai
                   : <>Advance — <span data-testid="remaining">{rupees(-remaining)}</span> credit</>)
               : <>Settles in full (<span data-testid="remaining">{rupees(0)}</span> due)</>}
         </span>
-        <Button variant="ghost" size="sm" onClick={() => setTenders((ts) => [...ts, { mode: "CASH", amountPaise: Math.max(0, remaining) }])}>+ tender</Button>
+        <Button variant="ghost" size="sm" onClick={() => setTenders((ts) => [...ts, { mode: "", amountPaise: Math.max(0, remaining) }])}>+ tender</Button>
       </div>
+      {missingMode && (
+        <p className="text-sm font-medium text-amber-600" data-testid="tender-mode-missing">Select the payment mode (Cash / UPI / Card…) to confirm.</p>
+      )}
       <div className="flex gap-2">
         {/* Partial payments / deposits are allowed — any positive amount; the balance
             simply updates. (Previously this forced an exact full settlement.) */}
-        <Button size="lg" disabled={pending || total <= 0} onClick={() => onSubmit(tenders)} data-testid="confirm-payment">Confirm</Button>
+        <Button size="lg" disabled={pending || total <= 0 || missingMode} onClick={() => onSubmit(tenders.filter((t) => t.amountPaise > 0))} data-testid="confirm-payment">Confirm</Button>
         <Button size="lg" variant="outline" onClick={onCancel}>Cancel</Button>
       </div>
     </CardContent></Card>
