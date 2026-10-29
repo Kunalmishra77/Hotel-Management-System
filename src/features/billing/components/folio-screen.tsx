@@ -121,6 +121,7 @@ export function FolioScreen({
             <div key={p.id} className="flex items-center justify-between gap-2">
               <span className="text-muted-foreground">
                 Payment · {p.mode}{p.isRefund ? " (refund)" : ""}
+                <span className="ml-1 text-xs">· {new Date(p.receivedAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
                 <a href={`/api/receipts/${p.id}`} target="_blank" rel="noopener noreferrer"
                   className="ml-2 text-xs text-primary underline underline-offset-2" data-testid="receipt-link">receipt</a>
               </span>

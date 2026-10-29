@@ -36,13 +36,11 @@ export function BookingBillSummary({
     (l) => l.type !== "REVERSAL" && !reversedIds.has(l.id) && !(l.type === "MISC" && l.description === "Round off"),
   );
 
-  // Net payments by mode (received − refunded); a mode that nets to zero (a reversed or
-  // duplicate tender) is hidden entirely, so the bill shows only the real money taken.
-  const netByMode = new Map<string, number>();
-  for (const p of folio.payments) {
-    netByMode.set(p.mode, (netByMode.get(p.mode) ?? 0) + (p.isRefund ? -p.amountPaise : p.amountPaise));
-  }
-  const netPayments = [...netByMode.entries()].filter(([, amt]) => amt !== 0);
+  // Show each payment with its DATE (so an advance taken at booking vs the balance
+  // collected at check-out are distinct and dated). The first non-refund payment is
+  // labelled "advance" when money came in before the full bill was settled.
+  const fmtDate = (iso: string) => new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+  const firstPaymentId = folio.payments.find((p) => !p.isRefund)?.id;
 
   return (
     <Card className="mt-4">
@@ -80,17 +78,24 @@ export function BookingBillSummary({
           )}
         </div>
 
-        {/* Payments — netted per mode; reversed/duplicate tenders don't show. */}
-        {netPayments.length > 0 && (
+        {/* Payments — each tender with its date, so an advance and the balance read
+            apart. Refunds are shown explicitly (rare after a clean correction). */}
+        {folio.payments.length > 0 && (
           <div>
             <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Payments</p>
             <ul className="space-y-1">
-              {netPayments.map(([mode, amt]) => (
-                <li key={mode} className="flex justify-between gap-3">
-                  <span className="text-muted-foreground">{mode.replace(/_/g, " ")}{amt < 0 ? " (refund)" : ""}</span>
-                  <span className="shrink-0 tabular">{amt < 0 ? "+" : "−"} {formatINR(Math.abs(amt))}</span>
-                </li>
-              ))}
+              {folio.payments.map((p) => {
+                const isAdvance = !p.isRefund && p.id === firstPaymentId && folio.balancePaise <= 0;
+                return (
+                  <li key={p.id} className="flex justify-between gap-3">
+                    <span className="min-w-0 truncate text-muted-foreground">
+                      {p.mode.replace(/_/g, " ")}{p.isRefund ? " (refund)" : isAdvance ? " (advance)" : ""}
+                      <span className="ml-1 text-xs">· {fmtDate(p.receivedAt)}</span>
+                    </span>
+                    <span className="shrink-0 tabular">{p.isRefund ? "+" : "−"} {formatINR(p.amountPaise)}</span>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         )}
