@@ -210,6 +210,20 @@ export async function createHistoricalStay(input: unknown): Promise<Result<{ res
       allocate = !clash;
     }
 
+    // A LIVE (in-house) or FUTURE (confirmed) stay MUST get a real room — the guest
+    // is physically in one. Silently recording it unallocated is the root cause of
+    // the recurring "Unallocated / can't extend / room double-sold" bug: the board
+    // shows no room, the room still reads VACANT and can be sold on top. So for these
+    // we refuse rather than create a ghost — the staff pick a free room or fix the
+    // dates. Only a PAST (checked-out) stay, which is a history record with no live
+    // room, may stay unallocated.
+    if (status !== "CHECKED_OUT" && !allocate) {
+      const msg = data.roomId
+        ? "That room is already booked for these dates — pick a room that's free, or change the dates."
+        : "No room is free for these dates at this property — free a room or change the dates before recording a current/upcoming stay.";
+      throw new DomainError(ErrorCode.ROOM_UNAVAILABLE, msg, { publicMessage: msg });
+    }
+
     const code = generateReservationCode();
 
     const result = await withReservationContext(user, () =>
