@@ -40,7 +40,16 @@ export function BookingBillSummary({
   // collected at check-out are distinct and dated). The first non-refund payment is
   // labelled "advance" when money came in before the full bill was settled.
   const fmtDate = (iso: string) => new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
-  const firstPaymentId = folio.payments.find((p) => !p.isRefund)?.id;
+  // A payment and a refund of the same mode + amount cancel out (money moved to
+  // another booking's folio, or a reversed duplicate tender) — the bill hides the
+  // pair so it reads as the money actually kept. The folio ledger shows both.
+  const cancelled = new Set<string>();
+  for (const refund of folio.payments.filter((p) => p.isRefund)) {
+    const match = folio.payments.find((p) => !p.isRefund && !cancelled.has(p.id) && p.mode === refund.mode && p.amountPaise === refund.amountPaise);
+    if (match) { cancelled.add(match.id); cancelled.add(refund.id); }
+  }
+  const shownPayments = folio.payments.filter((p) => !cancelled.has(p.id));
+  const firstPaymentId = shownPayments.find((p) => !p.isRefund)?.id;
 
   return (
     <Card className="mt-4">
@@ -80,11 +89,11 @@ export function BookingBillSummary({
 
         {/* Payments — each tender with its date, so an advance and the balance read
             apart. Refunds are shown explicitly (rare after a clean correction). */}
-        {folio.payments.length > 0 && (
+        {shownPayments.length > 0 && (
           <div>
             <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Payments</p>
             <ul className="space-y-1">
-              {folio.payments.map((p) => {
+              {shownPayments.map((p) => {
                 const isAdvance = !p.isRefund && p.id === firstPaymentId && folio.balancePaise <= 0;
                 return (
                   <li key={p.id} className="flex justify-between gap-3">
