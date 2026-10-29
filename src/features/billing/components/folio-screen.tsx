@@ -16,6 +16,7 @@ import { postFolioCharge, applyDiscount, reverseFolioLine, correctRoomRate } fro
 import { recordPayment } from "../payment-actions";
 import { generateInvoice, voidInvoice } from "../invoice-actions";
 import { addAddOnToReservation } from "@/features/add-ons/actions";
+import { setRoomRate } from "@/features/reservations/move-actions";
 import { gstBpsForCharge } from "@/lib/constants/gst";
 import type { FolioView } from "../queries";
 
@@ -232,7 +233,23 @@ export function FolioScreen({
           onSubmit={(reason) => { const id = reverseTarget.id; setReverseTarget(null); run(() => reverseFolioLine({ lineId: id, reason })); }}
           onCancel={() => setReverseTarget(null)} />
       )}
-      {mode === "roomrate" && <RoomRateForm pending={pending} onSubmit={(rate, gstMode) => run(() => correctRoomRate({ folioId: folio.id, newUnitPaise: toPaise(rate), gstMode, reason: "room rate correction" }))} onCancel={() => setMode("none")} />}
+      {mode === "roomrate" && (
+        <RoomRateForm
+          pending={pending}
+          hasRoomCharge={hasRoomCharge}
+          // No room charge yet (e.g. an OTA stay saved at ₹0): go through the
+          // booking's rate action, which posts every stayed night at this rate and
+          // raises the GST invoice. Otherwise re-price the posted nights here.
+          onSubmit={(rate, gstMode) =>
+            run(() =>
+              !hasRoomCharge && reservationId
+                ? setRoomRate({ reservationId, newRatePaise: toPaise(rate), gstMode })
+                : correctRoomRate({ folioId: folio.id, newUnitPaise: toPaise(rate), gstMode, reason: "room rate correction" }),
+            )
+          }
+          onCancel={() => setMode("none")}
+        />
+      )}
       {mode === "charge" && <ChargeForm pending={pending} onSubmit={(type, desc, unitPaise) => run(() => postFolioCharge({ folioId: folio.id, type, description: desc, unitPaise }))} onCancel={() => setMode("none")} />}
       {mode === "discount" && <DiscountForm pending={pending} onSubmit={(reason, rupeeAmt) => run(() => applyDiscount({ folioId: folio.id, reason, amountPaise: toPaise(rupeeAmt), mode: "FINANCIAL" }))} onCancel={() => setMode("none")} />}
       {mode === "addon" && reservationId && <AddOnForm addOns={addOns} pending={pending} onSubmit={(addOnId, qty) => run(() => addAddOnToReservation({ reservationId, addOnId, quantity: qty }))} onCancel={() => setMode("none")} />}
@@ -241,8 +258,8 @@ export function FolioScreen({
       {mode === "none" && (
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           <Button size="lg" variant="outline" onClick={() => setMode("charge")} data-testid="add-charge">+ Charge</Button>
-          {hasRoomCharge && (
-            <Button size="lg" variant="outline" onClick={() => setMode("roomrate")} data-testid="fix-room-rate">Fix room rate</Button>
+          {(hasRoomCharge || reservationId) && (
+            <Button size="lg" variant="outline" onClick={() => setMode("roomrate")} data-testid="fix-room-rate">{hasRoomCharge ? "Fix room rate" : "Set room rate"}</Button>
           )}
           {reservationId && addOns.length > 0 && (
             <Button size="lg" variant="outline" onClick={() => setMode("addon")} data-testid="add-addon">+ Add-on</Button>
@@ -258,13 +275,17 @@ export function FolioScreen({
   );
 }
 
-function RoomRateForm({ onSubmit, onCancel, pending }: { onSubmit: (ratePerNight: number, gstMode: "inclusive" | "exclusive") => void; onCancel: () => void; pending: boolean }) {
+function RoomRateForm({ onSubmit, onCancel, pending, hasRoomCharge }: { onSubmit: (ratePerNight: number, gstMode: "inclusive" | "exclusive") => void; onCancel: () => void; pending: boolean; hasRoomCharge: boolean }) {
   const [rate, setRate] = useState(0);
   const [gstMode, setGstMode] = useState<"inclusive" | "exclusive">("exclusive");
   return (
     <Card><CardContent className="space-y-3 p-4">
       <p className="text-sm text-muted-foreground">
-        Wrong room rate picked (e.g. an OTA / Booking.com booking)? Enter the <span className="font-medium">correct rate per night</span> and choose whether GST (5%) is already included or added on top — the current room charges are cancelled and re-posted at this rate for the same number of nights. Works even after checkout; re-generate the invoice afterwards.
+        {hasRoomCharge ? (
+          <>Wrong room rate picked (e.g. an OTA / Booking.com booking)? Enter the <span className="font-medium">correct rate per night</span> and choose whether GST (5%) is already included or added on top — the current room charges are cancelled and re-posted at this rate for the same number of nights. Works even after checkout; re-generate the invoice afterwards.</>
+        ) : (
+          <>This bill has <span className="font-medium">no room charge</span> (e.g. an online/OTA booking saved without a rate). Enter the <span className="font-medium">rate per night</span> and choose GST included or on top — every stayed night is added to the bill and, for a checked-out stay, the GST invoice is raised. Then record the OTA&apos;s money with Take payment → &quot;Online / OTA prepaid&quot;.</>
+        )}
       </p>
       <Input type="number" inputMode="decimal" step="0.01" placeholder="Correct rate per night ₹" value={rate || ""} onChange={(e) => setRate(Number(e.target.value))} data-testid="roomrate-amount" />
       <div className="flex flex-wrap gap-4 text-sm">

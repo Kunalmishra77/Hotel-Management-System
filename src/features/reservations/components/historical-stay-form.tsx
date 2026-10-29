@@ -472,7 +472,7 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
             </div>
             <p className="text-xs text-muted-foreground">Applies to the room rate <span className="font-medium">and</span> every extra charge above.</p>
           </div>
-          <Fld label="Room rate per night (₹)"><Input type="number" inputMode="decimal" step="0.01" min={0} value={f.rate} onChange={(e) => set("rate", e.target.value)} placeholder="Enter the nightly rate" data-testid="hist-rate" /></Fld>
+          <Fld label="Room rate per night (₹) *"><Input type="number" inputMode="decimal" step="0.01" min={0} value={f.rate} onChange={(e) => set("rate", e.target.value)} placeholder="Enter the nightly rate" data-testid="hist-rate" /></Fld>
           {["MAKEMYTRIP", "BOOKING_COM", "AGODA", "GOIBIBO", "AIRBNB", "TRAVEL_AGENT"].includes(f.source) && (
             <p className="text-xs font-medium text-amber-700 dark:text-amber-400 sm:col-span-2" data-testid="hist-ota-rate-hint">
               OTA booking — enter the agreed {f.source === "MAKEMYTRIP" ? "MakeMyTrip" : f.source === "BOOKING_COM" ? "Booking.com" : "channel"} rate here, not the default room rate.
@@ -481,7 +481,7 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
           <p className="text-xs text-muted-foreground sm:col-span-2">Enter the nightly rate for <span className="font-medium">this</span> guest (rates can differ per customer). A folio + GST bill is created from the room rate + extras.</p>
           {(!f.rate || Number(f.rate) <= 0) && (
             <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-700 dark:text-amber-400 sm:col-span-2" data-testid="hist-no-rate-warning">
-              ⚠ No rate entered → this stay saves as <span className="font-semibold">history only</span> — no bill/folio is created, and you won&apos;t be able to add food or other charges to it. Enter the rate to create a bill. (You can still add a bill later from the booking&apos;s Folio page.)
+              ⚠ Enter the room rate to save. Every stay needs a bill — for an OTA booking (MakeMyTrip, Booking.com…) enter the per-night amount the OTA paid, then add the OTA payment as &quot;Online / OTA prepaid&quot;.
             </p>
           )}
         </CardContent>
@@ -516,7 +516,7 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
       {saved && <p className="rounded-md border border-emerald-600/30 bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-400" data-testid="hist-saved">✔ Saved {saved}&apos;s stay. Enter the next one.</p>}
 
       <div className="flex flex-col gap-2 sm:flex-row-reverse sm:items-center">
-        <Button type="submit" size="lg" disabled={pending || !propertyId || !f.fullName.trim() || !f.checkInDate || !f.checkOutDate} className="sm:min-w-44" data-testid="hist-submit">
+        <Button type="submit" size="lg" disabled={pending || !propertyId || !f.fullName.trim() || !f.checkInDate || !f.checkOutDate || !f.rate || Number(f.rate) <= 0} className="sm:min-w-44" data-testid="hist-submit">
           {pending ? "Saving…" : "Save historical stay"}
         </Button>
         <Button type="button" variant="ghost" disabled={pending} className="text-muted-foreground" data-testid="hist-clear"

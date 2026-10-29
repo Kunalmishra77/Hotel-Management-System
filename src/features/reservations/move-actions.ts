@@ -27,6 +27,7 @@ import {
   activeRoomNightKeys,
   nextRoomRevision,
   folioDateKey,
+  autoIssueInvoiceOnCheckout,
   type BillingPostTx,
 } from "@/features/billing";
 import { nights as computeNights } from "./domain/nights";
@@ -313,7 +314,7 @@ export async function setRoomRate(input: unknown): Promise<Result<{ id: string; 
 
     const r = await client.reservation.findFirst({
       where: { id: data.reservationId },
-      select: { id: true, propertyId: true, status: true, ratePaise: true, folio: { select: { id: true } } },
+      select: { id: true, propertyId: true, status: true, ratePaise: true, checkInDate: true, checkOutDate: true, property: { select: { state: true } }, folio: { select: { id: true } } },
     });
     if (!r) throw new NotFoundError("Reservation not found.");
     authorize(user, "reservation:modify", r.propertyId);
@@ -346,16 +347,45 @@ export async function setRoomRate(input: unknown): Promise<Result<{ id: string; 
       }
     }
 
+    let postedNights = 0;
     await withReservationContext(user, () =>
       client.$transaction(async (tx) => {
         await tx.reservation.updateMany({ where: { id: r.id }, data: { ratePaise: preTaxPaise } });
+
+        // A CHECKED-OUT stay will never accrue nights again (no night audit, no
+        // check-out), so any stayed night with no active room charge — typically an
+        // OTA/Data-Entry stay saved at ₹0 with no bill at all — is posted here at the
+        // new rate. Without this, editing the rate changed the number but the bill
+        // stayed empty. Live stays are left to check-in / check-out as before.
+        if (r.status === "CHECKED_OUT" && r.property) {
+          const folioId = await ensureFolio(tx, { reservationId: r.id, propertyId: r.propertyId });
+          const lines = await tx.folioLine.findMany({
+            where: { folioId },
+            select: { id: true, type: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, businessDate: true, revision: true, reversalOfId: true },
+          });
+          const posted = activeRoomNightKeys(lines);
+          const inWindow = (d: Date): boolean =>
+            (!data.fromNight || folioDateKey(d) >= folioDateKey(data.fromNight)) && (!data.toNight || folioDateKey(d) < folioDateKey(data.toNight));
+          for (const night of stayNights(r.checkInDate, r.checkOutDate)) {
+            if (posted.has(folioDateKey(night)) || !inWindow(night)) continue;
+            await postRoomChargeTx(tx as unknown as BillingPostTx, {
+              folioId, propertyId: r.propertyId, propertyState: r.property.state, ratePaise: preTaxPaise,
+              businessDate: night, revision: nextRoomRevision(lines, night), postedById: user.userId,
+            });
+            postedNights += 1;
+          }
+        }
+
         await emitEvent(tx, { type: "ReservationModified", aggregateId: r.id, propertyId: r.propertyId, payload: { ratePaise: preTaxPaise, rateEdited: true } });
         await writeAudit(tx, {
           action: "reservation:set-rate", entityType: "Reservation", entityId: r.id, propertyId: r.propertyId,
-          before: { ratePaise: r.ratePaise }, after: { ratePaise: preTaxPaise, gstMode: data.gstMode },
+          before: { ratePaise: r.ratePaise }, after: { ratePaise: preTaxPaise, gstMode: data.gstMode, postedNights },
         });
-      }),
+      }, { maxWait: 10_000, timeout: 30_000 }),
     );
+    // The completed stay now has a bill — raise its GST invoice (best-effort; skips
+    // if one exists, in which case staff use Void & revise on the folio).
+    if (postedNights > 0) await autoIssueInvoiceOnCheckout(r.id);
 
     revalidatePath(`/bookings/${r.id}`);
     revalidatePath(`/bookings/${r.id}/folio`);
@@ -486,4 +516,11 @@ export async function reallocateRoom(input: unknown): Promise<Result<MoveResult>
       ),
     );
   });
+}
+
+/** Each stayed night's business date: check-in (inclusive) → check-out (exclusive); a day-use stay is one day. */
+function stayNights(checkIn: Date, checkOut: Date): Date[] {
+  const out: Date[] = [];
+  for (let t = Date.UTC(checkIn.getUTCFullYear(), checkIn.getUTCMonth(), checkIn.getUTCDate()); t < checkOut.getTime(); t += 86_400_000) out.push(new Date(t));
+  return out.length > 0 ? out : [checkIn];
 }
