@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { postFolioCharge, applyDiscount, reverseFolioLine, correctRoomRate } from "../charge-actions";
 import { recordPayment } from "../payment-actions";
 import { generateInvoice, voidInvoice } from "../invoice-actions";
+import { BillToForm, InvoiceHistory } from "./invoice-panel";
 import { addAddOnToReservation } from "@/features/add-ons/actions";
 import { setRoomRate } from "@/features/reservations/move-actions";
 import { gstBpsForCharge } from "@/lib/constants/gst";
@@ -41,7 +42,7 @@ export function FolioScreen({
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [mode, setMode] = useState<"none" | "charge" | "pay" | "discount" | "addon" | "roomrate">("none");
+  const [mode, setMode] = useState<"none" | "charge" | "pay" | "discount" | "addon" | "roomrate" | "invoice">("none");
   const hasRoomCharge = folio.lines.some((l) => l.type === "ROOM");
   const [invoice, setInvoice] = useState<{ id: string; number: string } | null>(null);
   const [reverseTarget, setReverseTarget] = useState<{ id: string; description: string } | null>(null);
@@ -57,11 +58,14 @@ export function FolioScreen({
   const folioChargeTotalPaise = folio.lines.reduce((a, l) => a + l.amountPaise + l.cgstPaise + l.sgstPaise + l.igstPaise, 0);
   const invoiceStale = !!activeInvoice && activeInvoice.totalPaise !== folioChargeTotalPaise;
 
-  const generate = () => {
+  // A revised bill starts from the last bill's name/GSTIN (it may have been a
+  // company bill); a first bill starts from the guest's name.
+  const lastBill = [...folio.invoices].reverse().find((i) => i.type === "TAX_INVOICE") ?? null;
+  const generate = (customerName: string, customerGstin: string | undefined) => {
     setError(null);
     start(async () => {
-      const res = await generateInvoice({ folioId: folio.id, customerName: guestName });
-      if (res.ok) { setInvoice({ id: res.data.invoiceId, number: res.data.number }); router.refresh(); }
+      const res = await generateInvoice({ folioId: folio.id, customerName, customerGstin });
+      if (res.ok) { setInvoice({ id: res.data.invoiceId, number: res.data.number }); setMode("none"); router.refresh(); }
       else setError(res.error.message);
     });
   };
@@ -152,58 +156,13 @@ export function FolioScreen({
         <Card>
           <CardHeader className="pb-3"><CardTitle className="text-base">Bills &amp; version history</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm" data-testid="invoice-history">
-            {(() => {
-              const rowOf = (inv: typeof folio.invoices[number]) => {
-                const isCredit = inv.type === "CREDIT_NOTE";
-                const voided = voidedIds.has(inv.id);
-                return (
-                  <div key={inv.id} className="flex flex-wrap items-center justify-between gap-2 border-b pb-2 last:border-0 last:pb-0">
-                    <span className="flex items-center gap-2">
-                      <span className="font-mono font-medium">{inv.number}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {isCredit ? "Credit note (voids a bill)" : voided ? "Tax invoice · VOIDED" : "Tax invoice"}
-                        {" · "}{new Date(inv.issuedAt).toLocaleDateString("en-IN")}
-                      </span>
-                    </span>
-                    <span className="flex items-center gap-3">
-                      <span className={`tabular ${voided || isCredit ? "text-muted-foreground line-through" : ""}`}>{rupees(inv.totalPaise)}</span>
-                      <a href={`/api/invoices/${inv.id}`} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline underline-offset-2">PDF</a>
-                    </span>
-                  </div>
-                );
-              };
-              // Show only the CURRENT bill(s). Voided invoices + their credit notes are
-              // tucked into a collapsed "Voided (history)" block — they can't be deleted
-              // (GST: issued invoices are permanent + gap-free), but they stay out of the way.
-              const current = folio.invoices.filter((i) => i.type === "TAX_INVOICE" && !voidedIds.has(i.id));
-              const trail = folio.invoices.filter((i) => voidedIds.has(i.id) || i.type === "CREDIT_NOTE");
-              return (
-                <>
-                  {current.length > 0 ? current.map(rowOf) : <p className="text-muted-foreground">No current bill yet — press Generate GST invoice.</p>}
-                  {trail.length > 0 && (
-                    <details className="mt-1 rounded-md border bg-muted/20 p-2">
-                      <summary className="cursor-pointer text-xs text-muted-foreground">Voided bills (history) · {trail.length} — kept for GST records</summary>
-                      <div className="mt-2 space-y-2">{trail.map(rowOf)}</div>
-                    </details>
-                  )}
-                </>
-              );
-            })()}
+            {/* Tap any bill: who it was billed to, tax breakup, PDF, download, void & revise. */}
+            <InvoiceHistory invoices={folio.invoices} pending={pending} canVoid onVoid={setVoidTarget} />
             {invoiceStale && activeInvoice && (
               <div className="mt-1 rounded-md border border-warning/50 bg-warning/10 p-2.5 text-sm" data-testid="invoice-stale">
                 <p className="font-medium text-warning">⚠ Bill {activeInvoice.number} is out of date</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   It was issued for {rupees(activeInvoice.totalPaise)}, but the folio now totals {rupees(folioChargeTotalPaise)} — newer charges (e.g. food) aren&apos;t on it. <b>Void &amp; revise</b>, then <b>Generate GST invoice</b> to issue one bill with everything.
-                </p>
-              </div>
-            )}
-            {activeInvoice && (
-              <div className="pt-1">
-                <Button size="sm" variant={invoiceStale ? "default" : "outline"} disabled={pending} onClick={() => setVoidTarget({ id: activeInvoice.id, number: activeInvoice.number })} data-testid="void-invoice">
-                  Void &amp; revise this bill
-                </Button>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Issues a credit note against <span className="font-mono">{activeInvoice.number}</span> (the law forbids editing a tax invoice). Then correct the charges above and press <b>Generate GST invoice</b> for the revised bill — the full chain stays on record here.
                 </p>
               </div>
             )}
@@ -250,6 +209,15 @@ export function FolioScreen({
           onCancel={() => setMode("none")}
         />
       )}
+      {mode === "invoice" && (
+        <BillToForm
+          defaultName={lastBill?.customerName ?? guestName}
+          defaultGstin={lastBill?.customerGstin ?? ""}
+          pending={pending}
+          onSubmit={generate}
+          onCancel={() => setMode("none")}
+        />
+      )}
       {mode === "charge" && <ChargeForm pending={pending} onSubmit={(type, desc, unitPaise) => run(() => postFolioCharge({ folioId: folio.id, type, description: desc, unitPaise }))} onCancel={() => setMode("none")} />}
       {mode === "discount" && <DiscountForm pending={pending} onSubmit={(reason, rupeeAmt) => run(() => applyDiscount({ folioId: folio.id, reason, amountPaise: toPaise(rupeeAmt), mode: "FINANCIAL" }))} onCancel={() => setMode("none")} />}
       {mode === "addon" && reservationId && <AddOnForm addOns={addOns} pending={pending} onSubmit={(addOnId, qty) => run(() => addAddOnToReservation({ reservationId, addOnId, quantity: qty }))} onCancel={() => setMode("none")} />}
@@ -267,7 +235,7 @@ export function FolioScreen({
           <Button size="lg" variant="outline" onClick={() => setMode("discount")} data-testid="apply-discount">− Discount</Button>
           <Button size="lg" onClick={() => setMode("pay")} data-testid="take-payment">Take payment</Button>
           {/* One live invoice per bill: once issued, corrections go through Void & revise. */}
-          <Button size="lg" variant="outline" disabled={pending || folio.lines.length === 0 || !!activeInvoice} title={activeInvoice ? `Invoice ${activeInvoice.number} is already issued — use Void & revise to correct it` : undefined} onClick={generate} data-testid="generate-invoice">Generate GST invoice</Button>
+          <Button size="lg" variant="outline" disabled={pending || folio.lines.length === 0 || !!activeInvoice} title={activeInvoice ? `Invoice ${activeInvoice.number} is already issued — use Void & revise to correct it` : undefined} onClick={() => setMode("invoice")} data-testid="generate-invoice">Generate GST invoice</Button>
         </div>
       )}
         </div>

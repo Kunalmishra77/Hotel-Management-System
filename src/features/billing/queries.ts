@@ -17,6 +17,13 @@ export type FolioInvoiceView = {
   totalPaise: number;
   cancelsInvoiceId: string | null;
   issuedAt: Date;
+  /** Bill-to on the invoice — prefills a revised bill. */
+  customerName: string;
+  customerGstin: string | null;
+  taxableValuePaise: number;
+  cgstPaise: number;
+  sgstPaise: number;
+  igstPaise: number;
 };
 
 export type FolioView = {
@@ -36,7 +43,7 @@ export async function getFolio(user: SessionClaims, folioId: string): Promise<Fo
       id: true,
       lines: { select: { id: true, type: true, description: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, reversalOfId: true }, orderBy: { createdAt: "asc" } },
       payments: { select: { id: true, mode: true, amountPaise: true, isRefund: true, receivedAt: true }, orderBy: { receivedAt: "asc" } },
-      invoices: { select: { id: true, number: true, type: true, totalPaise: true, cancelsInvoiceId: true, issuedAt: true }, orderBy: { issuedAt: "asc" } },
+      invoices: { select: { id: true, number: true, type: true, totalPaise: true, cancelsInvoiceId: true, issuedAt: true, customerName: true, customerGstin: true, taxableValuePaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true }, orderBy: { issuedAt: "asc" } },
     },
   });
   if (!folio) return null;
@@ -46,7 +53,7 @@ export async function getFolio(user: SessionClaims, folioId: string): Promise<Fo
     balancePaise: Number(balance),
     lines: folio.lines.map((l) => ({ ...l, amountPaise: Number(l.amountPaise) })),
     payments: folio.payments.map((p) => ({ ...p, amountPaise: Number(p.amountPaise), receivedAt: p.receivedAt.toISOString() })),
-    invoices: folio.invoices.map((i) => ({ ...i, totalPaise: Number(i.totalPaise) })),
+    invoices: folio.invoices.map((i) => ({ ...i, totalPaise: Number(i.totalPaise), taxableValuePaise: Number(i.taxableValuePaise) })),
   };
 }
 
@@ -59,7 +66,7 @@ export async function getReservationFolio(user: SessionClaims, reservationId: st
       id: true,
       lines: { select: { id: true, type: true, description: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, reversalOfId: true }, orderBy: { createdAt: "asc" } },
       payments: { select: { id: true, mode: true, amountPaise: true, isRefund: true, receivedAt: true }, orderBy: { receivedAt: "asc" } },
-      invoices: { select: { id: true, number: true, type: true, totalPaise: true, cancelsInvoiceId: true, issuedAt: true }, orderBy: { issuedAt: "asc" } },
+      invoices: { select: { id: true, number: true, type: true, totalPaise: true, cancelsInvoiceId: true, issuedAt: true, customerName: true, customerGstin: true, taxableValuePaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true }, orderBy: { issuedAt: "asc" } },
     },
   });
   if (!folio) return null;
@@ -69,7 +76,7 @@ export async function getReservationFolio(user: SessionClaims, reservationId: st
     balancePaise: Number(balance),
     lines: folio.lines.map((l) => ({ ...l, amountPaise: Number(l.amountPaise) })),
     payments: folio.payments.map((p) => ({ ...p, amountPaise: Number(p.amountPaise), receivedAt: p.receivedAt.toISOString() })),
-    invoices: folio.invoices.map((i) => ({ ...i, totalPaise: Number(i.totalPaise) })),
+    invoices: folio.invoices.map((i) => ({ ...i, totalPaise: Number(i.totalPaise), taxableValuePaise: Number(i.taxableValuePaise) })),
   };
 }
 
@@ -81,6 +88,8 @@ export type InvoiceListItem = {
   propertyName: string;
   totalPaise: number;
   issuedAt: Date;
+  /** The booking whose bill this is — the picker opens its folio to void & revise. */
+  reservationId: string | null;
 };
 
 /**
@@ -124,7 +133,7 @@ export async function searchInvoices(
           }
         : {}),
     },
-    select: { id: true, number: true, customerName: true, customerGstin: true, totalPaise: true, issuedAt: true, propertyId: true },
+    select: { id: true, number: true, customerName: true, customerGstin: true, totalPaise: true, issuedAt: true, propertyId: true, folio: { select: { reservationId: true } } },
     orderBy: [{ issuedAt: "desc" }, { id: "asc" }],
     take: limit + 1,
     ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
@@ -149,6 +158,7 @@ export async function searchInvoices(
       propertyName: nameById.get(r.propertyId) ?? "—",
       totalPaise: Number(r.totalPaise),
       issuedAt: r.issuedAt,
+      reservationId: r.folio.reservationId,
     })),
     nextCursor: hasMore ? (page[page.length - 1]?.id ?? null) : null,
   };

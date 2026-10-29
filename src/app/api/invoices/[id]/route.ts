@@ -13,7 +13,7 @@ import { ensureInvoicePdf } from "@/features/billing/invoice-pdf-store";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }): Promise<Response> {
+export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }): Promise<Response> {
   const session = await getCurrentSession();
   if (!session) return new Response("Unauthorized", { status: 401 });
   const user = session.claims;
@@ -27,7 +27,9 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   if (!invoice) return new Response("Not found", { status: 404 });
 
   // Render lazily on first view for invoices whose PDF was deferred (bulk import).
-  const key = invoice.pdfObjectKey ?? (await ensureInvoicePdf(invoice.id));
+  // ensureInvoicePdf returns the stored key at once, or renders it (deferred
+  // imports; credit notes stored before they were titled "CREDIT NOTE").
+  const key = await ensureInvoicePdf(invoice.id);
   if (!key) return new Response("Not found", { status: 404 });
 
   const bytes = await resolveStorageAdapter().get(key);
@@ -36,7 +38,8 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     status: 200,
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="invoice-${safeName}.pdf"`,
+      // ?download=1 → save the file (invoice picker "Download"); otherwise open inline.
+      "Content-Disposition": `${new URL(req.url).searchParams.get("download") === "1" ? "attachment" : "inline"}; filename="invoice-${safeName}.pdf"`,
       "Cache-Control": "no-store",
     },
   });

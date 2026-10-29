@@ -25,7 +25,13 @@ type PdfMeta = {
   sgstPaise: number;
   igstPaise: number;
   totalPaise: number;
+  documentType?: "TAX_INVOICE" | "CREDIT_NOTE";
+  againstNumber?: string | null;
 };
+
+/** Credit notes are stored under their own key so a copy rendered before the
+ *  credit-note title existed (it said "TAX INVOICE") is re-rendered once. */
+const pdfKey = (invoiceId: string, type?: string) => `invoices/${invoiceId}${type === "CREDIT_NOTE" ? "-cn" : ""}.pdf`;
 
 /**
  * Render the styled GST invoice to storage and set `pdfObjectKey` (the only column
@@ -81,6 +87,8 @@ export async function attachInvoicePdf(invoiceId: string, folioId: string, meta:
 
     const bytes = await renderInvoicePdf({
       number: meta.number,
+      documentType: meta.documentType ?? "TAX_INVOICE",
+      againstNumber: meta.againstNumber ?? null,
       issuedAt: meta.issuedAt,
       branch: property,
       checkInDate: folio.reservation?.checkInDate ?? null,
@@ -111,7 +119,7 @@ export async function attachInvoicePdf(invoiceId: string, folioId: string, meta:
       igstPaise: meta.igstPaise,
       totalPaise: meta.totalPaise,
     });
-    const key = `invoices/${invoiceId}.pdf`;
+    const key = pdfKey(invoiceId, meta.documentType);
     await resolveStorageAdapter().put(key, bytes, { contentType: "application/pdf" });
     await db.unscoped().invoice.update({ where: { id: invoiceId }, data: { pdfObjectKey: key } });
     return key;
@@ -129,15 +137,20 @@ export async function ensureInvoicePdf(invoiceId: string): Promise<string | null
   const inv = await db.unscoped().invoice.findFirst({
     where: { id: invoiceId },
     select: {
-      id: true, folioId: true, pdfObjectKey: true, number: true, issuedAt: true,
+      id: true, folioId: true, pdfObjectKey: true, number: true, issuedAt: true, type: true, cancelsInvoiceId: true,
       customerName: true, customerGstin: true, placeOfSupply: true,
       taxableValuePaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, totalPaise: true,
     },
   });
   if (!inv) return null;
-  if (inv.pdfObjectKey) return inv.pdfObjectKey;
+  if (inv.pdfObjectKey && inv.pdfObjectKey === pdfKey(inv.id, inv.type)) return inv.pdfObjectKey;
+  const against = inv.cancelsInvoiceId
+    ? await db.unscoped().invoice.findFirst({ where: { id: inv.cancelsInvoiceId }, select: { number: true } })
+    : null;
   return attachInvoicePdf(inv.id, inv.folioId, {
     number: inv.number,
+    documentType: inv.type === "CREDIT_NOTE" ? "CREDIT_NOTE" : "TAX_INVOICE",
+    againstNumber: against?.number ?? null,
     issuedAt: inv.issuedAt,
     customerName: inv.customerName,
     customerGstin: inv.customerGstin,

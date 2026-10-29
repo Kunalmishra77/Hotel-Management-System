@@ -29,6 +29,9 @@ export type InvoicePdfLine = {
 
 export type InvoicePdfData = {
   number: string;
+  /** A credit note prints as "CREDIT NOTE" and names the invoice it cancels. */
+  documentType?: "TAX_INVOICE" | "CREDIT_NOTE";
+  againstNumber?: string | null;
   issuedAt: Date;
   branch: { name: string; addressLine1: string | null; city: string | null; state: string | null; pincode: string | null };
   checkInDate: Date | null;
@@ -162,8 +165,10 @@ function InvoiceDoc({ data }: { data: InvoicePdfData }) {
   const disp = displayLines(data.lines, data.stayLabel);
   const groups = taxGroups(disp);
   const branchAddr = [data.branch.addressLine1, data.branch.city, data.branch.state, data.branch.pincode].filter(Boolean).join(", ");
+  const isCredit = data.documentType === "CREDIT_NOTE";
   const meta: [string, string][] = [
-    ["Invoice No.", data.number],
+    [isCredit ? "Credit Note No." : "Invoice No.", data.number],
+    ...(isCredit ? ([["Against Invoice", data.againstNumber ?? "—"]] as [string, string][]) : []),
     ["Dated", fmtDate(data.issuedAt)],
     ["Check-in", fmtDate(data.checkInDate)],
     ["Check-out", fmtDate(data.checkOutDate)],
@@ -172,9 +177,9 @@ function InvoiceDoc({ data }: { data: InvoicePdfData }) {
   ];
 
   return (
-    <Document title={`Tax Invoice ${data.number}`}>
+    <Document title={`${isCredit ? "Credit Note" : "Tax Invoice"} ${data.number}`}>
       <Page size="A4" style={s.page} wrap>
-        <Text style={s.title}>TAX INVOICE</Text>
+        <Text style={s.title}>{isCredit ? "CREDIT NOTE" : "TAX INVOICE"}</Text>
 
         <View style={s.frame}>
           {/* Header: company + meta */}

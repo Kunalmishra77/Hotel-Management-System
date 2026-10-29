@@ -127,6 +127,10 @@ export function InvoiceSearch({ properties, gstOnly: initialGst = false }: { pro
                     <td className="py-2.5 pl-3 pr-3 text-right">
                       <div className="flex items-center justify-end gap-3">
                         <a href={`/api/invoices/${r.id}`} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">View</a>
+                        <a href={`/api/invoices/${r.id}?download=1`} className="text-primary underline underline-offset-4">Download</a>
+                        {r.reservationId ? (
+                          <a href={`/bookings/${r.reservationId}/folio`} className="text-primary underline underline-offset-4" title="Open the bill to void & re-issue with a corrected name / GSTIN">Revise</a>
+                        ) : null}
                         <button type="button" onClick={() => void share(r.id)} className="text-primary underline underline-offset-4">Share</button>
                       </div>
                       {shareState[r.id] ? <p className="mt-1 text-xs text-muted-foreground">{shareState[r.id]}</p> : null}
