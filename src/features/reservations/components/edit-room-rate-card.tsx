@@ -50,6 +50,8 @@ export function EditRoomRateCard({
   const [done, setDone] = useState<string | null>(null);
 
   const windowReady = wholeStay || (!!fromNight && !!lastNight && fromNight <= lastNight);
+  // The last NIGHT is the day before check-out (check-out day itself isn't a night).
+  const lastStayNight = stayTo ? new Date(new Date(`${stayTo}T00:00:00.000Z`).getTime() - 86_400_000).toISOString().slice(0, 10) : undefined;
 
   function submit() {
     setError(null);
@@ -102,12 +104,19 @@ export function EditRoomRateCard({
           <div className="flex flex-wrap items-end gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="edit-rate-from">First night to re-price</Label>
-              <Input id="edit-rate-from" type="date" min={stayFrom} max={stayTo} value={fromNight} onChange={(e) => setFromNight(e.target.value)} data-testid="edit-rate-from" />
+              <Input id="edit-rate-from" type="date" min={stayFrom} max={lastStayNight} value={fromNight} onChange={(e) => setFromNight(e.target.value)} data-testid="edit-rate-from" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="edit-rate-to">Last night to re-price</Label>
-              <Input id="edit-rate-to" type="date" min={fromNight || stayFrom} max={stayTo} value={lastNight} onChange={(e) => setLastNight(e.target.value)} data-testid="edit-rate-to" />
+              <Input id="edit-rate-to" type="date" min={fromNight || stayFrom} max={lastStayNight} value={lastNight} onChange={(e) => setLastNight(e.target.value)} data-testid="edit-rate-to" />
             </div>
+            {/* Only booked nights can be re-priced. Nights after the current check-out
+                don't exist yet — a continued stay at a new rate (e.g. 2 nights via MMT,
+                then extended as Direct at a discount) is added with Extend stay, which
+                takes the rate for the added nights. */}
+            <p className="basis-full rounded-md border border-sky-500/30 bg-sky-500/10 p-2 text-xs text-sky-800 dark:text-sky-300" data-testid="edit-rate-extend-hint">
+              Only nights already booked (up to {lastStayNight ? new Date(`${lastStayNight}T00:00:00Z`).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) : "check-out"}) can be re-priced here. Guest staying longer at a new rate? Use <span className="font-semibold">Extend stay</span> above — enter the new check-out and the <span className="font-semibold">rate / night for the extra nights</span> (with GST included or on top).
+            </p>
           </div>
         )}
         <div className="flex flex-wrap items-end gap-3">

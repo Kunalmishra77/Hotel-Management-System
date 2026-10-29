@@ -25,6 +25,7 @@ import {
   type GuestPick,
 } from "../form-actions";
 import type { AvailableRoom } from "../availability";
+import { countryFromPhone } from "@/lib/phone-country";
 
 type Category = { id: string; name: string; propertyId: string };
 type PropertyOpt = { id: string; name: string; timezone: string };
@@ -345,7 +346,11 @@ export function BookingForm({
                     <Input value={ngName} onChange={(e) => setNgName(e.target.value)} placeholder="Guest name" data-testid="new-guest-name" />
                   </Labeled>
                   <Labeled label="Mobile">
-                    <Input inputMode="tel" value={ngMobile} onChange={(e) => setNgMobile(e.target.value)} placeholder="98xxxxxxxx" data-testid="new-guest-mobile" />
+                    <Input inputMode="tel" value={ngMobile} onChange={(e) => setNgMobile(e.target.value)} placeholder="98xxxxxxxx or +1 555…" data-testid="new-guest-mobile" />
+                    {/* Typed with a country code → the guest's country is set from it. */}
+                    {countryFromPhone(ngMobile) ? (
+                      <span className="mt-1 block text-xs text-muted-foreground" data-testid="new-guest-country">Country: <span className="font-medium text-foreground">{countryFromPhone(ngMobile)}</span> (from the number)</span>
+                    ) : null}
                   </Labeled>
                   <Labeled label="City">
                     <Input value={ngCity} onChange={(e) => setNgCity(e.target.value)} placeholder="City" />

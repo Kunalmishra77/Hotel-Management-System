@@ -26,6 +26,7 @@ import {
 } from "./domain/dedupe";
 import { maskContact } from "./domain/masking";
 import { createGuestSchema, updateGuestSchema } from "./schema";
+import { countryFromPhone } from "@/lib/phone-country";
 import {
   contactColumns,
   emailToken,
@@ -95,7 +96,10 @@ export async function createGuest(input: unknown): Promise<Result<GuestCreated>>
             addressLine: data.addressLine ?? null,
             city: data.city ?? null,
             state: data.state ?? null,
-            country: data.country ?? null,
+            // No country typed? Take it from the mobile's country code (+1 → United
+            // States). Nationality is deliberately NOT inferred: it drives Form C,
+            // and an Indian guest can carry a foreign SIM.
+            country: data.country ?? countryFromPhone(data.mobile) ?? null,
             pincode: data.pincode ?? null,
             companyName: data.companyName ?? null,
             gstNumber: data.gstNumber ?? null,

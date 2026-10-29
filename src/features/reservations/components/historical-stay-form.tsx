@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { COUNTRIES } from "@/lib/constants/countries";
+import { countryFromPhone } from "@/lib/phone-country";
 import { createHistoricalStay, searchGuestsForEntry, type ReturningGuest } from "../historical-actions";
 
 /** Booking sources the staff can pick (matches the reservation source enum). */
@@ -116,6 +117,15 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const set = (k: keyof typeof blank, v: string) => setF((s) => ({ ...s, [k]: v }));
+  // A number typed WITH its country code (+1 555…, 0044…) sets the country and the
+  // code moves into the prefix box — otherwise it would be prefixed twice (+91 +1 …).
+  const onMobile = (v: string) => {
+    const country = countryFromPhone(v);
+    if (!country) { set("mobile", v); return; }
+    const dial = dialFor(country);
+    const digits = v.trim().replace(/[\s\-().]/g, "").replace(/^00/, "+");
+    setF((s) => ({ ...s, country, mobile: digits.startsWith(dial) ? digits.slice(dial.length) : digits }));
+  };
   const setPerson = (i: number, k: keyof Person, v: string) => setPeople((ps) => ps.map((p, j) => (j === i ? { ...p, [k]: v } : p)));
   const setExtra = (i: number, k: keyof Extra, v: string) => setExtras((xs) => xs.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
   const setIdDoc = (i: number, patch: Partial<IdDoc>) => setIdDocs((ds) => ds.map((d, j) => (j === i ? { ...d, ...patch } : d)));
@@ -357,7 +367,7 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
                 <span className="inline-flex h-10 min-w-14 items-center justify-center rounded-l-md border border-r-0 border-input bg-muted px-2 text-sm text-muted-foreground" title={`Country code for ${f.country || "India"}`} data-testid="hist-dial">
                   {dialFor(f.country)}
                 </span>
-                <Input inputMode="tel" required value={f.mobile} onChange={(e) => set("mobile", e.target.value)} placeholder="Number without country code" className="rounded-l-none" data-testid="hist-mobile" />
+                <Input inputMode="tel" required value={f.mobile} onChange={(e) => onMobile(e.target.value)} placeholder="Number (or paste with +code)" className="rounded-l-none" data-testid="hist-mobile" />
               </div>
             </Fld>
             <Fld label="Email"><Input type="email" inputMode="email" value={f.email} onChange={(e) => set("email", e.target.value)} data-testid="hist-email" /></Fld>
