@@ -13,7 +13,7 @@ import { emitEvent } from "@/lib/events";
 import { DomainError, ErrorCode, NotFoundError } from "@/lib/errors";
 import { toResult, type Result } from "@/lib/result";
 import { gstBpsForCharge, hsnSacForCharge } from "@/lib/constants/gst";
-import { computeGst, placeOfSupply } from "./domain/gst";
+import { computeGst, placeOfSupply, preTaxRoomPaise } from "./domain/gst";
 import { discountLine } from "./domain/money";
 import { activeLines, dateKey, nextRoomRevision } from "./domain/reversal";
 import { billingDb, loadFolioContext, withBillingContext } from "./internal";
@@ -177,7 +177,10 @@ export async function correctRoomRate(input: unknown): Promise<Result<{ reversed
     }
     const nights = activeRoom.reduce((n, l) => n + l.quantity, 0);
     const pos = placeOfSupply("ROOM", ctx.propertyState, ctx.billToState);
-    const rateBps = gstBpsForCharge("ROOM", data.newUnitPaise);
+    // If the entered rate INCLUDES GST, strip it to the taxable unit; otherwise it
+    // IS the taxable unit. All posting below works off this taxable figure.
+    const unitPaise = preTaxRoomPaise(data.newUnitPaise, data.gstMode);
+    const rateBps = gstBpsForCharge("ROOM", unitPaise);
 
     return withBillingContext(user, () =>
       client.$transaction(async (tx) => {
@@ -199,7 +202,7 @@ export async function correctRoomRate(input: unknown): Promise<Result<{ reversed
           // highest that night has ever used (the unique index counts reversed
           // revisions too). `quantity` is preserved so a legacy aggregate line
           // re-prices without being silently split into nights we can't name.
-          const amountPaise = data.newUnitPaise * l.quantity;
+          const amountPaise = unitPaise * l.quantity;
           const gst = computeGst(amountPaise, rateBps, ctx.propertyState, pos);
           const baseDesc = (l.description || "Room").split(" · ")[0] || "Room";
           const suffix = l.quantity > 1 ? ` · corrected rate × ${l.quantity} night(s)` : " · night (corrected rate)";
@@ -207,7 +210,7 @@ export async function correctRoomRate(input: unknown): Promise<Result<{ reversed
             data: {
               folioId: data.folioId, type: "ROOM",
               description: `${baseDesc}${suffix}`,
-              quantity: l.quantity, unitPaise: data.newUnitPaise, amountPaise: BigInt(amountPaise),
+              quantity: l.quantity, unitPaise: unitPaise, amountPaise: BigInt(amountPaise),
               taxRateBps: rateBps, cgstPaise: gst.cgstPaise, sgstPaise: gst.sgstPaise, igstPaise: gst.igstPaise,
               hsnSac: hsnSacForCharge("ROOM"), placeOfSupplyState: pos,
               businessDate: l.businessDate, revision: nextRoomRevision(lines, l.businessDate),
@@ -218,13 +221,14 @@ export async function correctRoomRate(input: unknown): Promise<Result<{ reversed
           lastLineId = reposted.id;
         }
 
-        const totalPaise = data.newUnitPaise * nights;
+        const totalPaise = unitPaise * nights;
         await emitEvent(tx, { type: "FolioCharged", aggregateId: data.folioId, propertyId: ctx.propertyId, payload: { lineId: lastLineId, type: "ROOM", amountPaise: totalPaise, rateCorrected: true, nights } });
         await writeAudit(tx, {
           action: "folio:correct-rate", entityType: "FolioLine", entityId: lastLineId, propertyId: ctx.propertyId,
           reason: data.reason ?? "room rate correction",
           after: {
-            newUnitPaise: data.newUnitPaise, nights, reversed: activeRoom.length,
+            enteredPaise: data.newUnitPaise, gstMode: data.gstMode, newUnitPaise: unitPaise,
+            nights, reversed: activeRoom.length,
             fromNight: data.fromNight ? dateKey(data.fromNight) : null,
             toNight: data.toNight ? dateKey(data.toNight) : null,
           },

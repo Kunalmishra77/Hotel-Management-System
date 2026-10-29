@@ -231,7 +231,7 @@ export function FolioScreen({
           onSubmit={(reason) => { const id = reverseTarget.id; setReverseTarget(null); run(() => reverseFolioLine({ lineId: id, reason })); }}
           onCancel={() => setReverseTarget(null)} />
       )}
-      {mode === "roomrate" && <RoomRateForm pending={pending} onSubmit={(rate) => run(() => correctRoomRate({ folioId: folio.id, newUnitPaise: toPaise(rate), reason: "room rate correction" }))} onCancel={() => setMode("none")} />}
+      {mode === "roomrate" && <RoomRateForm pending={pending} onSubmit={(rate, gstMode) => run(() => correctRoomRate({ folioId: folio.id, newUnitPaise: toPaise(rate), gstMode, reason: "room rate correction" }))} onCancel={() => setMode("none")} />}
       {mode === "charge" && <ChargeForm pending={pending} onSubmit={(type, desc, unitPaise) => run(() => postFolioCharge({ folioId: folio.id, type, description: desc, unitPaise }))} onCancel={() => setMode("none")} />}
       {mode === "discount" && <DiscountForm pending={pending} onSubmit={(reason, rupeeAmt) => run(() => applyDiscount({ folioId: folio.id, reason, amountPaise: toPaise(rupeeAmt), mode: "FINANCIAL" }))} onCancel={() => setMode("none")} />}
       {mode === "addon" && reservationId && <AddOnForm addOns={addOns} pending={pending} onSubmit={(addOnId, qty) => run(() => addAddOnToReservation({ reservationId, addOnId, quantity: qty }))} onCancel={() => setMode("none")} />}
@@ -257,16 +257,27 @@ export function FolioScreen({
   );
 }
 
-function RoomRateForm({ onSubmit, onCancel, pending }: { onSubmit: (ratePerNight: number) => void; onCancel: () => void; pending: boolean }) {
+function RoomRateForm({ onSubmit, onCancel, pending }: { onSubmit: (ratePerNight: number, gstMode: "inclusive" | "exclusive") => void; onCancel: () => void; pending: boolean }) {
   const [rate, setRate] = useState(0);
+  const [gstMode, setGstMode] = useState<"inclusive" | "exclusive">("exclusive");
   return (
     <Card><CardContent className="space-y-3 p-4">
       <p className="text-sm text-muted-foreground">
-        Wrong room rate picked (e.g. an OTA / Booking.com booking)? Enter the <span className="font-medium">correct rate per night</span> — the current room charges are cancelled and re-posted at this rate for the same number of nights. GST (5%) is applied automatically. Works even after checkout; re-generate the invoice afterwards.
+        Wrong room rate picked (e.g. an OTA / Booking.com booking)? Enter the <span className="font-medium">correct rate per night</span> and choose whether GST (5%) is already included or added on top — the current room charges are cancelled and re-posted at this rate for the same number of nights. Works even after checkout; re-generate the invoice afterwards.
       </p>
-      <Input type="number" inputMode="decimal" step="0.01" placeholder="Correct rate per night ₹" value={rate} onChange={(e) => setRate(Number(e.target.value))} data-testid="roomrate-amount" />
+      <Input type="number" inputMode="decimal" step="0.01" placeholder="Correct rate per night ₹" value={rate || ""} onChange={(e) => setRate(Number(e.target.value))} data-testid="roomrate-amount" />
+      <div className="flex flex-wrap gap-4 text-sm">
+        <label className="flex items-center gap-2">
+          <input type="radio" name="roomrate-gst" checked={gstMode === "exclusive"} onChange={() => setGstMode("exclusive")} data-testid="roomrate-exclusive" />
+          Add GST on top
+        </label>
+        <label className="flex items-center gap-2">
+          <input type="radio" name="roomrate-gst" checked={gstMode === "inclusive"} onChange={() => setGstMode("inclusive")} data-testid="roomrate-inclusive" />
+          Rate includes GST
+        </label>
+      </div>
       <div className="flex gap-2">
-        <Button size="lg" disabled={pending || rate <= 0} onClick={() => onSubmit(rate)} data-testid="roomrate-submit">Apply correct rate</Button>
+        <Button size="lg" disabled={pending || rate <= 0} onClick={() => onSubmit(rate, gstMode)} data-testid="roomrate-submit">Apply correct rate</Button>
         <Button size="lg" variant="outline" onClick={onCancel}>Cancel</Button>
       </div>
     </CardContent></Card>

@@ -64,6 +64,9 @@ export const reverseLineSchema = z.object({
 export const correctRoomRateSchema = z.object({
   folioId: z.string().min(1),
   newUnitPaise: z.coerce.number().int().min(0).max(100_000_000),
+  // Whether the entered rate already INCLUDES GST (strip it) or GST is ADDED on
+  // top (exclusive). Defaults to exclusive so any existing caller is unchanged.
+  gstMode: z.enum(["inclusive", "exclusive"]).default("exclusive"),
   reason: z.string().max(300).optional(),
   fromNight: z.coerce.date().optional(),
   toNight: z.coerce.date().optional(),

@@ -9,6 +9,7 @@
  *   place != property state  → IGST (the full rate).
  */
 import Decimal from "decimal.js";
+import { ROOM_TARIFF_BANDS, roomGstBps } from "@/lib/constants/gst";
 
 /** On-premise / point-of-consumption supplies: place of supply = property state. */
 const ON_PREMISE = new Set([
@@ -53,4 +54,20 @@ export function computeGst(
     return { cgstPaise: roundPaiseHalfUp(half), sgstPaise: roundPaiseHalfUp(half), igstPaise: 0 };
   }
   return { cgstPaise: 0, sgstPaise: 0, igstPaise: roundPaiseHalfUp(total) };
+}
+
+/**
+ * Back the TAXABLE room rate out of an entered figure. "exclusive" → the figure
+ * is already the pre-tax unit (GST adds on top). "inclusive" → the figure is the
+ * all-in price the guest pays, so strip GST at the band the taxable value itself
+ * falls in (band-aware, like reservations' preTaxRatePaise — both entry points
+ * must agree so a room edited from the folio or the booking page matches).
+ */
+export function preTaxRoomPaise(enteredPaise: number, gstMode: "inclusive" | "exclusive"): number {
+  if (gstMode !== "inclusive") return enteredPaise;
+  for (const band of ROOM_TARIFF_BANDS) {
+    const candidate = roundPaiseHalfUp((enteredPaise * 10_000) / (10_000 + band.bps));
+    if (roomGstBps(candidate) === band.bps) return candidate;
+  }
+  return roundPaiseHalfUp((enteredPaise * 10_000) / (10_000 + roomGstBps(enteredPaise)));
 }
