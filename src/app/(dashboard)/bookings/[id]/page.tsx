@@ -206,7 +206,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
           ) : null}
 
           {canManageGuests && !r.externalHotelName ? (
-            <ChangeSourceCard reservationId={r.id} currentSource={r.source} />
+            <ChangeSourceCard reservationId={r.id} currentSource={r.source} currentBookedOn={r.bookedOn} />
           ) : null}
 
           {statement?.isTransfer ? <CombinedStatementCard statement={statement} /> : null}

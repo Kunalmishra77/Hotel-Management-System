@@ -53,14 +53,26 @@ export async function changeBookingSource(input: unknown): Promise<Result<{ id: 
     const data = changeBookingSourceSchema.parse(input);
     const user = await requireUser();
     const client = reservationDb(user);
-    const r = await client.reservation.findFirst({ where: { id: data.reservationId }, select: { id: true, propertyId: true, source: true } });
+    const r = await client.reservation.findFirst({ where: { id: data.reservationId }, select: { id: true, propertyId: true, source: true, createdAt: true } });
     if (!r) throw new NotFoundError("Reservation not found.");
     authorize(user, "reservation:modify", r.propertyId);
+    // Optional booked-on correction: set createdAt to the given day at noon UTC so
+    // the calendar date is stable regardless of the property timezone. Only applied
+    // when it actually differs from the current booked-on date.
+    const newBookedOn = data.bookedOn ? new Date(`${data.bookedOn}T12:00:00.000Z`) : null;
+    const bookedOnChanged = newBookedOn !== null && newBookedOn.toISOString().slice(0, 10) !== r.createdAt.toISOString().slice(0, 10);
     return withReservationContext(user, () =>
       client.$transaction(async (tx) => {
-        await tx.reservation.update({ where: { id: r.id }, data: { source: data.source } });
-        await emitEvent(tx, { type: "ReservationModified", aggregateId: r.id, propertyId: r.propertyId, payload: { field: "source", from: r.source, to: data.source } });
-        await writeAudit(tx, { action: "reservation:modify", entityType: "Reservation", entityId: r.id, propertyId: r.propertyId, before: { source: r.source }, after: { source: data.source } });
+        await tx.reservation.update({
+          where: { id: r.id },
+          data: { source: data.source, ...(bookedOnChanged ? { createdAt: newBookedOn } : {}) },
+        });
+        await emitEvent(tx, { type: "ReservationModified", aggregateId: r.id, propertyId: r.propertyId, payload: { field: "source", from: r.source, to: data.source, ...(bookedOnChanged ? { bookedOn: data.bookedOn } : {}) } });
+        await writeAudit(tx, {
+          action: "reservation:modify", entityType: "Reservation", entityId: r.id, propertyId: r.propertyId,
+          before: { source: r.source, bookedOn: r.createdAt.toISOString().slice(0, 10) },
+          after: { source: data.source, ...(bookedOnChanged ? { bookedOn: data.bookedOn } : {}) },
+        });
         revalidatePath(`/bookings/${r.id}`);
         return { id: r.id, source: data.source };
       }),

@@ -36,6 +36,8 @@ export type ReservationListItem = {
   externalHotelAddress: string | null;
   /** Booking source/channel (editable post-check-in). */
   source: string;
+  /** Booked-on date (createdAt, yyyy-mm-dd) — editable with the source. */
+  bookedOn: string;
 };
 
 const LIST_SELECT = {
@@ -53,6 +55,7 @@ const LIST_SELECT = {
   externalHotelName: true,
   externalHotelAddress: true,
   source: true,
+  createdAt: true,
   guest: { select: { fullName: true } },
   allocations: { select: { room: { select: { id: true, number: true } } } },
 } as const;
@@ -72,6 +75,7 @@ type Row = {
   externalHotelName: string | null;
   externalHotelAddress: string | null;
   source: string;
+  createdAt: Date;
   guest: { fullName: string };
   allocations: { room: { id: string; number: string } }[];
 };
@@ -95,6 +99,7 @@ function toItem(r: Row): ReservationListItem {
     externalHotelName: r.externalHotelName,
     externalHotelAddress: r.externalHotelAddress,
     source: r.source,
+    bookedOn: r.createdAt.toISOString().slice(0, 10),
   };
 }
 

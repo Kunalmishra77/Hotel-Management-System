@@ -242,6 +242,10 @@ export const changeBookingSourceSchema = z.object({
     "AIRBNB", "BOOKING_COM", "AGODA", "MAKEMYTRIP", "GOIBIBO",
     "CORPORATE", "TRAVEL_AGENT",
   ]),
+  // When the source is corrected, the booked-on date usually changes with it
+  // (an OTA booking made weeks ago vs a walk-in booked today). Optional: a
+  // yyyy-mm-dd date to set as the booking's booked-on (createdAt) date.
+  bookedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 
 export const updateReservationDetailsSchema = z.object({
