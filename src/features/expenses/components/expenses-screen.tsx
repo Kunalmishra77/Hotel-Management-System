@@ -1,14 +1,15 @@
 "use client";
 
 /**
- * Expenses screen — 07 + restructure (#12–20) + multi-item batch. Dynamic entry:
- * pick a Head and the Subcategory options change; Kitchen shows a quantity; "Only
- * GST Bills" captures a GSTIN + vendor. Date + Property + Payment method are shared
- * across a batch; several items (milk, bread, eggs…) are added to a list and saved
- * together in one transaction. Amounts in ₹; STAFF-salary guard + RBAC are
- * server-enforced.
+ * Expenses screen — 07 + restructure (#12–20), laid out like a paper PARCHI (bill
+ * slip): the shared facts are filled once at the top (date, property, paid via,
+ * head), then the slip is a table of item rows (milk, bread, eggs…) the staff keep
+ * adding to, with the running total underneath and ONE save for the whole slip.
+ * Each row is still its own Expense (own amount + approval), written together in
+ * one transaction. The recent list reads the same way — grouped by date with the
+ * day's total. STAFF-salary guard + RBAC are server-enforced.
  */
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,21 +18,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createExpenses, approveExpense, rejectExpense } from "../actions";
 import {
   EXPENSE_HEADS, EXPENSE_HEAD_LABEL, EXPENSE_SUBCATEGORIES,
-  FREE_TEXT_SUBCATEGORY, QUANTITY_HEADS, GST_BILLS_HEAD, type ExpenseHeadKey,
+  FREE_TEXT_SUBCATEGORY, GST_BILLS_HEAD, type ExpenseHeadKey,
 } from "../subcategories";
 import type { ExpenseListItem, ExpenseSuggestions } from "../queries";
 
-/** One pending line item in the batch cart (amount in ₹, resolved for display). */
-type ExpenseLine = {
-  key: string;
-  head: ExpenseHeadKey;
-  subCategory: string;
-  description: string;
-  quantity: string;
-  amount: number;
-  gstNumber: string;
-  vendor: string;
-};
+/** One row on the slip (amount kept as the typed ₹ string so the input stays editable). */
+type SlipRow = { key: string; item: string; qty: string; amount: string };
 
 const PAY_MODES: { value: string; label: string }[] = [
   { value: "CASH", label: "Cash" },
@@ -43,7 +35,9 @@ const PAY_MODES: { value: string; label: string }[] = [
   { value: "CORPORATE_CREDIT", label: "Corporate credit" },
 ];
 const rupees = (p: number) => `₹${(p / 100).toLocaleString("en-IN")}`;
-const toPaise = (r: number) => Math.round(r * 100);
+const toPaise = (r: string) => Math.round(Number(r || 0) * 100);
+const newRow = (): SlipRow => ({ key: crypto.randomUUID(), item: "", qty: "", amount: "" });
+const dayLabel = (d: Date) => new Date(d).toLocaleDateString("en-IN", { weekday: "short", day: "2-digit", month: "short", year: "numeric" });
 
 export function ExpensesScreen({
   propertyId,
@@ -63,91 +57,44 @@ export function ExpensesScreen({
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [head, setHead] = useState<ExpenseHeadKey>("KITCHEN");
-  const [sub, setSub] = useState(""); // dropdown value for list-heads
-  const [subText, setSubText] = useState(""); // free text (free-text head or "Other")
-  const [description, setDescription] = useState("");
-  const [quantity, setQuantity] = useState("");
-  const [amount, setAmount] = useState(0);
+  const [saved, setSaved] = useState<string | null>(null);
+  // Slip header — filled once for the whole parchi.
+  const [spentOn, setSpentOn] = useState(new Date().toISOString().slice(0, 10));
+  const [property, setProperty] = useState(propertyId);
   const [paidVia, setPaidVia] = useState("CASH");
+  const [head, setHead] = useState<ExpenseHeadKey>("KITCHEN");
+  const [sub, setSub] = useState("");
   const [gstNumber, setGstNumber] = useState("");
   const [vendor, setVendor] = useState("");
-  const [property, setProperty] = useState(propertyId);
-  const [spentOn, setSpentOn] = useState(new Date().toISOString().slice(0, 10));
-  const [lines, setLines] = useState<ExpenseLine[]>([]); // batch cart
+  // Slip body.
+  const [rows, setRows] = useState<SlipRow[]>([newRow()]);
+  const itemRefs = useRef(new Map<string, HTMLInputElement>());
   const propertyOptions = properties && properties.length > 1 ? properties : null;
 
   const subList = EXPENSE_SUBCATEGORIES[head] ?? [];
-  const headIsFreeText = FREE_TEXT_SUBCATEGORY.has(head);
-  const showSubText = headIsFreeText || sub === "Other";
-  const showQuantity = QUANTITY_HEADS.has(head);
+  const subIsFreeText = FREE_TEXT_SUBCATEGORY.has(head) || subList.length === 0;
   const isGstBills = head === GST_BILLS_HEAD;
-  const effectiveSub = (headIsFreeText || sub === "Other" ? subText : sub).trim();
-
-  // Autocomplete from past entries. Picking a known GSTIN auto-fills its vendor.
   const sugg = suggestions ?? { gstins: [], vendors: [], subCategories: [], descriptions: [] };
+
   function onGstChange(v: string) {
     setGstNumber(v);
     const hit = sugg.gstins.find((g) => g.gstNumber.toLowerCase() === v.trim().toLowerCase());
     if (hit?.vendor) setVendor(hit.vendor);
   }
 
-  function changeHead(h: ExpenseHeadKey) {
-    setHead(h);
-    setSub("");
-    setSubText("");
+  const setRow = (key: string, patch: Partial<SlipRow>) => setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  function addRow() {
+    const r = newRow();
+    setRows((rs) => [...rs, r]);
+    // Focus the new row's item box so typing the next line is one motion.
+    setTimeout(() => itemRefs.current.get(r.key)?.focus(), 0);
   }
+  const removeRow = (key: string) => setRows((rs) => (rs.length > 1 ? rs.filter((r) => r.key !== key) : [newRow()]));
 
-  /** Clear the per-item editor fields; keeps Head so a run of similar items is fast. */
-  function clearItem() {
-    setSub(""); setSubText(""); setDescription(""); setQuantity(""); setAmount(0); setGstNumber(""); setVendor("");
-  }
-
-  /** Reset everything after a save: item editor + the batch cart. Shared Date /
-   *  Property / Payment method stay, since the next batch is usually the same day. */
-  function reset() {
-    clearItem();
-    setLines([]);
-  }
-
-  const itemValid = amount > 0 && description.trim().length > 0;
-
-  /** Snapshot the current editor fields as a cart line. */
-  function editorLine(): ExpenseLine {
-    return { key: crypto.randomUUID(), head, subCategory: effectiveSub, description: description.trim(), quantity, amount, gstNumber, vendor };
-  }
-
-  /** Add the current editor item to the cart and clear it for the next one. */
-  function addItem() {
-    if (!itemValid) { setError("Enter an amount and description before adding the item."); return; }
-    setError(null);
-    setLines((prev) => [...prev, editorLine()]);
-    clearItem();
-  }
-
-  const lineToInput = (l: ExpenseLine) => ({
-    propertyId: property,
-    head: l.head,
-    subCategory: l.subCategory || undefined,
-    description: l.description || undefined,
-    quantity: QUANTITY_HEADS.has(l.head) && l.quantity ? l.quantity : undefined,
-    amountPaise: toPaise(l.amount),
-    spentOn,
-    paidVia: paidVia as never,
-    gstNumber: l.head === GST_BILLS_HEAD && l.gstNumber ? l.gstNumber : undefined,
-    vendor: l.head === GST_BILLS_HEAD && l.vendor ? l.vendor : undefined,
-  });
-
-  /** Save all cart lines plus the current editor item (if filled) in one batch. */
-  function saveAll() {
-    const batch = [...lines];
-    if (itemValid) batch.push(editorLine());
-    if (batch.length === 0) { setError("Add at least one item to save."); return; }
-    run(() => createExpenses({ items: batch.map(lineToInput) }), reset);
-  }
-
-  const cartTotalPaise = lines.reduce((s, l) => s + toPaise(l.amount), 0) + (itemValid ? toPaise(amount) : 0);
-  const saveCount = lines.length + (itemValid ? 1 : 0);
+  // A row counts once anything is typed in it; it's valid with an item + amount > 0.
+  const touched = rows.filter((r) => r.item.trim() || r.amount.trim() || r.qty.trim());
+  const invalidIdx = rows.findIndex((r) => (r.item.trim() || r.amount.trim() || r.qty.trim()) && !(r.item.trim() && toPaise(r.amount) > 0));
+  const totalPaise = touched.reduce((s, r) => s + Math.max(0, toPaise(r.amount)), 0);
 
   const run = (fn: () => Promise<{ ok: boolean; error?: { message: string } }>, onOk?: () => void) => {
     setError(null);
@@ -158,162 +105,213 @@ export function ExpensesScreen({
     });
   };
 
+  function saveSlip() {
+    if (touched.length === 0) { setError("Add at least one item to the parchi."); return; }
+    if (invalidIdx >= 0) { setError(`Line ${invalidIdx + 1}: enter both the item and its amount.`); return; }
+    const count = touched.length;
+    const total = totalPaise;
+    run(
+      () => createExpenses({
+        items: touched.map((r) => ({
+          propertyId: property,
+          head,
+          subCategory: sub.trim() && sub !== "Other" ? sub.trim() : undefined,
+          description: r.item.trim(),
+          quantity: r.qty.trim() || undefined,
+          amountPaise: toPaise(r.amount),
+          spentOn,
+          paidVia: paidVia as never,
+          gstNumber: isGstBills && gstNumber ? gstNumber : undefined,
+          vendor: isGstBills && vendor ? vendor : undefined,
+        })),
+      }),
+      () => { setRows([newRow()]); setSaved(`Saved parchi — ${count} item${count > 1 ? "s" : ""}, ${rupees(total)}`); setTimeout(() => setSaved(null), 4000); },
+    );
+  }
+
+  // Recent list as parchis: grouped by date, each with the day's total.
+  const byDay = new Map<string, ExpenseListItem[]>();
+  for (const e of expenses) {
+    const k = new Date(e.spentOn).toISOString().slice(0, 10);
+    byDay.set(k, [...(byDay.get(k) ?? []), e]);
+  }
+
   const selectCls = "h-10 w-full rounded-md border border-input bg-background px-3 text-sm";
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-4 p-4">
       <h1 className="text-xl font-semibold">Expenses</h1>
 
-      {/* Form + recent side-by-side on desktop so the page uses the width and the
-          recent list is visible without scrolling; stacks on phone. */}
       <div className="grid gap-4 lg:grid-cols-5">
-      <Card className="lg:col-span-3">
-        <CardHeader className="pb-3"><CardTitle className="text-base">Record an expense</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-2">
-            {/* Date first — enter when the expense happened, then the rest. */}
-            <div className="space-y-1.5 sm:col-span-2"><Label htmlFor="exp-date">Date</Label><Input id="exp-date" type="date" value={spentOn} onChange={(e) => setSpentOn(e.target.value)} data-testid="expense-date" /></div>
-            {propertyOptions && (
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="exp-prop">Property</Label>
-                <select id="exp-prop" value={property} onChange={(e) => setProperty(e.target.value)} className={selectCls} data-testid="expense-property">
-                  {propertyOptions.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+        <Card className="lg:col-span-3">
+          <CardHeader className="pb-3"><CardTitle className="text-base">New parchi</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            {/* Slip header — once for every line below. */}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5"><Label htmlFor="exp-date">Date</Label><Input id="exp-date" type="date" value={spentOn} onChange={(e) => setSpentOn(e.target.value)} data-testid="expense-date" /></div>
+              <div className="space-y-1.5">
+                <Label htmlFor="exp-pay">Paid via</Label>
+                <select id="exp-pay" value={paidVia} onChange={(e) => setPaidVia(e.target.value)} className={selectCls} data-testid="expense-paidvia">
+                  {PAY_MODES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
                 </select>
               </div>
-            )}
-
-            {/* Payment method is shared across every item in this batch. */}
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="exp-pay">Payment method</Label>
-              <select id="exp-pay" value={paidVia} onChange={(e) => setPaidVia(e.target.value)} className={selectCls} data-testid="expense-paidvia">
-                {PAY_MODES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-              </select>
-            </div>
-
-            <p className="sm:col-span-2 pt-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Item</p>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="exp-head">Head</Label>
-              <select id="exp-head" value={head} onChange={(e) => changeHead(e.target.value as ExpenseHeadKey)} className={selectCls} data-testid="expense-head">
-                {EXPENSE_HEADS.map((h) => <option key={h} value={h}>{EXPENSE_HEAD_LABEL[h]}</option>)}
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="exp-sub">Sub-category</Label>
-              {subList.length > 0 ? (
-                <select id="exp-sub" value={sub} onChange={(e) => setSub(e.target.value)} className={selectCls} data-testid="expense-sub">
-                  <option value="">Select…</option>
-                  {subList.map((s) => <option key={s} value={s}>{s}</option>)}
-                  <option value="Other">Other…</option>
+              {propertyOptions && (
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="exp-prop">Property</Label>
+                  <select id="exp-prop" value={property} onChange={(e) => setProperty(e.target.value)} className={selectCls} data-testid="expense-property">
+                    {propertyOptions.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </div>
+              )}
+              <div className="space-y-1.5">
+                <Label htmlFor="exp-head">Head</Label>
+                <select id="exp-head" value={head} onChange={(e) => { setHead(e.target.value as ExpenseHeadKey); setSub(""); }} className={selectCls} data-testid="expense-head">
+                  {EXPENSE_HEADS.map((h) => <option key={h} value={h}>{EXPENSE_HEAD_LABEL[h]}</option>)}
                 </select>
-              ) : (
-                <Input id="exp-sub" list="dl-sub" value={subText} onChange={(e) => setSubText(e.target.value)} placeholder={isGstBills ? "e.g. Building work, Large purchase" : "Type the item/expense"} data-testid="expense-sub" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="exp-sub">Sub-category <span className="text-muted-foreground">(optional)</span></Label>
+                {subIsFreeText ? (
+                  <Input id="exp-sub" list="dl-sub" value={sub} onChange={(e) => setSub(e.target.value)} placeholder={isGstBills ? "e.g. Building work" : "e.g. Groceries"} data-testid="expense-sub" />
+                ) : (
+                  <select id="exp-sub" value={sub} onChange={(e) => setSub(e.target.value)} className={selectCls} data-testid="expense-sub">
+                    <option value="">—</option>
+                    {subList.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                )}
+              </div>
+              {isGstBills && (
+                <>
+                  <div className="space-y-1.5"><Label htmlFor="exp-gstin">GSTIN</Label><Input id="exp-gstin" list="dl-gstin" value={gstNumber} onChange={(e) => onGstChange(e.target.value)} placeholder="Supplier GST number" data-testid="expense-gstin" /></div>
+                  <div className="space-y-1.5"><Label htmlFor="exp-vendor">Vendor / supplier</Label><Input id="exp-vendor" list="dl-vendor" value={vendor} onChange={(e) => setVendor(e.target.value)} placeholder="Business name" data-testid="expense-vendor" /></div>
+                </>
               )}
             </div>
 
-            {showSubText && subList.length > 0 && (
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="exp-sub-other">Specify</Label>
-                <Input id="exp-sub-other" list="dl-sub" value={subText} onChange={(e) => setSubText(e.target.value)} placeholder="Type the item/expense" data-testid="expense-sub-other" />
-              </div>
-            )}
-
-            {showQuantity && (
-              <div className="space-y-1.5">
-                <Label htmlFor="exp-qty">Quantity</Label>
-                <Input id="exp-qty" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="e.g. 10 litres, 5 kg" data-testid="expense-qty" />
-              </div>
-            )}
-
-            <div className="space-y-1.5"><Label htmlFor="exp-amt">Amount (₹)</Label><Input id="exp-amt" type="number" inputMode="decimal" step="0.01" min={0} value={amount || ""} onChange={(e) => setAmount(Number(e.target.value))} data-testid="expense-amount" /></div>
-
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="exp-desc">Description / details <span className="text-destructive">*</span></Label>
-              <Input id="exp-desc" list="dl-desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={head === "KITCHEN" ? "What exactly? e.g. tomatoes, onions, potatoes" : "What was this for? e.g. Bathroom pipe replacement"} data-testid="expense-desc" />
+            {/* Slip body — one line per item, like the paper parchi. */}
+            <div className="overflow-x-auto rounded-md border">
+              <table className="w-full min-w-[22rem] text-sm" data-testid="expense-slip">
+                <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="w-8 px-2 py-2 text-left font-medium">#</th>
+                    <th className="px-2 py-2 text-left font-medium">Item</th>
+                    <th className="w-24 px-2 py-2 text-left font-medium">Qty</th>
+                    <th className="w-28 px-2 py-2 text-right font-medium">Amount ₹</th>
+                    <th className="w-8" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {rows.map((r, i) => (
+                    <tr key={r.key} data-testid={`slip-row-${i}`} className={i === invalidIdx && error ? "bg-destructive/5" : ""}>
+                      <td className="px-2 py-1.5 text-muted-foreground tabular-nums">{i + 1}</td>
+                      <td className="px-1 py-1.5">
+                        <Input ref={(el) => { if (el) itemRefs.current.set(r.key, el); else itemRefs.current.delete(r.key); }} list="dl-desc" value={r.item} onChange={(e) => setRow(r.key, { item: e.target.value })} placeholder={i === 0 ? "e.g. Milk" : ""} aria-label={`Item ${i + 1}`} data-testid={`slip-item-${i}`} />
+                      </td>
+                      <td className="px-1 py-1.5">
+                        <Input value={r.qty} onChange={(e) => setRow(r.key, { qty: e.target.value })} placeholder={i === 0 ? "2 L" : ""} aria-label={`Quantity ${i + 1}`} data-testid={`slip-qty-${i}`} />
+                      </td>
+                      <td className="px-1 py-1.5">
+                        <Input
+                          type="number" inputMode="decimal" step="0.01" min={0}
+                          className="text-right tabular-nums"
+                          value={r.amount}
+                          onChange={(e) => setRow(r.key, { amount: e.target.value })}
+                          // Enter on the last line's amount starts the next line.
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); if (i === rows.length - 1) addRow(); } }}
+                          aria-label={`Amount ${i + 1}`}
+                          data-testid={`slip-amount-${i}`}
+                        />
+                      </td>
+                      <td className="px-1 text-center">
+                        <button type="button" aria-label={`Remove line ${i + 1}`} className="text-muted-foreground hover:text-destructive" onClick={() => removeRow(r.key)} data-testid={`slip-remove-${i}`}>✕</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t bg-muted/30 font-semibold">
+                    <td colSpan={3} className="px-2 py-2">Total · {touched.length} item{touched.length === 1 ? "" : "s"}</td>
+                    <td className="px-2 py-2 text-right tabular-nums" data-testid="slip-total">{rupees(totalPaise)}</td>
+                    <td />
+                  </tr>
+                </tfoot>
+              </table>
             </div>
 
-            {isGstBills && (
-              <>
-                <div className="space-y-1.5"><Label htmlFor="exp-gstin">GSTIN</Label><Input id="exp-gstin" list="dl-gstin" value={gstNumber} onChange={(e) => onGstChange(e.target.value)} placeholder="Supplier GST number" data-testid="expense-gstin" /></div>
-                <div className="space-y-1.5"><Label htmlFor="exp-vendor">Vendor / supplier</Label><Input id="exp-vendor" list="dl-vendor" value={vendor} onChange={(e) => setVendor(e.target.value)} placeholder="Business name" data-testid="expense-vendor" /></div>
-              </>
-            )}
-          </div>
+            <datalist id="dl-gstin">{sugg.gstins.map((g) => <option key={g.gstNumber} value={g.gstNumber} label={g.vendor ?? undefined} />)}</datalist>
+            <datalist id="dl-vendor">{sugg.vendors.map((v) => <option key={v} value={v} />)}</datalist>
+            <datalist id="dl-sub">{sugg.subCategories.map((s) => <option key={s} value={s} />)}</datalist>
+            <datalist id="dl-desc">{sugg.descriptions.map((d) => <option key={d} value={d} />)}</datalist>
 
-          {/* Autocomplete lists from past entries — type to filter, tap to fill.
-              Picking a GSTIN also fills the vendor (see onGstChange). */}
-          <datalist id="dl-gstin">{sugg.gstins.map((g) => <option key={g.gstNumber} value={g.gstNumber} label={g.vendor ?? undefined} />)}</datalist>
-          <datalist id="dl-vendor">{sugg.vendors.map((v) => <option key={v} value={v} />)}</datalist>
-          <datalist id="dl-sub">{sugg.subCategories.map((s) => <option key={s} value={s} />)}</datalist>
-          <datalist id="dl-desc">{sugg.descriptions.map((d) => <option key={d} value={d} />)}</datalist>
+            {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+            {saved && <p className="rounded-md border border-emerald-600/30 bg-emerald-500/10 p-2 text-sm text-emerald-700 dark:text-emerald-400" data-testid="slip-saved">✔ {saved}</p>}
 
-          {/* Batch cart: items added so far. Save All writes these + the item
-              currently in the editor (if filled) together in one transaction. */}
-          {lines.length > 0 && (
-            <ul className="divide-y rounded-md border" data-testid="expense-cart">
-              {lines.map((l, i) => (
-                <li key={l.key} className="flex items-center justify-between gap-2 p-2.5 text-sm" data-testid={`cart-line-${i}`}>
-                  <span className="min-w-0 truncate">
-                    <span className="font-medium">{EXPENSE_HEAD_LABEL[l.head]}</span>
-                    {l.subCategory ? ` · ${l.subCategory}` : ""}{l.description ? ` — ${l.description}` : ""}
-                  </span>
-                  <span className="flex shrink-0 items-center gap-2">
-                    <span className="font-medium tabular-nums">{rupees(toPaise(l.amount))}</span>
-                    <button type="button" aria-label="Remove item" className="text-muted-foreground hover:text-destructive"
-                      onClick={() => setLines((prev) => prev.filter((x) => x.key !== l.key))} data-testid={`cart-remove-${i}`}>✕</button>
-                  </span>
-                </li>
-              ))}
-              <li className="flex items-center justify-between gap-2 p-2.5 text-sm font-semibold">
-                <span>Total</span><span className="tabular-nums" data-testid="cart-total">{rupees(cartTotalPaise)}</span>
-              </li>
-            </ul>
-          )}
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button variant="outline" className="sm:flex-1" disabled={pending} onClick={addRow} data-testid="expense-add-item">+ Add item</Button>
+              <Button size="lg" className="sm:flex-1" disabled={pending || touched.length === 0} onClick={saveSlip} data-testid="expense-save">
+                {pending ? "Saving…" : `Save parchi${touched.length ? ` · ${rupees(totalPaise)}` : ""}`}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
-          {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Button variant="outline" className="sm:flex-1" disabled={pending || !itemValid} onClick={addItem} data-testid="expense-add-item">
-              + Add another item
-            </Button>
-            <Button size="lg" className="sm:flex-1" disabled={pending || saveCount === 0} onClick={saveAll} data-testid="expense-save">
-              {saveCount <= 1 ? "Save" : `Save all ${saveCount} items`}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="lg:col-span-2 lg:sticky lg:top-2 lg:self-start">
-        <CardHeader className="pb-3"><CardTitle className="text-base">Recent · today <span data-testid="today-total">{rupees(todayTotalPaise)}</span></CardTitle></CardHeader>
-        <CardContent>
-          {expenses.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No expenses yet.</p>
-          ) : (
-            // Cap the height and scroll inside — a long list no longer stretches the
-            // whole page (the entry form stays reachable without scrolling far down).
-            <ul className="max-h-[22rem] divide-y overflow-y-auto rounded-md border" data-testid="expense-list">
-              {expenses.map((e) => (
-                <li key={e.id} className="flex items-center justify-between gap-2 p-3 text-sm" data-testid={`expense-${e.id}`}>
-                  <div>
-                    <p className="font-medium">{EXPENSE_HEAD_LABEL[e.head as ExpenseHeadKey] ?? e.head}{e.subCategory ? ` · ${e.subCategory}` : ""}</p>
-                    <p className="text-xs text-muted-foreground">{rupees(e.amountPaise)} · {e.status}{e.hasBill ? " · 📎" : ""}</p>
-                  </div>
-                  {canApprove && e.status === "DRAFT" && (
-                    <div className="flex gap-2">
-                      <Button size="sm" disabled={pending} onClick={() => run(() => approveExpense({ expenseId: e.id }))} data-testid={`approve-${e.id}`}>Approve</Button>
-                      <Button size="sm" variant="outline" disabled={pending} onClick={() => {
-                        const reason = window.prompt("Reason for rejecting this expense?")?.trim();
-                        if (reason) run(() => rejectExpense({ expenseId: e.id, reason }));
-                      }}>Reject</Button>
+        <Card className="lg:col-span-2 lg:sticky lg:top-2 lg:self-start">
+          <CardHeader className="pb-3"><CardTitle className="text-base">Parchis by date · today <span data-testid="today-total">{rupees(todayTotalPaise)}</span></CardTitle></CardHeader>
+          <CardContent>
+            {expenses.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No expenses yet.</p>
+            ) : (
+              <div className="max-h-[32rem] space-y-3 overflow-y-auto" data-testid="expense-list">
+                {[...byDay.entries()].map(([day, items]) => {
+                  const dayTotal = items.reduce((s, e) => s + e.amountPaise, 0);
+                  const drafts = items.filter((e) => e.status === "DRAFT");
+                  return (
+                    <div key={day} className="rounded-md border" data-testid={`parchi-${day}`}>
+                      <div className="flex items-center justify-between gap-2 border-b bg-muted/40 px-3 py-2 text-sm">
+                        <span className="font-medium">{dayLabel(new Date(`${day}T00:00:00Z`))}</span>
+                        {canApprove && drafts.length > 1 && (
+                          <Button size="sm" variant="outline" disabled={pending} onClick={() => run(async () => {
+                            for (const e of drafts) { const r = await approveExpense({ expenseId: e.id }); if (!r.ok) return r; }
+                            return { ok: true };
+                          })} data-testid={`approve-day-${day}`}>Approve all ({drafts.length})</Button>
+                        )}
+                      </div>
+                      <ul className="divide-y text-sm">
+                        {items.map((e) => (
+                          <li key={e.id} className="flex items-center justify-between gap-2 px-3 py-2" data-testid={`expense-${e.id}`}>
+                            <div className="min-w-0">
+                              <p className="truncate">
+                                <span className="font-medium">{e.description || e.subCategory || EXPENSE_HEAD_LABEL[e.head as ExpenseHeadKey] || e.head}</span>
+                                {e.quantity ? <span className="text-muted-foreground"> · {e.quantity}</span> : null}
+                              </p>
+                              <p className="text-xs text-muted-foreground">{EXPENSE_HEAD_LABEL[e.head as ExpenseHeadKey] ?? e.head} · {e.status}{e.hasBill ? " · 📎" : ""}</p>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-2">
+                              <span className="tabular-nums">{rupees(e.amountPaise)}</span>
+                              {canApprove && e.status === "DRAFT" && (
+                                <>
+                                  <Button size="sm" disabled={pending} onClick={() => run(() => approveExpense({ expenseId: e.id }))} data-testid={`approve-${e.id}`}>✓</Button>
+                                  <Button size="sm" variant="outline" disabled={pending} aria-label="Reject" onClick={() => {
+                                    const reason = window.prompt("Reason for rejecting this expense?")?.trim();
+                                    if (reason) run(() => rejectExpense({ expenseId: e.id, reason }));
+                                  }}>✕</Button>
+                                </>
+                              )}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                      <div className="flex justify-between border-t px-3 py-2 text-sm font-semibold">
+                        <span>Total · {items.length} item{items.length === 1 ? "" : "s"}</span>
+                        <span className="tabular-nums">{rupees(dayTotal)}</span>
+                      </div>
                     </div>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

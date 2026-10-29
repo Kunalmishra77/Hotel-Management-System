@@ -57,6 +57,9 @@ export type ExpenseListItem = {
   id: string;
   head: string;
   subCategory: string | null;
+  /** The item on the parchi line (e.g. "Milk") and its quantity, if entered. */
+  description: string | null;
+  quantity: string | null;
   amountPaise: number;
   spentOn: Date;
   status: string;
@@ -82,11 +85,12 @@ export async function searchExpenses(
             OR: [
               { vendor: { contains: kw, mode: "insensitive" } },
               { subCategory: { contains: kw, mode: "insensitive" } },
+              { description: { contains: kw, mode: "insensitive" } },
             ],
           }
         : {}),
     },
-    select: { id: true, head: true, subCategory: true, amountPaise: true, spentOn: true, status: true, vendor: true, billObjectKey: true },
+    select: { id: true, head: true, subCategory: true, description: true, quantity: true, amountPaise: true, spentOn: true, status: true, vendor: true, billObjectKey: true },
     orderBy: [{ spentOn: "desc" }, { id: "asc" }],
     take: limit + 1,
     ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
@@ -95,7 +99,7 @@ export async function searchExpenses(
   const page = hasMore ? rows.slice(0, limit) : rows;
   return {
     expenses: page.map((r) => ({
-      id: r.id, head: r.head, subCategory: r.subCategory, amountPaise: r.amountPaise,
+      id: r.id, head: r.head, subCategory: r.subCategory, description: r.description, quantity: r.quantity, amountPaise: r.amountPaise,
       spentOn: r.spentOn, status: r.status, vendor: r.vendor, hasBill: r.billObjectKey !== null,
     })),
     nextCursor: hasMore ? (page[page.length - 1]?.id ?? null) : null,
@@ -231,12 +235,12 @@ export async function listExpenses(
 ): Promise<ExpenseListItem[]> {
   const rows = await db.scoped(user).expense.findMany({
     where: { propertyId: input.propertyId, ...(input.status ? { status: input.status as never } : {}) },
-    select: { id: true, head: true, subCategory: true, amountPaise: true, spentOn: true, status: true, vendor: true, billObjectKey: true },
-    orderBy: { spentOn: "desc" },
+    select: { id: true, head: true, subCategory: true, description: true, quantity: true, amountPaise: true, spentOn: true, status: true, vendor: true, billObjectKey: true },
+    orderBy: [{ spentOn: "desc" }, { createdAt: "asc" }],
     take: input.limit ?? 100,
   });
   return rows.map((r) => ({
-    id: r.id, head: r.head, subCategory: r.subCategory, amountPaise: r.amountPaise,
+    id: r.id, head: r.head, subCategory: r.subCategory, description: r.description, quantity: r.quantity, amountPaise: r.amountPaise,
     spentOn: r.spentOn, status: r.status, vendor: r.vendor, hasBill: r.billObjectKey !== null,
   }));
 }
