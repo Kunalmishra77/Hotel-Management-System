@@ -760,3 +760,6 @@ export async function transferStatement(user: SessionClaims, reservationId: stri
     totalBalancePaise: segments.reduce((n, s) => n + s.balancePaise, 0),
   };
 }
+
+// Bookings finder (filterable list for the Bookings pages) — see finder-queries.ts.
+export { findBookings, type BookingFinderRow, type BookingFinderResult } from "./finder-queries";

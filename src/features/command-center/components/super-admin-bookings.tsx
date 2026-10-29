@@ -4,23 +4,21 @@
  * recent-bookings feed, over a selectable period. Read-only; reuses the canonical
  * booking-count queries. `report:view-financial`.
  */
-import Link from "next/link";
 import { CalendarCheck, XCircle, UserX, IndianRupee, UserCheck } from "lucide-react";
 import type { SessionClaims } from "@/lib/auth/claims";
 import { parsePeriod, periodRange } from "@/features/command-center/domain/period";
 import {
   portfolioBookingCounts,
   perPropertyBookingCounts,
-  recentPortfolioBookings,
   getPortfolio,
 } from "@/features/command-center/queries";
-import { arrivalsDeparturesPortfolio } from "@/features/reservations/queries";
+import { arrivalsDeparturesPortfolio, findBookings } from "@/features/reservations/queries";
+import { parseFinderParams } from "@/features/reservations/domain/finder";
+import { BookingsFinder } from "@/features/reservations/components/bookings-finder";
+import { listProperties } from "@/features/properties/queries";
 import { TodayMovements } from "@/features/command-center/components/operations-today";
 import { PeriodFilter } from "@/features/command-center/components/period-filter";
-import {
-  PerPropertyBookingsTable,
-  RecentBookingsTable,
-} from "@/features/command-center/components/portfolio-bookings-tables";
+import { PerPropertyBookingsTable } from "@/features/command-center/components/portfolio-bookings-tables";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
@@ -33,30 +31,32 @@ export async function SuperAdminBookings({
   sp,
 }: {
   user: SessionClaims;
-  sp: { period?: string; from?: string; to?: string; status?: string };
+  sp: Record<string, string | undefined>;
 }) {
   const today = new Date();
+  const todayStr = today.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
   const period = parsePeriod(sp.period);
   const win = periodRange(period, today, { from: sp.from, to: sp.to });
   const propertyIds = [...user.accessiblePropertyIds];
+  // The bookings finder at the bottom: every property by default, filterable.
+  const finderParams = parseFinderParams(sp, { prop: "all" });
 
-  // Clickable-card filter: a valid status narrows the list below (else recent 30).
-  const VALID_STATUS = ["CONFIRMED", "IN_HOUSE", "CHECKED_OUT", "CANCELLED", "NO_SHOW"] as const;
-  const statusFilter = VALID_STATUS.includes(sp.status as never) ? sp.status : undefined;
-
-  const [counts, perProperty, recent, portfolio, movements] = await Promise.all([
+  const [counts, perProperty, finder, portfolio, movements, props] = await Promise.all([
     portfolioBookingCounts(user, { propertyIds, from: win.from, to: win.to }),
     perPropertyBookingCounts(user, { propertyIds, from: win.from, to: win.to }),
-    recentPortfolioBookings(user, { propertyIds, limit: statusFilter ? 200 : 30, status: statusFilter }),
+    findBookings(user, finderParams),
     getPortfolio(user, win.from, win.to),
     arrivalsDeparturesPortfolio(user, propertyIds, today),
+    listProperties(user),
   ]);
-  // Preserve the period in card links so filtering doesn't reset the date window.
+  const hotels = props.filter((p) => !p.isCostCenter).map((p) => ({ id: p.id, name: p.name }));
+  // Preserve the period in card links so filtering doesn't reset the date window;
+  // cards land on the bookings list.
+  const keep = { period: sp.period, from: sp.from, to: sp.to };
   const q = (status?: string) => {
     const parts = [sp.period ? `period=${sp.period}` : "", sp.from ? `from=${sp.from}` : "", sp.to ? `to=${sp.to}` : "", status ? `status=${status}` : ""].filter(Boolean);
-    return `/bookings${parts.length ? `?${parts.join("&")}` : ""}`;
+    return `/bookings${parts.length ? `?${parts.join("&")}` : ""}#bookings-list`;
   };
-  const STATUS_LABEL: Record<string, string> = { CONFIRMED: "Confirmed", IN_HOUSE: "In-house", CHECKED_OUT: "Checked out", CANCELLED: "Cancelled", NO_SHOW: "No-show" };
 
   return (
     <div className="mx-auto w-full max-w-[1600px]">
@@ -93,18 +93,7 @@ export async function SuperAdminBookings({
         <CardContent><PerPropertyBookingsTable rows={perProperty} /></CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="flex-row items-center justify-between gap-2 pb-2">
-          <CardTitle className="text-base">
-            {statusFilter ? `${STATUS_LABEL[statusFilter]} bookings` : "Recent bookings"}
-            <span className="ml-2 text-sm font-normal text-muted-foreground">({recent.length})</span>
-          </CardTitle>
-          {statusFilter ? (
-            <Link href={q()} className="text-xs font-medium text-primary underline-offset-4 hover:underline" data-testid="clear-booking-filter">Clear filter ✕</Link>
-          ) : null}
-        </CardHeader>
-        <CardContent><RecentBookingsTable rows={recent} /></CardContent>
-      </Card>
+      <BookingsFinder result={finder} params={finderParams} properties={hotels} today={todayStr} keep={keep} title="Bookings" />
     </div>
   );
 }

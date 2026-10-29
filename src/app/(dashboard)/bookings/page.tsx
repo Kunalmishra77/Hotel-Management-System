@@ -3,7 +3,10 @@ import Link from "next/link";
 import { AlertTriangle, CalendarPlus, CalendarRange, FileCheck2, LogIn, LogOut, BedDouble, CalendarClock, Search } from "lucide-react";
 import { requirePermission } from "@/lib/auth/guard";
 import { hasPermission } from "@/lib/permissions";
-import { arrivalsDepartures, listReservations, bookingsOverview } from "@/features/reservations/queries";
+import { arrivalsDepartures, listReservations, bookingsOverview, findBookings } from "@/features/reservations/queries";
+import { parseFinderParams } from "@/features/reservations/domain/finder";
+import { BookingsFinder } from "@/features/reservations/components/bookings-finder";
+import { listProperties } from "@/features/properties/queries";
 import { trend } from "@/features/analytics/queries";
 import { resolvePortal } from "@/features/platform/portals";
 import { SuperAdminBookings } from "@/features/command-center/components/super-admin-bookings";
@@ -54,7 +57,7 @@ const STATUS_STEPS: { key: string; label: string; tone: string }[] = [
 export default async function BookingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string; period?: string; from?: string; to?: string; desk?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const user = await requirePermission("reservation:view");
   const sp = await searchParams;
@@ -103,11 +106,20 @@ export default async function BookingsPage({
   }
 
   const today = new Date();
-  const [overview, { arrivals, departures }, inHouse] = await Promise.all([
+  const todayStr = today.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  // The bookings finder below: this property by default, "All properties" one pick away.
+  const finderParams = parseFinderParams(sp, { prop: propertyId });
+  const [overview, { arrivals, departures }, inHouse, finder, props] = await Promise.all([
     bookingsOverview(user, { propertyId, date: today }),
     arrivalsDepartures(user, { propertyId, date: today }),
     listReservations(user, { propertyId, status: "IN_HOUSE", limit: 50 }),
+    findBookings(user, finderParams),
+    listProperties(user),
   ]);
+  const hotels = props.filter((p) => !p.isCostCenter).map((p) => ({ id: p.id, name: p.name }));
+  // Card / chip links into the finder, carrying desk mode along.
+  const list = (q: string) => `/bookings?${deskMode ? "desk=1&" : ""}${q}#bookings-list`;
+  const monthStart = `${todayStr.slice(0, 8)}01`;
 
   const dateLabel = today.toLocaleDateString("en-IN", { weekday: "short", day: "2-digit", month: "short" });
 
@@ -136,7 +148,7 @@ export default async function BookingsPage({
         <KpiCard label="Arrivals today" value={overview.arrivalsToday} icon={<LogIn />} hint="Due to check in" href="/bookings?view=arrivals" />
         <KpiCard label="Departures today" value={overview.departuresToday} icon={<LogOut />} hint="Due to check out" href="/bookings?view=departures" />
         <KpiCard label="In-house" value={overview.inHouse} icon={<BedDouble />} hint="Currently staying" href="/bookings?view=in-house" />
-        <KpiCard label="Enquiries / holds" value={overview.statusCounts["ENQUIRY"] ?? 0} icon={<CalendarClock />} hint="Tentative" />
+        <KpiCard label="Enquiries / holds" value={overview.statusCounts["ENQUIRY"] ?? 0} icon={<CalendarClock />} hint="Tentative" href={list("status=ENQUIRY")} />
         <KpiCard
           label="Needs attention"
           value={overview.needsAttention}
@@ -144,17 +156,18 @@ export default async function BookingsPage({
           trend={overview.needsAttention > 0 ? "down" : undefined}
           delta={overview.needsAttention > 0 ? "OTA oversell" : undefined}
           hint="OTA sync flags"
+          href={list("status=ATTENTION")}
         />
-        <KpiCard label="Booked this month" value={overview.monthBookings} icon={<CalendarPlus />} hint="New reservations" />
+        <KpiCard label="Booked this month" value={overview.monthBookings} icon={<CalendarPlus />} hint="New reservations" href={list(`bdate=booked&bfrom=${monthStart}&bto=${todayStr}&sort=newest`)} />
       </div>
 
-      {/* Lifecycle status strip */}
+      {/* Lifecycle status strip — each chip opens that list below. */}
       <div className="mt-4 flex flex-wrap gap-2" data-testid="status-strip">
         {STATUS_STEPS.map((s) => (
-          <span key={s.key} className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${s.tone}`}>
+          <Link key={s.key} href={list(`status=${s.key}`)} className={`inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition hover:opacity-80 ${s.tone}`} data-testid={`status-chip-${s.key}`}>
             {s.label}
             <span className="tabular font-semibold">{overview.statusCounts[s.key] ?? 0}</span>
-          </span>
+          </Link>
         ))}
       </div>
 
@@ -192,6 +205,19 @@ export default async function BookingsPage({
             view={view}
           />
         </div>
+      </div>
+
+      {/* Every booking — filter by property (or all), arrival / departure / stay /
+          booked-on dates, status, and sort A–Z. Cards and chips above link here. */}
+      <div className="mt-4">
+        <BookingsFinder
+          result={finder}
+          params={finderParams}
+          properties={hotels}
+          today={todayStr}
+          keep={{ desk: deskMode ? "1" : undefined }}
+          title="All bookings"
+        />
       </div>
     </div>
   );
