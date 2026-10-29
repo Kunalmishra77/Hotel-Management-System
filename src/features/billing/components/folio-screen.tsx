@@ -406,7 +406,14 @@ function PaymentForm({ balancePaise, onSubmit, onCancel, pending }: { balancePai
           {remaining > 0
             ? <>Partial — <span data-testid="remaining">{rupees(remaining)}</span> will remain due</>
             : remaining < 0
-              ? <>Advance — <span data-testid="remaining">{rupees(-remaining)}</span> credit</>
+              // Over-collection warning: taking MORE than the balance due is almost
+              // always an advance already applied / the gross total keyed by mistake
+              // instead of the (pre-filled) balance. Loud amber so it isn't waved
+              // through — but not blocked, since a genuine pre-stay deposit (balance
+              // already ≤ 0) is legitimate and stays the quiet "credit" phrasing.
+              ? (balancePaise > 0
+                  ? <span className="font-medium text-amber-600">⚠ <span data-testid="remaining">{rupees(-remaining)}</span> more than the balance due — the guest will be owed this back</span>
+                  : <>Advance — <span data-testid="remaining">{rupees(-remaining)}</span> credit</>)
               : <>Settles in full (<span data-testid="remaining">{rupees(0)}</span> due)</>}
         </span>
         <Button variant="ghost" size="sm" onClick={() => setTenders((ts) => [...ts, { mode: "CASH", amountPaise: Math.max(0, remaining) }])}>+ tender</Button>

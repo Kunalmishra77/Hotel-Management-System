@@ -236,7 +236,12 @@ export async function checkIn(input: unknown): Promise<Result<LifecycleResult>> 
           after: { status: "IN_HOUSE" },
         });
         return { id: r.id, status: "IN_HOUSE" };
-      }),
+      // Full-stay billing posts one room-night per booked night (line + event +
+      // audit). A long booking (e.g. a 15-night or month-long stay) is dozens of
+      // sequential writes over the network, which blows Prisma's 5s default and
+      // made check-in fail intermittently. Give it the same budget the other
+      // multi-write reservation paths use (generous, so even a month fits).
+      }, { maxWait: 10_000, timeout: 30_000 }),
     );
   });
 }
@@ -477,7 +482,10 @@ export async function checkOut(input: unknown): Promise<Result<LifecycleResult>>
           after: { status: "CHECKED_OUT", deferredBalancePaise: balancePaise > 0 ? balancePaise : 0 },
         });
         return { id: r.id, status: "CHECKED_OUT" };
-      }),
+      // Check-out can post many un-accrued room-nights at once (a long stay whose
+      // night audit hadn't caught up), plus reversals — same write volume as
+      // check-in, so give it the same enlarged timeout rather than the 5s default.
+      }, { maxWait: 10_000, timeout: 30_000 }),
     );
 
     // After the check-out commits, raise the GST tax invoice for the completed
