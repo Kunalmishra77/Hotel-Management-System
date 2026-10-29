@@ -28,6 +28,7 @@ import {
   type BillingPostTx,
 } from "@/features/billing";
 import { canTransition } from "./domain/transitions";
+import { earlyCheckoutPlan, tailAllocations } from "./domain/allocations";
 import { priceReservation } from "./domain/pricing";
 import { reservationDb, withReservationContext } from "./internal";
 import { cancelReservationSchema, checkInSchema, checkOutSchema } from "./schema";
@@ -47,7 +48,7 @@ type LoadedReservation = {
   settlementIntent: string;
   checkInDate: Date;
   checkOutDate: Date;
-  allocations: { roomId: string }[];
+  allocations: { id: string; roomId: string; startDate: Date; endDate: Date }[];
 };
 
 const LOAD_SELECT = {
@@ -55,7 +56,7 @@ const LOAD_SELECT = {
   ratePaise: true, discountPaise: true, extraBedPaise: true, taxPaise: true,
   otherChargesPaise: true, advancePaise: true, settlementIntent: true,
   checkInDate: true, checkOutDate: true,
-  allocations: { select: { roomId: true } },
+  allocations: { select: { id: true, roomId: true, startDate: true, endDate: true } },
 } as const;
 
 export type LifecycleResult = { id: string; status: string };
@@ -459,14 +460,23 @@ export async function checkOut(input: unknown): Promise<Result<LifecycleResult>>
             data: { checkOutDate: effectiveCheckOut, nights: effectiveNights },
           });
           if (isEarly) {
-            await tx.roomAllocation.updateMany({
-              where: { reservationId: r.id },
-              data: { endDate: effectiveCheckOut },
-            });
+            // Cut only the segments that run past the departure; a segment that would
+            // only have started later (a move planned for after today) never happened.
+            // Finished segments (an old room after a move) are left as they are.
+            const plan = earlyCheckoutPlan(r.allocations, effectiveCheckOut);
+            if (plan.shorten.length) await tx.roomAllocation.updateMany({ where: { id: { in: plan.shorten.map((a) => a.id) } }, data: { endDate: effectiveCheckOut } });
+            if (plan.remove.length) await tx.roomAllocation.deleteMany({ where: { id: { in: plan.remove.map((a) => a.id) } } });
           }
         }
 
-        await freeRooms(tx as unknown as RoomStatusTx, r, "HOUSEKEEPING", "check-out");
+        // Only the room(s) the guest leaves from go to housekeeping — after a mid-stay
+        // move the old room may already hold another guest.
+        const removed = new Set(isEarly ? earlyCheckoutPlan(r.allocations, effectiveCheckOut).remove.map((a) => a.id) : []);
+        const remaining = r.allocations
+          .filter((a) => !removed.has(a.id))
+          .map((a) => (isEarly && a.endDate.getTime() > effectiveCheckOut.getTime() ? { ...a, endDate: effectiveCheckOut } : a));
+        const leavingFrom = tailAllocations(remaining, isEarly ? effectiveCheckOut : r.checkOutDate).map((a) => a.roomId);
+        await freeRooms(tx as unknown as RoomStatusTx, r, "HOUSEKEEPING", "check-out", leavingFrom);
         await emitEvent(tx, {
           type: "GuestCheckedOut",
           aggregateId: r.id,
@@ -534,14 +544,15 @@ type RoomStatusTx = EventCapableTx & {
   };
 };
 
-/** Set every allocated room to `status` and emit RoomStatusChanged for each. */
+/** Set the booking's rooms (or just `onlyRoomIds`) to `status` and emit RoomStatusChanged for each. */
 async function freeRooms(
   tx: RoomStatusTx,
   r: LoadedReservation,
   status: "VACANT" | "OCCUPIED" | "HOUSEKEEPING",
   reason: string,
+  onlyRoomIds?: string[],
 ): Promise<void> {
-  const roomIds = r.allocations.map((a) => a.roomId);
+  const roomIds = [...new Set(onlyRoomIds ?? r.allocations.map((a) => a.roomId))];
   if (roomIds.length === 0) return;
   await tx.room.updateMany({ where: { id: { in: roomIds } }, data: { status } });
   for (const roomId of roomIds) {

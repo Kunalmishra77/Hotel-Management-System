@@ -31,6 +31,7 @@ import {
   type BillingPostTx,
 } from "@/features/billing";
 import { nights as computeNights } from "./domain/nights";
+import { tailAllocations } from "./domain/allocations";
 import { preTaxRatePaise } from "./domain/pricing";
 import { freeRoomIdsFor, findFreeRooms, type RoomFinder } from "./availability";
 import {
@@ -173,7 +174,7 @@ export async function extendStay(input: unknown): Promise<Result<MoveResult>> {
       where: { id: data.reservationId },
       select: {
         id: true, propertyId: true, status: true, checkInDate: true, checkOutDate: true, ratePaise: true,
-        allocations: { select: { id: true, roomId: true, room: { select: { number: true } } } },
+        allocations: { select: { id: true, roomId: true, startDate: true, endDate: true, room: { select: { number: true } } } },
         folio: { select: { id: true } },
         property: { select: { timezone: true, state: true, dayUseEnabled: true } },
       },
@@ -207,8 +208,11 @@ export async function extendStay(input: unknown): Promise<Result<MoveResult>> {
       allowPast: true,
     });
     const nights = computeNights(r.checkInDate, newCheckOut, r.property.timezone);
-    const roomIds = r.allocations.map((a) => a.roomId);
-    const roomLabel = r.allocations.map((a) => a.room?.number).filter(Boolean).join(", ");
+    // Only the room(s) the guest is in at check-out are extended — after a mid-stay
+    // move the old room's finished segment must stay finished.
+    const tail = tailAllocations(r.allocations, r.checkOutDate);
+    const roomIds = tail.map((a) => a.roomId);
+    const roomLabel = tail.map((a) => a.room?.number).filter(Boolean).join(", ");
 
     // An extension is routinely agreed at a DIFFERENT nightly rate. That rate
     // applies to the added nights and to everything posted from here on — never
@@ -235,7 +239,7 @@ export async function extendStay(input: unknown): Promise<Result<MoveResult>> {
       bookingAttempt(() =>
         client.$transaction(
           async (tx) => {
-            // Stretch EVERY room's allocation to the new check-out. We verify only the
+            // Stretch the CURRENT room(s)' allocation to the new check-out. We verify only the
             // ADDED slice [oldCheckOut, newCheckOut) is free — never re-check the whole
             // original range, which (after a mid-stay room move, when an allocation
             // starts later than check-in) would collide with the room's earlier occupant
@@ -246,7 +250,7 @@ export async function extendStay(input: unknown): Promise<Result<MoveResult>> {
             for (const roomId of roomIds) {
               if (!free.has(roomId)) throw new DomainError(ErrorCode.ROOM_UNAVAILABLE, "A room isn't free for the added nights.", { publicMessage: `Room ${roomLabel || "this booking"} isn't free for the added nights.` });
             }
-            await tx.roomAllocation.updateMany({ where: { reservationId: r.id }, data: { endDate: newCheckOut } });
+            await tx.roomAllocation.updateMany({ where: { id: { in: tail.map((a) => a.id) } }, data: { endDate: newCheckOut } });
             await tx.reservation.updateMany({
               where: { id: r.id },
               // The extension's rate becomes the booking's going-forward rate, so
@@ -405,7 +409,7 @@ export async function reallocateRoom(input: unknown): Promise<Result<MoveResult>
       select: {
         id: true, propertyId: true, status: true, checkInDate: true, checkOutDate: true,
         property: { select: { timezone: true } },
-        allocations: { select: { id: true, roomId: true, startDate: true, room: { select: { number: true, categoryId: true } } } },
+        allocations: { select: { id: true, roomId: true, startDate: true, endDate: true, room: { select: { number: true, categoryId: true } } } },
       },
     });
     if (!r) throw new NotFoundError("Reservation not found.");
@@ -416,18 +420,22 @@ export async function reallocateRoom(input: unknown): Promise<Result<MoveResult>
         publicMessage: "Only a confirmed or in-house booking's room can be changed.",
       });
     }
+    // Only the CURRENT segment(s) — the room(s) the guest is in through check-out —
+    // can be moved. After an earlier move the old room's finished segment is history;
+    // treating it as movable created a second live allocation for the guest.
+    const movable = tailAllocations(r.allocations, r.checkOutDate);
     // `alloc` = the room being moved; null when the booking has NO room yet (an
     // unallocated booking being ASSIGNED a room — e.g. a reactivated no-show). The only
-    // one, or (for a group) the caller-named room.
+    // current one, or (for a group) the caller-named room.
     const alloc =
-      r.allocations.length === 0
+      movable.length === 0
         ? null
         : data.fromRoomId
-          ? (r.allocations.find((a) => a.roomId === data.fromRoomId) ?? null)
-          : r.allocations.length === 1
-            ? r.allocations[0]!
+          ? (movable.find((a) => a.roomId === data.fromRoomId) ?? null)
+          : movable.length === 1
+            ? movable[0]!
             : null;
-    if (r.allocations.length > 0 && !alloc) {
+    if (movable.length > 0 && !alloc) {
       throw new DomainError(ErrorCode.VALIDATION_FAILED, "Pick which room of this booking to move.", {
         publicMessage: "This booking has several rooms — choose which one to move.",
       });

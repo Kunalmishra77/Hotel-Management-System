@@ -11,6 +11,7 @@ import { getGuestProfile } from "@/features/guests/queries";
 import { getBalance, folioBalance } from "@/features/billing";
 import { priceReservation } from "./domain/pricing";
 import { utcEpochDay } from "./internal";
+import { tailAllocations } from "./domain/allocations";
 import type { SessionClaims } from "@/lib/auth/claims";
 
 export type ReservationListItem = {
@@ -57,7 +58,7 @@ const LIST_SELECT = {
   source: true,
   createdAt: true,
   guest: { select: { fullName: true } },
-  allocations: { select: { room: { select: { id: true, number: true } } } },
+  allocations: { select: { id: true, roomId: true, startDate: true, endDate: true, room: { select: { id: true, number: true } } }, orderBy: { startDate: "asc" } },
 } as const;
 
 type Row = {
@@ -77,7 +78,7 @@ type Row = {
   source: string;
   createdAt: Date;
   guest: { fullName: string };
-  allocations: { room: { id: string; number: string } }[];
+  allocations: { id: string; roomId: string; startDate: Date; endDate: Date; room: { id: string; number: string } }[];
 };
 
 function toItem(r: Row): ReservationListItem {
@@ -93,7 +94,8 @@ function toItem(r: Row): ReservationListItem {
     checkInAt: r.checkInAt,
     nights: r.nights,
     roomNumbers: r.allocations.map((a) => a.room.number),
-    rooms: r.allocations.map((a) => ({ id: a.room.id, number: a.room.number })),
+    // Current room(s) only — after a mid-stay move the old room is history, not movable.
+    rooms: tailAllocations(r.allocations, r.checkOutDate).map((a) => ({ id: a.room.id, number: a.room.number })),
     needsAttention: r.needsAttention,
     ratePaise: r.ratePaise,
     externalHotelName: r.externalHotelName,

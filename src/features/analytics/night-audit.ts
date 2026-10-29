@@ -7,7 +7,7 @@
  * no-shows (03) → build + persist the immutable `DailyStatSnapshot` → roll the
  * business date → mark COMPLETED + emit. The `NightAuditRun` unique
  * `(propertyId, businessDate)` row is the mutex: two concurrent runs, exactly one
- * proceeds (AC-11). A snapshot that already exists → idempotent no-op (AC-8). A
+ * proceeds (AC-11). A COMPLETED run → idempotent no-op (AC-8). A
  * failure sets the run FAILED, leaves the date unchanged, and re-runs safely
  * (AC-10) — every downstream call (06/03) is itself idempotent.
  */
@@ -104,10 +104,11 @@ export async function runNightAudit(propertyId: string, businessDate: Date): Pro
   const property = await prisma.property.findUnique({ where: { id: propertyId }, select: { orgId: true } });
   if (!property) throw new NotFoundError("Property not found.");
 
-  // Idempotent: a snapshot already means the day is closed (AC-8).
-  const existing = await prisma.dailyStatSnapshot.findUnique({ where: { propertyId_businessDate: { propertyId, businessDate } } });
-  if (existing) return { status: "ALREADY_RUN", snapshotId: existing.id };
-
+  // Idempotent (AC-8): the day is closed only when its NightAuditRun is COMPLETED.
+  // A snapshot alone is NOT proof — Data Entry / recomputeHistoricalSnapshot write
+  // provisional snapshots for still-open days, and gating on them skipped the whole
+  // close (no-shows, overstays, business-date roll) on 22 & 27 Oct 2026. The run row
+  // below is the real mutex; a COMPLETED run returns ALREADY_RUN there.
   // Claim the run — the unique (propertyId, businessDate) row is the mutex (AC-11).
   try {
     await prisma.nightAuditRun.create({ data: { propertyId, businessDate, status: "RUNNING", startedAt: new Date() } });
@@ -131,18 +132,22 @@ export async function runNightAudit(propertyId: string, businessDate: Date): Pro
 
     return await runWithSystemContext(property.orgId, () =>
       prisma.$transaction(async (tx) => {
-        const snap = await tx.dailyStatSnapshot.create({
-          data: {
-            propertyId, businessDate,
-            availableRoomNights: stats.availableRoomNights,
-            occupiedRoomNights: stats.occupiedRoomNights,
-            roomRevenuePaise: stats.roomRevenuePaise,
-            totalRevenuePaise: stats.totalRevenuePaise,
-            expensePaise: stats.expensePaise,
-            adrPaise: stats.adrPaise,
-            revparPaise: stats.revparPaise,
-            occupancyBps: stats.occupancyBps,
-          },
+        // Upsert: a provisional snapshot (Data Entry) for this still-open day is
+        // replaced by the closing figures.
+        const figures = {
+          availableRoomNights: stats.availableRoomNights,
+          occupiedRoomNights: stats.occupiedRoomNights,
+          roomRevenuePaise: stats.roomRevenuePaise,
+          totalRevenuePaise: stats.totalRevenuePaise,
+          expensePaise: stats.expensePaise,
+          adrPaise: stats.adrPaise,
+          revparPaise: stats.revparPaise,
+          occupancyBps: stats.occupancyBps,
+        };
+        const snap = await tx.dailyStatSnapshot.upsert({
+          where: { propertyId_businessDate: { propertyId, businessDate } },
+          create: { propertyId, businessDate, ...figures },
+          update: figures,
           select: { id: true },
         });
         await tx.property.update({ where: { id: propertyId }, data: { currentBusinessDate: nextDate } });

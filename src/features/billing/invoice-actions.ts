@@ -172,6 +172,17 @@ export async function generateInvoice(input: unknown, opts: { renderPdf?: boolea
     // folio's property, and every write below pins propertyId explicitly.
     const result = await withBillingContext(user, () =>
       db.unscoped().$transaction(async (tx) => {
+        // One live tax invoice per bill. A second one for the same supply double-counts
+        // it (3 folios had 2–3 live invoices). A revised bill goes through Void &
+        // revise: the credit note cancels the old invoice, then this issues the new one.
+        // Checked INSIDE the numbering transaction so a double-click can't race it.
+        const existing = await tx.invoice.findMany({ where: { folioId: folio.id }, select: { id: true, number: true, type: true, cancelsInvoiceId: true } });
+        const credited = new Set(existing.filter((i) => i.cancelsInvoiceId).map((i) => i.cancelsInvoiceId));
+        const live = existing.find((i) => i.type === "TAX_INVOICE" && !credited.has(i.id));
+        if (live) {
+          const msg = `This bill already has invoice ${live.number}. Use "Void & revise" on it to issue a corrected one.`;
+          throw new DomainError(ErrorCode.CONFLICT, msg, { publicMessage: msg });
+        }
         // One company-wide (org-level) gap-free series — a single running number
         // across all properties, prefixed "WASPL". Allocated under a row lock.
         await tx.companyInvoiceSeries.upsert({
@@ -302,6 +313,18 @@ export async function voidInvoice(input: unknown): Promise<Result<InvoiceResult>
 
     return withBillingContext(user, () =>
       db.unscoped().$transaction(async (tx) => {
+        // Only a live TAX invoice can be voided, and only once — a double-click or a
+        // stale tab must not issue a second credit note (books would go negative)
+        // nor "void" a credit note. Re-checked inside the numbering transaction.
+        const target = await tx.invoice.findUnique({ where: { id: original.id }, select: { type: true } });
+        if (target?.type !== "TAX_INVOICE") {
+          throw new DomainError(ErrorCode.VALIDATION_FAILED, "Only a tax invoice can be voided.", { publicMessage: "Only a tax invoice can be voided." });
+        }
+        const prior = await tx.invoice.findFirst({ where: { cancelsInvoiceId: original.id, type: "CREDIT_NOTE" }, select: { number: true } });
+        if (prior) {
+          const msg = `This invoice is already voided by credit note ${prior.number}.`;
+          throw new DomainError(ErrorCode.CONFLICT, msg, { publicMessage: msg });
+        }
         // Credit note draws from the SAME company-wide series as the invoice.
         await tx.companyInvoiceSeries.upsert({
           where: { orgId_financialYear: { orgId: user.orgId, financialYear: original.financialYear } },

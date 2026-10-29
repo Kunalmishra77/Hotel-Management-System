@@ -19,6 +19,7 @@ import { computeGst } from "./domain/gst";
 import { folioBalance } from "./domain/balance";
 import { activeLines, dateKey, netAmountByDate, netTaxable } from "./domain/reversal";
 import { isUniqueViolation } from "./internal";
+import { tailAllocations } from "@/features/reservations/domain/allocations";
 
 /**
  * One business date's taxable revenue for a property, NET OF REVERSALS — the
@@ -76,7 +77,7 @@ export async function postRoomCharges(
 
   const inHouse = await prisma.reservation.findMany({
     where: { propertyId, status: "IN_HOUSE" },
-    select: { id: true, ratePaise: true, checkOutDate: true, folio: { select: { id: true } }, allocations: { select: { roomId: true } } },
+    select: { id: true, ratePaise: true, checkOutDate: true, folio: { select: { id: true } }, allocations: { select: { id: true, roomId: true, startDate: true, endDate: true } } },
   });
   const dayMs = 86_400_000;
 
@@ -130,13 +131,16 @@ export async function postRoomCharges(
       // Idempotent: once extended, checkOutDate > businessDate, so a re-run is a no-op.
       if (res.checkOutDate.getTime() <= businessDate.getTime() && res.allocations.length > 0) {
         const nextDay = new Date(businessDate.getTime() + dayMs);
-        const roomIds = res.allocations.map((a) => a.roomId);
+        // Only the room(s) the guest is in at check-out are held for the extra night —
+        // after a mid-stay move the old room's finished segment stays finished.
+        const tail = tailAllocations(res.allocations, res.checkOutDate);
+        const roomIds = tail.map((a) => a.roomId);
         const conflict = await prisma.roomAllocation.count({
           where: { roomId: { in: roomIds }, reservationId: { not: res.id }, startDate: { lt: nextDay }, endDate: { gt: businessDate } },
         });
         if (conflict === 0) {
           await prisma.$transaction(async (tx) => {
-            await tx.roomAllocation.updateMany({ where: { reservationId: res.id }, data: { endDate: nextDay } });
+            await tx.roomAllocation.updateMany({ where: { id: { in: tail.map((a) => a.id) } }, data: { endDate: nextDay } });
             await tx.reservation.updateMany({ where: { id: res.id }, data: { checkOutDate: nextDay, nights: { increment: 1 } } });
             await emitEvent(tx, { type: "ReservationModified", aggregateId: res.id, propertyId, payload: { overstayExtended: true, checkOutDate: nextDay.toISOString().slice(0, 10) } });
             await writeAudit(tx, { action: "reservation:overstay-extend", entityType: "Reservation", entityId: res.id, propertyId, after: { checkOutDate: nextDay.toISOString().slice(0, 10) } });

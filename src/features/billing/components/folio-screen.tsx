@@ -266,7 +266,8 @@ export function FolioScreen({
           )}
           <Button size="lg" variant="outline" onClick={() => setMode("discount")} data-testid="apply-discount">− Discount</Button>
           <Button size="lg" onClick={() => setMode("pay")} data-testid="take-payment">Take payment</Button>
-          <Button size="lg" variant="outline" disabled={pending || folio.lines.length === 0} onClick={generate} data-testid="generate-invoice">Generate GST invoice</Button>
+          {/* One live invoice per bill: once issued, corrections go through Void & revise. */}
+          <Button size="lg" variant="outline" disabled={pending || folio.lines.length === 0 || !!activeInvoice} title={activeInvoice ? `Invoice ${activeInvoice.number} is already issued — use Void & revise to correct it` : undefined} onClick={generate} data-testid="generate-invoice">Generate GST invoice</Button>
         </div>
       )}
         </div>

@@ -31,6 +31,7 @@ import {
   type BillingPostTx,
 } from "@/features/billing";
 import { nights as computeNights } from "./domain/nights";
+import { earlyCheckoutPlan, tailAllocations } from "./domain/allocations";
 import { freeRoomIdsFor, type RoomFinder } from "./availability";
 import {
   bookingAttempt,
@@ -66,7 +67,7 @@ export async function transferToProperty(input: unknown): Promise<Result<Transfe
       select: {
         id: true, code: true, propertyId: true, status: true, source: true, guestId: true,
         checkInDate: true, checkOutDate: true, ratePaise: true, adults: true, children: true,
-        allocations: { select: { id: true, roomId: true } },
+        allocations: { select: { id: true, roomId: true, startDate: true, endDate: true } },
         folio: { select: { id: true } },
         property: { select: { timezone: true, state: true } },
       },
@@ -80,7 +81,9 @@ export async function transferToProperty(input: unknown): Promise<Result<Transfe
         publicMessage: "Only an in-house guest can be transferred to another property.",
       });
     }
-    if (r.allocations.length !== 1) {
+    // A group = several rooms at check-out. A guest who was moved room mid-stay has a
+    // finished segment + one current room — that is still ONE room and can transfer.
+    if (tailAllocations(r.allocations, r.checkOutDate).length !== 1) {
       throw new DomainError(ErrorCode.VALIDATION_FAILED, "Group bookings can't be transferred in one step.", {
         publicMessage: "Group bookings can't be transferred in one step.",
       });
@@ -135,7 +138,12 @@ export async function transferToProperty(input: unknown): Promise<Result<Transfe
 
     const nightsA = computeNights(r.checkInDate, transferDate, r.property.timezone);
     const nightsB = computeNights(transferDate, newCheckOut, toProp.timezone);
-    const originRoomId = r.allocations[0]!.roomId;
+    // Cut the origin's room segments at the transfer date (a segment that would only
+    // start later never happened); the room the guest leaves from is the last one left.
+    const cut = earlyCheckoutPlan(r.allocations, transferDate);
+    const cutIds = new Set(cut.remove.map((a) => a.id));
+    const remaining = r.allocations.filter((a) => !cutIds.has(a.id)).map((a) => (a.endDate > transferDate ? { ...a, endDate: transferDate } : a));
+    const originRoomId = tailAllocations(remaining, transferDate)[0]?.roomId ?? r.allocations[0]!.roomId;
 
     return withReservationContext(user, () =>
       bookingAttempt(() =>
@@ -143,7 +151,8 @@ export async function transferToProperty(input: unknown): Promise<Result<Transfe
           async (tx) => {
             // ---- Close the origin stay on the transfer date --------------------
             const folioAId = r.folio?.id ?? (await ensureFolio(tx as never, { reservationId: r.id, propertyId: r.propertyId }));
-            await tx.roomAllocation.updateMany({ where: { id: r.allocations[0]!.id }, data: { endDate: transferDate } });
+            if (cut.shorten.length) await tx.roomAllocation.updateMany({ where: { id: { in: cut.shorten.map((a) => a.id) } }, data: { endDate: transferDate } });
+            if (cut.remove.length) await tx.roomAllocation.deleteMany({ where: { id: { in: cut.remove.map((a) => a.id) } } });
 
             const linesA = await tx.folioLine.findMany({
               where: { folioId: folioAId },

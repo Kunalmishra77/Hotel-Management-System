@@ -53,7 +53,9 @@ export function BookingForm({
   const isDayUse = !!checkInDate && checkOutDate === checkInDate;
   const [adults, setAdults] = useState(2);
   const [children, setChildren] = useState(0);
-  const [categoryId, setCategoryId] = useState(propertyCategories[0]?.id ?? "");
+  // Default to ALL room types — defaulting to the first category hid every other
+  // type's free rooms unless staff remembered to change the dropdown.
+  const [categoryId, setCategoryId] = useState("");
   const [rooms, setRooms] = useState<AvailableRoom[] | null>(null);
   // Multi-room: a guest can book a single room OR the whole 2/3 BHK unit (all rooms).
   const [selectedRooms, setSelectedRooms] = useState<AvailableRoom[]>([]);
@@ -63,8 +65,7 @@ export function BookingForm({
   // Switching property resets the property-dependent picks.
   function onPropertyChange(pid: string) {
     setPropertyId(pid);
-    const firstCat = categories.find((c) => c.propertyId === pid);
-    setCategoryId(firstCat?.id ?? "");
+    setCategoryId(""); // all room types
     setRooms(null);
     setSelectedRooms([]);
     setRateTouched(false);
