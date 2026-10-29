@@ -18,7 +18,7 @@ export function PropertyBadge({
   const c = propertyColor(name);
   return (
     <span className={cn("inline-flex items-center gap-1.5 text-xs font-medium", className)}>
-      <span className={cn("size-1.5 shrink-0 rounded-full", c.dot)} aria-hidden="true" />
+      <span className={cn("size-2.5 shrink-0 rounded-full", c.dot)} aria-hidden="true" />
       <span className="truncate">{name}</span>
       {count != null ? <span className="tabular opacity-70">· {count}</span> : null}
     </span>

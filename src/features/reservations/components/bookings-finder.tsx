@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { propertyColor } from "@/lib/property-colors";
 import { finderPresets, type FinderParams } from "../domain/finder";
 import type { BookingFinderResult, BookingFinderRow } from "../finder-queries";
 
@@ -196,6 +197,8 @@ export function BookingsFinder({
           rows={result.rows}
           getRowKey={(r) => r.id}
           getRowHref={(r) => `/bookings/${r.id}`}
+          // Each property's colour on its rows (client req #11) — tells hotels apart at a glance.
+          getRowClassName={(r) => propertyColor(r.propertyName).row}
           searchable={{ placeholder: "Search booking, guest, room or property…", accessor: (r) => `${r.code} ${r.guestName} ${r.propertyName} ${r.roomNumbers.join(" ")}` }}
           pageSize={20}
           empty={<p className="text-sm text-muted-foreground">No bookings match these filters.</p>}

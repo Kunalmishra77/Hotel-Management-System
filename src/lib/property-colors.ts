@@ -1,11 +1,14 @@
 /**
- * Property colour identity (client req #11) — a light, distinct tint per property
- * so users can tell them apart at a glance on cards, badges, rows and chips.
+ * Property colour identity (client req #11) — a distinct colour per property so
+ * users can tell them apart at a glance on cards, badges, rows and chips.
  *
- *   D-1/17 → sky blue · D-1/23 → light orange · D-1/3 → light gold · D-1/30 → light brown
+ *   D-1/17 → blue · D-1/23 → orange · D-1/3 → gold (yellow) · D-1/30 → brown
  *
- * Tints use /10 backgrounds + theme-aware text so they stay light in light mode and
- * subtle in dark mode (never heavy/dark). Matching is by the property's "D-1/NN"
+ * Oct 2026 (client): the original 5–10% tints were too light — orange, gold and
+ * brown read as the same beige, so properties looked alike. Badges are now SOLID
+ * (white/dark text for contrast) and row tints ~15–20%, with gold pushed toward
+ * yellow and brown deepened so the three warm colours separate. Normal text on a
+ * tinted row stays readable in both themes. Matching is by the property's "D-1/NN"
  * token in its name; longer tokens are checked first so "D-1/3" doesn't swallow
  * "D-1/30". Unknown properties fall back to a neutral slate tint.
  */
@@ -32,37 +35,37 @@ const RULES: { token: string; color: PropertyColor }[] = [
   {
     token: "D-1/17",
     color: {
-      badge: "bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/30",
-      dot: "bg-sky-400",
-      accent: "border-l-sky-400",
-      row: "bg-sky-500/5",
+      badge: "bg-sky-600 text-white border-sky-700",
+      dot: "bg-sky-600",
+      accent: "border-l-sky-600",
+      row: "bg-sky-500/15 dark:bg-sky-500/20",
     },
   },
   {
     token: "D-1/23",
     color: {
-      badge: "bg-orange-500/10 text-orange-700 dark:text-orange-300 border-orange-500/30",
-      dot: "bg-orange-400",
-      accent: "border-l-orange-400",
-      row: "bg-orange-500/5",
+      badge: "bg-orange-600 text-white border-orange-700",
+      dot: "bg-orange-600",
+      accent: "border-l-orange-600",
+      row: "bg-orange-500/15 dark:bg-orange-500/20",
     },
   },
   {
     token: "D-1/30",
     color: {
-      badge: "bg-[#9c6b43]/12 text-[#8a5a33] dark:text-[#c9a888] border-[#9c6b43]/35",
-      dot: "bg-[#a0703f]",
-      accent: "border-l-[#a0703f]",
-      row: "bg-[#9c6b43]/8",
+      badge: "bg-[#6f4220] text-white border-[#5a3418]",
+      dot: "bg-[#6f4220]",
+      accent: "border-l-[#6f4220]",
+      row: "bg-[#7a4a24]/20 dark:bg-[#a0703f]/25",
     },
   },
   {
     token: "D-1/3",
     color: {
-      badge: "bg-amber-400/15 text-amber-800 dark:text-amber-300 border-amber-500/30",
-      dot: "bg-amber-400",
-      accent: "border-l-amber-400",
-      row: "bg-amber-400/10",
+      badge: "bg-yellow-400 text-yellow-950 border-yellow-500",
+      dot: "bg-yellow-400",
+      accent: "border-l-yellow-400",
+      row: "bg-yellow-400/25 dark:bg-yellow-400/15",
     },
   },
 ];
