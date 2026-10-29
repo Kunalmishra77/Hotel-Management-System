@@ -39,6 +39,12 @@ export function RoomActionSheet({
   const [error, setError] = useState<string | null>(null);
   const [qr, setQr] = useState<{ url: string; qrDataUrl: string; number: string } | null>(null);
   const [booking, setBooking] = useState<RoomBooking | null>(null);
+  const [bookingLoaded, setBookingLoaded] = useState(false);
+
+  // A booked room (someone is in it / it is held for a guest) must NOT be flipped
+  // vacant/clean by hand — that desyncs the room from the booking. Its status is
+  // driven by check-in / check-out on the booking instead.
+  const isBooked = room?.status === "OCCUPIED" || room?.status === "RESERVED";
 
   // For an occupied/reserved room, resolve the guest + booking so the sheet can
   // link to it (returns null for roles without reservation:view).
@@ -46,10 +52,11 @@ export function RoomActionSheet({
   const roomStatus = room?.status;
   useEffect(() => {
     setBooking(null);
+    setBookingLoaded(false);
     if (!roomId || (roomStatus !== "OCCUPIED" && roomStatus !== "RESERVED")) return;
     let active = true;
     getRoomCurrentBooking(roomId).then((res) => {
-      if (active && res.ok) setBooking(res.data);
+      if (active) { setBooking(res.ok ? res.data : null); setBookingLoaded(true); }
     });
     return () => { active = false; };
   }, [roomId, roomStatus]);
@@ -140,7 +147,29 @@ export function RoomActionSheet({
           </Link>
         )}
 
-        {room.allowedTransitions.length === 0 ? (
+        {isBooked ? (
+          // Booked room: no manual vacant/cleaning here — the booking's check-in /
+          // check-out drives the status. Only a genuine orphan (status says booked
+          // but NO active booking is linked) offers a manual reset to fix the drift.
+          !bookingLoaded ? (
+            <p className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">Loading booking…</p>
+          ) : booking ? (
+            <p className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground" data-testid="room-booked-note">
+              This room is {room.status === "OCCUPIED" ? "occupied by" : "reserved for"} <span className="font-medium text-foreground">{booking.guestName}</span>. To free it, {room.status === "OCCUPIED" ? "check out" : "cancel or check in"} from the booking above — it can&apos;t be marked vacant by hand.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400">
+                No active booking is linked to this room, but its status is {STATUS_LABEL[room.status].toLowerCase()}. You can reset it manually:
+              </p>
+              {room.allowedTransitions.map((to) => (
+                <Button key={to} block variant="outline" size="lg" disabled={pending} onClick={() => apply(to)} data-testid={`room-action-${to}`}>
+                  Mark {STATUS_LABEL[to].toLowerCase()}
+                </Button>
+              ))}
+            </div>
+          )
+        ) : room.allowedTransitions.length === 0 ? (
           <p className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
             Your role can&apos;t change this room&apos;s status right now.
           </p>
