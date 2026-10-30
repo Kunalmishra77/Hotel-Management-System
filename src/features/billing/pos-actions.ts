@@ -58,7 +58,10 @@ export async function settlePosSaleDirect(input: unknown): Promise<Result<{ invo
     // a FRESH folio — otherwise ensureDirectSaleFolio reuses this one and the next
     // invoice re-bills every prior sale on it (06 FR-25). The invoice above already
     // billed only this sale's lines (a fresh folio per walk-in).
-    await db.scoped(user).folio.update({ where: { id: folioId }, data: { isClosed: true } });
+    // updateMany: the scoped client wraps `where` with the property filter, which a
+    // unique-input `update` rejects — the close failed, the sale reported an error,
+    // and the next walk-in reused this folio (and was refused a second invoice).
+    await db.scoped(user).folio.updateMany({ where: { id: folioId }, data: { isClosed: true } });
 
     return { invoiceId: invoice.invoiceId, paymentId: payment?.id ?? "", folioId };
   });

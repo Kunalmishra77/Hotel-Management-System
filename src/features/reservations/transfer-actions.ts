@@ -28,6 +28,7 @@ import {
   activeLines,
   activeRoomNightKeys,
   nextRoomRevision,
+  autoIssueInvoiceOnCheckout,
   type BillingPostTx,
 } from "@/features/billing";
 import { nights as computeNights } from "./domain/nights";
@@ -145,7 +146,7 @@ export async function transferToProperty(input: unknown): Promise<Result<Transfe
     const remaining = r.allocations.filter((a) => !cutIds.has(a.id)).map((a) => (a.endDate > transferDate ? { ...a, endDate: transferDate } : a));
     const originRoomId = tailAllocations(remaining, transferDate)[0]?.roomId ?? r.allocations[0]!.roomId;
 
-    return withReservationContext(user, () =>
+    const result = await withReservationContext(user, () =>
       bookingAttempt(() =>
         client.$transaction(
           async (tx) => {
@@ -262,6 +263,10 @@ export async function transferToProperty(input: unknown): Promise<Result<Transfe
         ),
       ),
     );
+    // A move to ANOTHER property ends the origin stay — it gets its own GST invoice
+    // now, like any check-out (one bill per property). Best-effort + idempotent.
+    await autoIssueInvoiceOnCheckout(r.id);
+    return result;
   });
 }
 

@@ -8,6 +8,7 @@
  * server actions. The run screens import `./actions` and `./queries` directly.
  */
 import { db } from "@/lib/db";
+import { apportionStaffCost } from "@/features/reports/domain/profit";
 
 /**
  * Finalized payroll net for a property set in a "YYYY-MM" month (paise). Only
@@ -53,9 +54,25 @@ export async function getFinalizedStaffCostInRange(
 ): Promise<number> {
   const months = monthsInRange(from, to);
   if (months.length === 0) return 0;
-  const agg = await db.unscoped().payrollRun.aggregate({
+  const runs = await db.unscoped().payrollRun.groupBy({
+    by: ["month"],
     where: { propertyId: { in: propertyIds }, month: { in: months }, status: "FINALIZED" },
     _sum: { netTotalPaise: true },
   });
-  return Number(agg._sum.netTotalPaise ?? 0n);
+  // Each month's net counts only for the days of it inside [from, to] (reporting.md:
+  // a daily / partial-month view spreads the month's payroll evenly over its days).
+  // A whole month in range counts in full; a single day counts 1/days-in-month.
+  const DAY = 86_400_000;
+  const day = (d: Date) => Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  let total = 0;
+  for (const r of runs) {
+    const [y, m] = r.month.split("-").map(Number);
+    const first = Date.UTC(y!, m! - 1, 1);
+    const last = Date.UTC(y!, m!, 0);
+    const daysInMonth = Math.round((last - first) / DAY) + 1;
+    const overlap = Math.round((Math.min(last, day(to)) - Math.max(first, day(from))) / DAY) + 1;
+    if (overlap <= 0) continue;
+    total += apportionStaffCost(Number(r._sum.netTotalPaise ?? 0n), daysInMonth, Math.min(overlap, daysInMonth));
+  }
+  return total;
 }
