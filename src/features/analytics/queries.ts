@@ -8,6 +8,8 @@ import { authorize, hasPermission } from "@/lib/permissions";
 import { netRevenueBetween } from "@/features/billing/queries";
 import { adr, occupancy, revpar } from "./domain/metrics";
 import { dayBounds } from "./internal";
+import { localToday } from "@/lib/local-day";
+import { roomsOverviewAll } from "@/features/rooms/queries";
 import type { SessionClaims } from "@/lib/auth/claims";
 
 export type LiveTiles = {
@@ -24,17 +26,21 @@ export type LiveTiles = {
 export async function liveTiles(user: SessionClaims, propertyIds: string[]): Promise<LiveTiles> {
   const scoped = db.scoped(user);
   const canSeeMoney = hasPermission(user, "report:view-financial");
-  const { start, next } = dayBounds(new Date());
+  // Property-local "today" (IST): the UTC day showed yesterday from 00:00 to 05:30.
+  const { start, next } = dayBounds(localToday());
   const where = { propertyId: { in: propertyIds } };
 
-  const [roomGroups, arrivalsToday, departuresToday] = await Promise.all([
-    scoped.room.groupBy({ by: ["status"], where: { ...where, isActive: true }, _count: { _all: true } }),
+  const [overview, arrivalsToday, departuresToday] = await Promise.all([
+    // Room counts come from today's BOOKINGS, exactly like the Rooms board — the
+    // stored status drifted, so the dashboard and the board disagreed.
+    roomsOverviewAll(user),
     scoped.reservation.count({ where: { ...where, status: "CONFIRMED", checkInDate: { gte: start, lt: next } } }),
     scoped.reservation.count({ where: { ...where, status: "IN_HOUSE", checkOutDate: { gte: start, lt: next } } }),
   ]);
 
-  const count = (s: string) => roomGroups.find((g) => g.status === s)?._count._all ?? 0;
-  const rooms = { vacant: count("VACANT"), occupied: count("OCCUPIED"), reserved: count("RESERVED"), maintenance: count("UNDER_MAINTENANCE"), housekeeping: count("HOUSEKEEPING") };
+  const mine = overview.byProperty.filter((p) => propertyIds.includes(p.id));
+  const sum = (k: "available" | "occupied" | "reserved" | "maintenance" | "housekeeping") => mine.reduce((n, p) => n + p[k], 0);
+  const rooms = { vacant: sum("available"), occupied: sum("occupied"), reserved: sum("reserved"), maintenance: sum("maintenance"), housekeeping: sum("housekeeping") };
   const sellable = rooms.vacant + rooms.occupied + rooms.reserved + rooms.housekeeping; // active minus maintenance
   const occupancyBps = occupancy(sellable, rooms.occupied); // live point-in-time (reporting.md (b))
 

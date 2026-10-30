@@ -6,6 +6,7 @@
  */
 import { authorize } from "@/lib/permissions";
 import { db } from "@/lib/db";
+import { localDayInstants } from "@/lib/local-day";
 import { revenueByCategory as revenue06 } from "@/features/billing/queries";
 import { expenseRollup } from "@/features/expenses/queries";
 import { getFinalizedStaffCostInRange } from "@/features/payroll";
@@ -198,13 +199,22 @@ export type GstInvoiceRow = {
   totalPaise: number;
 };
 
+/**
+ * `from`/`to` are calendar days (inclusive). `issuedAt` is an instant, so the
+ * range is [start of `from`, start of the day AFTER `to`) in India time — `lte to`
+ * dropped every invoice issued on the last day after midnight UTC (GST filing!).
+ */
+function issuedWithin(from: Date, to: Date): { gte: Date; lt: Date } {
+  return { gte: localDayInstants(from).start, lt: localDayInstants(to).next };
+}
+
 export async function gstInvoiceRegister(
   user: SessionClaims,
   input: { propertyIds: string[]; from: Date; to: Date },
 ): Promise<GstInvoiceRow[]> {
   authorize(user, "report:view-financial", input.propertyIds[0] ?? null);
   const invoices = await db.scoped(user).invoice.findMany({
-    where: { propertyId: { in: input.propertyIds }, issuedAt: { gte: input.from, lte: input.to } },
+    where: { propertyId: { in: input.propertyIds }, issuedAt: issuedWithin(input.from, input.to) },
     select: {
       propertyId: true, number: true, issuedAt: true, type: true, customerName: true,
       customerGstin: true, placeOfSupply: true, taxableValuePaise: true, cgstPaise: true,
@@ -281,7 +291,7 @@ export async function gstReport(
 ): Promise<GstReportRow[]> {
   authorize(user, "report:view-financial", input.propertyIds[0] ?? null);
   const invoices = await db.scoped(user).invoice.findMany({
-    where: { propertyId: { in: input.propertyIds }, issuedAt: { gte: input.from, lte: input.to } },
+    where: { propertyId: { in: input.propertyIds }, issuedAt: issuedWithin(input.from, input.to) },
     select: { propertyId: true, taxableValuePaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, totalPaise: true, type: true },
   });
   const map = new Map<string, GstReportRow>();

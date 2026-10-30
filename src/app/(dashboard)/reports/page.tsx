@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { localToday } from "@/lib/local-day";
 import { requirePermission } from "@/lib/auth/guard";
 import { hasPermission } from "@/lib/permissions";
 import { NoProperty } from "@/features/platform/components/no-property";
@@ -51,8 +52,7 @@ export default async function ReportsPage({
   const nameOf = (id: string): string => properties.find((p) => p.id === id)?.name ?? id;
 
   const sp = await searchParams;
-  const now = new Date();
-  const currentMonth = now.toISOString().slice(0, 7);
+  const currentMonth = localToday().toISOString().slice(0, 7); // India-time month
   const month = sp.month && MONTH_RE.test(sp.month) ? sp.month : currentMonth;
   const reportType: ReportType = isReport(sp.report) ? sp.report : "profit";
 
@@ -67,7 +67,7 @@ export default async function ReportsPage({
   const overheadPropertyIds = requested.length === 0 ? costCenterIds : [];
 
   const from = new Date(`${month}-01T00:00:00.000Z`);
-  const to = month === currentMonth ? new Date(now.toISOString().slice(0, 10) + "T00:00:00.000Z") : monthEnd(month);
+  const to = month === currentMonth ? localToday() : monthEnd(month);
 
   const scopeLabel = propertyIds.length === 1
     ? (properties.find((p) => p.id === propertyIds[0])?.name ?? "1 property")

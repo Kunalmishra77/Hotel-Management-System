@@ -4,6 +4,7 @@
  * so 08/14/05/25 reconcile to the paisa. Callers pass claims explicitly.
  */
 import { db } from "@/lib/db";
+import { localDayInstants, localToday } from "@/lib/local-day";
 import { authorize } from "@/lib/permissions";
 import { folioBalance } from "./domain/balance";
 import { activeLines } from "./domain/reversal";
@@ -339,12 +340,11 @@ export type BillingOverview = {
 export async function billingOverview(user: SessionClaims, propertyId: string): Promise<BillingOverview> {
   authorize(user, "folio:view", propertyId);
   const scoped = db.scoped(user);
-  const now = Date.now();
-  const dayIdx = Math.floor(now / 86_400_000);
-  const dayStart = new Date(dayIdx * 86_400_000);
-  const dayEnd = new Date((dayIdx + 1) * 86_400_000);
-  const nowDate = new Date(now);
-  const monthStart = new Date(Date.UTC(nowDate.getUTCFullYear(), nowDate.getUTCMonth(), 1));
+  // "Collected today" / "this month" by the India-time day — the UTC day showed
+  // yesterday's collections from 00:00 to 05:30.
+  const today = localToday();
+  const { start: dayStart, next: dayEnd } = localDayInstants(today);
+  const monthStart = localDayInstants(new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1))).start;
 
   const [lineGroups, payGroups, todayColl, invoicesThisMonth] = await Promise.all([
     scoped.folioLine.groupBy({
