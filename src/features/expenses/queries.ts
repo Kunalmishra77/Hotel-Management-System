@@ -245,6 +245,32 @@ export async function listExpenses(
   }));
 }
 
+export type PendingExpense = ExpenseListItem & { propertyId: string; propertyName: string };
+
+/**
+ * Every expense still waiting for approval across the caller's properties —
+ * shown at the TOP of the Expenses page so an approver sees them at once
+ * (the date-wise list only holds the latest 50 of one property). Oldest first.
+ */
+export async function pendingExpenses(user: SessionClaims, propertyIds: string[]): Promise<PendingExpense[]> {
+  const scoped = db.scoped(user);
+  const [rows, props] = await Promise.all([
+    scoped.expense.findMany({
+      where: { propertyId: { in: propertyIds }, status: "DRAFT" },
+      select: { id: true, propertyId: true, head: true, subCategory: true, description: true, quantity: true, amountPaise: true, spentOn: true, status: true, vendor: true, billObjectKey: true },
+      orderBy: [{ spentOn: "asc" }, { createdAt: "asc" }],
+      take: 500,
+    }),
+    scoped.property.findMany({ where: { id: { in: propertyIds } }, select: { id: true, name: true } }),
+  ]);
+  const name = new Map(props.map((p) => [p.id, p.name]));
+  return rows.map((r) => ({
+    id: r.id, head: r.head, subCategory: r.subCategory, description: r.description, quantity: r.quantity, amountPaise: r.amountPaise,
+    spentOn: r.spentOn, status: r.status, vendor: r.vendor, hasBill: r.billObjectKey !== null,
+    propertyId: r.propertyId, propertyName: name.get(r.propertyId) ?? "—",
+  }));
+}
+
 /**
  * Autocomplete suggestions for the expense form — distinct values the operator
  * has entered before, so repeat entries (a supplier's GSTIN, a vendor, "tomatoes,

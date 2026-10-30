@@ -9,7 +9,8 @@
  */
 import { randomUUID } from "node:crypto";
 import { requireUser } from "@/lib/auth";
-import { authorize } from "@/lib/permissions";
+import { authorize, can } from "@/lib/permissions";
+import type { SessionClaims } from "@/lib/auth/claims";
 import { writeAudit } from "@/lib/audit";
 import { emitEvent } from "@/lib/events";
 import { DomainError, ErrorCode, NotFoundError } from "@/lib/errors";
@@ -65,7 +66,7 @@ const SALARY_SUB = /salary|wages|payroll/i;
  * the DB write so we never persist a row referencing a scan that failed to upload
  * (AC-8) — key only, encrypted at rest. Shared by the single + batch create paths.
  */
-async function prepareExpenseRow(data: CreateExpenseInput, userId: string) {
+async function prepareExpenseRow(data: CreateExpenseInput, user: SessionClaims) {
   // FR-6 / AC-7: salary belongs to payroll (21), never a hand-keyed STAFF expense.
   if (data.head === "STAFF" && data.subCategory && SALARY_SUB.test(data.subCategory)) {
     throw new DomainError(ErrorCode.VALIDATION_FAILED, "Salary/wages are recorded in payroll (21), not as a STAFF expense.");
@@ -88,9 +89,19 @@ async function prepareExpenseRow(data: CreateExpenseInput, userId: string) {
     vendor: data.vendor ?? null,
     gstNumber: data.gstNumber ?? null,
     billObjectKey,
-    status: "DRAFT" as const,
-    createdById: userId,
+    // Entered by someone who may approve this spend (Admin / Manager / Accounts —
+    // the large-spend permission above the escalation threshold) → it IS approved:
+    // a second click by the same person added nothing, and every expense sat in
+    // DRAFT, invisible to reports and profit. Anyone else's entry waits for approval.
+    ...(selfApproves(user, data.propertyId, data.amountPaise)
+      ? { status: "APPROVED" as const, approvedById: user.userId }
+      : { status: "DRAFT" as const }),
+    createdById: user.userId,
   };
+}
+
+function selfApproves(user: SessionClaims, propertyId: string, amountPaise: number): boolean {
+  return can(user, requiresSuperApproval(amountPaise) ? "expense:approve-large" : "expense:approve", propertyId);
 }
 
 /** Record an expense (FR-1/2/3/6). STAFF-head salary spend is refused (FR-6). */
@@ -99,13 +110,14 @@ export async function createExpense(input: unknown): Promise<Result<ExpenseResul
     const data = createExpenseSchema.parse(input);
     const user = await requireUser();
     authorize(user, "expense:create", data.propertyId);
-    const row = await prepareExpenseRow(data, user.userId);
+    const row = await prepareExpenseRow(data, user);
 
     return withExpenseContext(user, () =>
       expenseDb(user).$transaction(async (tx) => {
         const expense = await tx.expense.create({ data: row, select: { id: true, status: true } });
         await emitEvent(tx, { type: "ExpenseRecorded", aggregateId: expense.id, propertyId: data.propertyId, payload: { head: data.head, amountPaise: data.amountPaise } });
-        await writeAudit(tx, { action: "expense:create", entityType: "Expense", entityId: expense.id, propertyId: data.propertyId, after: { head: data.head, amountPaise: data.amountPaise, hasBill: row.billObjectKey !== null } });
+        await writeAudit(tx, { action: "expense:create", entityType: "Expense", entityId: expense.id, propertyId: data.propertyId, after: { head: data.head, amountPaise: data.amountPaise, hasBill: row.billObjectKey !== null, status: row.status } });
+        if (row.status === "APPROVED") await recordSelfApproval(tx, expense.id, data.propertyId);
         return expense;
       }),
     );
@@ -126,7 +138,7 @@ export async function createExpenses(input: unknown): Promise<Result<{ count: nu
       authorize(user, "expense:create", propertyId);
     }
     // Upload bills + run guards for every item before opening the transaction.
-    const rows = await Promise.all(items.map((i) => prepareExpenseRow(i, user.userId)));
+    const rows = await Promise.all(items.map((i) => prepareExpenseRow(i, user)));
 
     return withExpenseContext(user, () =>
       expenseDb(user).$transaction(async (tx) => {
@@ -135,12 +147,19 @@ export async function createExpenses(input: unknown): Promise<Result<{ count: nu
           const expense = await tx.expense.create({ data: row, select: { id: true } });
           ids.push(expense.id);
           await emitEvent(tx, { type: "ExpenseRecorded", aggregateId: expense.id, propertyId: row.propertyId, payload: { head: row.head, amountPaise: row.amountPaise } });
-          await writeAudit(tx, { action: "expense:create", entityType: "Expense", entityId: expense.id, propertyId: row.propertyId, after: { head: row.head, amountPaise: row.amountPaise, hasBill: row.billObjectKey !== null, batch: true } });
+          await writeAudit(tx, { action: "expense:create", entityType: "Expense", entityId: expense.id, propertyId: row.propertyId, after: { head: row.head, amountPaise: row.amountPaise, hasBill: row.billObjectKey !== null, batch: true, status: row.status } });
+          if (row.status === "APPROVED") await recordSelfApproval(tx, expense.id, row.propertyId);
         }
         return { count: ids.length, ids };
       }),
     );
   });
+}
+
+/** The event + audit an approval writes — also for an approver's own entry. */
+async function recordSelfApproval(tx: Parameters<Parameters<ReturnType<typeof expenseDb>["$transaction"]>[0]>[0], expenseId: string, propertyId: string) {
+  await emitEvent(tx, { type: "ExpenseApproved", aggregateId: expenseId, propertyId, payload: { selfApproved: true } });
+  await writeAudit(tx, { action: "expense:approve", entityType: "Expense", entityId: expenseId, propertyId, reason: "Entered by an approver — approved on entry", after: { status: "APPROVED" } });
 }
 
 /** Approve a DRAFT expense (FR-4, AC-4): it now counts toward finalized profit. */

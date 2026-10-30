@@ -25,6 +25,16 @@ async function actAs(userId: string): Promise<SessionClaims> {
   authMock.current = c;
   return c;
 }
+/**
+ * A staff member who may RECORD expenses but not approve them (e.g. a Purchase
+ * manager): Accounts' claims minus the approval permissions. Their entries wait
+ * in DRAFT; an approver's own entries are approved on entry.
+ */
+async function actAsEnterer(): Promise<SessionClaims> {
+  const c = await actAs(USER_ACCOUNTS_ID);
+  authMock.current = { ...c, resolvedPermissions: c.resolvedPermissions.filter((p) => p !== "expense:approve" && p !== "expense:approve-large") };
+  return authMock.current;
+}
 function track(r: { ok: boolean; data?: { id: string } }) { if (r.ok && r.data) created.push(r.data.id); }
 
 const veg = (o: Record<string, unknown> = {}) => ({ propertyId: PROP_A_ID, head: "KITCHEN", subCategory: "Vegetables", amountPaise: 120_000, spentOn: "2026-07-12", paidVia: "CASH", ...o });
@@ -43,11 +53,32 @@ describe("createExpense (T-4, FR-1/2/3/6, AC-1/2/3/7/8)", () => {
     expect(res.ok).toBe(true);
     if (!res.ok) return;
     const row = await prisma.expense.findUniqueOrThrow({ where: { id: res.data.id } });
-    expect(row.status).toBe("DRAFT");
+    // Accounts may approve this spend → its own entry is approved on entry (audited).
+    expect(row.status).toBe("APPROVED");
+    expect(row.approvedById).toBe(USER_ACCOUNTS_ID);
+    expect(await prisma.auditLog.findFirst({ where: { action: "expense:approve", entityId: res.data.id } })).not.toBeNull();
     expect(row.billObjectKey).not.toBeNull();
     expect(row.billObjectKey).toContain("expenses/");
     expect(await prisma.domainEvent.findFirst({ where: { type: "ExpenseRecorded", aggregateId: res.data.id } })).not.toBeNull();
     expect(await prisma.auditLog.findFirst({ where: { action: "expense:create", entityId: res.data.id } })).not.toBeNull();
+  });
+
+  it("an entry by someone who can't approve it waits in DRAFT", async () => {
+    await actAsEnterer();
+    const res = await createExpense(veg());
+    track(res);
+    if (!res.ok) throw new Error("create failed");
+    const row = await prisma.expense.findUniqueOrThrow({ where: { id: res.data.id } });
+    expect(row.status).toBe("DRAFT");
+    expect(row.approvedById).toBeNull();
+  });
+
+  it("an approver's MAJOR spend still waits for the Super Admin (escalation)", async () => {
+    await actAs(USER_ACCOUNTS_ID); // expense:approve but not expense:approve-large
+    const res = await createExpense(veg({ head: "UTILITIES", subCategory: "Diesel genset", amountPaise: 3_000_000 }));
+    track(res);
+    if (!res.ok) throw new Error("create failed");
+    expect((await prisma.expense.findUniqueOrThrow({ where: { id: res.data.id } })).status).toBe("DRAFT");
   });
 
   it("rejects amount ≤ 0 (AC-2/11)", async () => {
@@ -83,7 +114,7 @@ describe("createExpense (T-4, FR-1/2/3/6, AC-1/2/3/7/8)", () => {
 
 describe("createExpenses — multi-item batch", () => {
   it("records several items in one call, each its own DRAFT row with event + audit", async () => {
-    await actAs(USER_ACCOUNTS_ID);
+    await actAsEnterer();
     const res = await createExpenses({
       items: [
         veg({ subCategory: "Milk", description: "Milk", amountPaise: 6_000 }),
@@ -126,10 +157,11 @@ describe("createExpenses — multi-item batch", () => {
 
 describe("approve / reject (T-5, FR-4, AC-4/9)", () => {
   it("approves a DRAFT expense → APPROVED + ExpenseApproved", async () => {
-    await actAs(USER_ACCOUNTS_ID);
+    await actAsEnterer();
     const res = await createExpense(veg());
     track(res);
     if (!res.ok) throw new Error("create failed");
+    await actAs(USER_ACCOUNTS_ID);
     const ok = await approveExpense({ expenseId: res.data.id });
     expect(ok.ok).toBe(true);
     expect((await prisma.expense.findUniqueOrThrow({ where: { id: res.data.id } })).status).toBe("APPROVED");
@@ -137,10 +169,11 @@ describe("approve / reject (T-5, FR-4, AC-4/9)", () => {
   });
 
   it("rejects a DRAFT expense → REJECTED, excluded from rollup (AC-9)", async () => {
-    await actAs(USER_ACCOUNTS_ID);
+    await actAsEnterer();
     const res = await createExpense(veg());
     track(res);
     if (!res.ok) throw new Error("create failed");
+    await actAs(USER_ACCOUNTS_ID);
     const rej = await rejectExpense({ expenseId: res.data.id, reason: "duplicate" });
     expect(rej.ok).toBe(true);
     expect((await prisma.expense.findUniqueOrThrow({ where: { id: res.data.id } })).status).toBe("REJECTED");
@@ -149,12 +182,13 @@ describe("approve / reject (T-5, FR-4, AC-4/9)", () => {
 
 describe("expenseRollup — APPROVED only (T-6, FR-5, AC-5)", () => {
   it("totals the day at ₹9,200 and excludes DRAFT/REJECTED", async () => {
-    const claims = await actAs(USER_ACCOUNTS_ID);
+    await actAsEnterer();
     const a = await createExpense(veg({ amountPaise: 120_000 })); // ₹1,200 veg
     const b = await createExpense(veg({ head: "UTILITIES", subCategory: "Electricity", amountPaise: 800_000 })); // ₹8,000
     const draft = await createExpense(veg({ amountPaise: 500_000 })); // stays DRAFT → excluded
     track(a); track(b); track(draft);
     if (!a.ok || !b.ok) throw new Error("setup failed");
+    const claims = await actAs(USER_ACCOUNTS_ID);
     await approveExpense({ expenseId: a.data.id });
     await approveExpense({ expenseId: b.data.id });
 
@@ -200,7 +234,7 @@ describe("approval escalation (Phase 6 — major spend needs Super Admin)", () =
   });
 
   it("lets a Manager approve a MINOR expense (no escalation)", async () => {
-    await actAs(USER_ACCOUNTS_ID);
+    await actAsEnterer();
     const mk = await createExpense(small());
     track(mk);
     if (!mk.ok) throw new Error("setup");

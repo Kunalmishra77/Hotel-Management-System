@@ -28,7 +28,7 @@ async function main() {
     await runWithSystemContext(p.orgId, async () => {
       for (const s of snaps) {
         const now = snapshotFrom(await computeInputs(p.id, s.businessDate));
-        if (BigInt(now.roomRevenuePaise) !== BigInt(s.roomRevenuePaise) || BigInt(now.totalRevenuePaise) !== BigInt(s.totalRevenuePaise) || now.occupiedRoomNights !== s.occupiedRoomNights) {
+        if (BigInt(now.roomRevenuePaise) !== BigInt(s.roomRevenuePaise) || BigInt(now.totalRevenuePaise) !== BigInt(s.totalRevenuePaise) || now.occupiedRoomNights !== s.occupiedRoomNights || BigInt(now.expensePaise) !== BigInt(s.expensePaise)) {
           differing.push(s.businessDate);
           delta += BigInt(now.totalRevenuePaise) - BigInt(s.totalRevenuePaise);
         }

@@ -20,7 +20,8 @@ import {
   EXPENSE_HEADS, EXPENSE_HEAD_LABEL, EXPENSE_SUBCATEGORIES,
   FREE_TEXT_SUBCATEGORY, GST_BILLS_HEAD, type ExpenseHeadKey,
 } from "../subcategories";
-import type { ExpenseListItem, ExpenseSuggestions } from "../queries";
+import type { ExpenseListItem, ExpenseSuggestions, PendingExpense } from "../queries";
+import { PendingApprovals } from "./pending-approvals";
 
 /** One row on the slip (amount kept as the typed ₹ string so the input stays editable). */
 type SlipRow = { key: string; item: string; qty: string; amount: string };
@@ -44,6 +45,7 @@ export function ExpensesScreen({
   properties,
   expenses,
   canApprove,
+  pendingApprovals = [],
   todayTotalPaise,
   suggestions,
 }: {
@@ -51,6 +53,8 @@ export function ExpensesScreen({
   properties?: { id: string; name: string }[];
   expenses: ExpenseListItem[];
   canApprove: boolean;
+  /** Approval queue across the properties in view — pinned above everything. */
+  pendingApprovals?: PendingExpense[];
   todayTotalPaise: number;
   suggestions?: ExpenseSuggestions;
 }) {
@@ -141,6 +145,7 @@ export function ExpensesScreen({
   return (
     <div className="mx-auto w-full max-w-5xl space-y-4 p-4">
       <h1 className="text-xl font-semibold">Expenses</h1>
+      {canApprove && <PendingApprovals items={pendingApprovals} />}
 
       <div className="grid gap-4 lg:grid-cols-5">
         <Card className="lg:col-span-3">
@@ -284,7 +289,14 @@ export function ExpensesScreen({
                                 <span className="font-medium">{e.description || e.subCategory || EXPENSE_HEAD_LABEL[e.head as ExpenseHeadKey] || e.head}</span>
                                 {e.quantity ? <span className="text-muted-foreground"> · {e.quantity}</span> : null}
                               </p>
-                              <p className="text-xs text-muted-foreground">{EXPENSE_HEAD_LABEL[e.head as ExpenseHeadKey] ?? e.head} · {e.status}{e.hasBill ? " · 📎" : ""}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {EXPENSE_HEAD_LABEL[e.head as ExpenseHeadKey] ?? e.head} ·{" "}
+                                {/* Only APPROVED spend counts in reports / profit — say so plainly. */}
+                                <span className={e.status === "DRAFT" ? "font-medium text-amber-700 dark:text-amber-400" : e.status === "REJECTED" ? "text-destructive" : "text-emerald-700 dark:text-emerald-400"} data-testid={`expense-status-${e.id}`}>
+                                  {e.status === "DRAFT" ? "Pending approval — not in reports yet" : e.status === "REJECTED" ? "Rejected" : "Approved"}
+                                </span>
+                                {e.hasBill ? " · 📎" : ""}
+                              </p>
                             </div>
                             <div className="flex shrink-0 items-center gap-2">
                               <span className="tabular-nums">{rupees(e.amountPaise)}</span>

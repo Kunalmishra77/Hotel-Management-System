@@ -25,25 +25,23 @@ async function signIn(page: Page) {
   await expect(page).toHaveURL(/\/dashboard/);
 }
 
-test.describe("expense journey — record → approve → rollup (T-11)", () => {
-  test("a manager records and approves an expense, and it hits today's total", async ({ page }) => {
+test.describe("expense journey — record on a parchi → counts at once (T-11)", () => {
+  test("a manager's own expense is approved on entry and hits today's total", async ({ page }) => {
     await signIn(page);
     await page.goto("/expenses");
 
-    // 1 · Record a ₹1,200 kitchen expense for today (AC-1)
+    // 1 · Record a ₹1,200 kitchen item on today's parchi (AC-1)
     await page.getByTestId("expense-head").selectOption("KITCHEN");
     await page.getByTestId("expense-sub").fill(SUB);
-    await page.getByTestId("expense-amount").fill("1200");
+    await page.getByTestId("slip-item-0").fill(SUB);
+    await page.getByTestId("slip-amount-0").fill("1200");
     await page.getByTestId("expense-save").click();
 
+    // 2 · A manager may approve this spend, so it is approved on entry (AC-4) …
     const row = page.getByTestId("expense-list").locator("li").filter({ hasText: SUB });
-    await expect(row).toContainText("DRAFT");
+    await expect(row).toContainText("Approved");
 
-    // 2 · Approve it (AC-4)
-    await row.getByRole("button", { name: "Approve" }).click();
-    await expect(page.getByTestId("expense-list").locator("li").filter({ hasText: SUB })).toContainText("APPROVED");
-
-    // 3 · It now counts toward today's rollup (AC-5)
+    // 3 · … and counts toward today's rollup at once (AC-5)
     await expect(page.getByTestId("today-total")).toContainText("₹1,200");
   });
 });

@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { NoProperty } from "@/features/platform/components/no-property";
 import { hasPermission } from "@/lib/permissions";
 import { requirePermission } from "@/lib/auth/guard";
-import { listExpenses, expenseRollup, expensePortfolio, budgetVsActual, expenseSuggestions } from "@/features/expenses/queries";
+import { listExpenses, expenseRollup, expensePortfolio, budgetVsActual, expenseSuggestions, pendingExpenses } from "@/features/expenses/queries";
+import { localToday } from "@/lib/local-day";
 import { listProperties } from "@/features/properties/queries";
 import { ExpensesScreen } from "@/features/expenses/components/expenses-screen";
 import { ExpensesPortfolio } from "@/features/expenses/components/expenses-portfolio";
@@ -43,7 +44,7 @@ export default async function ExpensesPage({
 
   // spentOn is a date-only column (UTC midnight); bound the day at midnight so a
   // `new Date()` time component doesn't exclude today's entries.
-  const dayStr = new Date().toISOString().slice(0, 10);
+  const dayStr = localToday().toISOString().slice(0, 10); // India-time "today"
   const from = new Date(`${dayStr}T00:00:00.000Z`);
   const to = new Date(`${dayStr}T23:59:59.999Z`);
   const accessible = [...user.accessiblePropertyIds];
@@ -51,7 +52,8 @@ export default async function ExpensesPage({
   // read-only portfolio aggregate. Current calendar month.
   const budgetMonth = dayStr.slice(0, 7);
   const budgetPropertyIds = user.activePropertyId ? [user.activePropertyId] : accessible;
-  const [expenses, roll, portfolio, budget, suggestions] = await Promise.all([
+  const canApprove = hasPermission(user, "expense:approve");
+  const [expenses, roll, portfolio, budget, suggestions, pending] = await Promise.all([
     listExpenses(user, { propertyId, limit: 50 }),
     expenseRollup(user, { propertyIds: [propertyId], from, to, groupBy: "day" }),
     expensePortfolio(user, {
@@ -66,6 +68,8 @@ export default async function ExpensesPage({
     }),
     budgetVsActual(user, { propertyIds: budgetPropertyIds, month: budgetMonth }),
     expenseSuggestions(user),
+    // The approval queue, every property in view — pinned to the top for approvers.
+    canApprove ? pendingExpenses(user, user.activePropertyId ? [user.activePropertyId] : accessible) : Promise.resolve([]),
   ]);
 
   return (
@@ -74,7 +78,8 @@ export default async function ExpensesPage({
         propertyId={propertyId}
         properties={pickerProperties.map((p) => ({ id: p.id, name: p.name }))}
         expenses={expenses}
-        canApprove={hasPermission(user, "expense:approve")}
+        canApprove={canApprove}
+        pendingApprovals={pending}
         todayTotalPaise={roll.totalPaise}
         suggestions={suggestions}
       />
