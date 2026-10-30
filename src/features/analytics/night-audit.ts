@@ -20,6 +20,7 @@ import { postRoomCharges, revenueForBusinessDate } from "@/features/billing/nigh
 import { markNoShows } from "@/features/reservations/jobs";
 import { snapshotFrom } from "./domain/metrics";
 import { dayBounds } from "./internal";
+import { localToday } from "@/lib/local-day";
 
 export type NightAuditResult = { status: "COMPLETED" | "ALREADY_RUN" | "IN_PROGRESS" | "FAILED"; snapshotId?: string };
 
@@ -97,6 +98,31 @@ export async function recomputeHistoricalSnapshot(
     create: { propertyId, businessDate, ...data },
     update: data,
   });
+}
+
+/**
+ * Restate the stats of PAST business dates after a back-dated money correction
+ * (rate fix, reversal, Set room rate). The folio rows are the history and the
+ * snapshot is derived from them, so after a correction the day's ADR / RevPAR /
+ * occupancy revenue had drifted from the bill. Each restated day is audited
+ * (business-rules §14: a closed day changes only by an audited adjustment).
+ * Best-effort: a failure here never fails the correction that called it.
+ */
+export async function restatePastSnapshots(propertyId: string, dates: Date[], reason: string): Promise<void> {
+  try {
+    const today = localToday().getTime();
+    const keys = [...new Set(dates.map((d) => d.toISOString().slice(0, 10)))].filter((k) => Date.parse(`${k}T00:00:00Z`) < today);
+    if (keys.length === 0) return;
+    const prisma = db.unscoped();
+    const property = await prisma.property.findUnique({ where: { id: propertyId }, select: { orgId: true } });
+    if (!property) return;
+    for (const k of keys) {
+      await recomputeHistoricalSnapshot(propertyId, new Date(`${k}T00:00:00.000Z`), { force: true });
+      await prisma.auditLog.create({ data: { orgId: property.orgId, propertyId, action: "stats:restate", entityType: "DailyStatSnapshot", entityId: `${propertyId}:${k}`, reason } });
+    }
+  } catch {
+    // Non-fatal: the correction stands; the day's stats can be restated again.
+  }
 }
 
 export async function runNightAudit(propertyId: string, businessDate: Date): Promise<NightAuditResult> {

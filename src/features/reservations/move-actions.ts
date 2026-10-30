@@ -33,6 +33,7 @@ import {
 import { nights as computeNights } from "./domain/nights";
 import { tailAllocations } from "./domain/allocations";
 import { preTaxRatePaise } from "./domain/pricing";
+import { restatePastSnapshots } from "@/features/analytics/night-audit";
 import { freeRoomIdsFor, findFreeRooms, type RoomFinder } from "./availability";
 import {
   assertBookingDatesValid,
@@ -390,6 +391,8 @@ export async function setRoomRate(input: unknown): Promise<Result<{ id: string; 
     // The completed stay now has a bill — raise its GST invoice (best-effort; skips
     // if one exists, in which case staff use Void & revise on the folio).
     if (postedNights > 0) await autoIssueInvoiceOnCheckout(r.id);
+    // Nights of a past stay just gained their room revenue → restate those days' stats.
+    if (postedNights > 0) await restatePastSnapshots(r.propertyId, stayNights(r.checkInDate, r.checkOutDate), "Room rate set on a past stay");
 
     revalidatePath(`/bookings/${r.id}`);
     revalidatePath(`/bookings/${r.id}/folio`);

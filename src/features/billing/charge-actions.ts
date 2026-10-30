@@ -182,7 +182,7 @@ export async function correctRoomRate(input: unknown): Promise<Result<{ reversed
     const unitPaise = preTaxRoomPaise(data.newUnitPaise, data.gstMode);
     const rateBps = gstBpsForCharge("ROOM", unitPaise);
 
-    return withBillingContext(user, () =>
+    const result = await withBillingContext(user, () =>
       client.$transaction(async (tx) => {
         let lastLineId = "";
         for (const l of activeRoom) {
@@ -236,7 +236,16 @@ export async function correctRoomRate(input: unknown): Promise<Result<{ reversed
         return { reversed: activeRoom.length, nights, lineId: lastLineId };
       }),
     );
+    // Past nights changed price → restate those days' stats (ADR / RevPAR).
+    await restateAfterCorrection(ctx.propertyId, activeRoom.map((l) => l.businessDate), "Room rate corrected on past nights");
+    return result;
   });
+}
+
+/** After-commit hook: restate past days' stats (lazy import — analytics is a higher tier). */
+async function restateAfterCorrection(propertyId: string, dates: Date[], reason: string): Promise<void> {
+  const { restatePastSnapshots } = await import("@/features/analytics/night-audit");
+  await restatePastSnapshots(propertyId, dates, reason);
 }
 
 /** Reverse a posted line (FR-7, AC-7): append a REVERSAL with negated amount + tax. */
@@ -248,12 +257,12 @@ export async function reverseFolioLine(input: unknown): Promise<Result<{ reversa
 
     const original = await client.folioLine.findFirst({
       where: { id: data.lineId },
-      select: { id: true, folioId: true, type: true, description: true, amountPaise: true, unitPaise: true, taxRateBps: true, cgstPaise: true, sgstPaise: true, igstPaise: true, hsnSac: true, placeOfSupplyState: true, folio: { select: { propertyId: true } } },
+      select: { id: true, folioId: true, type: true, description: true, amountPaise: true, unitPaise: true, taxRateBps: true, cgstPaise: true, sgstPaise: true, igstPaise: true, hsnSac: true, placeOfSupplyState: true, businessDate: true, folio: { select: { propertyId: true } } },
     });
     if (!original) throw new NotFoundError("Folio line not found.");
     authorize(user, "folio:charge", original.folio.propertyId);
 
-    return withBillingContext(user, () =>
+    const result = await withBillingContext(user, () =>
       client.$transaction(async (tx) => {
         const reversal = await tx.folioLine.create({
           data: {
@@ -280,5 +289,8 @@ export async function reverseFolioLine(input: unknown): Promise<Result<{ reversa
         return { reversalLineId: reversal.id };
       }),
     );
+    // A reversal counts against the night the line was earned — restate that day if it's past.
+    await restateAfterCorrection(original.folio.propertyId, [original.businessDate], "Charge reversed on a past day");
+    return result;
   });
 }
