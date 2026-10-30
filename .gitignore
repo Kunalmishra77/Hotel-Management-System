@@ -62,3 +62,6 @@ npm-debug.log*
 # One-off financial backups + client-shared samples (never in repo)
 _gst-backup-*.json
 changes share by client/
+
+# Client-facing exports (guest names) — share directly, never commit
+client-share/

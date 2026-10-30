@@ -10,7 +10,8 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient({ datasources: { db: { url: process.env.DIRECT_URL ?? process.env.DATABASE_URL } } });
 const d = (x) => new Date(x).toISOString().slice(0, 10);
 const inr = (p) => `₹${(Number(p) / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
-const out = (title, rows) => { console.log(`\n### ${title} — ${rows.length}`); for (const r of rows.slice(0, 60)) console.log("  " + r); if (rows.length > 60) console.log(`  … +${rows.length - 60} more`); };
+const sections = [];
+const out = (title, rows) => { sections.push({ title, rows }); console.log(`\n### ${title} — ${rows.length}`); for (const r of rows.slice(0, 60)) console.log("  " + r); if (rows.length > 60) console.log(`  … +${rows.length - 60} more`); };
 
 async function main() {
   const props = await prisma.property.findMany({ where: { deletedAt: null }, select: { id: true, code: true, timezone: true } });
