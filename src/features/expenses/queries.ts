@@ -312,7 +312,8 @@ export async function expenseSuggestions(user: SessionClaims): Promise<ExpenseSu
   };
 }
 
-export const EXPENSE_HEADS = ["HOUSEKEEPING", "KITCHEN", "MAINTENANCE", "UTILITIES", "STAFF", "ADMINISTRATION", "MISC"] as const;
+// Every head, incl. "Only GST Bills" — it held a quarter of all spend and was missing here.
+export const EXPENSE_HEADS = ["HOUSEKEEPING", "KITCHEN", "MAINTENANCE", "UTILITIES", "STAFF", "ADMINISTRATION", "MISC", "GST_BILLS"] as const;
 
 export type BudgetVsActualRow = { head: string; budgetPaise: number; actualPaise: number };
 export type BudgetVsActual = { month: string; rows: BudgetVsActualRow[]; totalBudgetPaise: number; totalActualPaise: number };
@@ -355,11 +356,12 @@ export async function budgetVsActual(
     // ExpenseBudget table not migrated yet — treat budgets as unset.
   }
 
+  // Heads with spend or a budget first (largest spend on top), then the rest.
   const rows = EXPENSE_HEADS.map((head) => ({
     head,
     budgetPaise: budgetByHead.get(head) ?? 0,
     actualPaise: actualByHead.get(head) ?? 0,
-  }));
+  })).sort((a, b) => b.actualPaise - a.actualPaise || b.budgetPaise - a.budgetPaise);
   return {
     month: input.month,
     rows,

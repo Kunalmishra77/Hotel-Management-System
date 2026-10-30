@@ -8,11 +8,11 @@
  */
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { formatINR, formatDayMonth } from "@/lib/utils";
+import { formatINR } from "@/lib/utils";
 import { PAYMENT_MODE_LABEL, EXPENSE_HEAD_LABEL } from "@/lib/constants/company";
 import { ExpensesCharts } from "./expenses-charts";
 import { ExportExpensesButton } from "./export-expenses-button";
+import { ExpenseLedger } from "./expense-ledger";
 import type { ExpensePortfolio } from "../queries";
 
 const HEADS = ["HOUSEKEEPING", "KITCHEN", "MAINTENANCE", "UTILITIES", "STAFF", "ADMINISTRATION", "MISC", "GST_BILLS"] as const;
@@ -89,7 +89,7 @@ export function ExpensesPortfolio({
           </div>
           <div className="rounded-lg border bg-muted/30 p-3">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Top category</p>
-            <p className="mt-1 text-lg font-semibold">{data.byHead[0]?.head ?? "—"}</p>
+            <p className="mt-1 text-lg font-semibold">{data.byHead[0] ? headLabel(data.byHead[0].head) : "—"}</p>
           </div>
         </div>
 
@@ -107,40 +107,8 @@ export function ExpensesPortfolio({
           </ul>
         </div>
 
-        {/* Ledger — capped height with a sticky header so a long month scrolls
-            INSIDE the table instead of stretching the whole page. */}
-        <div className="max-h-[28rem] overflow-auto rounded-md border">
-          <table className="w-full min-w-[760px] text-sm">
-            <thead className="sticky top-0 z-10 bg-background">
-              <tr className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <th className="py-2 pr-3 font-medium">Date</th>
-                <th className="py-2 px-3 font-medium">Property</th>
-                <th className="py-2 px-3 font-medium">Category</th>
-                <th className="py-2 px-3 font-medium">Vendor</th>
-                <th className="py-2 px-3 font-medium">Payment</th>
-                <th className="py-2 px-3 font-medium">Status</th>
-                <th className="py-2 px-3 text-right font-medium">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.rows.length === 0 ? (
-                <tr><td colSpan={7} className="py-8 text-center text-muted-foreground">No expenses match these filters.</td></tr>
-              ) : data.rows.map((r) => (
-                <tr key={r.id} className="border-b last:border-0 hover:bg-muted/40">
-                  <td className="py-2.5 pr-3 whitespace-nowrap">{formatDayMonth(r.spentOn)}</td>
-                  <td className="py-2.5 px-3 text-muted-foreground">{r.propertyName}</td>
-                  <td className="py-2.5 px-3">{r.head}{r.subCategory ? <span className="text-muted-foreground"> · {r.subCategory}</span> : null}</td>
-                  <td className="py-2.5 px-3 text-muted-foreground">{r.vendor ?? "—"}{r.hasBill ? " 📎" : ""}</td>
-                  <td className="py-2.5 px-3">{payLabel(r.paidVia)}</td>
-                  <td className="py-2.5 px-3">
-                    <Badge variant={r.status === "APPROVED" ? "secondary" : r.status === "REJECTED" ? "destructive" : "outline"}>{r.status}</Badge>
-                  </td>
-                  <td className="py-2.5 px-3 text-right tabular font-medium">{formatINR(r.amountPaise)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {/* Ledger — searchable, status-filtered, 50 rows at a time. */}
+        <ExpenseLedger rows={data.rows} />
       </CardContent>
     </Card>
   );

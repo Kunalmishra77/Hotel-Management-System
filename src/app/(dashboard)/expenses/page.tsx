@@ -50,7 +50,9 @@ export default async function ExpensesPage({
   const accessible = [...user.accessiblePropertyIds];
   // Budgets are per property: editable when one property is focused, else a
   // read-only portfolio aggregate. Current calendar month.
-  const budgetMonth = dayStr.slice(0, 7);
+  // ?bmonth=yyyy-mm picks the budget month (default: this month).
+  const bmonth = str(sp.bmonth);
+  const budgetMonth = bmonth && /^\d{4}-\d{2}$/.test(bmonth) ? bmonth : dayStr.slice(0, 7);
   const budgetPropertyIds = user.activePropertyId ? [user.activePropertyId] : accessible;
   const canApprove = hasPermission(user, "expense:approve");
   const [expenses, roll, portfolio, budget, suggestions, pending] = await Promise.all([
@@ -69,7 +71,9 @@ export default async function ExpensesPage({
     budgetVsActual(user, { propertyIds: budgetPropertyIds, month: budgetMonth }),
     expenseSuggestions(user),
     // The approval queue, every property in view — pinned to the top for approvers.
-    canApprove ? pendingExpenses(user, user.activePropertyId ? [user.activePropertyId] : accessible) : Promise.resolve([]),
+    // Every property the approver can reach — a pending Head Office expense must
+    // show even while a hotel is picked in the top bar.
+    canApprove ? pendingExpenses(user, accessible) : Promise.resolve([]),
   ]);
 
   return (
