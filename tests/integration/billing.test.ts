@@ -56,13 +56,14 @@ beforeEach(() => { authMock.current = null; });
 afterAll(async () => { await prisma.$disconnect(); });
 
 describe("postFolioCharge + GST (T-9, FR-4, AC-3/4/4b/5)", () => {
-  it("intra-state on-premise charge → CGST+SGST (AC-3: ₹1,000 laundry @ 18%)", async () => {
+  it("intra-state on-premise charge → CGST+SGST (AC-3: ₹1,000 laundry @ 5%)", async () => {
     await actAs(USER_RECEPTION_A_ID);
     const folioId = await freshFolio();
     const res = await postFolioCharge({ folioId, type: "LAUNDRY", description: "Laundry", unitPaise: 100_000 });
     expect(res.ok).toBe(true);
     if (!res.ok) return;
-    expect(res.data).toMatchObject({ cgstPaise: 9000, sgstPaise: 9000, igstPaise: 0 });
+    // Every on-premise service is 5% (2.5% + 2.5%) — client/CA rate, Sep 2026.
+    expect(res.data).toMatchObject({ cgstPaise: 2500, sgstPaise: 2500, igstPaise: 0 });
     const line = await prisma.folioLine.findUniqueOrThrow({ where: { id: res.data.lineId } });
     expect(line.placeOfSupplyState).toBe("Karnataka");
     expect(await prisma.domainEvent.findFirst({ where: { type: "FolioCharged", aggregateId: folioId } })).not.toBeNull();
@@ -74,7 +75,7 @@ describe("postFolioCharge + GST (T-9, FR-4, AC-3/4/4b/5)", () => {
     const res = await postFolioCharge({ folioId, type: "LAUNDRY", description: "Laundry", unitPaise: 100_000, placeOfSupplyState: "Maharashtra" });
     // placeOfSupply() forces the property state for on-premise types → intra.
     if (!res.ok) throw new Error("charge failed");
-    expect(res.data).toMatchObject({ cgstPaise: 9000, sgstPaise: 9000, igstPaise: 0 });
+    expect(res.data).toMatchObject({ cgstPaise: 2500, sgstPaise: 2500, igstPaise: 0 });
   });
 
   it("a genuine inter-state supply → IGST (AC-4b)", async () => {
@@ -82,7 +83,7 @@ describe("postFolioCharge + GST (T-9, FR-4, AC-3/4/4b/5)", () => {
     const folioId = await freshFolio();
     const res = await postFolioCharge({ folioId, type: "MISC", description: "Out-of-state goods", unitPaise: 100_000, placeOfSupplyState: "Maharashtra" });
     if (!res.ok) throw new Error("charge failed");
-    expect(res.data).toMatchObject({ cgstPaise: 0, sgstPaise: 0, igstPaise: 18000 });
+    expect(res.data).toMatchObject({ cgstPaise: 0, sgstPaise: 0, igstPaise: 5000 });
   });
 
   it("rejects a non-positive charge (AC-25)", async () => {
@@ -225,9 +226,10 @@ describe("invoice numbering (T-15/16/17/18, FR-12/13/16/21, AC-13/14/16/17)", ()
     expect(res.ok).toBe(true);
     if (!res.ok) return;
     const inv = await prisma.invoice.findUniqueOrThrow({ where: { id: res.data.invoiceId } });
-    expect(inv.number).toMatch(/WMG\/\d{4}-\d{2}\/\d{5}/);
+    // One company-wide series, as printed on the client's bills: "WASPL :853/ 26-27".
+    expect(inv.number).toMatch(/^WASPL :\d+\/ \d{2}-\d{2}$/);
     expect(inv.financialYear).toMatch(/^\d{4}-\d{2}$/);
-    expect(Number(inv.totalPaise)).toBe(448_000); // 400,000 + 12% (48,000)
+    expect(Number(inv.totalPaise)).toBe(420_000); // 400,000 + 5% room GST (≤ ₹7,500 band)
     expect(inv.pdfObjectKey).not.toBeNull(); // attached after commit
   });
 
@@ -240,8 +242,9 @@ describe("invoice numbering (T-15/16/17/18, FR-12/13/16/21, AC-13/14/16/17)", ()
     ]);
     expect(a.ok && b.ok).toBe(true);
     if (a.ok && b.ok) {
-      const na = Number(a.data.number.split("/").pop());
-      const nb = Number(b.data.number.split("/").pop());
+      const seq = (n: string) => Number(/:(\d+)\//.exec(n)?.[1]);
+      const na = seq(a.data.number);
+      const nb = seq(b.data.number);
       expect(Math.abs(na - nb)).toBe(1); // adjacent, no duplicate, no gap
     }
   });
@@ -422,7 +425,7 @@ describe("walk-in POS direct sale (T-22b, FR-25, AC-26)", () => {
     const line = await prisma.folioLine.findFirstOrThrow({ where: { folioId: folio.id, type: "FOOD" } });
     expect(line.cgstPaise).toBe(2500); // 5% of 100,000 → CGST 2,500 + SGST 2,500
     const invoice = await prisma.invoice.findUniqueOrThrow({ where: { id: res.data.invoiceId } });
-    expect(invoice.number).toMatch(/WMG\/\d{4}-\d{2}\/\d{5}/);
+    expect(invoice.number).toMatch(/^WASPL :\d+\/ \d{2}-\d{2}$/);
   });
 });
 

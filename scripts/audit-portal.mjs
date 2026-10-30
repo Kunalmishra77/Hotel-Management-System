@@ -2,6 +2,8 @@
  * FULL portal data audit — read-only. Every property, every check that has bitten
  * us live. Prints a categorised report; writes nothing.
  *   node scripts/audit-portal.mjs
+ *   node scripts/audit-portal.mjs <out.xlsx>   (also: one sheet per check, with a
+ *                                              "Client answer" column to fill in)
  */
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
@@ -84,5 +86,20 @@ async function main() {
   // 10. Guest duplicates left (same contact, different names)
   const g = await prisma.$queryRawUnsafe(`SELECT array_agg("fullName") n FROM "Guest" WHERE "deletedAt" IS NULL AND "mobileHash" IS NOT NULL GROUP BY "orgId","mobileHash" HAVING count(*)>1`);
   out("10. GUESTS SHARING A MOBILE (different names — needs a human call)", g.map((x) => x.n.join(" / ")));
+
+  const xlsx = process.argv[2];
+  if (xlsx) {
+    const { default: ExcelJS } = await import("exceljs");
+    const wb = new ExcelJS.Workbook();
+    for (const s of sections.filter((x) => x.rows.length > 0)) {
+      const ws = wb.addWorksheet(s.title.replace(/^\d+\.\s*/, "").replace(/[^\w ]/g, "").slice(0, 31));
+      ws.columns = [{ header: "#", width: 5 }, { header: s.title, width: 120 }, { header: "Client answer", width: 50 }];
+      ws.getRow(1).font = { bold: true };
+      s.rows.forEach((r, i) => ws.addRow([i + 1, r, ""]));
+    }
+    await wb.xlsx.writeFile(xlsx);
+    console.log(`
+Wrote ${xlsx}`);
+  }
 }
 main().catch((e) => { console.error("FAILED:", e.message); process.exitCode = 1; }).finally(() => prisma.$disconnect());

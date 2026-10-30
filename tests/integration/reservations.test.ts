@@ -134,6 +134,21 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
+/**
+ * Check out ON the booked check-out day (15 Jul 2027). Checking a 2027 stay out
+ * "today" is an early departure — the unused nights are reversed — so the gate
+ * tests pin the clock (Date only; timers stay real) to the departure day.
+ */
+async function checkOutOnDepartureDay(input: Parameters<typeof checkOut>[0]): Promise<Awaited<ReturnType<typeof checkOut>>> {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2027-07-15T06:00:00.000Z"));
+  try {
+    return await checkOut(input);
+  } finally {
+    vi.useRealTimers();
+  }
+}
+
 describe("createReservation (T-12, FR-3/6/7, AC-1/2/3)", () => {
   it("creates a CONFIRMED booking with an allocation, folio and event; a FUTURE stay leaves the room's board status alone (AC-1/3, F-ROOM-2)", async () => {
     await actAs(USER_RECEPTION_A_ID);
@@ -373,16 +388,16 @@ describe("lifecycle: check-in / check-out / cancel / reallocate (T-17/18/19/20)"
     const id = await makeConfirmed(); // advance 5,000 < total 13,410 → balance due
     await checkIn({ reservationId: id });
     await actAs(USER_RECEPTION_A_ID); // Reception has NO folio:defer
-    const res = await checkOut({ reservationId: id });
+    const res = await checkOutOnDepartureDay({ reservationId: id });
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.error.code).toBe("BALANCE_UNSETTLED");
   });
 
   it("allows check-out when the LIVE folio balance is settled (AC-17)", async () => {
     // Folio-authoritative total (Option A), NOT the snapshot: room 3×(400,000 +
-    // 12% GST 48,000) = 1,344,000; + extra bed 80,000 + 12% (9,600); − discount
-    // 50,000 = 1,383,600. Advance = that exact amount → live folio balance 0.
-    const id = await makeConfirmed(ROOM_102_ID, { advancePaise: 1_383_600 });
+    // 5% GST 20,000) = 1,260,000; + extra bed 80,000 + 5% (4,000); − discount
+    // 50,000 and its 5% GST (2,500) = 1,291,500. Advance = that exact amount.
+    const id = await makeConfirmed(ROOM_102_ID, { advancePaise: 1_291_500 });
     await checkIn({ reservationId: id });
     const res = await checkOut({ reservationId: id });
     expect(res.ok).toBe(true);
@@ -460,8 +475,9 @@ describe("folio-authoritative check-out (3C T5 — money is always correct)", ()
   });
 
   it("gates on the LIVE folio, not the snapshot — a mid-stay POS charge blocks an otherwise-settled check-out", async () => {
-    // Prepay the exact agreed folio total → without any in-stay charge, balance 0.
-    const id = await confirmMehta(ROOM_104_ID, { advancePaise: 1_383_600 });
+    // Prepay the exact agreed folio total (5% GST, discount pre-tax) → without any
+    // in-stay charge, balance 0.
+    const id = await confirmMehta(ROOM_104_ID, { advancePaise: 1_291_500 });
     await checkIn({ reservationId: id });
     const folioId = await folioIdOf(id);
 
@@ -473,7 +489,7 @@ describe("folio-authoritative check-out (3C T5 — money is always correct)", ()
     // Reception (no folio:defer) is now blocked BECAUSE the folio owes the POS
     // charge + its GST — the snapshot alone would have let this check out.
     await actAs(USER_RECEPTION_A_ID);
-    const res = await checkOut({ reservationId: id });
+    const res = await checkOutOnDepartureDay({ reservationId: id });
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.error.code).toBe("BALANCE_UNSETTLED");
     expect((await prisma.reservation.findUniqueOrThrow({ where: { id } })).status).toBe("IN_HOUSE");
@@ -495,7 +511,7 @@ describe("folio-authoritative check-out (3C T5 — money is always correct)", ()
     // ALREADY_PAID posts the prepayment as an ONLINE tender.
     expect(await prisma.payment.count({ where: { folioId, mode: "ONLINE" } })).toBe(1);
 
-    const res = await checkOut({ reservationId: id });
+    const res = await checkOutOnDepartureDay({ reservationId: id });
     expect(res.ok).toBe(true);
     const claims = await actAs(USER_RECEPTION_A_ID);
     expect((await getFolio(claims, folioId))?.balancePaise).toBe(0);
