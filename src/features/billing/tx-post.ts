@@ -175,6 +175,12 @@ export type BookingExtrasInput = {
   extraBedPaise: number;
   otherChargesPaise: number;
   discountPaise: number;
+  /**
+   * GST rate of the supply the discount is on (the room band). A discount agreed at
+   * booking is shown on the invoice, so it reduces the TAXABLE value and the GST
+   * with it (CGST Act §15(3)(a)) — not just the bill total. Omitted → tax-free.
+   */
+  discountRateBps?: number;
   businessDate: Date;
   postedById?: string | null;
 };
@@ -221,10 +227,13 @@ export function bookingExtraLineData(input: BookingExtrasInput): Prisma.FolioLin
   }
 
   if (input.discountPaise > 0) {
+    const bps = input.discountRateBps ?? 0;
+    const gst = computeGst(input.discountPaise, bps, input.propertyState, input.propertyState);
     lines.push({
       ...base, type: "DISCOUNT", description: "Discount", quantity: 1,
       unitPaise: -input.discountPaise, amountPaise: BigInt(-input.discountPaise),
-      taxRateBps: 0, cgstPaise: 0, sgstPaise: 0, igstPaise: 0, hsnSac: null,
+      taxRateBps: bps, cgstPaise: -gst.cgstPaise || 0, sgstPaise: -gst.sgstPaise || 0, igstPaise: -gst.igstPaise || 0, // `|| 0`: no -0 for a tax-free discount
+      hsnSac: bps > 0 ? "996311" : null,
     });
   }
 

@@ -14,6 +14,7 @@ import { writeAudit } from "@/lib/audit";
 import { emitEvent, type EventCapableTx } from "@/lib/events";
 import { DomainError, ErrorCode, NotFoundError } from "@/lib/errors";
 import { toResult, type Result } from "@/lib/result";
+import { roomGstBps } from "@/lib/constants/gst";
 import {
   ensureFolio,
   folioBalance,
@@ -197,6 +198,8 @@ export async function checkIn(input: unknown): Promise<Result<LifecycleResult>> 
                 extraBedPaise: r.extraBedPaise,
                 otherChargesPaise: r.otherChargesPaise,
                 discountPaise: r.discountPaise,
+                // The booking discount is on the room → it lowers the room's taxable value and GST.
+                discountRateBps: roomGstBps(r.ratePaise),
                 businessDate: r.checkInDate,
                 postedById: user.userId,
               });

@@ -26,7 +26,8 @@ import { DomainError, ErrorCode, NotFoundError } from "@/lib/errors";
 import { toResult, type Result } from "@/lib/result";
 import { revalidatePath } from "next/cache";
 import { ensureFolio, postRoomChargeTx, postServiceChargeTx, postPaymentTx, autoIssueInvoiceOnCheckout, type BillingPostTx } from "@/features/billing";
-import { roomGstBps, gstBpsForCharge } from "@/lib/constants/gst";
+import { gstBpsForCharge } from "@/lib/constants/gst";
+import { preTaxRatePaise } from "./domain/pricing";
 import { recomputeHistoricalSnapshot } from "@/features/analytics/night-audit";
 import { createGuest } from "@/features/guests/actions";
 import { addGuestId } from "@/features/guests/id-actions";
@@ -191,8 +192,8 @@ export async function createHistoricalStay(input: unknown): Promise<Result<{ res
     // is pre-tax and GST is added on top (like a live booking).
     const toTaxable = (amountPaise: number, bps: number): number =>
       data.gstMode === "exclusive" ? amountPaise : Math.round((amountPaise * 10_000) / (10_000 + bps));
-    const roomBps = ratePaise > 0 ? roomGstBps(ratePaise) : 0;
-    const taxableRatePaise = ratePaise > 0 ? toTaxable(ratePaise, roomBps) : 0;
+    // Room: band-aware back-out (the slab depends on the pre-tax tariff itself).
+    const taxableRatePaise = ratePaise > 0 ? preTaxRatePaise(ratePaise, data.gstMode === "exclusive" ? "exclusive" : "inclusive") : 0;
     const extraCharges = data.extraCharges.map((c) => ({
       type: c.type,
       description: c.description ?? null,

@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { roomGstBps, gstBpsForCharge } from "@/lib/constants/gst";
 import { nights as computeNights } from "../domain/nights";
+import { preTaxRatePaise } from "../domain/pricing";
 import { searchAvailability, searchAvailabilityGrid } from "../availability-action";
 import type { AvailabilityGrid } from "../availability-grid";
 import { segmentsFromPicks, type NightPicks } from "../domain/split-stay";
@@ -186,15 +187,19 @@ export function BookingForm({
   // typed). "Exclusive" → the rate is pre-tax and GST is added on top. 06 owns the
   // authoritative GST; this is the out-the-door preview.
   const EB_BPS = gstBpsForCharge("EXTRA_BED"); // extra bed GST, config-driven (flat 5%)
-  const roomBps = roomGstBps(toPaise(rate) || 1);
   const toTaxable = (enteredPaise: number, bps: number) =>
     gstInclusive ? Math.round((enteredPaise * 10_000) / (10_000 + bps)) : enteredPaise;
-  const ratePaiseSubmit = toTaxable(toPaise(rate), roomBps);
+  // Band-aware back-out: the room GST rate depends on the pre-tax tariff itself, so
+  // an all-in ₹7,875 is ₹7,500 + 5%, not ₹6,673 + 18% (shared with Data Entry).
+  const ratePaiseSubmit = preTaxRatePaise(toPaise(rate), gstInclusive ? "inclusive" : "exclusive");
+  const roomBps = roomGstBps(ratePaiseSubmit || 1);
   const extraBedPaiseSubmit = toTaxable(toPaise(extraBed), EB_BPS);
   const discountPaise = toPaise(discount);
   const advancePaise = toPaise(advance);
   const roomTaxable = ratePaiseSubmit * nights;
-  const roomGst = Math.round((roomTaxable * roomBps) / 10_000);
+  // The discount comes off the room before GST (it is on the invoice), so GST is
+  // charged on the discounted room value — same as the folio posts at check-in.
+  const roomGst = Math.round((Math.max(0, roomTaxable - discountPaise) * roomBps) / 10_000);
   const ebGst = Math.round((extraBedPaiseSubmit * EB_BPS) / 10_000);
   const taxPaise = roomGst + ebGst;
   const totalPaise = roomTaxable + extraBedPaiseSubmit + taxPaise - discountPaise;

@@ -68,10 +68,19 @@ describe("bookingExtraLineData (Option A — folio is the full agreed bill)", ()
     expect((bed.cgstPaise ?? 0) + (bed.sgstPaise ?? 0)).toBe(Math.round((80000 * (bed.taxRateBps ?? 0)) / 10000));
 
     const discount = lines[2]!;
-    // Discount reduces the balance by exactly its amount: negative, tax-free.
+    // No supply rate given: a plain negative, tax-free line.
     expect(discount.amountPaise).toBe(-50000n);
     expect(discount.taxRateBps).toBe(0);
     expect((discount.cgstPaise ?? 0) + (discount.sgstPaise ?? 0) + (discount.igstPaise ?? 0)).toBe(0);
+  });
+
+  it("a booking discount on the room lowers the GST too (pre-tax, at the room rate)", () => {
+    const [discount] = bookingExtraLineData({ ...extras, extraBedPaise: 0, otherChargesPaise: 0, discountPaise: 50000, discountRateBps: 500 });
+    expect(discount!.amountPaise).toBe(-50000n);
+    expect(discount!.taxRateBps).toBe(500);
+    // ₹500 off at 5% → ₹25 less GST, split CGST/SGST.
+    expect(discount!.cgstPaise).toBe(-1250);
+    expect(discount!.sgstPaise).toBe(-1250);
   });
 
   it("emits no line for a zero component", () => {
