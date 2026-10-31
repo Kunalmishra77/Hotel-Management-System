@@ -31,6 +31,7 @@ const SOURCE_LABEL: Record<string, string> = {
   TRAVEL_AGENT: "Travel agent",
   BOOKING_COM: "Booking.com",
   MAKEMYTRIP: "MakeMyTrip",
+  EXPEDIA: "Expedia",
   GOIBIBO: "Goibibo",
   AGODA: "Agoda",
   AIRBNB: "Airbnb",

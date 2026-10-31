@@ -38,6 +38,7 @@ export const BOOKING_SOURCE_LABEL: Record<string, string> = {
   BOOKING_COM: "Booking.com",
   AGODA: "Agoda",
   MAKEMYTRIP: "MakeMyTrip",
+  EXPEDIA: "Expedia",
   GOIBIBO: "Goibibo",
   CORPORATE: "Corporate",
   TRAVEL_AGENT: "Travel Agent",

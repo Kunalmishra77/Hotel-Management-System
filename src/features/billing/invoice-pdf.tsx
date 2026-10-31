@@ -59,7 +59,7 @@ const BORDER = "#000000";
 
 /** OTA-sourced booking? Drives the "(MakeMyTrip)" consignee tag (client MMT sample).
  *  `bookingSource` is already the human label (BOOKING_SOURCE_LABEL). */
-const OTA_LABELS = new Set(["MakeMyTrip", "Booking.com", "Agoda", "Goibibo", "Airbnb"]);
+const OTA_LABELS = new Set(["MakeMyTrip", "Booking.com", "Agoda", "Goibibo", "Expedia", "Airbnb"]);
 function isOtaSource(bookingSource: string | null): boolean {
   return bookingSource !== null && OTA_LABELS.has(bookingSource);
 }

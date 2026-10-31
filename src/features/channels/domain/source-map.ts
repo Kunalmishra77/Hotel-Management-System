@@ -17,6 +17,7 @@ export type BookingSourceLike =
   | "AGODA"
   | "MAKEMYTRIP"
   | "GOIBIBO"
+  | "EXPEDIA"
   | "AIRBNB"
   | "WEBSITE";
 
@@ -27,6 +28,7 @@ const PROVIDER_SOURCE: Record<string, BookingSourceLike> = {
   makemytrip: "MAKEMYTRIP",
   mmt: "MAKEMYTRIP",
   goibibo: "GOIBIBO",
+  expedia: "EXPEDIA",
   airbnb: "AIRBNB",
 };
 

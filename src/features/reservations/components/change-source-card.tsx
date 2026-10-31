@@ -22,6 +22,7 @@ const SOURCES: { value: string; label: string }[] = [
   { value: "TRAVEL_AGENT", label: "Travel agent" },
   { value: "BOOKING_COM", label: "Booking.com" },
   { value: "MAKEMYTRIP", label: "MakeMyTrip" },
+  { value: "EXPEDIA", label: "Expedia" },
   { value: "AGODA", label: "Agoda" },
   { value: "GOIBIBO", label: "Goibibo" },
   { value: "AIRBNB", label: "Airbnb" },

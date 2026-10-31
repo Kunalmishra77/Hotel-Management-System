@@ -48,7 +48,7 @@ type Raw = Record<string, string | undefined>;
 
 const BOOKING_SOURCES = new Set([
   "DIRECT", "WEBSITE", "PHONE", "WALK_IN",
-  "AIRBNB", "BOOKING_COM", "AGODA", "MAKEMYTRIP", "GOIBIBO",
+  "AIRBNB", "BOOKING_COM", "AGODA", "MAKEMYTRIP", "GOIBIBO", "EXPEDIA",
   "CORPORATE", "TRAVEL_AGENT",
 ]);
 

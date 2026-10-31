@@ -26,7 +26,7 @@ const isReport = (v: string | undefined): v is ReportType => REPORT_TYPES.some((
 
 const SOURCE_LABEL: Record<string, string> = {
   WALK_IN: "Walk-in", DIRECT: "Direct", WEBSITE: "Website", PHONE: "Phone", CORPORATE: "Corporate",
-  TRAVEL_AGENT: "Travel agent", BOOKING_COM: "Booking.com", MAKEMYTRIP: "MakeMyTrip", GOIBIBO: "Goibibo",
+  TRAVEL_AGENT: "Travel agent", BOOKING_COM: "Booking.com", MAKEMYTRIP: "MakeMyTrip", EXPEDIA: "Expedia", GOIBIBO: "Goibibo",
   AGODA: "Agoda", AIRBNB: "Airbnb",
 };
 const sourceLabel = (s: string) => SOURCE_LABEL[s] ?? s.replace(/_/g, " ").toLowerCase();

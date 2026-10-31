@@ -522,6 +522,7 @@ enum BookingSource {
   AGODA
   MAKEMYTRIP
   GOIBIBO
+  EXPEDIA
   CORPORATE
   TRAVEL_AGENT
 }
@@ -607,6 +608,10 @@ model Reservation {
   taxPaise          Int @default(0)
   otherChargesPaise Int @default(0)
   advancePaise      Int @default(0)
+  // How the advance / prepayment was paid (UPI, cash, OTA online…) — posted to the
+  // folio with this mode at check-in. Null for old bookings (fallback: ONLINE when
+  // already paid, else CASH).
+  advanceMode       PaymentMode?
 
   allocations      RoomAllocation[]
   folio            Folio?

@@ -20,7 +20,7 @@ const STATUS_TONE: Record<string, string> = {
 const fmtDate = (d: Date) => new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
 const SOURCE_LABEL: Record<string, string> = {
   WALK_IN: "Walk-in", DIRECT: "Direct", WEBSITE: "Website", PHONE: "Phone", CORPORATE: "Corporate",
-  TRAVEL_AGENT: "Travel agent", BOOKING_COM: "Booking.com", MAKEMYTRIP: "MakeMyTrip", GOIBIBO: "Goibibo",
+  TRAVEL_AGENT: "Travel agent", BOOKING_COM: "Booking.com", MAKEMYTRIP: "MakeMyTrip", EXPEDIA: "Expedia", GOIBIBO: "Goibibo",
   AGODA: "Agoda", AIRBNB: "Airbnb",
 };
 

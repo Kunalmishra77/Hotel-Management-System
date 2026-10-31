@@ -19,7 +19,7 @@ export const metadata: Metadata = { title: "Property view" };
 const pct = (bps: number) => `${(bps / 100).toFixed(0)}%`;
 const SOURCE_LABEL: Record<string, string> = {
   WALK_IN: "Walk-in", DIRECT: "Direct", WEBSITE: "Website", PHONE: "Phone", CORPORATE: "Corporate",
-  TRAVEL_AGENT: "Travel agent", BOOKING_COM: "Booking.com", MAKEMYTRIP: "MakeMyTrip", GOIBIBO: "Goibibo", AGODA: "Agoda", AIRBNB: "Airbnb",
+  TRAVEL_AGENT: "Travel agent", BOOKING_COM: "Booking.com", MAKEMYTRIP: "MakeMyTrip", EXPEDIA: "Expedia", GOIBIBO: "Goibibo", AGODA: "Agoda", AIRBNB: "Airbnb",
 };
 const sourceLabel = (s: string) => SOURCE_LABEL[s] ?? s.replace(/_/g, " ").toLowerCase();
 

@@ -9,6 +9,7 @@ export const OTA_COMMISSION_BPS: Record<string, number> = {
   MAKEMYTRIP: 2000, // 20%
   GOIBIBO: 1800, // 18%
   AGODA: 1800, // 18%
+  EXPEDIA: 1800, // 18%
   AIRBNB: 1500, // 15%
   TRAVEL_AGENT: 1000, // 10% agent commission
 };

@@ -34,7 +34,7 @@ export const metadata: Metadata = { title: "Dashboard" };
 
 const SOURCE_LABEL: Record<string, string> = {
   WALK_IN: "Walk-in", DIRECT: "Direct", WEBSITE: "Website", PHONE: "Phone", CORPORATE: "Corporate",
-  TRAVEL_AGENT: "Travel agent", BOOKING_COM: "Booking.com", MAKEMYTRIP: "MakeMyTrip", GOIBIBO: "Goibibo",
+  TRAVEL_AGENT: "Travel agent", BOOKING_COM: "Booking.com", MAKEMYTRIP: "MakeMyTrip", EXPEDIA: "Expedia", GOIBIBO: "Goibibo",
   AGODA: "Agoda", AIRBNB: "Airbnb",
 };
 const sourceLabel = (s: string) => SOURCE_LABEL[s] ?? s.replace(/_/g, " ").toLowerCase();
@@ -42,7 +42,7 @@ const pct = (bps: number) => `${Math.round(bps / 100)}%`;
 
 // Channel families — direct earns full margin; OTA carries commission.
 const DIRECT_SOURCES = new Set(["DIRECT", "WEBSITE", "PHONE", "WALK_IN"]);
-const OTA_SOURCES = new Set(["BOOKING_COM", "MAKEMYTRIP", "GOIBIBO", "AGODA", "AIRBNB"]);
+const OTA_SOURCES = new Set(["BOOKING_COM", "MAKEMYTRIP", "GOIBIBO", "AGODA", "EXPEDIA", "AIRBNB"]);
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
 /** KpiCard delta props from a signed %-change; `goodDirection` colours it. */

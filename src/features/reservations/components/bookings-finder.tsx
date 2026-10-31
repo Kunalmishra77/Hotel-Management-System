@@ -32,7 +32,7 @@ const STATUS_CHIPS: { key: FinderParams["status"]; label: string; tone: string }
 const STATUS_TONE = Object.fromEntries(STATUS_CHIPS.filter((s) => s.key).map((s) => [s.key, s.tone])) as Record<string, string>;
 const SOURCE_LABEL: Record<string, string> = {
   WALK_IN: "Walk-in", DIRECT: "Direct", WEBSITE: "Website", PHONE: "Phone", CORPORATE: "Corporate",
-  TRAVEL_AGENT: "Travel agent", BOOKING_COM: "Booking.com", MAKEMYTRIP: "MakeMyTrip", GOIBIBO: "Goibibo",
+  TRAVEL_AGENT: "Travel agent", BOOKING_COM: "Booking.com", MAKEMYTRIP: "MakeMyTrip", EXPEDIA: "Expedia", GOIBIBO: "Goibibo",
   AGODA: "Agoda", AIRBNB: "Airbnb",
 };
 const DATE_FIELD_LABEL: Record<FinderParams["dateField"], string> = {

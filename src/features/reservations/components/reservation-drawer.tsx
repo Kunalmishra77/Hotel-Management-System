@@ -18,7 +18,7 @@ import { getReservationDetail, type ReservationDetail } from "../detail-action";
 
 const SOURCE_LABEL: Record<string, string> = {
   WALK_IN: "Walk-in", DIRECT: "Direct", WEBSITE: "Website", PHONE: "Phone", CORPORATE: "Corporate",
-  TRAVEL_AGENT: "Travel agent", BOOKING_COM: "Booking.com", MAKEMYTRIP: "MakeMyTrip", GOIBIBO: "Goibibo", AGODA: "Agoda", AIRBNB: "Airbnb",
+  TRAVEL_AGENT: "Travel agent", BOOKING_COM: "Booking.com", MAKEMYTRIP: "MakeMyTrip", EXPEDIA: "Expedia", GOIBIBO: "Goibibo", AGODA: "Agoda", AIRBNB: "Airbnb",
 };
 const STATUS_VARIANT: Record<string, "secondary" | "warning" | "success" | "default" | "destructive"> = {
   ENQUIRY: "secondary", CONFIRMED: "warning", IN_HOUSE: "success", CHECKED_OUT: "default", CANCELLED: "destructive", NO_SHOW: "destructive",
