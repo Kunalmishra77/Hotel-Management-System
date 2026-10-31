@@ -166,3 +166,11 @@ export const validateCouponSchema = z.object({
   propertyId: z.string().min(1),
   categoryId: z.string().optional(),
 });
+
+/** Correct a payment entered by mistake: cancel it, optionally re-enter it right. */
+export const correctPaymentSchema = z.object({
+  paymentId: z.string().min(1),
+  reason: z.string().trim().min(3, "Say what was wrong (e.g. paid by UPI, not cash).").max(150),
+  newMode: z.enum(["CASH", "UPI", "CREDIT_CARD", "DEBIT_CARD", "BANK_TRANSFER", "ONLINE"]).optional(),
+  newAmountPaise: z.number().int().positive().optional(),
+});

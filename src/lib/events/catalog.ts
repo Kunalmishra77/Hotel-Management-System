@@ -63,6 +63,7 @@ export const DOMAIN_EVENT_TYPES = [
   "DiscountApplied",
   "CouponRedeemed",
   "PaymentReceived",
+  "PaymentCorrected",
   "PaymentRefunded",
   "InvoiceIssued",
   "PaymentDueDetected",

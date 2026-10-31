@@ -45,7 +45,8 @@ export function PaymentStep({
   collectedPaise: number;
   onCollected: (amountPaise: number) => void;
 }) {
-  const [mode, setMode] = useState<string>("CASH");
+  // No default — a tender is never silently recorded as Cash.
+  const [mode, setMode] = useState<string>("");
   const [amount, setAmount] = useState("");
   const [tenders, setTenders] = useState<Tender[]>([]);
   const [pending, start] = useTransition();
@@ -77,6 +78,10 @@ export function PaymentStep({
     const rupees = Number(amount);
     if (!Number.isFinite(rupees) || rupees <= 0) {
       setError("Enter an amount to add.");
+      return;
+    }
+    if (!mode) {
+      setError("Choose the payment mode (UPI, cash, card…).");
       return;
     }
     setError(null);
@@ -132,7 +137,7 @@ export function PaymentStep({
             <Label htmlFor="pay-mode">Mode</Label>
             <Select value={mode} onValueChange={setMode}>
               <SelectTrigger id="pay-mode" data-testid="pay-mode">
-                <SelectValue />
+                <SelectValue placeholder="Select payment mode…" />
               </SelectTrigger>
               <SelectContent>
                 {MODES.map((m) => (

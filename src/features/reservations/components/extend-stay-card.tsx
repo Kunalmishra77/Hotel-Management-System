@@ -9,6 +9,11 @@
  * tariff, and the alternative — extend, then "Edit room rate" — re-prices the
  * WHOLE stay and destroys the rate already agreed for the earlier nights.
  * Leaving the rate blank keeps the booking's current rate.
+ *
+ * Who pays for the added nights: "Pay at hotel" (default) leaves them due —
+ * collect with Take payment. "Already paid" covers the guest who re-booked the
+ * extra nights on an OTA (e.g. Agoda with their coupons) or paid now: the
+ * amount is recorded on the bill with its mode and channel, so nothing shows due.
  */
 import { useState, useTransition } from "react";
 import { CalendarPlus } from "lucide-react";
@@ -18,6 +23,9 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { extendStay } from "../move-actions";
 import { formatINR } from "@/lib/utils";
+import { PaymentModeSelect } from "@/components/forms/payment-mode-select";
+
+const CHANNELS = ["Direct", "Agoda", "MakeMyTrip", "Booking.com", "Goibibo", "Expedia", "Airbnb"] as const;
 
 export function ExtendStayCard({
   reservationId,
@@ -31,6 +39,11 @@ export function ExtendStayCard({
   const [date, setDate] = useState("");
   const [rate, setRate] = useState("");
   const [gstMode, setGstMode] = useState<"inclusive" | "exclusive">("exclusive");
+  const [payment, setPayment] = useState<"due" | "paid">("due");
+  const [paidAmount, setPaidAmount] = useState("");
+  const [paidMode, setPaidMode] = useState<string>("");
+  const [via, setVia] = useState<string>("Direct");
+  const paidIncomplete = payment === "paid" && (!(Number(paidAmount) > 0) || !paidMode);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
@@ -44,10 +57,14 @@ export function ExtendStayCard({
         newCheckOutDate: date,
         // Blank → keep the booking's current rate.
         ...(rate && Number(rate) > 0 ? { ratePaise: Math.round(Number(rate) * 100), gstMode } : {}),
+        ...(payment === "paid" ? { paid: { amountPaise: Math.round(Number(paidAmount) * 100), mode: paidMode, via } } : {}),
       });
       if (!res.ok) { setError(res.error.message); return; }
       setDone(date);
       setRate("");
+      setPayment("due");
+      setPaidAmount("");
+      setPaidMode("");
     });
   }
 
@@ -74,7 +91,7 @@ export function ExtendStayCard({
             <Label htmlFor="extend-rate">Rate / night for the extra nights (₹)</Label>
             <Input id="extend-rate" type="number" inputMode="decimal" step="0.01" min={0} value={rate} onChange={(e) => setRate(e.target.value)} placeholder="same as now" className="w-52" data-testid="extend-rate" />
           </div>
-          <Button type="button" onClick={submit} disabled={pending || !date || date <= checkOutDate} data-testid="extend-submit">
+          <Button type="button" onClick={submit} disabled={pending || !date || date <= checkOutDate || paidIncomplete} data-testid="extend-submit">
             {pending ? "Extending…" : "Extend stay"}
           </Button>
         </div>
@@ -90,6 +107,37 @@ export function ExtendStayCard({
             </label>
           </div>
         )}
+        <div className="space-y-2 rounded-md border p-3" data-testid="extend-payment">
+          <p className="text-sm font-medium">Payment for the extra nights</p>
+          <div className="flex flex-wrap gap-4 text-sm">
+            <label className="flex items-center gap-2">
+              <input type="radio" name="extend-pay" checked={payment === "due"} onChange={() => setPayment("due")} data-testid="extend-pay-due" />
+              Pay at hotel (due — collect with Take payment)
+            </label>
+            <label className="flex items-center gap-2">
+              <input type="radio" name="extend-pay" checked={payment === "paid"} onChange={() => { setPayment("paid"); if (!paidMode) setPaidMode("ONLINE"); }} data-testid="extend-pay-paid" />
+              Already paid (e.g. re-booked on Agoda / paid now)
+            </label>
+          </div>
+          {payment === "paid" && (
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="extend-via">Booked / paid via</Label>
+                <select id="extend-via" value={via} onChange={(e) => setVia(e.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" data-testid="extend-via">
+                  {CHANNELS.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="extend-paid-amount">Amount paid (₹, incl. GST)</Label>
+                <Input id="extend-paid-amount" type="number" inputMode="decimal" step="0.01" min={0} value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} data-testid="extend-paid-amount" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="extend-paid-mode">Paid by</Label>
+                <PaymentModeSelect id="extend-paid-mode" value={paidMode} onChange={setPaidMode} required testId="extend-paid-mode" />
+              </div>
+            </div>
+          )}
+        </div>
         <p className="text-xs text-muted-foreground">
           A new rate applies to the added nights and to the rest of the stay. Nights already billed keep the rate they were agreed at — use “Edit room rate” to change those.
         </p>

@@ -21,6 +21,7 @@ import { searchAvailability, searchAvailabilityGrid } from "../availability-acti
 import type { AvailabilityGrid } from "../availability-grid";
 import { segmentsFromPicks, type NightPicks } from "../domain/split-stay";
 import { SplitStayPicker } from "./split-stay-picker";
+import { PaymentModeSelect } from "@/components/forms/payment-mode-select";
 import {
   createGuestForBooking,
   createReservationFormAction,
@@ -137,7 +138,7 @@ export function BookingForm({
   const multiFloor = floorGroups.filter((g) => g.rooms.length > 0).length > 1;
 
   const [source, setSource] = useState("WALK_IN");
-  const isOta = ["BOOKING_COM", "MAKEMYTRIP", "AGODA", "GOIBIBO", "AIRBNB", "TRAVEL_AGENT"].includes(source);
+  const isOta = ["BOOKING_COM", "MAKEMYTRIP", "AGODA", "GOIBIBO", "EXPEDIA", "AIRBNB", "TRAVEL_AGENT"].includes(source);
   const [settlement, setSettlement] = useState("PAY_AT_HOTEL");
   const [guestQuery, setGuestQuery] = useState("");
   const [guests, setGuests] = useState<GuestPick[]>([]);
@@ -172,6 +173,10 @@ export function BookingForm({
   const [discount, setDiscount] = useState(0);
   const [extraBed, setExtraBed] = useState(0);
   const [advance, setAdvance] = useState(0);
+  // "Already paid" (OTA prepaid) defaults the amount to the whole bill until the
+  // operator types a different figure; the mode must always be chosen.
+  const [advanceTouched, setAdvanceTouched] = useState(false);
+  const [advanceMode, setAdvanceMode] = useState<string>("");
   const [gstInclusive, setGstInclusive] = useState(false);
 
   const [state, submit, pending] = useActionState(createReservationFormAction, INITIAL);
@@ -195,7 +200,6 @@ export function BookingForm({
   const roomBps = roomGstBps(ratePaiseSubmit || 1);
   const extraBedPaiseSubmit = toTaxable(toPaise(extraBed), EB_BPS);
   const discountPaise = toPaise(discount);
-  const advancePaise = toPaise(advance);
   const roomTaxable = ratePaiseSubmit * nights;
   // The discount comes off the room before GST (it is on the invoice), so GST is
   // charged on the discounted room value — same as the folio posts at check-in.
@@ -203,6 +207,8 @@ export function BookingForm({
   const ebGst = Math.round((extraBedPaiseSubmit * EB_BPS) / 10_000);
   const taxPaise = roomGst + ebGst;
   const totalPaise = roomTaxable + extraBedPaiseSubmit + taxPaise - discountPaise;
+  const prepaid = settlement === "ALREADY_PAID";
+  const advancePaise = prepaid && !advanceTouched ? Math.max(0, totalPaise) : toPaise(advance);
   const balancePaise = totalPaise - advancePaise;
   const roomEnteredPaise = toPaise(rate) * nights; // what reception typed (all-in if inclusive)
 
@@ -214,8 +220,16 @@ export function BookingForm({
   // money while the bill shows neither the charge nor the payment. The server
   // rejects both (`createReservationSchema`); these stop it at the keyboard.
   const rateMissing = toPaise(rate) <= 0;
-  const prepaidNeedsAmount = settlement === "ALREADY_PAID" && advancePaise <= 0;
-  const moneyIncomplete = rateMissing || prepaidNeedsAmount;
+  const prepaidNeedsAmount = prepaid && advancePaise <= 0;
+  // Money taken (advance or prepayment) must say how it was paid.
+  const modeMissing = advancePaise > 0 && !advanceMode;
+  const moneyIncomplete = rateMissing || prepaidNeedsAmount || modeMissing;
+  const onSettlement = (v: string) => {
+    setSettlement(v);
+    setAdvanceTouched(false);
+    if (v === "ALREADY_PAID" && !advanceMode) setAdvanceMode("ONLINE");
+    if (v !== "ALREADY_PAID") setAdvance(0);
+  };
 
   const runSearch = () => {
     startSearch(async () => {
@@ -257,6 +271,7 @@ export function BookingForm({
       <input type="hidden" name="extraBedPaise" value={extraBedPaiseSubmit} />
       <input type="hidden" name="taxPaise" value={taxPaise} />
       <input type="hidden" name="advancePaise" value={advancePaise} />
+      <input type="hidden" name="advanceMode" value={advancePaise > 0 ? advanceMode : ""} />
 
       <Card>
         <CardHeader className="pb-3"><CardTitle className="text-base">Property, dates & occupancy</CardTitle></CardHeader>
@@ -295,6 +310,7 @@ export function BookingForm({
               <option value="CORPORATE">Corporate</option>
               <option value="BOOKING_COM">Booking.com</option>
               <option value="MAKEMYTRIP">MakeMyTrip</option>
+              <option value="EXPEDIA">Expedia</option>
               <option value="AGODA">Agoda</option>
               <option value="GOIBIBO">Goibibo</option>
               <option value="AIRBNB">Airbnb</option>
@@ -468,28 +484,51 @@ export function BookingForm({
               </Labeled>
               <Labeled label="Discount (₹)"><Input type="number" inputMode="decimal" step="0.01" value={discount} onChange={(e) => setDiscount(Number(e.target.value))} /></Labeled>
               <Labeled label="Extra bed (₹)"><Input type="number" inputMode="decimal" step="0.01" value={extraBed} onChange={(e) => setExtraBed(Number(e.target.value))} /></Labeled>
-              <Labeled label="Advance (₹)">
-                <Input type="number" inputMode="decimal" step="0.01" value={advance} onChange={(e) => setAdvance(Number(e.target.value))} data-testid="advance" />
-                {prepaidNeedsAmount && (
-                  <p role="alert" className="mt-1 text-xs font-medium text-destructive" data-testid="advance-required">
-                    “Already paid” needs the amount collected — otherwise no payment is recorded and the bill shows nothing.
-                  </p>
-                )}
-              </Labeled>
             </div>
-            <Labeled label="Payment status">
-              <select
-                name="settlementIntent"
-                value={settlement}
-                onChange={(e) => setSettlement(e.target.value)}
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                data-testid="settlement-intent"
-              >
-                <option value="PAY_AT_HOTEL">Pay at hotel</option>
-                <option value="ALREADY_PAID">Already paid</option>
-                <option value="UNPAID_ONLINE">Unpaid (online link)</option>
-              </select>
-            </Labeled>
+            <div className="space-y-3 rounded-md border p-3" data-testid="booking-payment">
+              <Labeled label="Payment">
+                <select
+                  name="settlementIntent"
+                  value={settlement}
+                  onChange={(e) => onSettlement(e.target.value)}
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  data-testid="settlement-intent"
+                >
+                  <option value="PAY_AT_HOTEL">Pay at hotel — guest pays here (due at check-out)</option>
+                  <option value="ALREADY_PAID">Already paid — OTA / prepaid (nothing due)</option>
+                  <option value="UNPAID_ONLINE">Unpaid — send online payment link</option>
+                </select>
+              </Labeled>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Labeled label={prepaid ? "Amount paid (₹)" : "Advance received now (₹)"}>
+                  <Input
+                    type="number" inputMode="decimal" step="0.01" min={0}
+                    value={prepaid && !advanceTouched ? totalPaise / 100 : advance}
+                    onChange={(e) => { setAdvanceTouched(true); setAdvance(Number(e.target.value)); }}
+                    data-testid="advance"
+                  />
+                  {prepaid && !advanceTouched ? (
+                    <p className="mt-1 text-xs text-muted-foreground">The whole bill — change it if the guest paid only part online.</p>
+                  ) : null}
+                  {prepaidNeedsAmount && (
+                    <p role="alert" className="mt-1 text-xs font-medium text-destructive" data-testid="advance-required">
+                      “Already paid” needs the amount collected — otherwise no payment is recorded and the bill shows nothing.
+                    </p>
+                  )}
+                </Labeled>
+                {advancePaise > 0 ? (
+                  <Labeled label="Paid by">
+                    <PaymentModeSelect value={advanceMode} onChange={setAdvanceMode} required testId="advance-mode" />
+                    {modeMissing && <p role="alert" className="mt-1 text-xs font-medium text-destructive">Choose how it was paid.</p>}
+                  </Labeled>
+                ) : null}
+              </div>
+              <p className="text-sm" data-testid="payment-outcome">
+                {balancePaise <= 0
+                  ? <span className="font-medium text-emerald-700 dark:text-emerald-400">Fully paid — nothing due at check-out.</span>
+                  : <span>Due at the hotel: <span className="font-semibold">{rupees(balancePaise)}</span> — collect with “Take payment”.</span>}
+              </p>
+            </div>
             {rateMissing && (
               <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-sm text-destructive" data-testid="rate-required">
                 Set a rate per night. At ₹0 the stay bills nothing — the revenue is lost, and the occupied night still pulls ADR and RevPAR down.
@@ -509,7 +548,7 @@ export function BookingForm({
               <Row label="Extra bed" value={`+ ${rupees(toPaise(extraBed))}`} />
               <Row label={gstInclusive ? "GST (included)" : "GST"} value={gstInclusive ? `incl. ${rupees(taxPaise)}` : `+ ${rupees(taxPaise)}`} />
               <Row label="Total" value={rupees(totalPaise)} strong testid="bill-total" />
-              <Row label="Advance" value={`− ${rupees(advancePaise)}`} />
+              <Row label={prepaid ? "Paid (OTA / prepaid)" : "Advance"} value={`− ${rupees(advancePaise)}`} />
               <Row label="Balance due" value={rupees(balancePaise)} strong testid="bill-balance" />
             </dl>
           </CardContent>

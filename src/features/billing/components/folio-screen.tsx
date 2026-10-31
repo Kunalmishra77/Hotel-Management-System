@@ -13,7 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { postFolioCharge, applyDiscount, reverseFolioLine, correctRoomRate } from "../charge-actions";
-import { recordPayment } from "../payment-actions";
+import { recordPayment, correctPaymentEntry } from "../payment-actions";
+import { PaymentCorrectionForm } from "./payment-correction";
 import { generateInvoice, voidInvoice } from "../invoice-actions";
 import { BillToForm, InvoiceHistory } from "./invoice-panel";
 import { addAddOnToReservation } from "@/features/add-ons/actions";
@@ -47,6 +48,7 @@ export function FolioScreen({
   const [invoice, setInvoice] = useState<{ id: string; number: string } | null>(null);
   const [reverseTarget, setReverseTarget] = useState<{ id: string; description: string } | null>(null);
   const [voidTarget, setVoidTarget] = useState<{ id: string; number: string } | null>(null);
+  const [correctTarget, setCorrectTarget] = useState<{ id: string; mode: string; amountPaise: number } | null>(null);
 
   // Version history: an invoice is "voided" when a CREDIT_NOTE cancels it. The
   // active bill is the latest TAX_INVOICE that has not been credited.
@@ -122,17 +124,37 @@ export function FolioScreen({
               </>
             );
           })()}
-          {folio.payments.map((p) => (
-            <div key={p.id} className="flex items-center justify-between gap-2">
-              <span className="text-muted-foreground">
-                Payment · {p.mode}{p.isRefund ? " (refund)" : ""}
-                <span className="ml-1 text-xs">· {new Date(p.receivedAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
-                <a href={`/api/receipts/${p.id}`} target="_blank" rel="noopener noreferrer"
-                  className="ml-2 text-xs text-primary underline underline-offset-2" data-testid="receipt-link">receipt</a>
-              </span>
-              <span>{p.isRefund ? "+" : "−"} {rupees(p.amountPaise)}</span>
-            </div>
-          ))}
+          {(() => {
+            // A corrected payment and its cancelling line are shown as one struck-out
+            // entry ("corrected"), not as a payment plus a refund.
+            const corrected = new Set(folio.payments.filter((p) => p.isRefund && p.reference?.startsWith("CORRECTION:")).map((p) => p.reference!.slice(11).split(" ")[0]));
+            return folio.payments
+              .filter((p) => !(p.isRefund && p.reference?.startsWith("CORRECTION:")))
+              .map((p) => {
+                const isCorrected = corrected.has(p.id);
+                return (
+                  <div key={p.id} className="flex items-center justify-between gap-2">
+                    <span className={isCorrected ? "text-muted-foreground line-through" : "text-muted-foreground"}>
+                      Payment · {p.mode}{p.isRefund ? " (refund)" : ""}
+                      <span className="ml-1 text-xs">· {new Date(p.receivedAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
+                      {isCorrected ? <span className="ml-1 text-xs no-underline">(corrected)</span> : (
+                        <>
+                          <a href={`/api/receipts/${p.id}`} target="_blank" rel="noopener noreferrer"
+                            className="ml-2 text-xs text-primary underline underline-offset-2" data-testid="receipt-link">receipt</a>
+                          {!p.isRefund && (
+                            <button type="button" onClick={() => setCorrectTarget({ id: p.id, mode: p.mode, amountPaise: p.amountPaise })}
+                              className="ml-2 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline" data-testid="correct-payment">
+                              correct
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </span>
+                    <span className={isCorrected ? "text-muted-foreground line-through" : ""}>{p.isRefund ? "+" : "−"} {rupees(p.amountPaise)}</span>
+                  </div>
+                );
+              });
+          })()}
           {(() => {
             const taxable = folio.lines.reduce((a, l) => a + l.amountPaise, 0);
             const tax = folio.lines.reduce((a, l) => a + l.cgstPaise + l.sgstPaise + l.igstPaise, 0);
@@ -191,6 +213,11 @@ export function FolioScreen({
         <ReverseForm description={reverseTarget.description} pending={pending}
           onSubmit={(reason) => { const id = reverseTarget.id; setReverseTarget(null); run(() => reverseFolioLine({ lineId: id, reason })); }}
           onCancel={() => setReverseTarget(null)} />
+      )}
+      {correctTarget && (
+        <PaymentCorrectionForm payment={correctTarget} pending={pending}
+          onSubmit={(v) => { const id = correctTarget.id; setCorrectTarget(null); run(() => correctPaymentEntry({ paymentId: id, ...v })); }}
+          onCancel={() => setCorrectTarget(null)} />
       )}
       {mode === "roomrate" && (
         <RoomRateForm

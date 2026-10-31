@@ -24,7 +24,7 @@ const bookingFields = {
   guestId: z.string().min(1),
   source: z.enum([
     "DIRECT", "WEBSITE", "PHONE", "WALK_IN",
-    "AIRBNB", "BOOKING_COM", "AGODA", "MAKEMYTRIP", "GOIBIBO",
+    "AIRBNB", "BOOKING_COM", "AGODA", "MAKEMYTRIP", "GOIBIBO", "EXPEDIA",
     "CORPORATE", "TRAVEL_AGENT",
   ]),
   checkInDate: dateInput,
@@ -38,6 +38,12 @@ const bookingFields = {
   taxPaise: paise.default(0),
   otherChargesPaise: paise.default(0),
   advancePaise: paise.default(0),
+  /**
+   * How the advance / prepayment was paid. The booking form always asks for it;
+   * other callers (channel ingest, imports) may omit it → check-in falls back to
+   * ONLINE for "already paid", else CASH.
+   */
+  advanceMode: z.enum(["CASH", "UPI", "CREDIT_CARD", "DEBIT_CARD", "BANK_TRANSFER", "ONLINE"]).optional(),
   settlementIntent: z.enum(["PAY_AT_HOTEL", "ALREADY_PAID", "UNPAID_ONLINE"]).default("PAY_AT_HOTEL"),
   corporateId: z.string().min(1).optional(),
   travelAgentId: z.string().min(1).optional(),
@@ -80,7 +86,7 @@ export const externalStaySchema = z
     guestId: z.string().min(1),
     source: z.enum([
       "DIRECT", "WEBSITE", "PHONE", "WALK_IN",
-      "AIRBNB", "BOOKING_COM", "AGODA", "MAKEMYTRIP", "GOIBIBO",
+      "AIRBNB", "BOOKING_COM", "AGODA", "MAKEMYTRIP", "GOIBIBO", "EXPEDIA",
       "CORPORATE", "TRAVEL_AGENT",
     ]).default("DIRECT"),
     externalHotelName: z.string().min(1, "Enter the hotel name.").max(200),
@@ -152,7 +158,7 @@ export const historicalStaySchema = z
     source: z
       .enum([
         "DIRECT", "WEBSITE", "PHONE", "WALK_IN",
-        "AIRBNB", "BOOKING_COM", "AGODA", "MAKEMYTRIP", "GOIBIBO",
+        "AIRBNB", "BOOKING_COM", "AGODA", "MAKEMYTRIP", "GOIBIBO", "EXPEDIA",
         "CORPORATE", "TRAVEL_AGENT",
       ])
       .optional()
@@ -247,7 +253,7 @@ export const changeBookingSourceSchema = z.object({
   reservationId: z.string().min(1),
   source: z.enum([
     "DIRECT", "WEBSITE", "PHONE", "WALK_IN",
-    "AIRBNB", "BOOKING_COM", "AGODA", "MAKEMYTRIP", "GOIBIBO",
+    "AIRBNB", "BOOKING_COM", "AGODA", "MAKEMYTRIP", "GOIBIBO", "EXPEDIA",
     "CORPORATE", "TRAVEL_AGENT",
   ]),
   // When the source is corrected, the booked-on date usually changes with it
@@ -288,6 +294,18 @@ export const extendStaySchema = z.object({
   ratePaise: z.coerce.number().int().positive().max(100_000_00).optional(),
   /** Whether `ratePaise` already includes GST (back it out) or GST is added on top. */
   gstMode: z.enum(["inclusive", "exclusive"]).default("exclusive"),
+  /**
+   * Money for the added nights already received — e.g. the guest re-booked the
+   * extra nights on Agoda (prepaid). Omitted → the extra nights are due at the hotel.
+   */
+  paid: z
+    .object({
+      amountPaise: z.coerce.number().int().positive(),
+      mode: z.enum(["CASH", "UPI", "CREDIT_CARD", "DEBIT_CARD", "BANK_TRANSFER", "ONLINE"]),
+      /** Where it was booked/paid, e.g. "Agoda" — kept as the payment reference. */
+      via: z.string().trim().max(60).optional(),
+    })
+    .optional(),
 });
 export type ExtendStayInput = z.infer<typeof extendStaySchema>;
 

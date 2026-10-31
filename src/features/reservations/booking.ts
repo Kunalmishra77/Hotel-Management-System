@@ -162,6 +162,7 @@ export async function createBooking(
                 taxPaise: data.taxPaise,
                 otherChargesPaise: data.otherChargesPaise,
                 advancePaise: data.advancePaise,
+                advanceMode: data.advancePaise > 0 ? (data.advanceMode ?? null) : null,
                 settlementIntent: data.settlementIntent,
                 notes: data.notes ?? null,
               },

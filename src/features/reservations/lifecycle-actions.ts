@@ -46,6 +46,7 @@ type LoadedReservation = {
   taxPaise: number;
   otherChargesPaise: number;
   advancePaise: number;
+  advanceMode: "CASH" | "CREDIT_CARD" | "DEBIT_CARD" | "UPI" | "BANK_TRANSFER" | "ONLINE" | "CORPORATE_CREDIT" | null;
   settlementIntent: string;
   checkInDate: Date;
   checkOutDate: Date;
@@ -55,7 +56,7 @@ type LoadedReservation = {
 const LOAD_SELECT = {
   id: true, propertyId: true, code: true, status: true, nights: true,
   ratePaise: true, discountPaise: true, extraBedPaise: true, taxPaise: true,
-  otherChargesPaise: true, advancePaise: true, settlementIntent: true,
+  otherChargesPaise: true, advancePaise: true, advanceMode: true, settlementIntent: true,
   checkInDate: true, checkOutDate: true,
   allocations: { select: { id: true, roomId: true, startDate: true, endDate: true } },
 } as const;
@@ -167,7 +168,8 @@ export async function checkIn(input: unknown): Promise<Result<LifecycleResult>> 
             await postPaymentTx(tx as unknown as BillingPostTx, {
               folioId,
               propertyId: r.propertyId,
-              mode: r.settlementIntent === "ALREADY_PAID" ? "ONLINE" : "CASH",
+              // The mode chosen at booking; old bookings fall back to the intent.
+              mode: r.advanceMode ?? (r.settlementIntent === "ALREADY_PAID" ? "ONLINE" : "CASH"),
               amountPaise: r.advancePaise,
               reference,
               receivedById: user.userId,

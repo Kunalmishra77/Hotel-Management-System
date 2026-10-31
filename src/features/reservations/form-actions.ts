@@ -13,7 +13,7 @@ import { createReservation } from "./actions";
 import { createGuest } from "@/features/guests/actions";
 import { searchGuests } from "@/features/guests/queries";
 
-const BOOKING_SOURCES = ["WALK_IN", "DIRECT", "PHONE", "CORPORATE", "WEBSITE", "BOOKING_COM", "MAKEMYTRIP", "AGODA", "GOIBIBO", "AIRBNB", "TRAVEL_AGENT"] as const;
+const BOOKING_SOURCES = ["WALK_IN", "DIRECT", "PHONE", "CORPORATE", "WEBSITE", "BOOKING_COM", "MAKEMYTRIP", "AGODA", "GOIBIBO", "EXPEDIA", "AIRBNB", "TRAVEL_AGENT"] as const;
 type BookingSourceValue = (typeof BOOKING_SOURCES)[number];
 
 const SETTLEMENT_INTENTS = ["PAY_AT_HOTEL", "ALREADY_PAID", "UNPAID_ONLINE"] as const;
@@ -88,6 +88,7 @@ export async function createReservationFormAction(
     extraBedPaise: num(formData, "extraBedPaise"),
     taxPaise: num(formData, "taxPaise"),
     advancePaise: num(formData, "advancePaise"),
+    ...(str(formData, "advanceMode") ? { advanceMode: str(formData, "advanceMode") as "CASH" } : {}),
     settlementIntent,
     notes: notes || undefined,
   });

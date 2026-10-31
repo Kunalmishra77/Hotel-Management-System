@@ -17,7 +17,7 @@ import { revalidatePath } from "next/cache";
 import { splitSumsTo } from "./domain/money";
 import { folioBalance, refundWithinNetPaid } from "./domain/balance";
 import { billingDb, loadFolioContext, withBillingContext } from "./internal";
-import { recordPaymentSchema, refundSchema, moveFolioCreditSchema } from "./schema";
+import { recordPaymentSchema, refundSchema, moveFolioCreditSchema, correctPaymentSchema } from "./schema";
 
 export type PaymentResult = { batchId: string; totalPaise: number };
 
@@ -218,6 +218,77 @@ export async function moveFolioCredit(input: unknown): Promise<Result<MoveCredit
           fromBalancePaise: Number(fromBalance + amount),
           toBalancePaise: Number(folioBalance(to.lines, to.payments) - amount),
         };
+      }),
+    );
+  });
+}
+
+export type PaymentCorrectionResult = { correctedPaymentId: string; newPaymentId: string | null };
+
+/**
+ * Correct a payment entered by mistake — wrong mode (Cash for UPI), wrong amount,
+ * or recorded on the wrong bill. Payments are append-only, so the wrong entry is
+ * cancelled by an equal refund line marked as a correction (no money leaves) and,
+ * when given, the right entry is recorded in its place with the original date.
+ * The bill view hides the cancelled pair. Audited with the reason.
+ *
+ * Same-day corrections are front-desk work (`payment:record`); an older payment
+ * changes a closed day's collections, so it needs `folio:refund` (Accounts/Admin).
+ */
+export async function correctPaymentEntry(input: unknown): Promise<Result<PaymentCorrectionResult>> {
+  return toResult(async () => {
+    const data = correctPaymentSchema.parse(input);
+    const user = await requireUser();
+    const client = billingDb(user);
+    const original = await client.payment.findFirst({
+      where: { id: data.paymentId, isRefund: false },
+      select: { id: true, folioId: true, propertyId: true, mode: true, amountPaise: true, receivedAt: true, reference: true },
+    });
+    if (!original) throw new NotFoundError("Payment not found.");
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    const sameDay = original.receivedAt.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }) === today;
+    authorize(user, sameDay ? "payment:record" : "folio:refund", original.propertyId, { reason: data.reason });
+
+    const marker = `CORRECTION:${original.id}`;
+    const already = await client.payment.findFirst({ where: { folioId: original.folioId, isRefund: true, reference: { startsWith: marker } }, select: { id: true } });
+    if (already) {
+      throw new DomainError(ErrorCode.CONFLICT, "This payment was already corrected.", { publicMessage: "This payment was already corrected." });
+    }
+    const newAmount = data.newAmountPaise ?? Number(original.amountPaise);
+
+    return withBillingContext(user, () =>
+      client.$transaction(async (tx) => {
+        await tx.payment.create({
+          data: {
+            propertyId: original.propertyId, folioId: original.folioId, mode: original.mode, amountPaise: original.amountPaise,
+            reference: `${marker} ${data.reason}`.slice(0, 190), isRefund: true, receivedAt: original.receivedAt, receivedById: user.userId,
+          },
+        });
+        let newPaymentId: string | null = null;
+        if (data.newMode) {
+          const p = await tx.payment.create({
+            data: {
+              propertyId: original.propertyId, folioId: original.folioId, mode: data.newMode, amountPaise: BigInt(newAmount),
+              reference: original.reference ?? `Corrected entry`, isRefund: false, receivedAt: original.receivedAt, receivedById: user.userId,
+              settlementBatchId: randomUUID(),
+            },
+            select: { id: true },
+          });
+          newPaymentId = p.id;
+        }
+        await emitEvent(tx, {
+          type: "PaymentCorrected",
+          aggregateId: original.folioId,
+          propertyId: original.propertyId,
+          payload: { folioId: original.folioId, paymentId: original.id, newPaymentId, from: { mode: original.mode, amountPaise: Number(original.amountPaise) }, to: data.newMode ? { mode: data.newMode, amountPaise: newAmount } : null },
+        });
+        await writeAudit(tx, {
+          action: "payment:correct", entityType: "Payment", entityId: original.id, propertyId: original.propertyId, reason: data.reason,
+          before: { mode: original.mode, amountPaise: Number(original.amountPaise) },
+          after: data.newMode ? { mode: data.newMode, amountPaise: newAmount, newPaymentId } : { cancelled: true },
+        });
+        revalidatePath("/billing");
+        return { correctedPaymentId: original.id, newPaymentId };
       }),
     );
   });

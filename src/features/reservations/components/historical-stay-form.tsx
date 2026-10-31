@@ -26,6 +26,7 @@ const SOURCES: { value: string; label: string }[] = [
   { value: "PHONE", label: "Phone / enquiry" },
   { value: "WEBSITE", label: "Website" },
   { value: "MAKEMYTRIP", label: "MakeMyTrip" },
+  { value: "EXPEDIA", label: "Expedia" },
   { value: "BOOKING_COM", label: "Booking.com" },
   { value: "AGODA", label: "Agoda" },
   { value: "GOIBIBO", label: "Goibibo" },
@@ -483,7 +484,7 @@ export function HistoricalStayForm({ properties, rooms }: { properties: Property
             <p className="text-xs text-muted-foreground">Applies to the room rate <span className="font-medium">and</span> every extra charge above.</p>
           </div>
           <Fld label="Room rate per night (₹) *"><Input type="number" inputMode="decimal" step="0.01" min={0} value={f.rate} onChange={(e) => set("rate", e.target.value)} placeholder="Enter the nightly rate" data-testid="hist-rate" /></Fld>
-          {["MAKEMYTRIP", "BOOKING_COM", "AGODA", "GOIBIBO", "AIRBNB", "TRAVEL_AGENT"].includes(f.source) && (
+          {["MAKEMYTRIP", "BOOKING_COM", "AGODA", "GOIBIBO", "EXPEDIA", "AIRBNB", "TRAVEL_AGENT"].includes(f.source) && (
             <p className="text-xs font-medium text-amber-700 dark:text-amber-400 sm:col-span-2" data-testid="hist-ota-rate-hint">
               OTA booking — enter the agreed {f.source === "MAKEMYTRIP" ? "MakeMyTrip" : f.source === "BOOKING_COM" ? "Booking.com" : "channel"} rate here, not the default room rate.
             </p>

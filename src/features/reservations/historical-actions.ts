@@ -28,6 +28,8 @@ import { revalidatePath } from "next/cache";
 import { ensureFolio, postRoomChargeTx, postServiceChargeTx, postPaymentTx, autoIssueInvoiceOnCheckout, type BillingPostTx } from "@/features/billing";
 import { gstBpsForCharge } from "@/lib/constants/gst";
 import { preTaxRatePaise } from "./domain/pricing";
+
+const OTA_SOURCES = new Set(["MAKEMYTRIP", "BOOKING_COM", "AGODA", "GOIBIBO", "EXPEDIA", "AIRBNB"]);
 import { recomputeHistoricalSnapshot } from "@/features/analytics/night-audit";
 import { createGuest } from "@/features/guests/actions";
 import { addGuestId } from "@/features/guests/id-actions";
@@ -367,7 +369,9 @@ export async function createHistoricalStay(input: unknown): Promise<Result<{ res
               await postPaymentTx(tx as unknown as BillingPostTx, {
                 folioId,
                 propertyId: data.propertyId,
-                mode: "CASH",
+                // No payment was entered: an OTA stay was paid to the OTA (online),
+                // anything else is presumed settled at the desk.
+                mode: OTA_SOURCES.has(data.source) ? "ONLINE" : "CASH",
                 amountPaise: totalDuePaise,
                 reference: `HIST-SETTLE-${code}`,
                 receivedById: user.userId,

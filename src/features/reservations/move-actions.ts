@@ -28,6 +28,7 @@ import {
   nextRoomRevision,
   folioDateKey,
   autoIssueInvoiceOnCheckout,
+  postPaymentTx,
   type BillingPostTx,
 } from "@/features/billing";
 import { nights as computeNights } from "./domain/nights";
@@ -286,11 +287,26 @@ export async function extendStay(input: unknown): Promise<Result<MoveResult>> {
               }
             }
 
+            // Extra nights already paid elsewhere (guest re-booked them on an OTA,
+            // or paid now): record that money on the bill with its mode so the
+            // nights don't show as due. Otherwise they are due at the hotel.
+            if (data.paid) {
+              const folioId = r.folio?.id ?? (await ensureFolio(tx, { reservationId: r.id, propertyId: r.propertyId }));
+              await postPaymentTx(tx as unknown as BillingPostTx, {
+                folioId,
+                propertyId: r.propertyId,
+                mode: data.paid.mode,
+                amountPaise: data.paid.amountPaise,
+                reference: `Extension ${folioDateKey(r.checkOutDate)}→${folioDateKey(newCheckOut)}${data.paid.via ? ` · ${data.paid.via}` : ""}`,
+                receivedById: user.userId,
+              });
+            }
+
             await emitEvent(tx, { type: "ReservationModified", aggregateId: r.id, propertyId: r.propertyId, payload: { checkOutDate: newCheckOut, extended: true, ratePaise: extensionRatePaise } });
             await writeAudit(tx, {
               action: "reservation:extend", entityType: "Reservation", entityId: r.id, propertyId: r.propertyId,
               before: { checkOutDate: r.checkOutDate, ratePaise: r.ratePaise },
-              after: { checkOutDate: newCheckOut, nights, ratePaise: extensionRatePaise },
+              after: { checkOutDate: newCheckOut, nights, ratePaise: extensionRatePaise, ...(data.paid ? { paid: { amountPaise: data.paid.amountPaise, mode: data.paid.mode, via: data.paid.via ?? null } } : {}) },
             });
             return { id: r.id, status: r.status, roomId: roomIds[0]! };
           },
