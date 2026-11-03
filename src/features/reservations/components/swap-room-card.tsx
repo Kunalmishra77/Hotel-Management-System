@@ -82,6 +82,9 @@ export function SwapRoomCard({
         <p className="text-sm text-muted-foreground">
           Guest wants the room another guest is booked into (that guest hasn&apos;t checked in)? Swap them — any property, like for like ({unit(roomCount)} ↔ {unit(roomCount)}). Each guest keeps their own dates and rate.
         </p>
+        <p className="text-xs text-muted-foreground" data-testid="swap-free-room-hint">
+          Room is <b>free</b> (no guest booked)? No swap needed — use <b>Move to another room</b> (same property) or <b>Check in at a different property</b> below.
+        </p>
         {done && <p className="rounded-md border border-emerald-600/30 bg-emerald-500/10 p-2 text-sm text-emerald-700 dark:text-emerald-400" data-testid="swap-done">✔ Swapped: {done}</p>}
         {!open ? (
           <Button variant="outline" onClick={() => { setOpen(true); setDone(null); }} data-testid="swap-open">Choose the other booking</Button>
