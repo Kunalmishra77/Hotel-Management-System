@@ -15,6 +15,7 @@ import { PendingInfoCard } from "@/features/reservations/components/pending-info
 import { ConfirmBookingButton } from "@/features/reservations/components/confirm-booking-button";
 import { ReservationGuestsCard } from "@/features/reservations/components/reservation-guests-card";
 import { ExtendStayCard } from "@/features/reservations/components/extend-stay-card";
+import { SwapRoomCard } from "@/features/reservations/components/swap-room-card";
 import { EditRoomRateCard } from "@/features/reservations/components/edit-room-rate-card";
 import { ChangeSourceCard } from "@/features/reservations/components/change-source-card";
 import { TransferPropertyCard } from "@/features/reservations/components/transfer-property-card";
@@ -201,6 +202,20 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
 
           {(r.status === "IN_HOUSE" || r.status === "CONFIRMED") && canManageGuests && !r.externalHotelName && r.roomNumbers.length > 0 ? (
             <ExtendStayCard reservationId={r.id} checkOutDate={r.checkOutDate.toISOString().slice(0, 10)} currentRatePaise={r.ratePaise} />
+          ) : null}
+
+          {/* A not-yet-arrived guest can swap rooms (whole unit, like for like) with
+              another booking that isn't in-house — any property. */}
+          {(r.status === "CONFIRMED" || r.status === "ENQUIRY") && canManageGuests && !r.externalHotelName && r.roomNumbers.length > 0 ? (
+            <SwapRoomCard
+              reservationId={r.id}
+              guestName={r.guestName}
+              rooms={r.roomNumbers.join(" + ")}
+              roomCount={r.roomNumbers.length}
+              propertyName={(await listProperties(user)).find((p) => p.id === r.propertyId)?.name ?? ""}
+              checkIn={r.checkInDate.toISOString().slice(0, 10)}
+              checkOut={r.checkOutDate.toISOString().slice(0, 10)}
+            />
           ) : null}
 
           {["ENQUIRY", "CONFIRMED", "IN_HOUSE", "CHECKED_OUT"].includes(r.status) && canManageGuests ? (
