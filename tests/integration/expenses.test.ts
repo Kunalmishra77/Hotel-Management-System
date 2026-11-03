@@ -15,6 +15,7 @@ import { PROP_A_ID, USER_ACCOUNTS_ID, USER_RECEPTION_A_ID, USER_MANAGER_ID, USER
 import { assembleClaims } from "@/lib/auth/claims";
 import { createExpense, createExpenses, approveExpense, rejectExpense } from "@/features/expenses/actions";
 import { expenseRollup } from "@/features/expenses/queries";
+import { getExpenseDetail } from "@/features/expenses/detail-action";
 
 const prisma = createPrismaClient();
 const created: string[] = [];
@@ -242,5 +243,22 @@ describe("approval escalation (Phase 6 — major spend needs Super Admin)", () =
     const res = await approveExpense({ expenseId: mk.data.id });
     expect(res.ok).toBe(true);
     expect((await prisma.expense.findUniqueOrThrow({ where: { id: mk.data.id } })).status).toBe("APPROVED");
+  });
+});
+
+describe("expense detail (View popup)", () => {
+  it("shows what, who entered it, who rejected it and why", async () => {
+    await actAsEnterer();
+    const res = await createExpense(veg({ description: "Milk 2 L", quantity: "2 L", vendor: "Mother Dairy" }));
+    track(res);
+    if (!res.ok) throw new Error("create failed");
+    await actAs(USER_ACCOUNTS_ID);
+    await rejectExpense({ expenseId: res.data.id, reason: "entered twice" });
+    const d = await getExpenseDetail(res.data.id);
+    expect(d.ok).toBe(true);
+    if (!d.ok) return;
+    expect(d.data).toMatchObject({ description: "Milk 2 L", quantity: "2 L", vendor: "Mother Dairy", status: "REJECTED", rejectReason: "entered twice", hasBill: false });
+    expect(d.data.createdBy).toBeTruthy();
+    expect(d.data.approvedBy).toBeTruthy(); // the person who decided (here: rejected)
   });
 });

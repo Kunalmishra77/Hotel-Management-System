@@ -36,7 +36,10 @@ export function ExtendStayCard({
   checkOutDate: string;
   currentRatePaise?: number;
 }) {
-  const [date, setDate] = useState("");
+  // Start on the night after the current check-out — "extend today" means the
+  // guest leaves tomorrow, and picking the current check-out itself did nothing.
+  const nextDay = new Date(Date.parse(`${checkOutDate}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+  const [date, setDate] = useState(nextDay);
   const [rate, setRate] = useState("");
   const [gstMode, setGstMode] = useState<"inclusive" | "exclusive">("exclusive");
   const [payment, setPayment] = useState<"due" | "paid">("due");
@@ -44,6 +47,17 @@ export function ExtendStayCard({
   const [paidMode, setPaidMode] = useState<string>("");
   const [via, setVia] = useState<string>("Direct");
   const paidIncomplete = payment === "paid" && (!(Number(paidAmount) > 0) || !paidMode);
+  const fmt = (ymd: string) => new Date(`${ymd}T00:00:00Z`).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "UTC" });
+  // Say WHY the button is off instead of leaving a dead button.
+  const blocker = !date
+    ? "Pick the new check-out date."
+    : date <= checkOutDate
+      ? `The new check-out must be after the current one (${fmt(checkOutDate)}) — e.g. ${fmt(nextDay)} for one more night.`
+      : payment === "paid" && !(Number(paidAmount) > 0)
+        ? "Enter the amount already paid for the extra nights."
+        : payment === "paid" && !paidMode
+          ? "Choose how the extra nights were paid."
+          : null;
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
@@ -62,6 +76,7 @@ export function ExtendStayCard({
       if (!res.ok) { setError(res.error.message); return; }
       setDone(date);
       setRate("");
+      setDate(new Date(Date.parse(`${date}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10));
       setPayment("due");
       setPaidAmount("");
       setPaidMode("");
@@ -141,6 +156,7 @@ export function ExtendStayCard({
         <p className="text-xs text-muted-foreground">
           A new rate applies to the added nights and to the rest of the stay. Nights already billed keep the rate they were agreed at — use “Edit room rate” to change those.
         </p>
+        {blocker && !pending && <p className="text-sm text-amber-700 dark:text-amber-400" data-testid="extend-blocker">{blocker}</p>}
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         {done && <p className="rounded-md border border-emerald-600/30 bg-emerald-500/10 p-2 text-sm text-emerald-700 dark:text-emerald-400" data-testid="extend-done">✔ Stay extended to {done}.</p>}
       </CardContent>

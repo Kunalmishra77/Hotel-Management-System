@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { cn, formatDayMonth, formatINR } from "@/lib/utils";
 import { EXPENSE_HEAD_LABEL, PAYMENT_MODE_LABEL } from "@/lib/constants/company";
 import type { PortfolioExpenseRow } from "../queries";
+import { ExpenseDetailDialog } from "./expense-detail-dialog";
 
 const PAGE = 50;
 const STATUSES = [
@@ -32,6 +33,7 @@ export function ExpenseLedger({ rows }: { rows: PortfolioExpenseRow[] }) {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<StatusKey>("ALL");
   const [shown, setShown] = useState(PAGE);
+  const [viewing, setViewing] = useState<string | null>(null);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { ALL: rows.length };
@@ -82,6 +84,7 @@ export function ExpenseLedger({ rows }: { rows: PortfolioExpenseRow[] }) {
           ))}
         </div>
         <p className="ml-auto text-sm text-muted-foreground" data-testid="ledger-summary">
+          <span className="mr-2 hidden text-xs sm:inline">Tap a row for details ·</span>
           {matched.length} entr{matched.length === 1 ? "y" : "ies"} · <span className="font-semibold tabular text-foreground">{formatINR(total)}</span>
         </p>
       </div>
@@ -104,7 +107,13 @@ export function ExpenseLedger({ rows }: { rows: PortfolioExpenseRow[] }) {
             {visible.length === 0 ? (
               <tr><td colSpan={8} className="py-8 text-center text-muted-foreground">No expenses match.</td></tr>
             ) : visible.map((r) => (
-              <tr key={r.id} className="border-b last:border-0 hover:bg-muted/40">
+              <tr
+                key={r.id}
+                className="cursor-pointer border-b last:border-0 hover:bg-muted/40"
+                onClick={() => setViewing(r.id)}
+                title="Open the details"
+                data-testid={`ledger-row-${r.id}`}
+              >
                 <td className="whitespace-nowrap py-2.5 pl-3 pr-3">{formatDayMonth(r.spentOn)}</td>
                 <td className="px-3 py-2.5">
                   {r.description || r.subCategory || "—"}
@@ -124,6 +133,7 @@ export function ExpenseLedger({ rows }: { rows: PortfolioExpenseRow[] }) {
         </table>
       </div>
 
+      <ExpenseDetailDialog expenseId={viewing} onClose={() => setViewing(null)} />
       {matched.length > shown ? (
         <div className="flex justify-center">
           <Button variant="outline" onClick={() => setShown((n) => n + PAGE)} data-testid="ledger-more">

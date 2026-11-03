@@ -22,6 +22,7 @@ import {
 } from "../subcategories";
 import type { ExpenseListItem, ExpenseSuggestions, PendingExpense } from "../queries";
 import { PendingApprovals } from "./pending-approvals";
+import { ExpenseDetailDialog } from "./expense-detail-dialog";
 
 /** One row on the slip (amount kept as the typed ₹ string so the input stays editable). */
 type SlipRow = { key: string; item: string; qty: string; amount: string };
@@ -62,6 +63,7 @@ export function ExpensesScreen({
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<string | null>(null);
   // Slip header — filled once for the whole parchi.
   const [spentOn, setSpentOn] = useState(new Date().toISOString().slice(0, 10));
   const [property, setProperty] = useState(propertyId);
@@ -146,6 +148,11 @@ export function ExpensesScreen({
     <div className="mx-auto w-full max-w-5xl space-y-4 p-4">
       <h1 className="text-xl font-semibold">Expenses</h1>
       {canApprove && <PendingApprovals items={pendingApprovals} />}
+      <ExpenseDetailDialog
+        expenseId={viewing}
+        onClose={() => setViewing(null)}
+        {...(canApprove ? { onApprove: (id: string) => { setViewing(null); run(() => approveExpense({ expenseId: id })); } } : {})}
+      />
 
       <div className="grid gap-4 lg:grid-cols-5">
         <Card className="lg:col-span-3">
@@ -284,7 +291,7 @@ export function ExpensesScreen({
                       <ul className="divide-y text-sm">
                         {items.map((e) => (
                           <li key={e.id} className="flex items-center justify-between gap-2 px-3 py-2" data-testid={`expense-${e.id}`}>
-                            <div className="min-w-0">
+                            <button type="button" className="min-w-0 flex-1 rounded text-left hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => setViewing(e.id)} title="Open the details" data-testid={`expense-open-${e.id}`}>
                               <p className="truncate">
                                 <span className="font-medium">{e.description || e.subCategory || EXPENSE_HEAD_LABEL[e.head as ExpenseHeadKey] || e.head}</span>
                                 {e.quantity ? <span className="text-muted-foreground"> · {e.quantity}</span> : null}
@@ -297,7 +304,7 @@ export function ExpensesScreen({
                                 </span>
                                 {e.hasBill ? " · 📎" : ""}
                               </p>
-                            </div>
+                            </button>
                             <div className="flex shrink-0 items-center gap-2">
                               <span className="tabular-nums">{rupees(e.amountPaise)}</span>
                               {canApprove && e.status === "DRAFT" && (

@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { approveExpense, rejectExpense } from "../actions";
 import { EXPENSE_HEAD_LABEL, type ExpenseHeadKey } from "../subcategories";
 import type { PendingExpense } from "../queries";
+import { ExpenseDetailDialog } from "./expense-detail-dialog";
 
 const rupees = (p: number) => `₹${(p / 100).toLocaleString("en-IN")}`;
 const day = (d: Date) => new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
@@ -23,6 +24,7 @@ export function PendingApprovals({ items }: { items: PendingExpense[] }) {
   const [error, setError] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState<string | null>(null);
   const [reason, setReason] = useState("");
+  const [viewing, setViewing] = useState<string | null>(null);
   if (items.length === 0) return null;
   const total = items.reduce((s, e) => s + e.amountPaise, 0);
 
@@ -59,6 +61,12 @@ export function PendingApprovals({ items }: { items: PendingExpense[] }) {
         )}
       </div>
       {error && <p role="alert" className="px-4 pt-2 text-sm text-destructive">{error}</p>}
+      <ExpenseDetailDialog
+        expenseId={viewing}
+        onClose={() => setViewing(null)}
+        onApprove={(id) => { setViewing(null); run(() => approveExpense({ expenseId: id })); }}
+        onReject={(id) => { setViewing(null); setRejecting(id); setReason(""); }}
+      />
       <ul className="max-h-80 divide-y overflow-y-auto text-sm">
         {items.map((e) => (
           <li key={e.id} className="space-y-2 px-4 py-2" data-testid={`pending-${e.id}`}>
@@ -75,6 +83,7 @@ export function PendingApprovals({ items }: { items: PendingExpense[] }) {
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <span className="font-medium tabular-nums">{rupees(e.amountPaise)}</span>
+                <Button size="sm" variant="ghost" onClick={() => setViewing(e.id)} data-testid={`pending-view-${e.id}`}>View</Button>
                 <Button size="sm" disabled={pending} onClick={() => run(() => approveExpense({ expenseId: e.id }))} data-testid={`pending-approve-${e.id}`}>
                   Approve
                 </Button>
