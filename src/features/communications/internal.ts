@@ -144,3 +144,23 @@ export async function loadConsentStatus(guestId: string, channel: Channel) {
   });
   return row?.marketingStatus ?? null;
 }
+
+/**
+ * The stay behind a reservation event (ReservationCreated / GuestCheckedIn /
+ * GuestCheckedOut …), whose payloads carry only the booking code: who the guest
+ * is, which hotel, the dates and the current room(s). A narrow read of 03's
+ * reservation + allocation rows, org-checked, for the message context only.
+ */
+export async function loadStay(orgId: string, reservationId: string) {
+  const r = await db.unscoped().reservation.findFirst({
+    where: { id: reservationId, property: { orgId } },
+    select: {
+      code: true, guestId: true, propertyId: true, status: true, checkInDate: true, checkOutDate: true,
+      allocations: { orderBy: { startDate: "desc" }, select: { endDate: true, room: { select: { number: true } } } },
+    },
+  });
+  if (!r) return null;
+  // Current room(s) = the segments that run to check-out (a move/split leaves earlier ones).
+  const roomNumbers = r.allocations.filter((a) => a.endDate.getTime() === r.checkOutDate.getTime()).map((a) => a.room.number);
+  return { ...r, roomNumbers };
+}

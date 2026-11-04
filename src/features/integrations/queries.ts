@@ -35,7 +35,9 @@ export type IntegrationsOverview = {
 const MESSAGING_CHANNELS: { channel: Channel; label: string; defaultProvider: string }[] = [
   { channel: Channel.WHATSAPP, label: "WhatsApp", defaultProvider: "meta_cloud" },
   { channel: Channel.SMS, label: "SMS", defaultProvider: "msg91" },
-  { channel: Channel.EMAIL, label: "Email", defaultProvider: "resend" },
+  // SMTP is the one wired email adapter (ADR 0009) — toggling Email live here must
+  // create the "smtp" account, or the toggle flips a provider that can't send.
+  { channel: Channel.EMAIL, label: "Email", defaultProvider: "smtp" },
 ];
 
 function normalizeMode(mode: string): "sandbox" | "live" {

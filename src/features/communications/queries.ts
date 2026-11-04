@@ -47,7 +47,7 @@ export async function listCampaigns(user: SessionClaims, limit = 50) {
  */
 export async function listMessageLog(
   user: SessionClaims,
-  input: { propertyId?: string; propertyIds?: string[]; status?: string; channel?: Channel; limit?: number },
+  input: { propertyId?: string; propertyIds?: string[]; status?: string; channel?: Channel; limit?: number; before?: Date },
 ) {
   const ids = input.propertyId
     ? [input.propertyId]
@@ -58,20 +58,36 @@ export async function listMessageLog(
       propertyId: { in: ids },
       ...(input.status ? { status: input.status } : {}),
       ...(input.channel ? { channel: input.channel } : {}),
+      // Cursor for "Load older" — the page is newest-first.
+      ...(input.before ? { createdAt: { lt: input.before } } : {}),
     },
     orderBy: { createdAt: "desc" },
     take: Math.min(input.limit ?? 50, 200),
-    select: { id: true, propertyId: true, channel: true, category: true, templateKey: true, toAddress: true, status: true, providerRef: true, error: true, deadLetteredAt: true, createdAt: true },
+    select: { id: true, propertyId: true, guestId: true, channel: true, category: true, templateKey: true, toAddress: true, status: true, providerRef: true, error: true, deadLetteredAt: true, createdAt: true },
   });
   const propIds = [...new Set(rows.map((r) => r.propertyId).filter((id): id is string => id !== null))];
-  const props = await db.unscoped().property.findMany({ where: { id: { in: propIds } }, select: { id: true, name: true } });
+  const guestIds = [...new Set(rows.map((r) => r.guestId).filter((id): id is string => id !== null))];
+  const [props, guests] = await Promise.all([
+    db.unscoped().property.findMany({ where: { id: { in: propIds } }, select: { id: true, name: true } }),
+    db.unscoped().guest.findMany({ where: { id: { in: guestIds } }, select: { id: true, fullName: true } }),
+  ]);
   const nameById = new Map(props.map((p) => [p.id, p.name]));
+  const guestById = new Map(guests.map((g) => [g.id, g.fullName]));
   // Never surface the raw recipient address to the UI (FR-15).
-  return rows.map((r) => ({
+  return rows.map(({ providerRef, guestId, ...r }) => ({
     ...r,
     toAddress: maskAddress(r.channel, r.toAddress),
+    guestName: guestId ? (guestById.get(guestId) ?? null) : null,
+    // The sandbox provider marks its "sends" mock-*: nothing actually left the
+    // building, so the UI must not let "Delivered" read as a real delivery.
+    sandbox: isSandboxRef(providerRef),
     propertyName: r.propertyId ? (nameById.get(r.propertyId) ?? r.propertyId) : undefined,
   }));
+}
+
+/** True when a send went to the sandbox (mock) provider — no real message left. */
+export function isSandboxRef(providerRef: string | null): boolean {
+  return providerRef?.startsWith("mock-") ?? false;
 }
 
 /**
@@ -84,9 +100,9 @@ export async function listGuestMessages(user: SessionClaims, guestId: string, li
     where: { guestId },
     orderBy: { createdAt: "desc" },
     take: Math.min(limit, 200),
-    select: { id: true, channel: true, category: true, templateKey: true, toAddress: true, status: true, createdAt: true },
+    select: { id: true, channel: true, category: true, templateKey: true, toAddress: true, status: true, providerRef: true, createdAt: true },
   });
-  return rows.map((r) => ({ ...r, toAddress: maskAddress(r.channel, r.toAddress) }));
+  return rows.map(({ providerRef, ...r }) => ({ ...r, toAddress: maskAddress(r.channel, r.toAddress), sandbox: isSandboxRef(providerRef) }));
 }
 
 /** Campaign builder preview: how many recipients are marketing-eligible (FR-14). */

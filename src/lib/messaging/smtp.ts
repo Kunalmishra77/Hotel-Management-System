@@ -21,17 +21,7 @@
 import type { Channel } from "@prisma/client";
 import { logger } from "@/lib/logger";
 import type { MessagingAccountConfig, MessagingProvider, OutboundMessage, SendResult } from "./types";
-
-/** Human subject lines per template key (email needs a subject; the body is the
- *  rendered template). A key with no entry falls back to the company name. */
-const SUBJECTS: Record<string, string> = {
-  BOOKING_CONFIRMATION: "Your booking is confirmed",
-  WELCOME_CHECKIN: "Welcome — you're checked in",
-  CHECKOUT_THANKYOU: "Thank you for your stay",
-  PRE_ARRIVAL: "We look forward to your arrival",
-  INVOICE_SHARE: "Your invoice",
-};
-const DEFAULT_SUBJECT = "Woodpecker Apartments & Suites";
+import { emailSubject } from "./subjects";
 
 type SmtpEnv = { host: string; port: number; user: string; pass: string; from: string; secure: boolean };
 
@@ -64,7 +54,7 @@ export function smtpEmailProvider(_config: MessagingAccountConfig): MessagingPro
         secure: env.secure,
         auth: { user: env.user, pass: env.pass },
       });
-      const subject = (message.templateKey && SUBJECTS[message.templateKey]) || DEFAULT_SUBJECT;
+      const subject = emailSubject(message.templateKey);
       const info = await transport.sendMail({
         from: env.from,
         to: message.toAddress,

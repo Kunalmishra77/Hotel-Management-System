@@ -19,12 +19,14 @@ import { isMarketingAllowed } from "../domain/consent";
 import { candidateChannels, selectChannelAndLanguage } from "../domain/channel";
 import { nextAllowedSendTime } from "../domain/quiet-hours";
 import { buildRenderContext, renderAndEnqueue } from "../outbox";
+import { isPastStay, stayContext } from "../domain/stay";
 import {
   activeAutomationsForEvent,
   commsDb,
   loadConsentStatus,
   loadGuest,
   loadProperty,
+  loadStay,
   resolveTemplate,
   resolveToAddress,
   templatesForKey,
@@ -47,6 +49,9 @@ const CONSUMED = [
   "LowStockDetected",
   "NightAuditCompleted",
 ] as const;
+
+/** Events whose aggregate is a Reservation (payload has no guestId). */
+const RESERVATION_EVENTS = new Set(["ReservationCreated", "ReservationModified", "ReservationCancelled", "GuestCheckedIn", "GuestCheckedOut"]);
 
 const REMINDER_INBOX_PROVIDER = "comms:payment-reminder";
 const DEFAULT_TZ = "Asia/Kolkata";
@@ -127,9 +132,27 @@ async function handleTriggered(envelope: EventEnvelope): Promise<void> {
   const automations = await activeAutomationsForEvent(orgId, envelope.type);
   if (automations.length === 0) return;
 
-  const payload = payloadOf(envelope);
-  const guestId = str(payload.guestId);
-  const propertyId = str(payload.propertyId) ?? envelope.propertyId;
+  let payload = payloadOf(envelope);
+  let guestId = str(payload.guestId);
+  let propertyId = str(payload.propertyId) ?? envelope.propertyId;
+
+  // Reservation events carry only the booking code — resolve the guest, hotel and
+  // stay dates from the reservation itself (without this no booking / check-in /
+  // check-out message was ever generated: "no guest in event").
+  if (RESERVATION_EVENTS.has(envelope.type)) {
+    const stay = await loadStay(orgId, envelope.aggregateId);
+    if (stay) {
+      // A back-dated entry of a stay long over (Data Entry backfill) or an
+      // enquiry hold must not mail the guest "confirmed" / "welcome" / "thank you".
+      if (isPastStay(stay.checkOutDate, envelope.occurredAt) || (envelope.type === "ReservationCreated" && stay.status === "ENQUIRY")) {
+        logger.info("comms.skip_stay_event", { type: envelope.type, code: stay.code });
+        return;
+      }
+      guestId ??= stay.guestId;
+      propertyId ??= stay.propertyId;
+      payload = { ...payload, ...stayContext(stay) };
+    }
+  }
   if (!guestId) {
     logger.info("comms.no_guest_in_event", { type: envelope.type });
     return;

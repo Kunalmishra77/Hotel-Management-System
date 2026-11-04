@@ -9,21 +9,13 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { CampaignBuilder } from "./campaign-builder";
+import { MessageLog, type LogRow } from "./message-log";
 
 type Template = { id: string; key: string; channel: string; language: string; providerTemplateId: string | null; isActive: boolean };
 type Automation = { id: string; category: string; triggerEvent: string | null; scheduleOffsetMinutes: number | null; templateKey: string; channel: string; isActive: boolean };
 type Campaign = { id: string; templateKey: string; channel: string; status: string; createdAt: Date };
-type LogRow = { id: string; channel: string; category: string | null; templateKey: string | null; toAddress: string; status: string; error: string | null; deadLetteredAt: Date | null; createdAt: Date; propertyName?: string };
 
-type Tab = "templates" | "automations" | "campaigns" | "log";
-
-const STATUS_STYLES: Record<string, string> = {
-  QUEUED: "bg-amber-100 text-amber-800",
-  SENT: "bg-blue-100 text-blue-800",
-  DELIVERED: "bg-emerald-100 text-emerald-800",
-  READ: "bg-emerald-100 text-emerald-800",
-  FAILED: "bg-red-100 text-red-800",
-};
+export type CommsTab = "templates" | "automations" | "campaigns" | "log";
 
 export function CommunicationsScreen(props: {
   templates: Template[];
@@ -34,18 +26,16 @@ export function CommunicationsScreen(props: {
   segments: { id: string; name: string; size: number }[];
   canManage: boolean;
   propertyId: string | null;
+  initialTab?: CommsTab;
 }) {
-  const [tab, setTab] = useState<Tab>("templates");
-  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [tab, setTab] = useState<CommsTab>(props.initialTab ?? "templates");
 
-  const tabs: { key: Tab; label: string }[] = [
+  const tabs: { key: CommsTab; label: string }[] = [
     { key: "templates", label: "Templates" },
     { key: "automations", label: "Automations" },
     { key: "campaigns", label: "Campaigns" },
     { key: "log", label: "Message log" },
   ];
-
-  const filteredLog = statusFilter ? props.log.filter((r) => r.status === statusFilter) : props.log;
 
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-4 p-4">
@@ -118,48 +108,7 @@ export function CommunicationsScreen(props: {
         </div>
       )}
 
-      {tab === "log" && (
-        <div className="space-y-3" data-testid="message-log">
-          {/* Delivery summary — a quick read of how the last messages landed. */}
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-            {([
-              ["Total", props.log.length, "text-foreground"],
-              ["Delivered", props.log.filter((r) => r.status === "DELIVERED" || r.status === "READ").length, "text-success"],
-              ["Sent", props.log.filter((r) => r.status === "SENT").length, "text-blue-600"],
-              ["Queued", props.log.filter((r) => r.status === "QUEUED").length, "text-amber-600"],
-              ["Failed", props.log.filter((r) => r.status === "FAILED").length, "text-destructive"],
-            ] as const).map(([label, value, tone]) => (
-              <div key={label} className="rounded-lg border bg-card p-2.5 text-center">
-                <div className={`text-lg font-semibold tabular ${tone}`}>{value}</div>
-                <div className="text-[11px] text-muted-foreground">{label}</div>
-              </div>
-            ))}
-          </div>
-          <div className="flex gap-1 overflow-x-auto">
-            {["", "QUEUED", "SENT", "DELIVERED", "FAILED"].map((s) => (
-              <button
-                key={s || "all"}
-                onClick={() => setStatusFilter(s)}
-                className={`min-h-9 shrink-0 rounded-md px-2 text-xs ${statusFilter === s ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
-              >
-                {s || "All"}
-              </button>
-            ))}
-          </div>
-          <ul className="space-y-2">
-            {filteredLog.map((r) => (
-              <li key={r.id} className="flex items-center justify-between gap-3 rounded-md border p-3">
-                <div className="min-w-0">
-                  <p className="truncate font-medium">{r.templateKey ?? "—"}{!props.propertyId && r.propertyName ? <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-[11px] font-normal text-muted-foreground">{r.propertyName}</span> : null}</p>
-                  <p className="truncate text-sm text-muted-foreground">{r.channel} · {r.toAddress}{r.error ? ` · ${r.error}` : ""}</p>
-                </div>
-                <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${STATUS_STYLES[r.status] ?? "bg-muted"}`}>{r.status}</span>
-              </li>
-            ))}
-            {filteredLog.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">No messages.</p>}
-          </ul>
-        </div>
-      )}
+      {tab === "log" && <MessageLog initial={props.log} propertyId={props.propertyId} showProperty={!props.propertyId} />}
     </div>
   );
 }

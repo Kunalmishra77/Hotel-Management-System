@@ -7,8 +7,10 @@ import { CommunicationsScreen } from "@/features/communications/components/commu
 
 export const metadata: Metadata = { title: "Communications" };
 
-/** 12 T-22/T-23 — templates, automations, campaigns and the message log. */
-export default async function CommunicationsPage() {
+/** 12 T-22/T-23 — templates, automations, campaigns and the message log
+ *  (`?tab=log` opens straight on the log — "what went to which guest"). */
+export default async function CommunicationsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+  const { tab } = await searchParams;
   // Everyone who can send may view; management actions re-check server-side.
   const user = await requirePermission("communication:send");
   const propertyId = user.activePropertyId;
@@ -37,6 +39,7 @@ export default async function CommunicationsPage() {
       segments={segments}
       canManage={canManage}
       propertyId={propertyId}
+      initialTab={tab === "log" || tab === "automations" || tab === "campaigns" ? tab : undefined}
     />
   );
 }
