@@ -17,6 +17,7 @@ import { useRealtime } from "@/hooks/use-realtime";
 import type { BoardRoom, RoomBoard as RoomBoardData } from "../queries";
 import { RoomChip, STATUS_LABEL, StatusLegend } from "./room-chip";
 import { RoomActionSheet } from "./room-action-sheet";
+import { compareFloors, floorHeading } from "../domain/floor-order";
 
 type Filter = RoomStatus | "ALL";
 
@@ -60,7 +61,13 @@ export function RoomBoard({
       const key = room.floorName ?? "Unassigned";
       groups.set(key, [...(groups.get(key) ?? []), room]);
     }
-    return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }));
+    // Building order (Ground, 1st, 2nd…), not alphabetical — and rooms in number order.
+    return [...groups.entries()]
+      .map(([k, rooms]) => [k, [...rooms].sort((x, y) => x.number.localeCompare(y.number, undefined, { numeric: true }))] as const)
+      .sort(([a, ra], [b, rb]) => compareFloors(
+        { name: a === "Unassigned" ? null : a, sortOrder: ra[0]?.floorSortOrder },
+        { name: b === "Unassigned" ? null : b, sortOrder: rb[0]?.floorSortOrder },
+      ));
   }, [visible]);
 
   return (
@@ -105,7 +112,7 @@ export function RoomBoard({
           {byFloor.map(([floorName, rooms]) => (
             <section key={floorName}>
               <h2 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {floorName === "Unassigned" ? "No floor" : `Floor ${floorName}`}
+                {floorHeading(floorName === "Unassigned" ? null : floorName)}
               </h2>
               <ul
                 className="grid grid-cols-2 gap-2 xs:grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8"

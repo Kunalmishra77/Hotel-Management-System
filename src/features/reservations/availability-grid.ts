@@ -10,6 +10,7 @@
 import type { reservationDb } from "./internal";
 import { overlapWhere } from "./internal";
 import { stayNightKeys } from "./domain/split-stay";
+import { compareFloors } from "@/features/rooms/domain/floor-order";
 
 export type GridCell =
   | { state: "free" }
@@ -50,7 +51,7 @@ export async function availabilityGrid(
     select: {
       id: true, number: true, status: true, categoryId: true,
       category: { select: { name: true, baseRatePaise: true } },
-      floor: { select: { name: true } },
+      floor: { select: { name: true, sortOrder: true } },
       allocations: {
         where: overlap,
         select: {
@@ -63,6 +64,10 @@ export async function availabilityGrid(
     orderBy: [{ floorId: "asc" }, { number: "asc" }],
   });
 
+  // Building order (Ground, 1st, 2nd…), then room number — not alphabetical floor names.
+  rooms.sort((x, y) =>
+    compareFloors({ name: x.floor?.name ?? null, sortOrder: x.floor?.sortOrder }, { name: y.floor?.name ?? null, sortOrder: y.floor?.sortOrder })
+    || x.number.localeCompare(y.number, undefined, { numeric: true }));
   return {
     nights,
     rooms: rooms.map((r) => {

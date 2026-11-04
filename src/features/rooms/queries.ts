@@ -30,6 +30,8 @@ export type BoardRoom = {
   departingToday: boolean;
   floorId: string | null;
   floorName: string | null;
+  /** Floor's explicit display order (0 = none) — see domain/floor-order.ts. */
+  floorSortOrder: number;
   categoryId: string;
   categoryName: string;
   /** Transitions THIS caller may drive — powers the action sheet (AC-5/AC-7). */
@@ -121,7 +123,7 @@ export async function roomBoard(
       isActive: true,
       floorId: true,
       categoryId: true,
-      floor: { select: { name: true } },
+      floor: { select: { name: true, sortOrder: true } },
       category: { select: { name: true } },
     },
     // Room numbers are strings ("101", "9A"), so sort by floor then number and
@@ -161,6 +163,7 @@ export async function roomBoard(
       departingToday: day.departingToday,
       floorId: room.floorId,
       floorName: room.floor?.name ?? null,
+      floorSortOrder: room.floor?.sortOrder ?? 0,
       categoryId: room.categoryId,
       categoryName: room.category.name,
       // Manual transitions start from the STORED status — that is what
