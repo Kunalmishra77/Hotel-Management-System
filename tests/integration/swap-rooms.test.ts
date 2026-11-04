@@ -101,6 +101,29 @@ describe("swapRooms", () => {
     expect(await roomsOf(a)).toEqual([ROOM_101_ID]); // nothing changed
   });
 
+  it("an in-house guest swaps with a not-arrived booking: moves from today, past nights stay, rooms re-statused", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2027-12-30T05:00:00Z"));
+    try {
+      const a = await book({ guestId: GUEST_RAVI_ID, roomIds: [ROOM_101_ID], checkInDate: "2027-12-30", checkOutDate: "2028-01-03" });
+      const b = await book({ guestId: GUEST_MEHTA_ID, roomIds: [ROOM_201_ID], checkInDate: "2028-01-01", checkOutDate: "2028-01-05" });
+      expect((await checkIn({ reservationId: a })).ok).toBe(true);
+      vi.setSystemTime(new Date("2027-12-31T06:00:00Z")); // next day: A has stayed one night in 101
+      const res = await swapRooms({ reservationId: a, otherReservationId: b });
+      expect(res.ok, JSON.stringify(res)).toBe(true);
+      const aAllocs = await prisma.roomAllocation.findMany({ where: { reservationId: a }, orderBy: { startDate: "asc" } });
+      expect(aAllocs.map((x) => [x.roomId, x.startDate.toISOString().slice(0, 10), x.endDate.toISOString().slice(0, 10)])).toEqual([
+        [ROOM_101_ID, "2027-12-30", "2027-12-31"], // the night already stayed
+        [ROOM_201_ID, "2027-12-31", "2028-01-03"], // from today
+      ]);
+      expect(await roomsOf(b)).toEqual([ROOM_101_ID]);
+      expect((await prisma.room.findUniqueOrThrow({ where: { id: ROOM_201_ID } })).status).toBe("OCCUPIED");
+      expect((await prisma.room.findUniqueOrThrow({ where: { id: ROOM_101_ID } })).status).toBe("HOUSEKEEPING");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("refuses unlike units and a room that isn't free for the new guest's dates — nothing changes", async () => {
     const a = await book({ guestId: GUEST_RAVI_ID, roomIds: [ROOM_101_ID], checkInDate: "2027-12-10", checkOutDate: "2027-12-15" });
     const b = await book({ guestId: GUEST_MEHTA_ID, roomIds: [ROOM_201_ID], checkInDate: "2027-12-10", checkOutDate: "2027-12-11" });

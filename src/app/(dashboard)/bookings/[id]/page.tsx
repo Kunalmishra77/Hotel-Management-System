@@ -206,12 +206,13 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
 
           {/* A not-yet-arrived guest can swap rooms (whole unit, like for like) with
               another booking that isn't in-house — any property. */}
-          {(r.status === "CONFIRMED" || r.status === "ENQUIRY") && canManageGuests && !r.externalHotelName && r.roomNumbers.length > 0 ? (
+          {(r.status === "CONFIRMED" || r.status === "ENQUIRY" || r.status === "IN_HOUSE") && canManageGuests && !r.externalHotelName && r.rooms.length > 0 ? (
             <SwapRoomCard
               reservationId={r.id}
               guestName={r.guestName}
-              rooms={r.roomNumbers.join(" + ")}
-              roomCount={r.roomNumbers.length}
+              inHouse={r.status === "IN_HOUSE"}
+              rooms={r.rooms.map((x) => x.number).join(" + ")}
+              roomCount={r.rooms.length}
               propertyName={(await listProperties(user)).find((p) => p.id === r.propertyId)?.name ?? ""}
               checkIn={r.checkInDate.toISOString().slice(0, 10)}
               checkOut={r.checkOutDate.toISOString().slice(0, 10)}

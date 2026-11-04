@@ -24,6 +24,7 @@ const unit = (n: number) => (n === 1 ? "single room" : `${n} rooms`);
 export function SwapRoomCard({
   reservationId,
   guestName,
+  inHouse = false,
   rooms,
   roomCount,
   propertyName,
@@ -32,6 +33,8 @@ export function SwapRoomCard({
 }: {
   reservationId: string;
   guestName: string;
+  /** Already checked in: moves from today, within this property only. */
+  inHouse?: boolean;
   rooms: string;
   roomCount: number;
   propertyName: string;
@@ -65,7 +68,7 @@ export function SwapRoomCard({
     start(async () => {
       const res = await swapRooms({ reservationId, otherReservationId: pick.id, reason: reason.trim() || undefined });
       if (!res.ok) { setError(res.error.message); return; }
-      setDone(`${guestName} → ${res.data.a.room} (${res.data.a.property}) · ${pick.guestName} → ${res.data.b.room} (${res.data.b.property})`);
+      setDone(`${guestName} → ${res.data.a.room} (${res.data.a.property})${inHouse ? ` from ${dm(res.data.a.from)}` : ""} · ${pick.guestName} → ${res.data.b.room} (${res.data.b.property})`);
       setPick(null);
       setList(null);
       setOpen(false);
@@ -80,7 +83,9 @@ export function SwapRoomCard({
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          Guest wants the room another guest is booked into (that guest hasn&apos;t checked in)? Swap them — any property, like for like ({unit(roomCount)} ↔ {unit(roomCount)}). Each guest keeps their own dates and rate.
+          {inHouse
+            ? <>Guest already staying wants the room another guest is booked into (that guest hasn&apos;t checked in)? Swap them — they move <b>from today</b>; nights already stayed stay on the old room. Same property, like for like ({unit(roomCount)} ↔ {unit(roomCount)}). Rates and bill don&apos;t change.</>
+            : <>Guest wants the room another guest is booked into (that guest hasn&apos;t checked in)? Swap them — any property, like for like ({unit(roomCount)} ↔ {unit(roomCount)}). Each guest keeps their own dates and rate.</>}
         </p>
         <p className="text-xs text-muted-foreground" data-testid="swap-free-room-hint">
           Room is <b>free</b> (no guest booked)? No swap needed — use <b>Move to another room</b> (same property) or <b>Check in at a different property</b> below.
@@ -124,7 +129,7 @@ export function SwapRoomCard({
                   <dt className="text-muted-foreground">Stay</dt><dd>{dm(pick.checkIn)} → {dm(pick.checkOut)} · {pick.nights} night{pick.nights === 1 ? "" : "s"} · {pick.adults} adult{pick.adults === 1 ? "" : "s"}</dd>
                 </dl>
                 <div className="space-y-1 border-t pt-2">
-                  <p><span className="font-medium">{guestName}</span> ({dm(checkIn)} → {dm(checkOut)}): {rooms} · {propertyName} → <span className="font-semibold">{pick.rooms} · {pick.propertyName}</span></p>
+                  <p><span className="font-medium">{guestName}</span> ({inHouse ? `in-house, moves today → ${dm(checkOut)}` : `${dm(checkIn)} → ${dm(checkOut)}`}): {rooms} · {propertyName} → <span className="font-semibold">{pick.rooms} · {pick.propertyName}</span></p>
                   <p><span className="font-medium">{pick.guestName}</span> ({dm(pick.checkIn)} → {dm(pick.checkOut)}): {pick.rooms} · {pick.propertyName} → <span className="font-semibold">{rooms} · {propertyName}</span></p>
                 </div>
                 <div className="space-y-1.5">
