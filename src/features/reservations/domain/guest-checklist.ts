@@ -13,6 +13,11 @@ export type ChecklistInput = {
   addressLine: string | null;
   ids: { hasScan: boolean }[];
   balancePaise: number | null;
+  /** Check-in details (client, 5 Nov 2026). Omitted by callers that don't track them. */
+  hasWhatsapp?: boolean;
+  dob?: string | null;
+  gender?: string | null;
+  nationality?: string | null;
 };
 
 export type ChecklistItem = {
@@ -30,7 +35,11 @@ export function pendingGuestInfo(input: ChecklistInput): ChecklistItem[] {
   const items: ChecklistItem[] = [];
 
   if (!input.maskedMobile) items.push({ key: "mobile", label: "Contact number", required: true });
+  if (input.hasWhatsapp === false) items.push({ key: "whatsapp", label: "WhatsApp number", required: true });
   if (!input.maskedEmail) items.push({ key: "email", label: "Email address (for the bill)", required: false });
+  if (input.dob === null) items.push({ key: "dob", label: "Date of birth", required: false });
+  if (input.gender === null) items.push({ key: "gender", label: "Gender", required: true });
+  if (input.nationality === null) items.push({ key: "nationality", label: "Nationality", required: true });
 
   const hasAnyId = input.ids.length > 0;
   const hasAnyScan = input.ids.some((i) => i.hasScan);
@@ -49,4 +58,36 @@ export function pendingGuestInfo(input: ChecklistInput): ChecklistItem[] {
   }
 
   return items;
+}
+
+/**
+ * What the guest record still lacks before CHECK-IN (client, 5 Nov 2026): a
+ * booking needs only name + mobile + address, but check-in collects everything.
+ * Mandatory: mobile, WhatsApp, gender, nationality, home address (street, city,
+ * country) and at least one ID. Email and date of birth are NOT required here —
+ * when skipped they stay on the booking's "Pending information" card.
+ */
+export type CheckInGuest = {
+  hasMobile: boolean;
+  hasWhatsapp: boolean;
+  gender: string | null;
+  nationality: string | null;
+  addressLine: string | null;
+  city: string | null;
+  country: string | null;
+  idCount: number;
+};
+
+export function missingForCheckIn(g: CheckInGuest): string[] {
+  const blank = (v: string | null) => !v || v.trim() === "";
+  const missing: string[] = [];
+  if (!g.hasMobile) missing.push("mobile number");
+  if (!g.hasWhatsapp) missing.push("WhatsApp number");
+  if (blank(g.gender)) missing.push("gender");
+  if (blank(g.nationality)) missing.push("nationality");
+  if (blank(g.addressLine)) missing.push("home address");
+  if (blank(g.city)) missing.push("city");
+  if (blank(g.country)) missing.push("country");
+  if (g.idCount === 0) missing.push("a photo ID");
+  return missing;
 }

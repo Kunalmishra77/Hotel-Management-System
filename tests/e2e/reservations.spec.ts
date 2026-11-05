@@ -104,8 +104,17 @@ test.describe("journey — search → book → check-in → check-out (T-32)", (
     await raviArrival.getByRole("link", { name: "Check in" }).click();
     await expect(page).toHaveURL(/\/check-in$/);
 
-    // Verify → Identity: capture the MoM-mandatory Aadhaar (a walk-in guest has
-    // none on file, so Continue stays disabled until one is added) → Register.
+    // Verify → Details: check-in collects the full guest record (client, 5 Nov
+    // 2026). Email + DOB left blank on purpose — they go to pending, not a block.
+    await page.getByTestId("wizard-continue").click();
+    await page.getByTestId("ci-gender").selectOption("Male");
+    await page.getByTestId("ci-address").fill("12 MG Road");
+    await page.getByTestId("ci-city").fill("Bengaluru");
+    await page.getByTestId("save-details").click();
+    await expect(page.getByTestId("details-saved")).toBeVisible();
+
+    // → Identity: capture an ID (a walk-in guest has none on file, so Continue
+    // stays disabled until one is added) → Register.
     await page.getByTestId("wizard-continue").click();
     await page.getByTestId("id-value").fill("123456789012");
     await page.getByTestId("add-id").click();

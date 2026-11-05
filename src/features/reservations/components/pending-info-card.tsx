@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { updateGuest } from "@/features/guests/actions";
 import { addGuestId } from "@/features/guests/id-actions";
+import { COUNTRIES } from "@/lib/constants/countries";
 import type { ChecklistItem } from "../domain/guest-checklist";
 
 const ID_TYPES = [
@@ -62,6 +63,10 @@ export function PendingInfoCard({
 
   const [mobile, setMobile] = useState("");
   const [email, setEmail] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
+  const [dob, setDob] = useState("");
+  const [gender, setGender] = useState("");
+  const [nationality, setNationality] = useState("");
   const [gstin, setGstin] = useState("");
   const [addr, setAddr] = useState({ addressLine: address.addressLine ?? "", city: address.city ?? "", state: address.state ?? "", pincode: address.pincode ?? "", country: address.country ?? "" });
   const [idType, setIdType] = useState(existingIdType ?? "AADHAAR");
@@ -79,6 +84,10 @@ export function PendingInfoCard({
       const patch: Record<string, string> = {};
       if (has("mobile") && mobile.trim()) patch.mobile = mobile.trim();
       if (has("email") && email.trim()) patch.email = email.trim();
+      if (has("whatsapp") && whatsapp.trim()) patch.whatsapp = whatsapp.trim();
+      if (has("dob") && dob) patch.dob = dob;
+      if (has("gender") && gender) patch.gender = gender;
+      if (has("nationality") && nationality.trim()) patch.nationality = nationality.trim();
       if (has("gstin") && gstin.trim()) patch.gstNumber = gstin.trim().toUpperCase();
       if (has("address")) {
         for (const [k, v] of Object.entries(addr)) if (v.trim() && v.trim() !== (address[k as keyof typeof address] ?? "")) patch[k] = v.trim();
@@ -99,7 +108,7 @@ export function PendingInfoCard({
         if (!res.ok) { setError(res.error.message); return; }
       }
       setDone(true);
-      setMobile(""); setEmail(""); setGstin(""); setFront(null); setBack(null);
+      setMobile(""); setEmail(""); setWhatsapp(""); setDob(""); setGender(""); setNationality(""); setGstin(""); setFront(null); setBack(null);
       router.refresh(); // the checklist recomputes — collected items disappear
     });
   }
@@ -136,6 +145,32 @@ export function PendingInfoCard({
             {has("email") && (
               <Field label="Email (for the bill)">
                 <Input type="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" data-testid="pending-email" />
+              </Field>
+            )}
+            {has("whatsapp") && (
+              <Field label="WhatsApp number" required>
+                <Input type="tel" inputMode="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="Usually the same as the mobile" data-testid="pending-whatsapp" />
+              </Field>
+            )}
+            {has("dob") && (
+              <Field label="Date of birth">
+                <Input type="date" max={new Date().toISOString().slice(0, 10)} value={dob} onChange={(e) => setDob(e.target.value)} data-testid="pending-dob" />
+              </Field>
+            )}
+            {has("gender") && (
+              <Field label="Gender" required>
+                <select value={gender} onChange={(e) => setGender(e.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-2 text-sm" data-testid="pending-gender">
+                  <option value="">Select…</option>
+                  {["Male", "Female", "Other"].map((g) => <option key={g} value={g}>{g}</option>)}
+                </select>
+              </Field>
+            )}
+            {has("nationality") && (
+              <Field label="Nationality" required>
+                <select value={nationality} onChange={(e) => setNationality(e.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-2 text-sm" data-testid="pending-nationality">
+                  <option value="">Select…</option>
+                  {COUNTRIES.map((c) => <option key={c.iso2} value={c.name}>{c.name}</option>)}
+                </select>
               </Field>
             )}
             {has("gstin") && (

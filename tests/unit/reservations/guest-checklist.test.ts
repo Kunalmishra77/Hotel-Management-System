@@ -4,7 +4,7 @@
  * "pending" and which items block a clean checkout (required) vs. are optional.
  */
 import { describe, it, expect } from "vitest";
-import { pendingGuestInfo, type ChecklistInput } from "@/features/reservations/domain/guest-checklist";
+import { missingForCheckIn, pendingGuestInfo, type ChecklistInput } from "@/features/reservations/domain/guest-checklist";
 
 const complete: ChecklistInput = {
   maskedMobile: "9•••••210",
@@ -50,5 +50,30 @@ describe("pendingGuestInfo", () => {
     expect(items.find((x) => x.key === "id")?.required).toBe(true);
     expect(items.find((x) => x.key === "email")?.required).toBe(false);
     expect(items.find((x) => x.key === "address")?.required).toBe(false);
+  });
+});
+
+describe("check-in details (client, 5 Nov 2026)", () => {
+  const full = { hasMobile: true, hasWhatsapp: true, gender: "Female", nationality: "India", addressLine: "A-24", city: "Delhi", country: "India", idCount: 1 };
+
+  it("check-in needs mobile, WhatsApp, gender, nationality, home address, city, country and an ID", () => {
+    expect(missingForCheckIn(full)).toEqual([]);
+    expect(missingForCheckIn({ hasMobile: false, hasWhatsapp: false, gender: null, nationality: " ", addressLine: null, city: "", country: null, idCount: 0 })).toEqual([
+      "mobile number", "WhatsApp number", "gender", "nationality", "home address", "city", "country", "a photo ID",
+    ]);
+  });
+
+  it("email and date of birth never block check-in — they go to pending as optional", () => {
+    const items = pendingGuestInfo({ ...complete, maskedEmail: null, hasWhatsapp: true, dob: null, gender: "Male", nationality: "India" });
+    expect(items.map((x) => [x.key, x.required])).toEqual([["email", false], ["dob", false]]);
+  });
+
+  it("an older in-house guest missing WhatsApp / gender / nationality shows them as required pending", () => {
+    const items = pendingGuestInfo({ ...complete, hasWhatsapp: false, dob: "1990-01-01", gender: null, nationality: null });
+    expect(items.filter((x) => x.required).map((x) => x.key)).toEqual(["whatsapp", "gender", "nationality"]);
+  });
+
+  it("callers that don't pass the new fields see no new items", () => {
+    expect(keys(complete)).toEqual([]);
   });
 });

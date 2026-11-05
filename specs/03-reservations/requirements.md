@@ -58,3 +58,9 @@ Availability search p95 < 500ms; create/confirm p95 < 800ms; no overbooking unde
 
 ## Business rules referenced
 `business-rules.md` §1–4 (availability/nights), §5 (folio per in-house reservation), §18–19 (transitions), §20 (validate→authorize→transaction→event→audit).
+
+## Addendum 2026-11-05 — guest details collected at check-in (client)
+- **FR-CI-1** A booking needs only the guest's name, mobile and address. The check-in wizard has a **Details** step that collects the rest.
+- **FR-CI-2** Check-in is refused server-side (`completeCheckIn`) until the guest record holds: mobile, WhatsApp ("same as mobile" by default), gender, nationality, home address (street, city, country) and at least one photo ID. The refusal names what is missing.
+- **FR-CI-3** Email and date of birth are optional at check-in. When skipped, they show as optional items on the booking's Pending information card. Older guests missing WhatsApp, gender or nationality show those as required items there.
+- **FR-CI-4** The go-live importer (module 26) calls `checkIn` directly. Imported history keeps whatever the source file had.

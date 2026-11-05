@@ -138,3 +138,27 @@ export const searchGuestsSchema = z.object({
 export type CreateGuestInput = z.input<typeof createGuestSchema>;
 export type AddGuestIdInput = z.input<typeof addGuestIdSchema>;
 export type SearchGuestsInput = z.output<typeof searchGuestsSchema>;
+
+/**
+ * Guest details collected AT CHECK-IN (client, 5 Nov 2026). A booking only needs
+ * name + mobile + address; check-in makes the rest mandatory. Email and date of
+ * birth stay optional — skipped, they show on the booking's pending card.
+ * Mobile / WhatsApp: blank means "keep what's on file"; `whatsappSameAsMobile`
+ * copies the mobile so the usual case is one tick, not a retyped number.
+ */
+export const checkInDetailsSchema = z
+  .object({
+    guestId: z.string().min(1),
+    mobile: z.string().trim().optional().nullable().refine((v) => !v || isValidPhone(v), "Enter a valid mobile number (with country code for international)."),
+    whatsappSameAsMobile: z.boolean().default(true),
+    whatsapp: z.string().trim().optional().nullable().refine((v) => !v || isValidPhone(v), "Enter a valid WhatsApp number."),
+    email: emailSchema,
+    dob: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date like 1990-05-01.").optional().nullable().or(z.literal("").transform(() => null)),
+    gender: z.string().trim().min(1, "Gender is required.").max(20),
+    nationality: z.string().trim().min(1, "Nationality is required.").max(60),
+    addressLine: z.string().trim().min(1, "Home address is required.").max(200),
+    city: z.string().trim().min(1, "City is required.").max(80),
+    state: optionalString(80),
+    pincode: optionalString(10),
+    country: z.string().trim().min(1, "Country is required.").max(80),
+  });

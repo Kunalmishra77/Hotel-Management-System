@@ -270,6 +270,7 @@ export async function guestsOverview(user: SessionClaims): Promise<GuestsOvervie
 // ---------------------------------------------------------------------------
 
 export type GuestProfile = GuestListItem & {
+  maskedWhatsapp: string | null;
   state: string | null;
   gstNumber: string | null;
   dob: string | null; // yyyy-mm-dd
@@ -297,6 +298,7 @@ export async function getGuestProfile(
       id: true,
       fullName: true,
       mobile: true,
+      whatsapp: true,
       email: true,
       city: true,
       state: true,
@@ -323,6 +325,7 @@ export async function getGuestProfile(
     id: guest.id,
     fullName: guest.fullName,
     maskedMobile: maskContact(decryptOptional(guest.mobile), "mobile"),
+    maskedWhatsapp: maskContact(decryptOptional(guest.whatsapp), "mobile"),
     maskedEmail: maskContact(decryptOptional(guest.email), "email"),
     city: guest.city,
     state: guest.state,

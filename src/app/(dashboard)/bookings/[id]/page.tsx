@@ -106,6 +106,10 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
         addressLine: guestProfile.addressLine,
         ids: guestProfile.ids,
         balancePaise,
+        hasWhatsapp: !!guestProfile.maskedWhatsapp,
+        dob: guestProfile.dob,
+        gender: guestProfile.gender,
+        nationality: guestProfile.nationality,
       })
     : [];
 

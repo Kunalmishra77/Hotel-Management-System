@@ -11,13 +11,15 @@
 import { useMemo, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check, ChevronLeft, FileSignature, Globe, IdCard, ListChecks, UserCheck, Wallet } from "lucide-react";
+import { Check, ChevronLeft, Contact, FileSignature, Globe, IdCard, ListChecks, UserCheck, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDayMonth, formatINR } from "@/lib/utils";
-import { checkIn } from "../lifecycle-actions";
+import { completeCheckIn } from "../check-in-gate";
+import { missingForCheckIn } from "../domain/guest-checklist";
 import { isForeignNationality } from "../domain/nationality";
+import { DetailsStep } from "./check-in-details-step";
 import { IdentityStep } from "./check-in-identity-step";
 import { CFormStep } from "./check-in-cform-step";
 import { RegistrationStep } from "./check-in-registration-step";
@@ -28,6 +30,7 @@ import type { CheckInContext, CheckInIdSummary } from "../queries";
 // or visa was captured), so domestic check-ins never see it.
 const ALL_STEPS = [
   { key: "verify", label: "Verify", icon: ListChecks },
+  { key: "details", label: "Details", icon: Contact },
   { key: "identity", label: "Identity", icon: IdCard },
   { key: "cform", label: "Form C", icon: Globe },
   { key: "registration", label: "Register", icon: FileSignature },
@@ -53,6 +56,13 @@ export function CheckInWizard({
   const [step, setStep] = useState<StepKey>("verify");
   const [ids, setIds] = useState<CheckInIdSummary[]>(context.ids);
   const [registrationSaved, setRegistrationSaved] = useState(false);
+  const [detailsSaved, setDetailsSaved] = useState(false);
+  // A returning guest whose record already holds every check-in detail needn't
+  // re-save; anyone missing something must fill the Details step (client, 5 Nov).
+  const detailsOnFile = useMemo(() => {
+    const g = context.guestDetails;
+    return missingForCheckIn({ hasMobile: !!g.maskedMobile, hasWhatsapp: !!g.maskedWhatsapp, gender: g.gender, nationality: g.nationality, addressLine: g.addressLine, city: g.city, country: g.country, idCount: 1 }).length === 0;
+  }, [context.guestDetails]);
   const [cformSaved, setCformSaved] = useState(false);
   const [collectedPaise, setCollectedPaise] = useState(0);
   const [pending, start] = useTransition();
@@ -82,7 +92,7 @@ export function CheckInWizard({
   const complete = () => {
     setError(null);
     start(async () => {
-      const res = await checkIn({ reservationId: context.id });
+      const res = await completeCheckIn({ reservationId: context.id });
       if (!res.ok) {
         setError(res.error?.message ?? "Check-in failed.");
         return;
@@ -101,6 +111,8 @@ export function CheckInWizard({
         <CardContent className="p-4 sm:p-5">
           {step === "verify" ? (
             <VerifyStep context={context} />
+          ) : step === "details" ? (
+            <DetailsStep guestId={context.guestId} details={context.guestDetails} saved={detailsSaved} onSaved={() => setDetailsSaved(true)} />
           ) : step === "identity" ? (
             <IdentityStep
               guestId={context.guestId}
@@ -140,6 +152,12 @@ export function CheckInWizard({
             </p>
           ) : null}
 
+          {step === "details" && !detailsSaved && !detailsOnFile ? (
+            <p className="mt-4 text-sm text-warning" data-testid="details-required">
+              Save the guest details to continue.
+            </p>
+          ) : null}
+
           {step === "cform" && !cformSaved ? (
             <p className="mt-4 text-sm text-warning" data-testid="cform-required">
               Generate the Form C to continue (foreign guest).
@@ -171,6 +189,7 @@ export function CheckInWizard({
           <Button
             onClick={() => setStep(steps[stepIndex + 1]!.key)}
             disabled={
+              (step === "details" && !detailsSaved && !detailsOnFile) ||
               (step === "identity" && !identityOk) ||
               (step === "cform" && !cformSaved) ||
               (step === "registration" && !registrationSaved)

@@ -309,6 +309,23 @@ export type CheckInContext = {
   estimatedTotalPaise: number;
   estimatedBalancePaise: number;
   ids: CheckInIdSummary[];
+  /** What the guest record already holds — the details step pre-fills from it
+   *  (contacts masked; the raw numbers never reach the browser). */
+  guestDetails: CheckInGuestDetails;
+};
+
+export type CheckInGuestDetails = {
+  maskedMobile: string | null;
+  maskedWhatsapp: string | null;
+  maskedEmail: string | null;
+  dob: string | null;
+  gender: string | null;
+  nationality: string | null;
+  addressLine: string | null;
+  city: string | null;
+  state: string | null;
+  pincode: string | null;
+  country: string | null;
 };
 
 type CheckInRow = {
@@ -396,6 +413,19 @@ export async function getCheckInContext(user: SessionClaims, id: string): Promis
     estimatedTotalPaise: bill.totalPaise,
     estimatedBalancePaise: bill.balancePaise,
     ids: profile?.ids ?? [],
+    guestDetails: {
+      maskedMobile: profile?.maskedMobile ?? null,
+      maskedWhatsapp: profile?.maskedWhatsapp ?? null,
+      maskedEmail: profile?.maskedEmail ?? null,
+      dob: profile?.dob ?? null,
+      gender: profile?.gender ?? null,
+      nationality: profile?.nationality ?? r.guest.nationality,
+      addressLine: profile?.addressLine ?? null,
+      city: profile?.city ?? null,
+      state: profile?.state ?? null,
+      pincode: profile?.pincode ?? null,
+      country: profile?.country ?? null,
+    },
   };
 }
 
