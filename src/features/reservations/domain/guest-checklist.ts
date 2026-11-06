@@ -66,6 +66,13 @@ export function pendingGuestInfo(input: ChecklistInput): ChecklistItem[] {
  * Mandatory: mobile, WhatsApp, gender, nationality, home address (street, city,
  * country) and at least one ID. Email and date of birth are NOT required here —
  * when skipped they stay on the booking's "Pending information" card.
+ *
+ * RETURNING guests (client, 6 Nov 2026): someone who has stayed before was
+ * checked in under the older, shorter form — re-asking everything at the desk
+ * is exactly what the client doesn't want. For them only the photo ID is
+ * required (as it always was); anything else their record lacks goes to the
+ * booking's pending card instead of blocking. Only a FIRST-TIME guest must
+ * complete the full record to check in.
  */
 export type CheckInGuest = {
   hasMobile: boolean;
@@ -76,11 +83,14 @@ export type CheckInGuest = {
   city: string | null;
   country: string | null;
   idCount: number;
+  /** Has an earlier stay (in-house or checked-out) — see the note above. */
+  returning?: boolean;
 };
 
 export function missingForCheckIn(g: CheckInGuest): string[] {
   const blank = (v: string | null) => !v || v.trim() === "";
   const missing: string[] = [];
+  if (g.returning) return g.idCount === 0 ? ["a photo ID"] : [];
   if (!g.hasMobile) missing.push("mobile number");
   if (!g.hasWhatsapp) missing.push("WhatsApp number");
   if (blank(g.gender)) missing.push("gender");

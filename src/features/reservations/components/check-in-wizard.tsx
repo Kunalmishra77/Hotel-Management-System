@@ -57,12 +57,13 @@ export function CheckInWizard({
   const [ids, setIds] = useState<CheckInIdSummary[]>(context.ids);
   const [registrationSaved, setRegistrationSaved] = useState(false);
   const [detailsSaved, setDetailsSaved] = useState(false);
-  // A returning guest whose record already holds every check-in detail needn't
-  // re-save; anyone missing something must fill the Details step (client, 5 Nov).
+  // A guest who has stayed before never has to re-fill Details — their gaps go
+  // to the booking's pending card (client, 6 Nov). A first-time guest must save
+  // the full record unless it is somehow already complete (client, 5 Nov).
   const detailsOnFile = useMemo(() => {
     const g = context.guestDetails;
-    return missingForCheckIn({ hasMobile: !!g.maskedMobile, hasWhatsapp: !!g.maskedWhatsapp, gender: g.gender, nationality: g.nationality, addressLine: g.addressLine, city: g.city, country: g.country, idCount: 1 }).length === 0;
-  }, [context.guestDetails]);
+    return missingForCheckIn({ hasMobile: !!g.maskedMobile, hasWhatsapp: !!g.maskedWhatsapp, gender: g.gender, nationality: g.nationality, addressLine: g.addressLine, city: g.city, country: g.country, idCount: 1, returning: context.returningGuest }).length === 0;
+  }, [context.guestDetails, context.returningGuest]);
   const [cformSaved, setCformSaved] = useState(false);
   const [collectedPaise, setCollectedPaise] = useState(0);
   const [pending, start] = useTransition();
@@ -112,7 +113,7 @@ export function CheckInWizard({
           {step === "verify" ? (
             <VerifyStep context={context} />
           ) : step === "details" ? (
-            <DetailsStep guestId={context.guestId} details={context.guestDetails} saved={detailsSaved} onSaved={() => setDetailsSaved(true)} />
+            <DetailsStep guestId={context.guestId} details={context.guestDetails} returning={context.returningGuest} saved={detailsSaved} onSaved={() => setDetailsSaved(true)} />
           ) : step === "identity" ? (
             <IdentityStep
               guestId={context.guestId}

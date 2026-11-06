@@ -7,6 +7,10 @@
  * city and country. Email and date of birth are optional — left blank, they show
  * on the booking's "Pending information" card to collect later. Whatever is
  * already on file is pre-filled; contact numbers stay masked.
+ *
+ * A RETURNING guest (stayed before) is never made to re-fill this: the step is
+ * optional for them and whatever their old record lacks shows on the booking's
+ * pending card (client, 6 Nov 2026).
  */
 import { useState, useTransition, type ReactNode } from "react";
 import { toast } from "sonner";
@@ -27,11 +31,13 @@ const withCurrent = (list: string[], current: string | null) => (current && !lis
 export function DetailsStep({
   guestId,
   details,
+  returning,
   saved,
   onSaved,
 }: {
   guestId: string;
   details: CheckInGuestDetails;
+  returning: boolean;
   saved: boolean;
   onSaved: () => void;
 }) {
@@ -89,9 +95,15 @@ export function DetailsStep({
     <div className="space-y-5" data-testid="checkin-details">
       <div>
         <h3 className="text-sm font-semibold">Guest details</h3>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          Fields marked <span className="text-destructive">*</span> are needed to check in. Email and date of birth can wait — if skipped they stay as pending on the booking.
-        </p>
+        {returning ? (
+          <p className="mt-2 rounded-md border border-success/40 bg-success/10 p-3 text-sm" data-testid="returning-guest">
+            <span className="font-medium">Returning guest — details from the earlier stay are on file.</span> Nothing to fill here: press Continue. Change something only if it is different now; anything still missing shows on the booking&apos;s Pending information card.
+          </p>
+        ) : (
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Fields marked <span className="text-destructive">*</span> are needed to check in. Email and date of birth can wait — if skipped they stay as pending on the booking.
+          </p>
+        )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">

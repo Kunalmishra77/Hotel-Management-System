@@ -6,7 +6,9 @@
  * WhatsApp, gender, nationality, home address and a photo ID. Email and date of
  * birth may be skipped; they stay on the booking's pending card. Checked here on
  * the server from the guest row itself (not from what the wizard says), then the
- * normal `checkIn` runs. The go-live importer calls `checkIn` directly — imported
+ * normal `checkIn` runs. A RETURNING guest (an earlier in-house / checked-out
+ * stay, including Data-Entry history) needs only the photo ID — their gaps go to
+ * the pending card, they are never re-asked at the desk (client, 6 Nov 2026). The go-live importer calls `checkIn` directly — imported
  * history carries whatever the source file had.
  */
 import { requireUser } from "@/lib/auth";
@@ -29,7 +31,14 @@ export async function completeCheckIn(input: unknown): Promise<Result<LifecycleR
         guest: {
           select: {
             mobile: true, whatsapp: true, gender: true, nationality: true, addressLine: true, city: true, country: true,
-            _count: { select: { ids: true } },
+            _count: {
+              select: {
+                ids: true,
+                // Earlier stays anywhere in the org — the guest is org-level, and
+                // only the count is used (no other property's data is read).
+                reservations: { where: { id: { not: reservationId }, status: { in: ["IN_HOUSE", "CHECKED_OUT"] } } },
+              },
+            },
           },
         },
       },
@@ -46,6 +55,7 @@ export async function completeCheckIn(input: unknown): Promise<Result<LifecycleR
       city: r.guest.city,
       country: r.guest.country,
       idCount: r.guest._count.ids,
+      returning: r.guest._count.reservations > 0,
     });
     if (missing.length > 0) {
       throw new DomainError(ErrorCode.VALIDATION_FAILED, "Guest details incomplete", {

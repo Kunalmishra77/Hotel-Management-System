@@ -76,4 +76,12 @@ describe("check-in details (client, 5 Nov 2026)", () => {
   it("callers that don't pass the new fields see no new items", () => {
     expect(keys(complete)).toEqual([]);
   });
+
+  it("a returning guest is never re-asked — only the photo ID can block (client, 6 Nov 2026)", () => {
+    const bare = { hasMobile: false, hasWhatsapp: false, gender: null, nationality: null, addressLine: null, city: null, country: null, returning: true };
+    expect(missingForCheckIn({ ...bare, idCount: 2 })).toEqual([]);
+    expect(missingForCheckIn({ ...bare, idCount: 0 })).toEqual(["a photo ID"]);
+    // A first-time guest with the same gaps is still blocked on all of them.
+    expect(missingForCheckIn({ ...bare, idCount: 1, returning: false })).toHaveLength(7);
+  });
 });

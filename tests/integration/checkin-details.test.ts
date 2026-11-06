@@ -18,7 +18,7 @@ vi.mock("@/lib/auth", () => ({
 }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {}, revalidateTag: () => {} }));
 
-import { ORG_ID, PROP_A_ID, ROOM_104_ID, USER_RECEPTION_A_ID } from "../../prisma/seed/fixtures";
+import { ORG_ID, PROP_A_ID, ROOM_104_ID, ROOM_103_ID, USER_RECEPTION_A_ID } from "../../prisma/seed/fixtures";
 import { resetRoomsA } from "../../prisma/seed/01-property";
 import { assembleClaims } from "@/lib/auth/claims";
 import { decryptOptional, encryptString } from "@/lib/crypto/encryption";
@@ -28,7 +28,9 @@ import { saveCheckInDetails } from "@/features/guests/checkin-details-action";
 
 const prisma = createPrismaClient();
 const GUEST = "ci_details_guest";
+const RETURNING = "ci_details_returning";
 let resId = "";
+const extraRes: string[] = [];
 
 beforeAll(async () => {
   const c = await assembleClaims(prisma, USER_RECEPTION_A_ID);
@@ -42,9 +44,23 @@ beforeAll(async () => {
     update: { whatsapp: null, gender: null, nationality: null, country: null, email: null, dob: null, deletedAt: null },
   });
   await prisma.guestId.deleteMany({ where: { guestId: GUEST } });
+  // A guest from before the full-record rule: name, mobile, one ID — no
+  // WhatsApp / gender / nationality / address.
+  await prisma.guest.upsert({
+    where: { id: RETURNING },
+    create: { id: RETURNING, orgId: ORG_ID, fullName: "Returning Old-Form Guest", mobile: encryptString("9800000089") },
+    update: { whatsapp: null, gender: null, nationality: null, country: null, addressLine: null, city: null, deletedAt: null },
+  });
+  await prisma.guestId.deleteMany({ where: { guestId: RETURNING } });
+  await prisma.guestId.create({ data: { guestId: RETURNING, type: "DRIVING_LICENCE", maskedValue: "XXXX9876" } });
 });
 
 afterAll(async () => {
+  for (const id of extraRes) {
+    await prisma.roomAllocation.deleteMany({ where: { reservationId: id } });
+    await prisma.reservation.updateMany({ where: { id }, data: { status: "CHECKED_OUT" } });
+  }
+  await prisma.guestId.deleteMany({ where: { guestId: RETURNING } });
   if (resId) {
     await prisma.roomAllocation.deleteMany({ where: { reservationId: resId } });
     await prisma.reservation.updateMany({ where: { id: resId }, data: { status: "CHECKED_OUT" } });
@@ -88,6 +104,35 @@ describe("check-in requires the full guest record", () => {
       const ok = await completeCheckIn({ reservationId: resId });
       expect(ok.ok, JSON.stringify(ok)).toBe(true);
       expect((await prisma.reservation.findUniqueOrThrow({ where: { id: resId } })).status).toBe("IN_HOUSE");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a returning guest (stayed before) checks in without re-filling the details (client, 6 Nov 2026)", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2028-03-10T05:00:00Z"));
+    try {
+      // First-time (no earlier stay) → still blocked on the full record.
+      const first = await createReservation({ propertyId: PROP_A_ID, source: "DIRECT", adults: 1, children: 0, ratePaise: 200_000, guestId: RETURNING, roomIds: [ROOM_103_ID], checkInDate: "2028-03-10", checkOutDate: "2028-03-11" });
+      expect(first.ok, JSON.stringify(first)).toBe(true);
+      if (!first.ok) return;
+      extraRes.push(first.data.id);
+      const blocked = await completeCheckIn({ reservationId: first.data.id });
+      expect(blocked.ok).toBe(false);
+
+      // Give them an earlier, checked-out stay → now a returning guest.
+      await prisma.reservation.update({ where: { id: first.data.id }, data: { status: "CHECKED_OUT" } });
+      await prisma.roomAllocation.deleteMany({ where: { reservationId: first.data.id } });
+      await resetRoomsA(prisma);
+
+      const again = await createReservation({ propertyId: PROP_A_ID, source: "DIRECT", adults: 1, children: 0, ratePaise: 200_000, guestId: RETURNING, roomIds: [ROOM_103_ID], checkInDate: "2028-03-10", checkOutDate: "2028-03-11" });
+      expect(again.ok, JSON.stringify(again)).toBe(true);
+      if (!again.ok) return;
+      extraRes.push(again.data.id);
+      const ok = await completeCheckIn({ reservationId: again.data.id });
+      expect(ok.ok, JSON.stringify(ok)).toBe(true);
+      expect((await prisma.reservation.findUniqueOrThrow({ where: { id: again.data.id } })).status).toBe("IN_HOUSE");
     } finally {
       vi.useRealTimers();
     }

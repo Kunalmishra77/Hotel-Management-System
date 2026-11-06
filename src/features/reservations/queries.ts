@@ -312,6 +312,8 @@ export type CheckInContext = {
   /** What the guest record already holds — the details step pre-fills from it
    *  (contacts masked; the raw numbers never reach the browser). */
   guestDetails: CheckInGuestDetails;
+  /** Has stayed before — Details is then optional (client, 6 Nov 2026). */
+  returningGuest: boolean;
 };
 
 export type CheckInGuestDetails = {
@@ -345,7 +347,7 @@ type CheckInRow = {
   otherChargesPaise: number;
   taxPaise: number;
   advancePaise: number;
-  guest: { fullName: string; nationality: string | null };
+  guest: { fullName: string; nationality: string | null; _count: { reservations: number } };
   allocations: { room: { number: string } }[];
   folio: { id: string } | null;
 };
@@ -370,7 +372,14 @@ export async function getCheckInContext(user: SessionClaims, id: string): Promis
       otherChargesPaise: true,
       taxPaise: true,
       advancePaise: true,
-      guest: { select: { fullName: true, nationality: true } },
+      guest: {
+        select: {
+          fullName: true,
+          nationality: true,
+          // Earlier stays → a returning guest (same rule as the check-in gate).
+          _count: { select: { reservations: { where: { id: { not: id }, status: { in: ["IN_HOUSE", "CHECKED_OUT"] } } } } },
+        },
+      },
       allocations: { select: { room: { select: { number: true } } } },
       folio: { select: { id: true } },
     },
@@ -426,6 +435,7 @@ export async function getCheckInContext(user: SessionClaims, id: string): Promis
       pincode: profile?.pincode ?? null,
       country: profile?.country ?? null,
     },
+    returningGuest: r.guest._count.reservations > 0,
   };
 }
 
