@@ -42,6 +42,7 @@ export const PROPERTY_SCOPED_MODELS = [
   "RoomBlock",
   "Reservation",
   "RoomAllocation",
+  "StayExtension",
   "Folio",
   "Payment",
   "InvoiceSeries",

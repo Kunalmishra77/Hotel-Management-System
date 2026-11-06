@@ -12,23 +12,25 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { changeBookingSource } from "../move-actions";
+import { SOURCE_OPTIONS as SOURCES, sourceOptionLabel } from "../source-options";
 
-const SOURCES: { value: string; label: string }[] = [
-  { value: "DIRECT", label: "Direct" },
-  { value: "WALK_IN", label: "Walk-in" },
-  { value: "PHONE", label: "Phone / enquiry" },
-  { value: "WEBSITE", label: "Website" },
-  { value: "CORPORATE", label: "Corporate" },
-  { value: "TRAVEL_AGENT", label: "Travel agent" },
-  { value: "BOOKING_COM", label: "Booking.com" },
-  { value: "MAKEMYTRIP", label: "MakeMyTrip" },
-  { value: "EXPEDIA", label: "Expedia" },
-  { value: "AGODA", label: "Agoda" },
-  { value: "GOIBIBO", label: "Goibibo" },
-  { value: "AIRBNB", label: "Airbnb" },
-];
 
-export function ChangeSourceCard({ reservationId, currentSource, currentBookedOn }: { reservationId: string; currentSource: string; currentBookedOn: string }) {
+type ExtensionSpan = { from: string; to: string; source: string };
+const short = (ymd: string) => new Date(`${ymd}T00:00:00Z`).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "UTC" });
+const nightsOf = (e: ExtensionSpan) => Math.round((Date.parse(e.to) - Date.parse(e.from)) / 86_400_000);
+
+export function ChangeSourceCard({
+  reservationId,
+  currentSource,
+  currentBookedOn,
+  extensions = [],
+}: {
+  reservationId: string;
+  currentSource: string;
+  currentBookedOn: string;
+  /** Extensions and the channel their added nights came through (client, 6 Nov 2026). */
+  extensions?: ExtensionSpan[];
+}) {
   const router = useRouter();
   const [source, setSource] = useState(currentSource);
   const [bookedOn, setBookedOn] = useState(currentBookedOn);
@@ -65,6 +67,20 @@ export function ChangeSourceCard({ reservationId, currentSource, currentBookedOn
             {pending ? "Saving…" : saved ? "Saved" : "Change source"}
           </Button>
         </div>
+        {extensions.length > 0 ? (
+          <div className="rounded-md border bg-muted/40 p-2 text-sm" data-testid="source-by-nights">
+            <p className="font-medium">Source by nights</p>
+            <ul className="mt-1 space-y-0.5 text-muted-foreground">
+              <li>Original booking: <span className="text-foreground">{sourceOptionLabel(currentSource)}</span></li>
+              {extensions.map((e) => (
+                <li key={e.from}>
+                  Extension {short(e.from)} → {short(e.to)} ({nightsOf(e)} night{nightsOf(e) === 1 ? "" : "s"}): <span className="text-foreground">{sourceOptionLabel(e.source)}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-1 text-xs text-muted-foreground">Revenue reports credit each extension&apos;s nights to its own source. &ldquo;Change source&rdquo; above changes the original booking only.</p>
+          </div>
+        ) : null}
         {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
       </CardContent>
     </Card>

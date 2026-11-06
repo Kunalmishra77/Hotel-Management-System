@@ -175,7 +175,7 @@ export async function extendStay(input: unknown): Promise<Result<MoveResult>> {
     const r = await client.reservation.findFirst({
       where: { id: data.reservationId },
       select: {
-        id: true, propertyId: true, status: true, checkInDate: true, checkOutDate: true, ratePaise: true,
+        id: true, propertyId: true, status: true, checkInDate: true, checkOutDate: true, ratePaise: true, source: true,
         allocations: { select: { id: true, roomId: true, startDate: true, endDate: true, room: { select: { number: true } } } },
         folio: { select: { id: true } },
         property: { select: { timezone: true, state: true, dayUseEnabled: true } },
@@ -236,6 +236,8 @@ export async function extendStay(input: unknown): Promise<Result<MoveResult>> {
       extraNights.push(new Date(t));
     }
     const billExtra = r.status === "IN_HOUSE";
+    // Where the added nights came from — defaults to the booking's own channel.
+    const extensionSource = data.source ?? r.source;
 
     return withReservationContext(user, () =>
       bookingAttempt(() =>
@@ -259,6 +261,16 @@ export async function extendStay(input: unknown): Promise<Result<MoveResult>> {
               // the night audit and check-out post the remaining nights at it too.
               // Already-posted nights are deliberately left alone.
               data: { checkOutDate: newCheckOut, nights, ratePaise: extensionRatePaise },
+            });
+
+            // Record where these nights were booked, so revenue-by-source credits
+            // them to that channel and not the booking's first one (client, 6 Nov).
+            await tx.stayExtension.create({
+              data: {
+                propertyId: r.propertyId, reservationId: r.id,
+                fromDate: r.checkOutDate, toDate: newCheckOut,
+                source: extensionSource, ratePaise: extensionRatePaise, createdById: user.userId,
+              },
             });
 
             // Bill the added nights now for an in-house guest. Idempotency keys on
@@ -302,11 +314,11 @@ export async function extendStay(input: unknown): Promise<Result<MoveResult>> {
               });
             }
 
-            await emitEvent(tx, { type: "ReservationModified", aggregateId: r.id, propertyId: r.propertyId, payload: { checkOutDate: newCheckOut, extended: true, ratePaise: extensionRatePaise } });
+            await emitEvent(tx, { type: "ReservationModified", aggregateId: r.id, propertyId: r.propertyId, payload: { checkOutDate: newCheckOut, extended: true, ratePaise: extensionRatePaise, extensionSource } });
             await writeAudit(tx, {
               action: "reservation:extend", entityType: "Reservation", entityId: r.id, propertyId: r.propertyId,
               before: { checkOutDate: r.checkOutDate, ratePaise: r.ratePaise },
-              after: { checkOutDate: newCheckOut, nights, ratePaise: extensionRatePaise, ...(data.paid ? { paid: { amountPaise: data.paid.amountPaise, mode: data.paid.mode, via: data.paid.via ?? null } } : {}) },
+              after: { checkOutDate: newCheckOut, nights, ratePaise: extensionRatePaise, extensionSource, ...(data.paid ? { paid: { amountPaise: data.paid.amountPaise, mode: data.paid.mode, via: data.paid.via ?? null } } : {}) },
             });
             return { id: r.id, status: r.status, roomId: roomIds[0]! };
           },

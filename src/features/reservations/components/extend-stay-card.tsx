@@ -14,6 +14,10 @@
  * collect with Take payment. "Already paid" covers the guest who re-booked the
  * extra nights on an OTA (e.g. Agoda with their coupons) or paid now: the
  * amount is recorded on the bill with its mode and channel, so nothing shows due.
+ *
+ * "Extra nights booked via" (client, 6 Nov 2026): the added nights' own channel —
+ * typically Direct when an OTA guest extends at the desk. Saved per extension so
+ * revenue-by-source credits those nights to it, not to the booking's first channel.
  */
 import { useState, useTransition } from "react";
 import { CalendarPlus } from "lucide-react";
@@ -24,8 +28,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { extendStay } from "../move-actions";
 import { formatINR } from "@/lib/utils";
 import { PaymentModeSelect } from "@/components/forms/payment-mode-select";
-
-const CHANNELS = ["Direct", "Agoda", "MakeMyTrip", "Booking.com", "Goibibo", "Expedia", "Airbnb"] as const;
+import { SOURCE_OPTIONS, sourceOptionLabel } from "../source-options";
 
 export function ExtendStayCard({
   reservationId,
@@ -45,7 +48,8 @@ export function ExtendStayCard({
   const [payment, setPayment] = useState<"due" | "paid">("due");
   const [paidAmount, setPaidAmount] = useState("");
   const [paidMode, setPaidMode] = useState<string>("");
-  const [via, setVia] = useState<string>("Direct");
+  // Most extensions are agreed at the desk, so Direct is the default channel.
+  const [source, setSource] = useState<string>("DIRECT");
   const paidIncomplete = payment === "paid" && (!(Number(paidAmount) > 0) || !paidMode);
   const fmt = (ymd: string) => new Date(`${ymd}T00:00:00Z`).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "UTC" });
   // Say WHY the button is off instead of leaving a dead button.
@@ -71,7 +75,8 @@ export function ExtendStayCard({
         newCheckOutDate: date,
         // Blank → keep the booking's current rate.
         ...(rate && Number(rate) > 0 ? { ratePaise: Math.round(Number(rate) * 100), gstMode } : {}),
-        ...(payment === "paid" ? { paid: { amountPaise: Math.round(Number(paidAmount) * 100), mode: paidMode, via } } : {}),
+        source,
+        ...(payment === "paid" ? { paid: { amountPaise: Math.round(Number(paidAmount) * 100), mode: paidMode, via: sourceOptionLabel(source) } } : {}),
       });
       if (!res.ok) { setError(res.error.message); return; }
       setDone(date);
@@ -80,6 +85,7 @@ export function ExtendStayCard({
       setPayment("due");
       setPaidAmount("");
       setPaidMode("");
+      setSource("DIRECT");
     });
   }
 
@@ -101,6 +107,12 @@ export function ExtendStayCard({
           <div className="space-y-1.5">
             <Label htmlFor="extend-date">New check-out date</Label>
             <Input id="extend-date" type="date" min={checkOutDate} value={date} onChange={(e) => setDate(e.target.value)} data-testid="extend-date" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="extend-source">Extra nights booked via</Label>
+            <select id="extend-source" value={source} onChange={(e) => setSource(e.target.value)} className="h-10 w-48 rounded-md border border-input bg-background px-3 text-sm" data-testid="extend-source">
+              {SOURCE_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+            </select>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="extend-rate">Rate / night for the extra nights (₹)</Label>
@@ -135,13 +147,7 @@ export function ExtendStayCard({
             </label>
           </div>
           {payment === "paid" && (
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="extend-via">Booked / paid via</Label>
-                <select id="extend-via" value={via} onChange={(e) => setVia(e.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" data-testid="extend-via">
-                  {CHANNELS.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
+            <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="extend-paid-amount">Amount paid (₹, incl. GST)</Label>
                 <Input id="extend-paid-amount" type="number" inputMode="decimal" step="0.01" min={0} value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} data-testid="extend-paid-amount" />

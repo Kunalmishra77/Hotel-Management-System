@@ -584,9 +584,9 @@ model Reservation {
   externalHotelName    String?
   externalHotelAddress String?
 
-  nights          Int
-  adults          Int       @default(1)
-  children        Int       @default(0)
+  nights   Int
+  adults   Int @default(1)
+  children Int @default(0)
 
   // Tentative hold (03 FR-16 / 23): ENQUIRY holds consume inventory until expiry.
   holdExpiresAt DateTime?
@@ -603,24 +603,25 @@ model Reservation {
 
   // Financial snapshot at booking (authoritative charges live on the folio)
   ratePaise         Int
-  discountPaise     Int @default(0)
-  extraBedPaise     Int @default(0)
-  taxPaise          Int @default(0)
-  otherChargesPaise Int @default(0)
-  advancePaise      Int @default(0)
+  discountPaise     Int          @default(0)
+  extraBedPaise     Int          @default(0)
+  taxPaise          Int          @default(0)
+  otherChargesPaise Int          @default(0)
+  advancePaise      Int          @default(0)
   // How the advance / prepayment was paid (UPI, cash, OTA online…) — posted to the
   // folio with this mode at check-in. Null for old bookings (fallback: ONLINE when
   // already paid, else CASH).
   advanceMode       PaymentMode?
 
-  allocations      RoomAllocation[]
-  folio            Folio?
-  posOrders        PosOrder[]
-  registrationCard RegistrationCard?
-  cform            CForm?
-  addOnRequests    AddOnRequest[]
-  guestMessages    GuestMessage[]
+  allocations        RoomAllocation[]
+  folio              Folio?
+  posOrders          PosOrder[]
+  registrationCard   RegistrationCard?
+  cform              CForm?
+  addOnRequests      AddOnRequest[]
+  guestMessages      GuestMessage[]
   accompanyingGuests ReservationGuest[]
+  extensions         StayExtension[]
 
   notes     String?
   createdAt DateTime @default(now())
@@ -727,6 +728,28 @@ model RoomAllocation {
   endDate       DateTime    @db.Date
 
   @@index([roomId, startDate, endDate])
+  @@index([propertyId])
+}
+
+// One extension of a stay (client, 6 Nov 2026). Extending keeps ONE booking (one
+// room, one bill) but the added nights are often agreed through a different
+// channel — an MMT booking extended directly at the desk. The booking's own
+// `source` describes the ORIGINAL nights; each row here says where the nights
+// [fromDate, toDate) came from, so revenue-by-source splits per night instead of
+// crediting the whole stay to the first channel. Insert-only.
+model StayExtension {
+  id            String        @id @default(cuid())
+  propertyId    String
+  reservationId String
+  reservation   Reservation   @relation(fields: [reservationId], references: [id])
+  fromDate      DateTime      @db.Date // the old check-out = first added night
+  toDate        DateTime      @db.Date // the new check-out (exclusive)
+  source        BookingSource
+  ratePaise     Int // pre-tax nightly rate agreed for the added nights
+  createdById   String?
+  createdAt     DateTime      @default(now())
+
+  @@index([reservationId])
   @@index([propertyId])
 }
 
@@ -1133,24 +1156,24 @@ enum InvoiceType {
 }
 
 model Invoice {
-  id                String      @id @default(cuid())
+  id                String        @id @default(cuid())
   propertyId        String
   folioId           String
-  folio             Folio       @relation(fields: [folioId], references: [id])
+  folio             Folio         @relation(fields: [folioId], references: [id])
   number            String // gap-free per property/FY
   financialYear     String
-  type              InvoiceType @default(TAX_INVOICE)
+  type              InvoiceType   @default(TAX_INVOICE)
   cancelsInvoiceId  String? // for CREDIT_NOTE / void (06 FR-21)
   customerName      String
   customerGstin     String?
   placeOfSupply     String
   taxableValuePaise BigInt
-  cgstPaise         Int         @default(0)
-  sgstPaise         Int         @default(0)
-  igstPaise         Int         @default(0)
+  cgstPaise         Int           @default(0)
+  sgstPaise         Int           @default(0)
+  igstPaise         Int           @default(0)
   totalPaise        BigInt
   pdfObjectKey      String?
-  issuedAt          DateTime    @default(now())
+  issuedAt          DateTime      @default(now())
   issuedById        String?
   // Frozen snapshot of the lines this invoice was issued for (06 FR-21). The PDF
   // renders from THESE, never from the live folio — so an invoice can never be
@@ -1161,7 +1184,9 @@ model Invoice {
   @@index([propertyId, issuedAt])
 }
 
-/** Immutable copy of a folio line as it was at the moment the invoice issued. */
+/**
+ * Immutable copy of a folio line as it was at the moment the invoice issued.
+ */
 model InvoiceLine {
   id          String  @id @default(cuid())
   invoiceId   String

@@ -277,6 +277,17 @@ export async function getReservation(
   return r ? toItem(r) : null;
 }
 
+export type StayExtensionItem = { fromDate: Date; toDate: Date; source: string; ratePaise: number };
+
+/** A booking's extensions, oldest first — each with the channel its added nights came through. */
+export async function listStayExtensions(user: SessionClaims, reservationId: string): Promise<StayExtensionItem[]> {
+  return db.scoped(user).stayExtension.findMany({
+    where: { reservationId },
+    select: { fromDate: true, toDate: true, source: true, ratePaise: true },
+    orderBy: { fromDate: "asc" },
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Check-in wizard context (03 T6) — the richer read the guided flow needs:
 // booking + occupancy + settlement intent + live folio balance + the guest's

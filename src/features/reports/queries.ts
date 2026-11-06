@@ -13,6 +13,7 @@ import { getFinalizedStaffCostInRange } from "@/features/payroll";
 import { occupancy, adr, revpar } from "@/features/analytics/domain/metrics";
 import { segments as analyticsSegments, type Segment } from "@/features/analytics/queries";
 import { incomeVsExpense, type Breakdown } from "./domain/profit";
+import { addRevenueBySource } from "./domain/source-split";
 import type { SessionClaims } from "@/lib/auth/claims";
 
 export type ProfitReport = {
@@ -91,16 +92,19 @@ export async function revenueSegments(
 
   const { corporates } = await analyticsSegments(user, input);
 
-  // By booking source: sum folio revenue (tax-excluded) grouped by reservation source.
+  // By booking source: folio revenue (tax-excluded), split per night — an
+  // extension's added nights go to the extension's own source (source-split.ts).
   const reservations = await db.scoped(user).reservation.findMany({
     where: { propertyId: { in: input.propertyIds }, checkInDate: { gte: input.from, lte: input.to }, status: { in: ["IN_HOUSE", "CHECKED_OUT"] } },
-    select: { source: true, folio: { select: { lines: { select: { amountPaise: true, type: true } } } } },
+    select: {
+      source: true,
+      extensions: { select: { fromDate: true, toDate: true, source: true } },
+      folio: { select: { lines: { select: { amountPaise: true, type: true, businessDate: true } } } },
+    },
   });
   const bySourceMap = new Map<string, number>();
   for (const r of reservations) {
-    let rev = 0;
-    for (const l of r.folio?.lines ?? []) if (l.type !== "TAX") rev += Number(l.amountPaise);
-    bySourceMap.set(r.source, (bySourceMap.get(r.source) ?? 0) + rev);
+    addRevenueBySource(bySourceMap, { source: r.source, extensions: r.extensions, lines: r.folio?.lines ?? [] });
   }
   const bySource = [...bySourceMap.entries()].map(([source, revenuePaise]) => ({ source, revenuePaise })).sort((a, b) => b.revenuePaise - a.revenuePaise);
 

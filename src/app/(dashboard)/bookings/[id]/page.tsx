@@ -5,7 +5,7 @@ import { CalendarDays, IndianRupee, ReceiptText, UserCheck } from "lucide-react"
 import { requirePermission } from "@/lib/auth/guard";
 import { hasPermission } from "@/lib/permissions";
 import QRCode from "qrcode";
-import { getReservation, getReservationGuestPanel, transferStatement } from "@/features/reservations/queries";
+import { getReservation, getReservationGuestPanel, listStayExtensions, transferStatement } from "@/features/reservations/queries";
 import { reviewUrl } from "@/features/feedback/review-token";
 import { CombinedStatementCard } from "@/features/reservations/components/combined-statement-card";
 import { MoveCreditCard } from "@/features/reservations/components/move-credit-card";
@@ -72,6 +72,13 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
   const transferProperties = canTransfer ? otherProperties : [];
   // Combined bill across a transfer chain (only when this booking is part of one).
   const statement = canFolio ? await transferStatement(user, r.id) : null;
+  // Extensions booked through another channel (e.g. an MMT stay extended directly).
+  const extensions = (await listStayExtensions(user, r.id)).map((e) => ({
+    from: e.fromDate.toISOString().slice(0, 10),
+    // An early check-out can end the stay before the extension's last night.
+    to: (e.toDate < r.checkOutDate ? e.toDate : r.checkOutDate).toISOString().slice(0, 10),
+    source: e.source,
+  })).filter((e) => e.to > e.from);
   // Cancellation is a PRE-ARRIVAL action only (domain: IN_HOUSE → only CHECKED_OUT).
   // An in-house guest is checked out / recorded as early departure — never cancelled.
   const canCancel = hasPermission(user, "reservation:cancel") && ["ENQUIRY", "CONFIRMED"].includes(r.status);
@@ -233,7 +240,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
           ) : null}
 
           {canManageGuests && !r.externalHotelName ? (
-            <ChangeSourceCard reservationId={r.id} currentSource={r.source} currentBookedOn={r.bookedOn} />
+            <ChangeSourceCard reservationId={r.id} currentSource={r.source} currentBookedOn={r.bookedOn} extensions={extensions} />
           ) : null}
 
           {statement?.isTransfer ? <CombinedStatementCard statement={statement} /> : null}

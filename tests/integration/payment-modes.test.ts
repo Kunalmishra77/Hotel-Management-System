@@ -19,7 +19,7 @@ vi.mock("@/lib/auth", () => ({
 }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {}, revalidateTag: () => {} }));
 
-import { PROP_A_ID, ROOM_101_ID, ROOM_102_ID, GUEST_MEHTA_ID, USER_RECEPTION_A_ID } from "../../prisma/seed/fixtures";
+import { PROP_A_ID, ROOM_101_ID, ROOM_102_ID, GUEST_MEHTA_ID, USER_ADMIN_ID, USER_RECEPTION_A_ID } from "../../prisma/seed/fixtures";
 import { resetRoomsA } from "../../prisma/seed/01-property";
 import { assembleClaims } from "@/lib/auth/claims";
 import { createReservation } from "@/features/reservations/actions";
@@ -27,6 +27,7 @@ import { checkIn } from "@/features/reservations/lifecycle-actions";
 import { extendStay } from "@/features/reservations/move-actions";
 import { correctPaymentEntry } from "@/features/billing/payment-actions";
 import { getFolio } from "@/features/billing/queries";
+import { revenueSegments } from "@/features/reports/queries";
 
 const prisma = createPrismaClient();
 const created: string[] = [];
@@ -113,6 +114,41 @@ describe("extension paid on an OTA", () => {
     expect((await extendStay({ reservationId: res.data.id, newCheckOutDate: "2027-09-13", ratePaise: 250_000, gstMode: "exclusive" })).ok).toBe(true);
     const claims = await actAs(USER_RECEPTION_A_ID);
     expect((await getFolio(claims, await folioId(res.data.id)))?.balancePaise).toBe(262_500);
+  });
+});
+
+describe("an extension booked through another channel (client, 6 Nov 2026)", () => {
+  it("an MMT stay extended at the desk credits the added night to the extension's source", async () => {
+    await actAs(USER_RECEPTION_A_ID);
+    const res = await createReservation(body({ roomIds: [ROOM_102_ID], source: "MAKEMYTRIP", checkInDate: "2027-10-20", checkOutDate: "2027-10-22" }));
+    if (!res.ok) throw new Error(res.error.message);
+    created.push(res.data.id);
+    await checkIn({ reservationId: res.data.id });
+    const ext = await extendStay({ reservationId: res.data.id, newCheckOutDate: "2027-10-23", ratePaise: 250_000, gstMode: "exclusive", source: "WALK_IN" });
+    expect(ext.ok, JSON.stringify(ext)).toBe(true);
+
+    // The booking stays MMT; the extension row carries the new channel.
+    const r = await prisma.reservation.findUniqueOrThrow({ where: { id: res.data.id }, select: { source: true, extensions: true } });
+    expect(r.source).toBe("MAKEMYTRIP");
+    expect(r.extensions.map((e) => [e.fromDate.toISOString().slice(0, 10), e.toDate.toISOString().slice(0, 10), e.source, e.ratePaise]))
+      .toEqual([["2027-10-22", "2027-10-23", "WALK_IN", 250_000]]);
+
+    // Revenue by source: 2 MMT nights at ₹2,000, 1 walk-in night at ₹2,500.
+    const admin = await actAs(USER_ADMIN_ID);
+    const seg = await revenueSegments(admin, { propertyIds: [PROP_A_ID], from: new Date("2027-10-20T00:00:00Z"), to: new Date("2027-10-20T00:00:00Z") });
+    const by = Object.fromEntries(seg.bySource.map((x) => [x.source, x.revenuePaise]));
+    expect(by.MAKEMYTRIP).toBe(400_000);
+    expect(by.WALK_IN).toBe(250_000);
+  });
+
+  it("with no source picked, the extension keeps the booking's own source", async () => {
+    await actAs(USER_RECEPTION_A_ID);
+    const res = await createReservation(body({ roomIds: [ROOM_102_ID], source: "AGODA", checkInDate: "2027-11-20", checkOutDate: "2027-11-21" }));
+    if (!res.ok) throw new Error(res.error.message);
+    created.push(res.data.id);
+    expect((await extendStay({ reservationId: res.data.id, newCheckOutDate: "2027-11-22" })).ok).toBe(true);
+    const ex = await prisma.stayExtension.findMany({ where: { reservationId: res.data.id } });
+    expect(ex.map((e) => e.source)).toEqual(["AGODA"]);
   });
 });
 

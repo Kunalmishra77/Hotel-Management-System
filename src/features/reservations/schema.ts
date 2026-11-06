@@ -295,6 +295,15 @@ export const extendStaySchema = z.object({
   /** Whether `ratePaise` already includes GST (back it out) or GST is added on top. */
   gstMode: z.enum(["inclusive", "exclusive"]).default("exclusive"),
   /**
+   * Where the ADDED nights were booked (client, 6 Nov 2026) — e.g. an MMT stay
+   * extended directly at the desk. Omit → same as the booking's own source.
+   */
+  source: z.enum([
+    "DIRECT", "WEBSITE", "PHONE", "WALK_IN",
+    "AIRBNB", "BOOKING_COM", "AGODA", "MAKEMYTRIP", "GOIBIBO", "EXPEDIA",
+    "CORPORATE", "TRAVEL_AGENT",
+  ]).optional(),
+  /**
    * Money for the added nights already received — e.g. the guest re-booked the
    * extra nights on Agoda (prepaid). Omitted → the extra nights are due at the hotel.
    */
