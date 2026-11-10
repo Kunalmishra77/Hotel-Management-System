@@ -19,7 +19,7 @@ import { DomainError, ErrorCode, NotFoundError } from "@/lib/errors";
 import { toResult, type Result } from "@/lib/result";
 import { db } from "@/lib/db";
 import { financialYearOf } from "./domain/money";
-import { billParts, isGuestBill, linePart, billPartLabel, type PartContext } from "./domain/bill-parts";
+import { assignParts, billParts, isGuestBill, billPartLabel, type PartContext } from "./domain/bill-parts";
 import { formatInvoiceNumber } from "./domain/invoice-number";
 import { attachInvoicePdf } from "./invoice-pdf-store";
 import { billingDb, withBillingContext } from "./internal";
@@ -168,9 +168,9 @@ export async function generateInvoice(input: unknown, opts: { renderPdf?: boolea
     } else {
       billPart = parts[0]?.part ?? "DIRECT";
     }
-    const byId = new Map(folio.lines.map((l) => [l.id, l]));
+    const assigned = assignParts(folio.lines, ctx);
     const reversedIds = new Set(folio.lines.filter((l) => l.reversalOfId).map((l) => l.reversalOfId));
-    const activeLines = folio.lines.filter((l) => l.type !== "REVERSAL" && !reversedIds.has(l.id) && linePart(l, byId, ctx) === billPart);
+    const activeLines = folio.lines.filter((l) => l.type !== "REVERSAL" && !reversedIds.has(l.id) && assigned.get(l.id) === billPart);
 
     // Totals are net-of-discount (discount lines are negative), tax-excluded taxable.
     // The whole-rupee "Round off" line (added at check-out) is NOT taxable value —
@@ -295,7 +295,7 @@ export async function autoIssueInvoiceOnCheckout(reservationId: string, opts: { 
       where: { reservationId },
       select: {
         id: true,
-        lines: { select: { id: true, type: true, businessDate: true, reversalOfId: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true } },
+        lines: { select: { id: true, type: true, description: true, businessDate: true, reversalOfId: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true } },
         payments: { select: { mode: true, reference: true, amountPaise: true, isRefund: true } },
         invoices: { select: { id: true, type: true, cancelsInvoiceId: true, billPart: true } },
         reservation: { select: { source: true, extensions: { select: { fromDate: true, toDate: true, source: true } }, guest: { select: { fullName: true, gstNumber: true } } } },

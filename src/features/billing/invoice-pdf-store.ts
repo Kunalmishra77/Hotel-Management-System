@@ -13,7 +13,7 @@ import { resolveStorageAdapter } from "@/lib/storage";
 import { decryptOptional } from "@/lib/crypto/encryption";
 import { BOOKING_SOURCE_LABEL, PAYMENT_MODE_LABEL } from "@/lib/constants/company";
 import { renderInvoicePdf } from "./invoice-pdf";
-import { DIRECT_PART, OTA_SOURCES, linePart, paymentPart, type PartContext } from "./domain/bill-parts";
+import { DIRECT_PART, OTA_SOURCES, assignParts, billParts, type PartContext } from "./domain/bill-parts";
 
 type PdfMeta = {
   number: string;
@@ -51,7 +51,7 @@ export async function attachInvoicePdf(invoiceId: string, folioId: string, meta:
           select: { id: true, reversalOfId: true, type: true, description: true, hsnSac: true, quantity: true, unitPaise: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, taxRateBps: true, businessDate: true },
           orderBy: { createdAt: "asc" },
         },
-        payments: { where: { isRefund: false }, select: { mode: true, reference: true, amountPaise: true, isRefund: true } },
+        payments: { select: { mode: true, reference: true, amountPaise: true, isRefund: true } },
         reservation: {
           select: {
             checkInDate: true, checkOutDate: true, source: true,
@@ -88,13 +88,14 @@ export async function attachInvoicePdf(invoiceId: string, folioId: string, meta:
     // never mentions the OTA nights or the OTA's money.
     const part = meta.billPart ?? null;
     const ctx: PartContext = { bookingSource: folio.reservation?.source ?? null, extensions: folio.reservation?.extensions ?? [] };
-    const byId = new Map(folio.lines.map((l) => [l.id, l]));
-    const partLines = part ? folio.lines.filter((l) => linePart(l, byId, ctx) === part) : folio.lines;
-    const otaParts = [...new Set(folio.lines.map((l) => linePart(l, byId, ctx)).filter((p) => p !== DIRECT_PART))];
-    const partPayments = part ? folio.payments.filter((p) => paymentPart(p, ctx, otaParts) === part) : folio.payments;
+    const assigned = assignParts(folio.lines, ctx);
+    const partLines = part ? folio.lines.filter((l) => assigned.get(l.id) === part) : folio.lines;
     const ownSource = folio.reservation?.source ?? null;
     const source = !part ? ownSource : part === DIRECT_PART ? (ownSource && !OTA_SOURCES.has(ownSource) ? ownSource : "DIRECT") : part;
-    const modes = [...new Set(partPayments.map((p) => PAYMENT_MODE_LABEL[p.mode] ?? p.mode))];
+    const partModes = part
+      ? (billParts(folio.lines, folio.payments, ctx).find((b) => b.part === part)?.paymentModes ?? [])
+      : folio.payments.filter((p) => !p.isRefund).map((p) => p.mode);
+    const modes = [...new Set(partModes.map((m) => PAYMENT_MODE_LABEL[m] ?? m))];
     // Nights on this bill: first → last + 1. A bill with no room night (food only) keeps the stay dates.
     const reversedNights = new Set(partLines.filter((l) => l.reversalOfId).map((l) => l.reversalOfId));
     const nights = partLines.filter((l) => l.type === "ROOM" && !reversedNights.has(l.id)).map((l) => l.businessDate.getTime()).sort((a, b) => a - b);

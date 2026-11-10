@@ -77,7 +77,7 @@ describe("an OTA stay extended directly gets two bills", () => {
     // Check-out issues one invoice per bill, each with its own number.
     await autoIssueInvoiceOnCheckout(resId, { renderPdf: false });
     const invoices = await prisma.invoice.findMany({ where: { folioId, type: "TAX_INVOICE" }, include: { lines: true }, orderBy: { number: "asc" } });
-    const byPart = Object.fromEntries(invoices.map((i) => [i.billPart, i]));
+    const byPart: Record<string, (typeof invoices)[number]> = Object.fromEntries(invoices.map((i) => [i.billPart ?? "", i]));
     expect(Object.keys(byPart).sort()).toEqual(["DIRECT", "MAKEMYTRIP"]);
     expect(Number(byPart.MAKEMYTRIP!.totalPaise)).toBe(210_000);
     expect(byPart.MAKEMYTRIP!.lines.map((l) => l.type)).toEqual(["ROOM"]);

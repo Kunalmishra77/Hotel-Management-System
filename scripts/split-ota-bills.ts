@@ -24,7 +24,7 @@ import { runWithSystemContext } from "../src/lib/context";
 import { writeAudit } from "../src/lib/audit";
 import { formatInvoiceNumber } from "../src/features/billing/domain/invoice-number";
 import { financialYearOf } from "../src/features/billing/domain/money";
-import { billParts, linePart, OTA_SOURCES, type PartContext, type StaySpan } from "../src/features/billing/domain/bill-parts";
+import { assignParts, billParts, OTA_SOURCES, type PartContext, type StaySpan } from "../src/features/billing/domain/bill-parts";
 
 const APPLY = process.env.CONFIRM === "YES";
 const CODES = (process.env.CODES ?? "").split(",").map((s) => s.trim()).filter(Boolean);
@@ -103,7 +103,7 @@ async function main() {
     extCount += newExt.length; if (needsSplit) { splitCount++; voids += liveWhole.length; issues += parts.length; }
     if (!APPLY) continue;
 
-    const byId = new Map(folio.lines.map((l) => [l.id, l]));
+    const assigned = assignParts(folio.lines, ctx);
     const reversed = new Set(folio.lines.filter((l) => l.reversalOfId).map((l) => l.reversalOfId));
     const fy = financialYearOf(new Date(), r.property.timezone);
     const orgId = r.property.orgId;
@@ -134,7 +134,7 @@ async function main() {
           console.log(`     credit note ${cnNumber} cancels ${original.number}`);
         }
         for (const p of parts) {
-          const lines = folio.lines.filter((l) => l.type !== "REVERSAL" && !reversed.has(l.id) && linePart(l, byId, ctx) === p.part);
+          const lines = folio.lines.filter((l) => l.type !== "REVERSAL" && !reversed.has(l.id) && assigned.get(l.id) === p.part);
           let taxable = 0n, cgst = 0, sgst = 0, igst = 0, roundOff = 0n;
           for (const l of lines) {
             if (isRoundOff(l)) { roundOff += l.amountPaise; continue; }
