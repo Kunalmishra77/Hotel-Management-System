@@ -165,18 +165,17 @@ export async function transferToProperty(input: unknown): Promise<Result<Transfe
             // transfer IS an early departure from the origin, so reverse those
             // nights exactly as `checkOut` does; otherwise a 5-night journey split
             // 2 + 3 bills 8 nights. ("Transfer karein to rate minus bhi hona chahiye.")
-            for (const l of activeLines(linesA)) {
-              if (l.type !== "ROOM" || dateKey(l.businessDate) < dateKey(transferDate)) continue;
-              await tx.folioLine.create({
-                data: {
-                  folioId: folioAId, type: "REVERSAL",
+            const moved = activeLines(linesA).filter((l) => l.type === "ROOM" && dateKey(l.businessDate) >= dateKey(transferDate));
+            if (moved.length) {
+              await tx.folioLine.createMany({
+                data: moved.map((l) => ({
+                  folioId: folioAId, type: "REVERSAL" as const,
                   description: `Reversal: ${l.description} (transferred to another property)`,
                   quantity: 1, unitPaise: -l.unitPaise, amountPaise: -l.amountPaise,
                   taxRateBps: l.taxRateBps, cgstPaise: -l.cgstPaise, sgstPaise: -l.sgstPaise, igstPaise: -l.igstPaise,
                   hsnSac: l.hsnSac, placeOfSupplyState: l.placeOfSupplyState,
                   businessDate: new Date(), reversalOfId: l.id, postedById: user.userId,
-                },
-                select: { id: true },
+                })),
               });
             }
 

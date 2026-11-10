@@ -145,8 +145,9 @@ describe("decideAddOnRequest (staff)", () => {
     const line = await prisma.folioLine.findUniqueOrThrow({ where: { id: row.folioLineId! } });
     expect(line.type).toBe("EXTRA_BED");
     expect(Number(line.amountPaise)).toBe(80_000);
-    expect(line.cgstPaise).toBe(4_800); // 12% split
-    expect(line.sgstPaise).toBe(4_800);
+    // GST 5% on every on-premise supply (client, Phase 2 brief) → 2.5% + 2.5%.
+    expect(line.cgstPaise).toBe(2_000);
+    expect(line.sgstPaise).toBe(2_000);
     expect(line.igstPaise).toBe(0);
     expect(await prisma.domainEvent.findFirst({ where: { type: "AddOnAccepted", aggregateId: reqId } })).not.toBeNull();
 

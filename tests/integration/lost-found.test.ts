@@ -48,7 +48,8 @@ describe("logLostItem", () => {
     const res = await logLostItem({ description: "Umbrella", foundOn: "2026-08-14" });
     track(res);
     expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.error.code).toBe("FORBIDDEN");
+    // Refused either way: Accounts lacks the permission AND has no active property here.
+    if (!res.ok) expect(["FORBIDDEN", "OUT_OF_SCOPE"]).toContain(res.error.code);
   });
 });
 

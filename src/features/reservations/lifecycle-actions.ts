@@ -376,17 +376,19 @@ export async function checkOut(input: unknown): Promise<Result<LifecycleResult>>
               where: { folioId: folio.id, type: "ROOM", businessDate: { gte: effectiveCheckOut } },
               select: { id: true, description: true, unitPaise: true, amountPaise: true, taxRateBps: true, cgstPaise: true, sgstPaise: true, igstPaise: true, hsnSac: true, placeOfSupplyState: true },
             });
-            for (const l of unused) {
-              if (reversedOf.has(l.id)) continue; // already reversed — don't double
-              await tx.folioLine.create({
-                data: {
-                  folioId: folio.id, type: "REVERSAL",
+            // One insert for every unused night (already-reversed ones skipped) — a long
+            // stay leaving early must not outlive the transaction.
+            const toReverse = unused.filter((l) => !reversedOf.has(l.id));
+            if (toReverse.length) {
+              await tx.folioLine.createMany({
+                data: toReverse.map((l) => ({
+                  folioId: folio.id, type: "REVERSAL" as const,
                   description: `Reversal: ${l.description} (early check-out)`,
                   quantity: 1, unitPaise: -l.unitPaise, amountPaise: -l.amountPaise,
                   taxRateBps: l.taxRateBps, cgstPaise: -l.cgstPaise, sgstPaise: -l.sgstPaise, igstPaise: -l.igstPaise,
                   hsnSac: l.hsnSac, placeOfSupplyState: l.placeOfSupplyState,
                   businessDate: new Date(), reversalOfId: l.id, postedById: user.userId,
-                },
+                })),
               });
             }
           }

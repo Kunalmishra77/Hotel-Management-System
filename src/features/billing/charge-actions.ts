@@ -184,42 +184,41 @@ export async function correctRoomRate(input: unknown): Promise<Result<{ reversed
 
     const result = await withBillingContext(user, () =>
       client.$transaction(async (tx) => {
-        let lastLineId = "";
-        for (const l of activeRoom) {
-          await tx.folioLine.create({
-            data: {
-              folioId: data.folioId, type: "REVERSAL",
-              description: `Reversal: ${l.description} (rate correction)`,
-              quantity: 1, unitPaise: -l.unitPaise, amountPaise: -l.amountPaise,
-              taxRateBps: l.taxRateBps, cgstPaise: -l.cgstPaise, sgstPaise: -l.sgstPaise, igstPaise: -l.igstPaise,
-              hsnSac: l.hsnSac, placeOfSupplyState: l.placeOfSupplyState,
-              businessDate: new Date(), reversalOfId: l.id, postedById: user.userId,
-            },
-            select: { id: true },
-          });
-
-          // Re-post the night on its OWN business date, one revision past the
-          // highest that night has ever used (the unique index counts reversed
-          // revisions too). `quantity` is preserved so a legacy aggregate line
-          // re-prices without being silently split into nights we can't name.
-          const amountPaise = unitPaise * l.quantity;
-          const gst = computeGst(amountPaise, rateBps, ctx.propertyState, pos);
-          const baseDesc = (l.description || "Room").split(" · ")[0] || "Room";
-          const suffix = l.quantity > 1 ? ` · corrected rate × ${l.quantity} night(s)` : " · night (corrected rate)";
-          const reposted = await tx.folioLine.create({
-            data: {
-              folioId: data.folioId, type: "ROOM",
+        // Two inserts for the whole stay (all reversals, then all re-posts) — a
+        // 15-night correction used to be 30 round trips and outlive the tx.
+        await tx.folioLine.createMany({
+          data: activeRoom.map((l) => ({
+            folioId: data.folioId, type: "REVERSAL" as const,
+            description: `Reversal: ${l.description} (rate correction)`,
+            quantity: 1, unitPaise: -l.unitPaise, amountPaise: -l.amountPaise,
+            taxRateBps: l.taxRateBps, cgstPaise: -l.cgstPaise, sgstPaise: -l.sgstPaise, igstPaise: -l.igstPaise,
+            hsnSac: l.hsnSac, placeOfSupplyState: l.placeOfSupplyState,
+            businessDate: new Date(), reversalOfId: l.id, postedById: user.userId,
+          })),
+        });
+        // Re-post each night on its OWN business date, one revision past the
+        // highest that night has ever used (the unique index counts reversed
+        // revisions too). `quantity` is preserved so a legacy aggregate line
+        // re-prices without being silently split into nights we can't name.
+        const reposted = await tx.folioLine.createManyAndReturn({
+          data: activeRoom.map((l) => {
+            const amountPaise = unitPaise * l.quantity;
+            const gst = computeGst(amountPaise, rateBps, ctx.propertyState, pos);
+            const baseDesc = (l.description || "Room").split(" · ")[0] || "Room";
+            const suffix = l.quantity > 1 ? ` · corrected rate × ${l.quantity} night(s)` : " · night (corrected rate)";
+            return {
+              folioId: data.folioId, type: "ROOM" as const,
               description: `${baseDesc}${suffix}`,
               quantity: l.quantity, unitPaise: unitPaise, amountPaise: BigInt(amountPaise),
               taxRateBps: rateBps, cgstPaise: gst.cgstPaise, sgstPaise: gst.sgstPaise, igstPaise: gst.igstPaise,
               hsnSac: hsnSacForCharge("ROOM"), placeOfSupplyState: pos,
               businessDate: l.businessDate, revision: nextRoomRevision(lines, l.businessDate),
               postedById: user.userId,
-            },
-            select: { id: true },
-          });
-          lastLineId = reposted.id;
-        }
+            };
+          }),
+          select: { id: true },
+        });
+        const lastLineId = reposted.at(-1)?.id ?? "";
 
         const totalPaise = unitPaise * nights;
         await emitEvent(tx, { type: "FolioCharged", aggregateId: data.folioId, propertyId: ctx.propertyId, payload: { lineId: lastLineId, type: "ROOM", amountPaise: totalPaise, rateCorrected: true, nights } });
