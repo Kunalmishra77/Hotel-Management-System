@@ -106,8 +106,12 @@ export async function commitReservationRow(
   }
 
   // Progress it to CHECKED_OUT (CONFIRMED → IN_HOUSE → CHECKED_OUT).
+  // `asBooked`: a past stay is billed for its own dates, never as an overstay up to
+  // today. A refused step is reported on the row instead of passing silently.
   const inRes = await checkIn({ reservationId: created.id });
-  if (inRes.ok) await checkOut({ reservationId: created.id, defer: false });
+  if (!inRes.ok) return { status: "ERROR", error: `Created ${created.id} but check-in failed: ${inRes.error.message}` };
+  const outRes = await checkOut({ reservationId: created.id, defer: false, asBooked: true });
+  if (!outRes.ok) return { status: "ERROR", error: `Created ${created.id} but check-out failed: ${outRes.error.message}` };
 
   return { status: "OK", targetType: "Reservation", targetId: created.id };
 }

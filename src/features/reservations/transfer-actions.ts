@@ -24,13 +24,12 @@ import { DomainError, ErrorCode, NotFoundError } from "@/lib/errors";
 import { toResult, type Result } from "@/lib/result";
 import {
   ensureFolio,
-  postRoomChargeTx,
+  postRoomChargesTx,
   activeLines,
   activeRoomNightKeys,
   nextRoomRevision,
   autoIssueInvoiceOnCheckout,
-  type BillingPostTx,
-} from "@/features/billing";
+  type BillingBulkTx } from "@/features/billing";
 import { nights as computeNights } from "./domain/nights";
 import { earlyCheckoutPlan, tailAllocations } from "./domain/allocations";
 import { freeRoomIdsFor, type RoomFinder } from "./availability";
@@ -185,14 +184,14 @@ export async function transferToProperty(input: unknown): Promise<Result<Transfe
             // Keys on the nights still carrying an ACTIVE charge, so a night
             // reversed earlier (by a rate correction) is re-billed, not skipped.
             const postedA = activeRoomNightKeys(linesA);
-            for (const bd of nightDates(r.checkInDate, transferDate)) {
-              if (!postedA.has(dateKey(bd)) && r.ratePaise > 0) {
-                await postRoomChargeTx(tx as unknown as BillingPostTx, {
+            if (r.ratePaise > 0) {
+              await postRoomChargesTx(tx as unknown as BillingBulkTx, nightDates(r.checkInDate, transferDate)
+                .filter((bd) => !postedA.has(dateKey(bd)))
+                .map((bd) => ({
                   folioId: folioAId, propertyId: r.propertyId, propertyState: r.property.state,
                   ratePaise: r.ratePaise, businessDate: bd,
                   revision: nextRoomRevision(linesA, bd), postedById: user.userId,
-                });
-              }
+                })));
             }
 
             const flipped = await tx.reservation.updateMany({
@@ -241,13 +240,11 @@ export async function transferToProperty(input: unknown): Promise<Result<Transfe
             // missing nights as ad-hoc "1 day stay more" charges.) Leaving early
             // reverses the unused nights through the normal check-out path.
             const folioBId = await ensureFolio(tx as never, { reservationId: created.id, propertyId: data.toPropertyId });
-            for (const bd of nightDates(transferDate, newCheckOut)) {
-              if (data.ratePaise > 0) {
-                await postRoomChargeTx(tx as unknown as BillingPostTx, {
-                  folioId: folioBId, propertyId: data.toPropertyId, propertyState: toProp.state,
-                  ratePaise: data.ratePaise, businessDate: bd, postedById: user.userId,
-                });
-              }
+            if (data.ratePaise > 0) {
+              await postRoomChargesTx(tx as unknown as BillingBulkTx, nightDates(transferDate, newCheckOut).map((bd) => ({
+                folioId: folioBId, propertyId: data.toPropertyId, propertyState: toProp.state,
+                ratePaise: data.ratePaise, businessDate: bd, postedById: user.userId,
+              })));
             }
 
             await emitEvent(tx, { type: "ReservationCreated", aggregateId: created.id, propertyId: data.toPropertyId, payload: { code: created.code, transferredFromId: r.id } });

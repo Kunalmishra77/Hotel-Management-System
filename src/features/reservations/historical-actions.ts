@@ -25,7 +25,7 @@ import { writeAudit } from "@/lib/audit";
 import { DomainError, ErrorCode, NotFoundError } from "@/lib/errors";
 import { toResult, type Result } from "@/lib/result";
 import { revalidatePath } from "next/cache";
-import { ensureFolio, postRoomChargeTx, postServiceChargeTx, postPaymentTx, autoIssueInvoiceOnCheckout, type BillingPostTx } from "@/features/billing";
+import { ensureFolio, postRoomChargesTx, postServiceChargeTx, postPaymentTx, autoIssueInvoiceOnCheckout, type BillingPostTx, type BillingBulkTx } from "@/features/billing";
 import { gstBpsForCharge } from "@/lib/constants/gst";
 import { preTaxRatePaise } from "./domain/pricing";
 
@@ -303,17 +303,16 @@ export async function createHistoricalStay(input: unknown): Promise<Result<{ res
         if (hasBill) {
           const folioId = await ensureFolio(tx, { reservationId: reservation.id, propertyId: data.propertyId });
           if (taxableRatePaise > 0) {
-            for (const businessDate of postableNights) {
-              await postRoomChargeTx(tx as unknown as BillingPostTx, {
-                folioId,
-                propertyId: data.propertyId,
-                propertyState: property.state,
-                ratePaise: taxableRatePaise,
-                businessDate,
-                postedById: user.userId,
-                description: `Room ${room?.number ?? ""} · night`.trim(),
-              });
-            }
+            // All nights in one insert — a long historical stay must not outlive the tx.
+            await postRoomChargesTx(tx as unknown as BillingBulkTx, postableNights.map((businessDate) => ({
+              folioId,
+              propertyId: data.propertyId,
+              propertyState: property.state,
+              ratePaise: taxableRatePaise,
+              businessDate,
+              postedById: user.userId,
+              description: `Room ${room?.number ?? ""} · night`.trim(),
+            })));
           }
           // Extra services (meals, laundry, cab…) — on the same folio + bill, dated
           // to the stay (clamped to today so they land in current revenue).

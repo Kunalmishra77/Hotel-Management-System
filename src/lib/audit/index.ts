@@ -104,3 +104,34 @@ export async function writeAudit(tx: Tx, entry: AuditEntry): Promise<void> {
     },
   });
 }
+
+/** A tx that can insert many audit rows in one statement. */
+export type BulkAuditCapableTx = {
+  auditLog: { createMany(args: { data: Prisma.AuditLogUncheckedCreateInput[] }): Promise<{ count: number }> };
+};
+
+/** Write MANY audit rows in ONE round trip — the same rows `writeAudit` writes (see `emitEvents`). */
+export async function writeAuditMany(tx: BulkAuditCapableTx, entries: readonly AuditEntry[]): Promise<void> {
+  if (entries.length === 0) return;
+  const ctx = getContext();
+  const data = entries.map((entry) => {
+    const orgId = entry.orgId ?? ctx?.orgId;
+    if (!orgId) throw new Error(`writeAuditMany("${entry.action}") has no orgId: run inside runWithContext() or pass orgId.`);
+    const rawUserId = entry.userId ?? ctx?.userId ?? null;
+    return {
+      orgId,
+      propertyId: entry.propertyId ?? ctx?.activePropertyId ?? null,
+      userId: rawUserId === SYSTEM_USER_ID ? null : rawUserId,
+      action: entry.action,
+      entityType: entry.entityType,
+      entityId: entry.entityId,
+      reason: entry.reason ?? null,
+      before: redactSnapshot(entry.before),
+      after: redactSnapshot(entry.after),
+      requestId: ctx?.requestId ?? null,
+      ip: ctx?.ip ?? null,
+      device: ctx?.device ?? null,
+    };
+  });
+  await tx.auditLog.createMany({ data });
+}

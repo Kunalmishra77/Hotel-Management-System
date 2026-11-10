@@ -14,8 +14,8 @@
  */
 import { randomUUID } from "node:crypto";
 import type { ChargeType, PaymentMode, Prisma } from "@prisma/client";
-import { emitEvent, type EventCapableTx } from "@/lib/events";
-import { writeAudit } from "@/lib/audit";
+import { emitEvent, emitEvents, type EventCapableTx, type BulkEventCapableTx } from "@/lib/events";
+import { writeAudit, writeAuditMany, type BulkAuditCapableTx } from "@/lib/audit";
 import { roomGstBps, gstBpsForCharge, hsnSacForCharge } from "@/lib/constants/gst";
 import { computeGst } from "./domain/gst";
 
@@ -82,6 +82,38 @@ export function roomChargeLineData(input: RoomChargeInput): Prisma.FolioLineUnch
     revision: input.revision ?? 0,
     postedById: input.postedById ?? null,
   };
+}
+
+/** The tx capabilities `postRoomChargesTx` needs: one insert each for lines, events, audits. */
+export type BillingBulkTx = BulkEventCapableTx & BulkAuditCapableTx & {
+  folioLine: {
+    createManyAndReturn(args: { data: Prisma.FolioLineUncheckedCreateInput[]; select: { id: true } }): Promise<{ id: string }[]>;
+  };
+};
+
+/**
+ * Post MANY room nights in THREE round trips (lines, events, audits) — the same
+ * rows N calls of `postRoomChargeTx` would write. Every multi-night posting (a
+ * check-in charging the whole stay, an extension, a transfer, check-out) goes
+ * through here, so the time inside the transaction no longer grows with the
+ * number of nights: a 15-night group check-in or an 18-night extension used to
+ * outlive the 15s transaction ("Something went wrong"). Caller ensures none of
+ * the dates is already posted. Returns the new line ids in input order.
+ */
+export async function postRoomChargesTx(tx: BillingBulkTx, inputs: readonly RoomChargeInput[]): Promise<string[]> {
+  if (inputs.length === 0) return [];
+  const lines = await tx.folioLine.createManyAndReturn({ data: inputs.map(roomChargeLineData), select: { id: true } });
+  const ids = lines.map((l) => l.id);
+  await emitEvents(tx, inputs.map((input, i) => ({
+    type: "FolioCharged" as const,
+    aggregateId: input.folioId,
+    propertyId: input.propertyId,
+    payload: { lineId: ids[i], type: "ROOM", amountPaise: input.ratePaise, businessDate: input.businessDate.toISOString().slice(0, 10) },
+  })));
+  await writeAuditMany(tx, inputs.map((input, i) => ({
+    action: "folio:room-night", entityType: "FolioLine", entityId: ids[i]!, propertyId: input.propertyId, after: { amountPaise: input.ratePaise },
+  })));
+  return ids;
 }
 
 /** Post one room-night ROOM charge. Caller ensures the date isn't already posted. */

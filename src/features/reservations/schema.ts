@@ -374,6 +374,13 @@ export const checkInSchema = z.object({ reservationId: z.string().min(1) });
 export const checkOutSchema = z.object({
   reservationId: z.string().min(1),
   defer: z.boolean().default(false),
+  /**
+   * Bill exactly the booked dates — no early-departure or overstay adjustment
+   * against today. Only for importing PAST stays (go-live import, `data:import`):
+   * a 2024 stay checked out "today" was otherwise billed as a two-year overstay,
+   * left a balance and stayed IN_HOUSE.
+   */
+  asBooked: z.boolean().default(false),
 });
 
 /** Registration card + e-signature captured during check-in (03 T6). The

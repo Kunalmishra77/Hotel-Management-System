@@ -20,14 +20,13 @@ import {
   folioBalance,
   postBookingExtrasTx,
   postPaymentTx,
-  postRoomChargeTx,
+  postRoomChargesTx,
   autoIssueInvoiceOnCheckout,
   roundOffPaise,
   activeLines,
   activeRoomNightKeys,
   nextRoomRevision,
-  type BillingPostTx,
-} from "@/features/billing";
+  type BillingPostTx, type BillingBulkTx } from "@/features/billing";
 import { canTransition } from "./domain/transitions";
 import { allocationsOn, earlyCheckoutPlan, tailAllocations } from "./domain/allocations";
 import { priceReservation } from "./domain/pricing";
@@ -219,9 +218,10 @@ export async function checkIn(input: unknown): Promise<Result<LifecycleResult>> 
           const nightDates = stayNightDates(r.checkInDate, r.checkOutDate);
           // Day-use (check-in === check-out) is a single billable day.
           const toCharge = nightDates.length > 0 ? nightDates : [r.checkInDate];
-          for (const businessDate of toCharge) {
-            if (posted.has(dateKey(businessDate))) continue;
-            await postRoomChargeTx(tx as unknown as BillingPostTx, {
+          // Every unbilled night in one insert (a 15-night group stay used to time out here).
+          await postRoomChargesTx(tx as unknown as BillingBulkTx, toCharge
+            .filter((businessDate) => !posted.has(dateKey(businessDate)))
+            .map((businessDate) => ({
               folioId,
               propertyId: r.propertyId,
               propertyState: property.state,
@@ -229,8 +229,7 @@ export async function checkIn(input: unknown): Promise<Result<LifecycleResult>> 
               businessDate,
               revision: nextRoomRevision(roomLines, businessDate),
               postedById: user.userId,
-            });
-          }
+            })));
         }
 
         // Only the room(s) the guest sleeps in from arrival: a split stay's later
@@ -265,7 +264,7 @@ export async function checkIn(input: unknown): Promise<Result<LifecycleResult>> 
 /** Check out (AC-16/17): balance gate (unless settled or folio:defer), rooms HOUSEKEEPING. */
 export async function checkOut(input: unknown): Promise<Result<LifecycleResult>> {
   return toResult(async () => {
-    const { reservationId, defer } = checkOutSchema.parse(input);
+    const { reservationId, defer, asBooked } = checkOutSchema.parse(input);
     const user = await requireUser();
     const client = reservationDb(user);
     const r = (await client.reservation.findFirst({
@@ -274,6 +273,8 @@ export async function checkOut(input: unknown): Promise<Result<LifecycleResult>>
     })) as LoadedReservation | null;
     if (!r) throw new NotFoundError("Reservation not found.");
     authorize(user, "checkout:perform", r.propertyId);
+    // Booked-dates check-out is for importing past stays only.
+    if (asBooked) authorize(user, "data:import", r.propertyId);
 
     if (!canTransition(r.status as never, "CHECKED_OUT")) {
       throw new DomainError(ErrorCode.ILLEGAL_TRANSITION);
@@ -296,7 +297,9 @@ export async function checkOut(input: unknown): Promise<Result<LifecycleResult>>
     const todayDate = new Date(`${todayStr}T00:00:00.000Z`);
     const minCheckOut = new Date(Date.UTC(r.checkInDate.getUTCFullYear(), r.checkInDate.getUTCMonth(), r.checkInDate.getUTCDate() + 1));
     let effectiveCheckOut = r.checkOutDate;
-    if (todayDate.getTime() < r.checkOutDate.getTime()) {
+    if (asBooked) {
+      // An imported past stay: the booked dates ARE what happened.
+    } else if (todayDate.getTime() < r.checkOutDate.getTime()) {
       effectiveCheckOut = todayDate.getTime() < minCheckOut.getTime() ? minCheckOut : todayDate;
     } else if (todayDate.getTime() > r.checkOutDate.getTime()) {
       // Overstay: the guest stayed past their booked check-out (e.g. the night audit
@@ -350,17 +353,15 @@ export async function checkOut(input: unknown): Promise<Result<LifecycleResult>>
           // a guest leaving early is never charged for nights they didn't stay.
           const toPost = stayNightDates(r.checkInDate, effectiveCheckOut).filter((d) => !posted.has(dateKey(d)));
           if (property) {
-            for (const businessDate of toPost) {
-              await postRoomChargeTx(tx as unknown as BillingPostTx, {
-                folioId: folio.id,
-                propertyId: r.propertyId,
-                propertyState: property.state,
-                ratePaise: r.ratePaise,
-                businessDate,
-                revision: nextRoomRevision(roomLines, businessDate),
-                postedById: user.userId,
-              });
-            }
+            await postRoomChargesTx(tx as unknown as BillingBulkTx, toPost.map((businessDate) => ({
+              folioId: folio.id,
+              propertyId: r.propertyId,
+              propertyState: property.state,
+              ratePaise: r.ratePaise,
+              businessDate,
+              revision: nextRoomRevision(roomLines, businessDate),
+              postedById: user.userId,
+            })));
           }
 
           // Early departure (full-stay billing): the unused FUTURE nights were

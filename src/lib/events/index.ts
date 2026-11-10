@@ -75,4 +75,32 @@ export async function emitEvent(tx: Tx, input: EmitEventInput): Promise<string> 
   return event.id;
 }
 
+/** A tx that can insert many events in one statement. */
+export type BulkEventCapableTx = {
+  domainEvent: { createMany(args: { data: Prisma.DomainEventUncheckedCreateInput[] }): Promise<{ count: number }> };
+};
+
+/**
+ * Emit MANY events in ONE round trip — same rows `emitEvent` writes, one insert.
+ * A long stay posts a room charge per night; one insert per night was what made
+ * a 15-night check-in or an 18-night extension outlive the transaction on a
+ * remote database (each round trip ~0.7s). Order and payloads are unchanged.
+ */
+export async function emitEvents(tx: BulkEventCapableTx, inputs: readonly EmitEventInput[]): Promise<void> {
+  if (inputs.length === 0) return;
+  const ctx = getContext();
+  const data = inputs.map((input) => {
+    const orgId = input.orgId ?? ctx?.orgId;
+    if (!orgId) throw new Error(`emitEvents("${input.type}") has no orgId: run inside runWithContext() or pass orgId.`);
+    return {
+      orgId,
+      propertyId: input.propertyId ?? ctx?.activePropertyId ?? null,
+      type: input.type,
+      aggregateId: input.aggregateId,
+      payload: { ...(input.payload ?? {}), ...(ctx?.requestId ? { requestId: ctx.requestId } : {}) } as Prisma.InputJsonValue,
+    };
+  });
+  await tx.domainEvent.createMany({ data });
+}
+
 export * from "./catalog";

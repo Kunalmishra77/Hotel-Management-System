@@ -22,15 +22,14 @@ import { toResult, type Result } from "@/lib/result";
 import { revalidatePath } from "next/cache";
 import {
   ensureFolio,
-  postRoomChargeTx,
+  postRoomChargesTx,
   correctRoomRate,
   activeRoomNightKeys,
   nextRoomRevision,
   folioDateKey,
   autoIssueInvoiceOnCheckout,
   postPaymentTx,
-  type BillingPostTx,
-} from "@/features/billing";
+  type BillingPostTx, type BillingBulkTx } from "@/features/billing";
 import { nights as computeNights } from "./domain/nights";
 import { tailAllocations } from "./domain/allocations";
 import { preTaxRatePaise } from "./domain/pricing";
@@ -284,9 +283,10 @@ export async function extendStay(input: unknown): Promise<Result<MoveResult>> {
                 select: { id: true, type: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, businessDate: true, revision: true, reversalOfId: true },
               });
               const posted = activeRoomNightKeys(existing);
-              for (const businessDate of extraNights) {
-                if (posted.has(folioDateKey(businessDate))) continue;
-                await postRoomChargeTx(tx as unknown as BillingPostTx, {
+              // All added nights in one insert — an 18-night extension used to outlive the tx.
+              await postRoomChargesTx(tx as unknown as BillingBulkTx, extraNights
+                .filter((businessDate) => !posted.has(folioDateKey(businessDate)))
+                .map((businessDate) => ({
                   folioId,
                   propertyId: r.propertyId,
                   propertyState: r.property.state,
@@ -295,8 +295,7 @@ export async function extendStay(input: unknown): Promise<Result<MoveResult>> {
                   revision: nextRoomRevision(existing, businessDate),
                   postedById: user.userId,
                   description: `Room ${roomLabel} · night (extended)`.trim(),
-                });
-              }
+                })));
             }
 
             // Extra nights already paid elsewhere (guest re-booked them on an OTA,
@@ -399,14 +398,12 @@ export async function setRoomRate(input: unknown): Promise<Result<{ id: string; 
           const posted = activeRoomNightKeys(lines);
           const inWindow = (d: Date): boolean =>
             (!data.fromNight || folioDateKey(d) >= folioDateKey(data.fromNight)) && (!data.toNight || folioDateKey(d) < folioDateKey(data.toNight));
-          for (const night of stayNights(r.checkInDate, r.checkOutDate)) {
-            if (posted.has(folioDateKey(night)) || !inWindow(night)) continue;
-            await postRoomChargeTx(tx as unknown as BillingPostTx, {
-              folioId, propertyId: r.propertyId, propertyState: r.property.state, ratePaise: preTaxPaise,
-              businessDate: night, revision: nextRoomRevision(lines, night), postedById: user.userId,
-            });
-            postedNights += 1;
-          }
+          const missing = stayNights(r.checkInDate, r.checkOutDate).filter((night) => !posted.has(folioDateKey(night)) && inWindow(night));
+          await postRoomChargesTx(tx as unknown as BillingBulkTx, missing.map((night) => ({
+            folioId, propertyId: r.propertyId, propertyState: r.property!.state, ratePaise: preTaxPaise,
+            businessDate: night, revision: nextRoomRevision(lines, night), postedById: user.userId,
+          })));
+          postedNights += missing.length;
         }
 
         await emitEvent(tx, { type: "ReservationModified", aggregateId: r.id, propertyId: r.propertyId, payload: { ratePaise: preTaxPaise, rateEdited: true } });

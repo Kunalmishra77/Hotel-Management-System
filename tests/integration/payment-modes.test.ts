@@ -152,6 +152,25 @@ describe("an extension booked through another channel (client, 6 Nov 2026)", () 
   });
 });
 
+describe("a long extension posts every night in one go (client, 10 Nov 2026)", () => {
+  it("18 added nights: 18 room charges + their events and audit rows, inside the transaction", async () => {
+    await actAs(USER_RECEPTION_A_ID);
+    const res = await createReservation(body({ roomIds: [ROOM_102_ID], source: "DIRECT", checkInDate: "2028-01-05", checkOutDate: "2028-01-07" }));
+    if (!res.ok) throw new Error(res.error.message);
+    created.push(res.data.id);
+    await checkIn({ reservationId: res.data.id });
+    const ext = await extendStay({ reservationId: res.data.id, newCheckOutDate: "2028-01-25", source: "DIRECT" });
+    expect(ext.ok, JSON.stringify(ext)).toBe(true);
+    const fid = await folioId(res.data.id);
+    const nights = await prisma.folioLine.findMany({ where: { folioId: fid, type: "ROOM" }, select: { id: true, businessDate: true } });
+    expect(nights).toHaveLength(20); // 2 booked + 18 added
+    expect(new Set(nights.map((n) => n.businessDate.toISOString().slice(0, 10))).size).toBe(20);
+    const ids = nights.map((n) => n.id);
+    expect(await prisma.auditLog.count({ where: { action: "folio:room-night", entityId: { in: ids } } })).toBe(20);
+    expect(await prisma.domainEvent.count({ where: { type: "FolioCharged", aggregateId: fid } })).toBeGreaterThanOrEqual(20);
+  });
+});
+
 describe("correcting a wrong payment entry", () => {
   it("cancels the wrong entry and re-enters it with the right mode — balance unchanged, nothing deleted", async () => {
     await actAs(USER_RECEPTION_A_ID);

@@ -100,12 +100,14 @@ export {
  */
 export {
   postRoomChargeTx,
+  postRoomChargesTx,
   postPaymentTx,
   postBookingExtrasTx,
   postServiceChargeTx,
   roomChargeLineData,
   bookingExtraLineData,
   type BillingPostTx,
+  type BillingBulkTx,
 } from "./tx-post";
 
 /** Auto-issue the GST tax invoice for a stay at check-out (best-effort, idempotent).
