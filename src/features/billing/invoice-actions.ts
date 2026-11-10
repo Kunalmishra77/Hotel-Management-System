@@ -19,6 +19,7 @@ import { DomainError, ErrorCode, NotFoundError } from "@/lib/errors";
 import { toResult, type Result } from "@/lib/result";
 import { db } from "@/lib/db";
 import { financialYearOf } from "./domain/money";
+import { billParts, isGuestBill, linePart, billPartLabel, type PartContext } from "./domain/bill-parts";
 import { formatInvoiceNumber } from "./domain/invoice-number";
 import { attachInvoicePdf } from "./invoice-pdf-store";
 import { billingDb, withBillingContext } from "./internal";
@@ -72,12 +73,17 @@ export async function shareInvoice(input: {
     const invoice = await billingDb(user).invoice.findFirst({
       where: { id: input.invoiceId },
       select: {
-        number: true, totalPaise: true, propertyId: true,
+        number: true, totalPaise: true, propertyId: true, billPart: true,
         folio: { select: { reservation: { select: { guestId: true } } } },
       },
     });
     if (!invoice) throw new NotFoundError("Invoice not found.");
     authorize(user, "folio:view", invoice.propertyId);
+    // Only the direct bill goes to the guest; an OTA bill is the hotel's copy.
+    if (!isGuestBill(invoice.billPart)) {
+      const msg = `${invoice.number} is the ${billPartLabel(invoice.billPart)} bill — the hotel's copy. Only the Direct bill is shared with the guest.`;
+      throw new DomainError(ErrorCode.VALIDATION_FAILED, msg, { publicMessage: msg });
+    }
     const guestId = invoice.folio.reservation?.guestId;
     if (!guestId) throw new NotFoundError("This invoice has no guest to share with.");
 
@@ -125,12 +131,14 @@ export async function generateInvoice(input: unknown, opts: { renderPdf?: boolea
         id: true, propertyId: true,
         lines: {
           select: {
-            id: true, reversalOfId: true,
+            id: true, reversalOfId: true, businessDate: true,
             type: true, description: true, quantity: true, unitPaise: true, hsnSac: true, taxRateBps: true,
             amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, placeOfSupplyState: true,
           },
           orderBy: { createdAt: "asc" },
         },
+        payments: { select: { mode: true, reference: true, amountPaise: true, isRefund: true } },
+        reservation: { select: { source: true, extensions: { select: { fromDate: true, toDate: true, source: true } } } },
       },
     });
     if (!folio) throw new NotFoundError("Folio not found.");
@@ -143,8 +151,26 @@ export async function generateInvoice(input: unknown, opts: { renderPdf?: boolea
     // A reversed line + its REVERSAL cancel out (net zero), so the invoice shows
     // only the ACTIVE lines — a clean bill with no reversal clutter for the guest.
     // Excluding both of a cancelling pair leaves the totals unchanged.
+    // One stay can carry separate bills (an OTA's nights vs everything paid at the
+    // hotel — bill-parts.ts); each gets its own invoice. With one bill, it's that one.
+    const ctx: PartContext = { bookingSource: folio.reservation?.source ?? null, extensions: folio.reservation?.extensions ?? [] };
+    const parts = billParts(folio.lines, folio.payments, ctx).filter((p) => p.lineIds.length > 0);
+    let billPart: string;
+    if (data.billPart) {
+      if (!parts.some((p) => p.part === data.billPart)) {
+        const msg = `This stay has no ${billPartLabel(data.billPart)} charges to invoice.`;
+        throw new DomainError(ErrorCode.VALIDATION_FAILED, msg, { publicMessage: msg });
+      }
+      billPart = data.billPart;
+    } else if (parts.length > 1) {
+      const msg = `This stay has separate bills (${parts.map((p) => p.label).join(" and ")}) — generate each one on its own.`;
+      throw new DomainError(ErrorCode.VALIDATION_FAILED, msg, { publicMessage: msg });
+    } else {
+      billPart = parts[0]?.part ?? "DIRECT";
+    }
+    const byId = new Map(folio.lines.map((l) => [l.id, l]));
     const reversedIds = new Set(folio.lines.filter((l) => l.reversalOfId).map((l) => l.reversalOfId));
-    const activeLines = folio.lines.filter((l) => l.type !== "REVERSAL" && !reversedIds.has(l.id));
+    const activeLines = folio.lines.filter((l) => l.type !== "REVERSAL" && !reversedIds.has(l.id) && linePart(l, byId, ctx) === billPart);
 
     // Totals are net-of-discount (discount lines are negative), tax-excluded taxable.
     // The whole-rupee "Round off" line (added at check-out) is NOT taxable value —
@@ -176,9 +202,11 @@ export async function generateInvoice(input: unknown, opts: { renderPdf?: boolea
         // it (3 folios had 2–3 live invoices). A revised bill goes through Void &
         // revise: the credit note cancels the old invoice, then this issues the new one.
         // Checked INSIDE the numbering transaction so a double-click can't race it.
-        const existing = await tx.invoice.findMany({ where: { folioId: folio.id }, select: { id: true, number: true, type: true, cancelsInvoiceId: true } });
+        // One live invoice PER BILL; an older whole-stay invoice (billPart null)
+        // covers every bill, so it must be voided first.
+        const existing = await tx.invoice.findMany({ where: { folioId: folio.id }, select: { id: true, number: true, type: true, cancelsInvoiceId: true, billPart: true } });
         const credited = new Set(existing.filter((i) => i.cancelsInvoiceId).map((i) => i.cancelsInvoiceId));
-        const live = existing.find((i) => i.type === "TAX_INVOICE" && !credited.has(i.id));
+        const live = existing.find((i) => i.type === "TAX_INVOICE" && !credited.has(i.id) && (i.billPart === null || i.billPart === billPart));
         if (live) {
           const msg = `This bill already has invoice ${live.number}. Use "Void & revise" on it to issue a corrected one.`;
           throw new DomainError(ErrorCode.CONFLICT, msg, { publicMessage: msg });
@@ -203,7 +231,7 @@ export async function generateInvoice(input: unknown, opts: { renderPdf?: boolea
             type: data.type, cancelsInvoiceId: data.cancelsInvoiceId ?? null,
             customerName: data.customerName, customerGstin: data.customerGstin ?? null,
             placeOfSupply, taxableValuePaise: taxable, cgstPaise: cgst, sgstPaise: sgst, igstPaise: igst,
-            totalPaise, pdfObjectKey: null, issuedById: user.userId,
+            totalPaise, pdfObjectKey: null, issuedById: user.userId, billPart,
           },
           select: { id: true },
         });
@@ -227,8 +255,8 @@ export async function generateInvoice(input: unknown, opts: { renderPdf?: boolea
             })),
           });
         }
-        await emitEvent(tx, { type: "InvoiceIssued", aggregateId: invoice.id, propertyId: folio.propertyId, payload: { number, totalPaise: Number(totalPaise), type: data.type } });
-        await writeAudit(tx, { action: "invoice:generate", entityType: "Invoice", entityId: invoice.id, propertyId: folio.propertyId, after: { number, totalPaise: Number(totalPaise) } });
+        await emitEvent(tx, { type: "InvoiceIssued", aggregateId: invoice.id, propertyId: folio.propertyId, payload: { number, totalPaise: Number(totalPaise), type: data.type, billPart } });
+        await writeAudit(tx, { action: "invoice:generate", entityType: "Invoice", entityId: invoice.id, propertyId: folio.propertyId, after: { number, totalPaise: Number(totalPaise), billPart } });
         return { invoiceId: invoice.id, number };
       }),
     );
@@ -241,6 +269,7 @@ export async function generateInvoice(input: unknown, opts: { renderPdf?: boolea
         number: result.number, issuedAt: new Date(),
         customerName: data.customerName, customerGstin: data.customerGstin ?? null, placeOfSupply,
         taxablePaise: Number(taxable), cgstPaise: cgst, sgstPaise: sgst, igstPaise: igst, totalPaise: Number(totalPaise),
+        billPart,
       });
     }
 
@@ -266,19 +295,30 @@ export async function autoIssueInvoiceOnCheckout(reservationId: string, opts: { 
       where: { reservationId },
       select: {
         id: true,
-        lines: { select: { id: true }, take: 1 },
-        invoices: { where: { type: "TAX_INVOICE" }, select: { id: true }, take: 1 },
-        reservation: { select: { guest: { select: { fullName: true, gstNumber: true } } } },
+        lines: { select: { id: true, type: true, businessDate: true, reversalOfId: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true } },
+        payments: { select: { mode: true, reference: true, amountPaise: true, isRefund: true } },
+        invoices: { select: { id: true, type: true, cancelsInvoiceId: true, billPart: true } },
+        reservation: { select: { source: true, extensions: { select: { fromDate: true, toDate: true, source: true } }, guest: { select: { fullName: true, gstNumber: true } } } },
       },
     });
-    if (!folio || folio.lines.length === 0 || folio.invoices.length > 0) return;
+    if (!folio || folio.lines.length === 0) return;
     if (!hasPermission(user, "invoice:generate")) return;
+    const credited = new Set(folio.invoices.filter((i) => i.cancelsInvoiceId).map((i) => i.cancelsInvoiceId));
+    const live = folio.invoices.filter((i) => i.type === "TAX_INVOICE" && !credited.has(i.id));
+    if (live.some((i) => i.billPart === null)) return; // an older whole-stay invoice already covers it
+    const ctx: PartContext = { bookingSource: folio.reservation?.source ?? null, extensions: folio.reservation?.extensions ?? [] };
+    const parts = billParts(folio.lines, folio.payments, ctx).filter((p) => p.lineIds.length > 0 && p.chargesPaise !== 0);
     const guest = folio.reservation?.guest;
-    await generateInvoice({
-      folioId: folio.id,
-      customerName: guest?.fullName ?? "Guest",
-      customerGstin: guest?.gstNumber ?? undefined,
-    }, { renderPdf: opts.renderPdf !== false });
+    // One invoice per bill (an OTA's nights / the direct bill), each best-effort.
+    for (const p of parts) {
+      if (live.some((i) => i.billPart === p.part)) continue;
+      await generateInvoice({
+        folioId: folio.id,
+        customerName: guest?.fullName ?? "Guest",
+        customerGstin: guest?.gstNumber ?? undefined,
+        billPart: p.part,
+      }, { renderPdf: opts.renderPdf !== false });
+    }
   } catch {
     // Non-fatal — the manual "Generate GST invoice" action remains the fallback.
   }
@@ -296,7 +336,7 @@ export async function voidInvoice(input: unknown): Promise<Result<InvoiceResult>
       select: {
         id: true, propertyId: true, folioId: true, financialYear: true, customerName: true,
         customerGstin: true, placeOfSupply: true, taxableValuePaise: true, cgstPaise: true,
-        sgstPaise: true, igstPaise: true, totalPaise: true,
+        sgstPaise: true, igstPaise: true, totalPaise: true, billPart: true,
       },
     });
     if (!original) throw new NotFoundError("Invoice not found.");
@@ -345,7 +385,7 @@ export async function voidInvoice(input: unknown): Promise<Result<InvoiceResult>
             customerName: original.customerName, customerGstin: original.customerGstin,
             placeOfSupply: original.placeOfSupply, taxableValuePaise: -original.taxableValuePaise,
             cgstPaise: -original.cgstPaise, sgstPaise: -original.sgstPaise, igstPaise: -original.igstPaise,
-            totalPaise: total, issuedById: user.userId,
+            totalPaise: total, issuedById: user.userId, billPart: original.billPart,
           },
           select: { id: true },
         });

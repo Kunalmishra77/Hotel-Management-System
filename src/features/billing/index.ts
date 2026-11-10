@@ -73,6 +73,13 @@ export { getBalance } from "./queries";
 export { folioBalance } from "./domain/balance";
 export { roundOffPaise } from "./domain/money";
 
+/** One stay, separate bills per channel (OTA nights vs the direct/guest bill).
+ *  Public so reports split revenue by source the same way invoices split bills. */
+export {
+  billParts, linePart, lineSource, paymentPart, sourceForNight, partOfSource, isGuestBill, billPartLabel,
+  DIRECT_PART, OTA_SOURCES, type BillPart, type PartContext, type PartLine, type StaySpan,
+} from "./domain/bill-parts";
+
 /**
  * The append-only ledger's "which lines still count" rules. Public because 03's
  * check-in / extend / transfer / check-out all ask the same question — *is this

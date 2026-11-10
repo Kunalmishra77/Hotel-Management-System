@@ -62,3 +62,11 @@ Invoice action completes and PDF renders **< 3s**; the open-guest→generate→p
 
 ## Business rules referenced
 `business-rules.md` §5 (one folio per in-house reservation), §6 (balance derived), §7 (append-only, reversing corrections), §8 (paise + Decimal + half-up), §9 (advance reduces balance), §10 (GST intra/inter split), §11 (tariff-band slab, config-driven), §12 (invoice contents), §13 (gap-free transactional numbering), §14–15 (night-audit posting, closed-day immutability), §20 (validate→authorize→transaction→event→audit), §21 (shown amounts match the folio exactly).
+
+## Addendum — separate bills per channel (client, 10 Nov 2026)
+- **FR-SB-1** A stay whose folio carries an OTA's nights AND anything paid at the hotel is split into bills: one per OTA (its room nights only) and one **Direct** bill (direct/extension nights, food, laundry, transfers, extra bed, round-off, discounts). A room night belongs to the source it was sold through (the booking's, or its `StayExtension`'s); a reversal follows the line it reverses.
+- **FR-SB-2** Payments split the same way: the booking advance on an OTA booking and "Online / OTA prepaid" payments are the OTA's; an extension prepaid "via" an OTA is that OTA's; everything else is Direct. Each bill shows its own charges, paid and balance; the check-out gate stays on the whole folio.
+- **FR-SB-3** Each bill gets its **own GST tax invoice and number** (`Invoice.billPart`, immutable like the rest of the invoice). A split stay cannot be invoiced as one bill; check-out auto-issues one invoice per bill. Void & revise works per bill; a credit note carries its original's part. Older invoices (`billPart` null) cover the whole stay.
+- **FR-SB-4** Only the Direct bill is given to the guest: sharing an OTA bill is refused; the OTA bill is marked "hotel copy". Its PDF shows only its own channel, payment modes and night dates.
+- **FR-SB-5** Revenue-by-source uses the same rule, so reports and invoices agree (food on an OTA stay is Direct revenue).
+- **FR-SB-6** Past stays: `scripts/split-ota-bills.ts` records past OTA extensions as Direct (unless prepaid on an OTA) and voids + re-issues whole-stay invoices of split stays as one invoice per bill.

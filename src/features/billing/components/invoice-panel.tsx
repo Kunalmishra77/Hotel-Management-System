@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import type { FolioInvoiceView } from "../queries";
+import { billPartLabel, isGuestBill } from "../domain/bill-parts";
 
 const rupees = (paise: number) => `₹${(paise / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const day = (d: Date | string) => new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
@@ -44,11 +45,13 @@ export function InvoiceHistory({
     const voided = voidedIds.has(inv.id);
     const live = !isCredit && !voided;
     const open = selected === inv.id;
-    const label = isCredit
+    // Which bill of a split stay this is (older invoices cover the whole stay).
+    const partTag = inv.billPart && inv.billPart !== "DIRECT" ? `${billPartLabel(inv.billPart)} bill (hotel copy) · ` : inv.billPart === "DIRECT" ? "Direct bill · " : "";
+    const label = partTag + (isCredit
       ? `Credit note · cancels ${inv.cancelsInvoiceId ? (numberOf.get(inv.cancelsInvoiceId) ?? "a bill") : "a bill"}`
       : voided
         ? `Tax invoice · VOIDED by ${creditFor.get(inv.id) ?? "credit note"}`
-        : "Tax invoice";
+        : "Tax invoice");
     return (
       <li key={inv.id} className={cn("rounded-md border", open && "border-primary")}>
         <button
@@ -74,6 +77,9 @@ export function InvoiceHistory({
               {inv.igstPaise !== 0 && (<><dt className="text-muted-foreground">IGST</dt><dd className="tabular">{rupees(inv.igstPaise)}</dd></>)}
               <dt className="font-medium">Total</dt><dd className="tabular font-medium">{rupees(inv.totalPaise)}</dd>
             </dl>
+            {!isGuestBill(inv.billPart) && (
+              <p className="text-xs text-muted-foreground">This is the online booking&apos;s bill — kept by the hotel, not given to the guest.</p>
+            )}
             <div className="flex flex-wrap gap-2">
               <Button asChild size="sm" variant="outline">
                 <a href={`/api/invoices/${inv.id}`} target="_blank" rel="noopener noreferrer">View PDF</a>

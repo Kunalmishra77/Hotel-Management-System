@@ -6,7 +6,9 @@
 import { db } from "@/lib/db";
 import { localDayInstants, localToday } from "@/lib/local-day";
 import { authorize } from "@/lib/permissions";
+import type { Prisma } from "@prisma/client";
 import { folioBalance } from "./domain/balance";
+import { billParts, type BillPart, type PartContext } from "./domain/bill-parts";
 import { activeLines } from "./domain/reversal";
 import { outstandingAcrossJourneys, type JourneyFolio } from "./domain/journey";
 import type { SessionClaims } from "@/lib/auth/claims";
@@ -25,6 +27,8 @@ export type FolioInvoiceView = {
   cgstPaise: number;
   sgstPaise: number;
   igstPaise: number;
+  /** The bill this invoice covers ("DIRECT" / an OTA source); null = the whole stay (older invoices). */
+  billPart: string | null;
 };
 
 export type FolioView = {
@@ -35,50 +39,44 @@ export type FolioView = {
   // Issued bills on this folio, oldest first — the version history (original →
   // credit note → revised). #22: lets the UI void & revise and show the chain.
   invoices: FolioInvoiceView[];
+  /** The stay's separate bills — an OTA's nights vs the direct (guest) bill. One entry for a normal stay. */
+  parts: BillPart[];
 };
 
-export async function getFolio(user: SessionClaims, folioId: string): Promise<FolioView | null> {
-  const folio = await db.scoped(user).folio.findFirst({
-    where: { id: folioId },
-    select: {
-      id: true,
-      lines: { select: { id: true, type: true, description: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, reversalOfId: true }, orderBy: { createdAt: "asc" } },
-      payments: { select: { id: true, mode: true, amountPaise: true, isRefund: true, receivedAt: true, reference: true }, orderBy: { receivedAt: "asc" } },
-      invoices: { select: { id: true, number: true, type: true, totalPaise: true, cancelsInvoiceId: true, issuedAt: true, customerName: true, customerGstin: true, taxableValuePaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true }, orderBy: { issuedAt: "asc" } },
-    },
-  });
-  if (!folio) return null;
+// What the folio views need — lines/payments for the ledger, plus the booking's
+// source + extensions so the stay can be split into its bills (bill-parts.ts).
+const FOLIO_VIEW_SELECT = {
+  id: true,
+  lines: { select: { id: true, type: true, description: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, reversalOfId: true, businessDate: true }, orderBy: { createdAt: "asc" } },
+  payments: { select: { id: true, mode: true, amountPaise: true, isRefund: true, receivedAt: true, reference: true }, orderBy: { receivedAt: "asc" } },
+  invoices: { select: { id: true, number: true, type: true, totalPaise: true, cancelsInvoiceId: true, issuedAt: true, customerName: true, customerGstin: true, taxableValuePaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, billPart: true }, orderBy: { issuedAt: "asc" } },
+  reservation: { select: { source: true, extensions: { select: { fromDate: true, toDate: true, source: true } } } },
+} as const;
+type FolioViewRow = Prisma.FolioGetPayload<{ select: typeof FOLIO_VIEW_SELECT }>;
+
+function toFolioView(folio: FolioViewRow): FolioView {
   const balance = folioBalance(folio.lines, folio.payments);
+  const ctx: PartContext = { bookingSource: folio.reservation?.source ?? null, extensions: folio.reservation?.extensions ?? [] };
   return {
     id: folio.id,
     balancePaise: Number(balance),
-    lines: folio.lines.map((l) => ({ ...l, amountPaise: Number(l.amountPaise) })),
+    lines: folio.lines.map(({ businessDate: _bd, ...l }) => ({ ...l, amountPaise: Number(l.amountPaise) })),
     payments: folio.payments.map((p) => ({ ...p, amountPaise: Number(p.amountPaise), receivedAt: p.receivedAt.toISOString() })),
     invoices: folio.invoices.map((i) => ({ ...i, totalPaise: Number(i.totalPaise), taxableValuePaise: Number(i.taxableValuePaise) })),
+    parts: billParts(folio.lines, folio.payments, ctx),
   };
+}
+
+export async function getFolio(user: SessionClaims, folioId: string): Promise<FolioView | null> {
+  const folio = await db.scoped(user).folio.findFirst({ where: { id: folioId }, select: FOLIO_VIEW_SELECT });
+  return folio ? toFolioView(folio) : null;
 }
 
 /** Full folio (lines + payments + derived balance) for a reservation — powers the
  *  complete booking-details financial breakdown. Property-scoped. */
 export async function getReservationFolio(user: SessionClaims, reservationId: string): Promise<FolioView | null> {
-  const folio = await db.scoped(user).folio.findFirst({
-    where: { reservationId },
-    select: {
-      id: true,
-      lines: { select: { id: true, type: true, description: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, reversalOfId: true }, orderBy: { createdAt: "asc" } },
-      payments: { select: { id: true, mode: true, amountPaise: true, isRefund: true, receivedAt: true, reference: true }, orderBy: { receivedAt: "asc" } },
-      invoices: { select: { id: true, number: true, type: true, totalPaise: true, cancelsInvoiceId: true, issuedAt: true, customerName: true, customerGstin: true, taxableValuePaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true }, orderBy: { issuedAt: "asc" } },
-    },
-  });
-  if (!folio) return null;
-  const balance = folioBalance(folio.lines, folio.payments);
-  return {
-    id: folio.id,
-    balancePaise: Number(balance),
-    lines: folio.lines.map((l) => ({ ...l, amountPaise: Number(l.amountPaise) })),
-    payments: folio.payments.map((p) => ({ ...p, amountPaise: Number(p.amountPaise), receivedAt: p.receivedAt.toISOString() })),
-    invoices: folio.invoices.map((i) => ({ ...i, totalPaise: Number(i.totalPaise), taxableValuePaise: Number(i.taxableValuePaise) })),
-  };
+  const folio = await db.scoped(user).folio.findFirst({ where: { reservationId }, select: FOLIO_VIEW_SELECT });
+  return folio ? toFolioView(folio) : null;
 }
 
 export type InvoiceListItem = {
@@ -91,6 +89,8 @@ export type InvoiceListItem = {
   issuedAt: Date;
   /** The booking whose bill this is — the picker opens its folio to void & revise. */
   reservationId: string | null;
+  /** Which bill of a split stay ("DIRECT" / an OTA source); null = whole stay. */
+  billPart: string | null;
 };
 
 /**
@@ -134,7 +134,7 @@ export async function searchInvoices(
           }
         : {}),
     },
-    select: { id: true, number: true, customerName: true, customerGstin: true, totalPaise: true, issuedAt: true, propertyId: true, folio: { select: { reservationId: true } } },
+    select: { id: true, number: true, customerName: true, customerGstin: true, totalPaise: true, issuedAt: true, propertyId: true, billPart: true, folio: { select: { reservationId: true } } },
     orderBy: [{ issuedAt: "desc" }, { id: "asc" }],
     take: limit + 1,
     ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
@@ -160,6 +160,7 @@ export async function searchInvoices(
       totalPaise: Number(r.totalPaise),
       issuedAt: r.issuedAt,
       reservationId: r.folio.reservationId,
+      billPart: r.billPart,
     })),
     nextCursor: hasMore ? (page[page.length - 1]?.id ?? null) : null,
   };

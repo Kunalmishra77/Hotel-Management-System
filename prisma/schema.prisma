@@ -1164,6 +1164,11 @@ model Invoice {
   financialYear     String
   type              InvoiceType   @default(TAX_INVOICE)
   cancelsInvoiceId  String? // for CREDIT_NOTE / void (06 FR-21)
+  // Which bill of the stay this invoice covers (client, 10 Nov 2026): "DIRECT"
+  // (the guest's bill) or an OTA source like "MAKEMYTRIP" (the hotel's copy of the
+  // OTA nights — never handed to the guest). Null = the whole folio (every
+  // invoice issued before the split). A credit note carries its original's part.
+  billPart          String?
   customerName      String
   customerGstin     String?
   placeOfSupply     String
@@ -1182,6 +1187,7 @@ model Invoice {
 
   @@unique([propertyId, number])
   @@index([propertyId, issuedAt])
+  @@index([folioId, billPart])
 }
 
 /**

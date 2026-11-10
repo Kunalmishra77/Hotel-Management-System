@@ -14,6 +14,7 @@ import { occupancy, adr, revpar } from "@/features/analytics/domain/metrics";
 import { segments as analyticsSegments, type Segment } from "@/features/analytics/queries";
 import { incomeVsExpense, type Breakdown } from "./domain/profit";
 import { addRevenueBySource } from "./domain/source-split";
+import { lineSource } from "@/features/billing";
 import type { SessionClaims } from "@/lib/auth/claims";
 
 export type ProfitReport = {
@@ -99,12 +100,15 @@ export async function revenueSegments(
     select: {
       source: true,
       extensions: { select: { fromDate: true, toDate: true, source: true } },
-      folio: { select: { lines: { select: { amountPaise: true, type: true, businessDate: true } } } },
+      folio: { select: { lines: { select: { id: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, type: true, businessDate: true, reversalOfId: true } } } },
     },
   });
   const bySourceMap = new Map<string, number>();
   for (const r of reservations) {
-    addRevenueBySource(bySourceMap, { source: r.source, extensions: r.extensions, lines: r.folio?.lines ?? [] });
+    const lines = r.folio?.lines ?? [];
+    const byId = new Map(lines.map((l) => [l.id, l]));
+    const ctx = { bookingSource: r.source, extensions: r.extensions };
+    addRevenueBySource(bySourceMap, lines.map((l) => ({ source: lineSource(l, byId, ctx), type: l.type, amountPaise: l.amountPaise })));
   }
   const bySource = [...bySourceMap.entries()].map(([source, revenuePaise]) => ({ source, revenuePaise })).sort((a, b) => b.revenuePaise - a.revenuePaise);
 

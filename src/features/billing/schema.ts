@@ -95,6 +95,9 @@ export const generateInvoiceSchema = z.object({
   billToState: z.string().max(60).optional(),
   type: z.enum(["TAX_INVOICE", "CREDIT_NOTE"]).default("TAX_INVOICE"),
   cancelsInvoiceId: z.string().optional(),
+  /** Which bill of the stay to invoice — "DIRECT" or an OTA source (bill-parts.ts).
+   *  Omit for a folio that has only one bill. */
+  billPart: z.string().max(20).optional(),
 });
 export type GenerateInvoiceInput = z.infer<typeof generateInvoiceSchema>;
 

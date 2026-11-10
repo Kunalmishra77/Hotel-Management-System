@@ -13,6 +13,7 @@ import { resolveStorageAdapter } from "@/lib/storage";
 import { decryptOptional } from "@/lib/crypto/encryption";
 import { BOOKING_SOURCE_LABEL, PAYMENT_MODE_LABEL } from "@/lib/constants/company";
 import { renderInvoicePdf } from "./invoice-pdf";
+import { DIRECT_PART, OTA_SOURCES, linePart, paymentPart, type PartContext } from "./domain/bill-parts";
 
 type PdfMeta = {
   number: string;
@@ -27,6 +28,8 @@ type PdfMeta = {
   totalPaise: number;
   documentType?: "TAX_INVOICE" | "CREDIT_NOTE";
   againstNumber?: string | null;
+  /** The bill this invoice covers (bill-parts.ts); null/undefined = the whole folio. */
+  billPart?: string | null;
 };
 
 /** Credit notes are stored under their own key so a copy rendered before the
@@ -45,13 +48,14 @@ export async function attachInvoicePdf(invoiceId: string, folioId: string, meta:
       select: {
         propertyId: true,
         lines: {
-          select: { id: true, reversalOfId: true, type: true, description: true, hsnSac: true, quantity: true, unitPaise: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, taxRateBps: true },
+          select: { id: true, reversalOfId: true, type: true, description: true, hsnSac: true, quantity: true, unitPaise: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, taxRateBps: true, businessDate: true },
           orderBy: { createdAt: "asc" },
         },
-        payments: { where: { isRefund: false }, select: { mode: true } },
+        payments: { where: { isRefund: false }, select: { mode: true, reference: true, amountPaise: true, isRefund: true } },
         reservation: {
           select: {
             checkInDate: true, checkOutDate: true, source: true,
+            extensions: { select: { fromDate: true, toDate: true, source: true } },
             allocations: { select: { room: { select: { number: true } } } },
             guest: { select: { mobile: true, email: true } },
           },
@@ -79,8 +83,23 @@ export async function attachInvoicePdf(invoiceId: string, folioId: string, meta:
 
     const rooms = folio.reservation?.allocations.map((a) => a.room.number).filter(Boolean).join(", ") ?? "";
     const stayLabel = `Stay of Guest ${meta.customerName}${rooms ? ` in Room ${rooms}` : ""} at ${property.name}${property.city ? `, ${property.city}` : ""}`;
-    const source = folio.reservation?.source ?? null;
-    const modes = [...new Set(folio.payments.map((p) => PAYMENT_MODE_LABEL[p.mode] ?? p.mode))];
+    // A part invoice (one bill of a split stay) shows ITS channel, ITS payment
+    // modes and the dates of ITS nights — the direct bill handed to the guest
+    // never mentions the OTA nights or the OTA's money.
+    const part = meta.billPart ?? null;
+    const ctx: PartContext = { bookingSource: folio.reservation?.source ?? null, extensions: folio.reservation?.extensions ?? [] };
+    const byId = new Map(folio.lines.map((l) => [l.id, l]));
+    const partLines = part ? folio.lines.filter((l) => linePart(l, byId, ctx) === part) : folio.lines;
+    const otaParts = [...new Set(folio.lines.map((l) => linePart(l, byId, ctx)).filter((p) => p !== DIRECT_PART))];
+    const partPayments = part ? folio.payments.filter((p) => paymentPart(p, ctx, otaParts) === part) : folio.payments;
+    const ownSource = folio.reservation?.source ?? null;
+    const source = !part ? ownSource : part === DIRECT_PART ? (ownSource && !OTA_SOURCES.has(ownSource) ? ownSource : "DIRECT") : part;
+    const modes = [...new Set(partPayments.map((p) => PAYMENT_MODE_LABEL[p.mode] ?? p.mode))];
+    // Nights on this bill: first → last + 1. A bill with no room night (food only) keeps the stay dates.
+    const reversedNights = new Set(partLines.filter((l) => l.reversalOfId).map((l) => l.reversalOfId));
+    const nights = partLines.filter((l) => l.type === "ROOM" && !reversedNights.has(l.id)).map((l) => l.businessDate.getTime()).sort((a, b) => a - b);
+    const stayFrom = part && nights.length ? new Date(nights[0]!) : (folio.reservation?.checkInDate ?? null);
+    const stayTo = part && nights.length ? new Date(nights.at(-1)! + 86_400_000) : (folio.reservation?.checkOutDate ?? null);
     // Guest contact for the consignee block (stored encrypted; shown to the guest on their own bill).
     const customerMobile = decryptOptional(folio.reservation?.guest?.mobile ?? null);
     const customerEmail = decryptOptional(folio.reservation?.guest?.email ?? null);
@@ -91,8 +110,8 @@ export async function attachInvoicePdf(invoiceId: string, folioId: string, meta:
       againstNumber: meta.againstNumber ?? null,
       issuedAt: meta.issuedAt,
       branch: property,
-      checkInDate: folio.reservation?.checkInDate ?? null,
-      checkOutDate: folio.reservation?.checkOutDate ?? null,
+      checkInDate: stayFrom,
+      checkOutDate: stayTo,
       bookingSource: source ? (BOOKING_SOURCE_LABEL[source] ?? source) : null,
       paymentMethods: modes.length > 0 ? modes.join(", ") : null,
       customerName: meta.customerName,
@@ -137,7 +156,7 @@ export async function ensureInvoicePdf(invoiceId: string): Promise<string | null
   const inv = await db.unscoped().invoice.findFirst({
     where: { id: invoiceId },
     select: {
-      id: true, folioId: true, pdfObjectKey: true, number: true, issuedAt: true, type: true, cancelsInvoiceId: true,
+      id: true, folioId: true, pdfObjectKey: true, number: true, issuedAt: true, type: true, cancelsInvoiceId: true, billPart: true,
       customerName: true, customerGstin: true, placeOfSupply: true,
       taxableValuePaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, totalPaise: true,
     },
@@ -160,5 +179,6 @@ export async function ensureInvoicePdf(invoiceId: string): Promise<string | null
     sgstPaise: inv.sgstPaise,
     igstPaise: inv.igstPaise,
     totalPaise: Number(inv.totalPaise),
+    billPart: inv.billPart,
   });
 }

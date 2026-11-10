@@ -17,6 +17,7 @@ import { recordPayment, correctPaymentEntry } from "../payment-actions";
 import { PaymentCorrectionForm } from "./payment-correction";
 import { generateInvoice, voidInvoice } from "../invoice-actions";
 import { BillToForm, InvoiceHistory } from "./invoice-panel";
+import { BillPartsCard } from "./bill-parts-card";
 import { addAddOnToReservation } from "@/features/add-ons/actions";
 import { setRoomRate } from "@/features/reservations/move-actions";
 import { gstBpsForCharge } from "@/lib/constants/gst";
@@ -48,6 +49,10 @@ export function FolioScreen({
   const [invoice, setInvoice] = useState<{ id: string; number: string } | null>(null);
   const [reverseTarget, setReverseTarget] = useState<{ id: string; description: string } | null>(null);
   const [voidTarget, setVoidTarget] = useState<{ id: string; number: string } | null>(null);
+  // A stay with an OTA's nights AND hotel-paid charges has separate bills
+  // (bill-parts.ts); each is invoiced on its own from the bills card.
+  const split = folio.parts.filter((p) => p.lineIds.length > 0).length > 1;
+  const [invoicePart, setInvoicePart] = useState<string | undefined>(undefined);
   const [correctTarget, setCorrectTarget] = useState<{ id: string; mode: string; amountPaise: number } | null>(null);
 
   // Version history: an invoice is "voided" when a CREDIT_NOTE cancels it. The
@@ -58,7 +63,7 @@ export function FolioScreen({
   // (e.g. food after the room bill), the invoice no longer matches the folio —
   // warn so staff void & re-issue a single correct bill (room + food together).
   const folioChargeTotalPaise = folio.lines.reduce((a, l) => a + l.amountPaise + l.cgstPaise + l.sgstPaise + l.igstPaise, 0);
-  const invoiceStale = !!activeInvoice && activeInvoice.totalPaise !== folioChargeTotalPaise;
+  const invoiceStale = !split && !!activeInvoice && activeInvoice.totalPaise !== folioChargeTotalPaise;
 
   // A revised bill starts from the last bill's name/GSTIN (it may have been a
   // company bill); a first bill starts from the guest's name.
@@ -66,7 +71,7 @@ export function FolioScreen({
   const generate = (customerName: string, customerGstin: string | undefined) => {
     setError(null);
     start(async () => {
-      const res = await generateInvoice({ folioId: folio.id, customerName, customerGstin });
+      const res = await generateInvoice({ folioId: folio.id, customerName, customerGstin, ...(invoicePart ? { billPart: invoicePart } : {}) });
       if (res.ok) { setInvoice({ id: res.data.invoiceId, number: res.data.number }); setMode("none"); router.refresh(); }
       else setError(res.error.message);
     });
@@ -174,6 +179,10 @@ export function FolioScreen({
         </CardContent>
       </Card>
 
+      {split && (
+        <BillPartsCard folio={folio} pending={pending} onGenerate={(part) => { setInvoicePart(part); setMode("invoice"); }} />
+      )}
+
       {folio.invoices.length > 0 && (
         <Card>
           <CardHeader className="pb-3"><CardTitle className="text-base">Bills &amp; version history</CardTitle></CardHeader>
@@ -242,7 +251,7 @@ export function FolioScreen({
           defaultGstin={lastBill?.customerGstin ?? ""}
           pending={pending}
           onSubmit={generate}
-          onCancel={() => setMode("none")}
+          onCancel={() => { setMode("none"); setInvoicePart(undefined); }}
         />
       )}
       {mode === "charge" && <ChargeForm pending={pending} onSubmit={(type, desc, unitPaise) => run(() => postFolioCharge({ folioId: folio.id, type, description: desc, unitPaise }))} onCancel={() => setMode("none")} />}
@@ -261,8 +270,9 @@ export function FolioScreen({
           )}
           <Button size="lg" variant="outline" onClick={() => setMode("discount")} data-testid="apply-discount">− Discount</Button>
           <Button size="lg" onClick={() => setMode("pay")} data-testid="take-payment">Take payment</Button>
-          {/* One live invoice per bill: once issued, corrections go through Void & revise. */}
-          <Button size="lg" variant="outline" disabled={pending || folio.lines.length === 0 || !!activeInvoice} title={activeInvoice ? `Invoice ${activeInvoice.number} is already issued — use Void & revise to correct it` : undefined} onClick={() => setMode("invoice")} data-testid="generate-invoice">Generate GST invoice</Button>
+          {/* One live invoice per bill: once issued, corrections go through Void & revise.
+              A split stay generates each bill from the "Separate bills" card instead. */}
+          {!split && <Button size="lg" variant="outline" onClick={() => { setInvoicePart(undefined); setMode("invoice"); }} disabled={pending || folio.lines.length === 0 || !!activeInvoice} title={activeInvoice ? `Invoice ${activeInvoice.number} is already issued — use Void & revise to correct it` : undefined} data-testid="generate-invoice">Generate GST invoice</Button>}
         </div>
       )}
         </div>

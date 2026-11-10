@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatINR } from "@/lib/utils";
 import { searchBillingInvoices, shareInvoice } from "../invoice-actions";
+import { billPartLabel, isGuestBill } from "../domain/bill-parts";
 import type { InvoiceListItem } from "../queries";
 
 type PropertyOpt = { id: string; name: string };
@@ -118,7 +119,10 @@ export function InvoiceSearch({ properties, gstOnly: initialGst = false }: { pro
               ) : (
                 rows.map((r) => (
                   <tr key={r.id} className="border-b last:border-0">
-                    <td className="py-2.5 pl-3 pr-3 font-mono text-xs">{r.number}</td>
+                    <td className="py-2.5 pl-3 pr-3 font-mono text-xs">
+                      {r.number}
+                      {!isGuestBill(r.billPart) ? <span className="mt-0.5 block font-sans text-[11px] text-muted-foreground">{billPartLabel(r.billPart)} bill · hotel copy</span> : null}
+                    </td>
                     <td className="py-2.5 px-3 whitespace-nowrap text-muted-foreground">{fmtDate(r.issuedAt)}</td>
                     <td className="py-2.5 px-3 font-medium">{r.customerName}</td>
                     {gstOnly ? <td className="py-2.5 px-3 font-mono text-xs">{r.customerGstin ?? "—"}</td> : null}
@@ -131,7 +135,8 @@ export function InvoiceSearch({ properties, gstOnly: initialGst = false }: { pro
                         {r.reservationId ? (
                           <a href={`/bookings/${r.reservationId}/folio`} className="text-primary underline underline-offset-4" title="Open the bill to void & re-issue with a corrected name / GSTIN">Revise</a>
                         ) : null}
-                        <button type="button" onClick={() => void share(r.id)} className="text-primary underline underline-offset-4">Share</button>
+                        {/* Only the direct bill goes to the guest; an OTA bill is the hotel's copy. */}
+                        {isGuestBill(r.billPart) ? <button type="button" onClick={() => void share(r.id)} className="text-primary underline underline-offset-4">Share</button> : null}
                       </div>
                       {shareState[r.id] ? <p className="mt-1 text-xs text-muted-foreground">{shareState[r.id]}</p> : null}
                     </td>
