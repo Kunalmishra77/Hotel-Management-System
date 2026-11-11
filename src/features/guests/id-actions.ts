@@ -22,15 +22,17 @@ import { emitEvent } from "@/lib/events";
 import { encryptString, keyedHash } from "@/lib/crypto/encryption";
 import { isFullAadhaarStorageEnabled } from "@/lib/constants/compliance";
 import { resolveStorageAdapter, scanObjectKey } from "@/lib/storage";
-import { NotFoundError } from "@/lib/errors";
+import { DomainError, ErrorCode, NotFoundError } from "@/lib/errors";
 import { toResult, type Result } from "@/lib/result";
 import { maskIdValue } from "./domain/masking";
+import { idDocumentProblem } from "./domain/id-documents";
 import { addGuestIdSchema, removeGuestIdSchema } from "./schema";
 import { guestDb, withGuestContext } from "./internal";
 
 export type GuestIdAdded = {
   id: string;
   type: IdType;
+  documentName: string | null;
   maskedValue: string | null;
   hasScan: boolean;
 };
@@ -49,6 +51,11 @@ export async function addGuestId(input: unknown): Promise<Result<GuestIdAdded>> 
     if (!guest) throw new NotFoundError("Guest not found");
 
     const type = data.type as IdType;
+    // The images ARE the record: both sides for Aadhaar / DL / Voter ID, one for
+    // the rest, a name for an Other document — enforced here, not just in the UI.
+    const documentName = type === "OTHER" ? data.documentName?.trim() || null : null;
+    const problem = idDocumentProblem({ type, hasFront: !!data.scanBase64, hasBack: !!data.backScanBase64, documentName });
+    if (problem) throw new DomainError(ErrorCode.VALIDATION_FAILED, problem, { publicMessage: problem });
     const fullStorageAllowed = type === "AADHAAR" ? isFullAadhaarStorageEnabled() : true;
     const value = data.value?.trim() || null;
 
@@ -88,6 +95,7 @@ export async function addGuestId(input: unknown): Promise<Result<GuestIdAdded>> 
             scanChecksum: front.checksum,
             backObjectKey: back.key,
             backChecksum: back.checksum,
+            documentName,
           },
           select: { id: true, type: true, maskedValue: true, scanObjectKey: true, backObjectKey: true },
         });
@@ -102,13 +110,14 @@ export async function addGuestId(input: unknown): Promise<Result<GuestIdAdded>> 
           entityType: "GuestId",
           entityId: row.id,
           // Only the TYPE and masked value — never the full number.
-          after: { guestId: data.guestId, type, maskedValue },
+          after: { guestId: data.guestId, type, maskedValue, documentName, sides: back.key ? 2 : 1 },
         });
 
         revalidatePath(`/guests/${data.guestId}`);
         return {
           id: row.id,
           type: row.type,
+          documentName,
           maskedValue: row.maskedValue,
           hasScan: row.scanObjectKey !== null || row.backObjectKey !== null,
         };

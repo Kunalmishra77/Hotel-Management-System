@@ -19,13 +19,12 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { updateGuest } from "@/features/guests/actions";
 import { addGuestId } from "@/features/guests/id-actions";
+import { ID_DOC_TYPES, docRule, idDocumentProblem } from "@/features/guests/domain/id-documents";
 import { COUNTRIES } from "@/lib/constants/countries";
 import type { ChecklistItem } from "../domain/guest-checklist";
 
-const ID_TYPES = [
-  { value: "AADHAAR", label: "Aadhaar" }, { value: "PASSPORT", label: "Passport" }, { value: "DRIVING_LICENCE", label: "Driving licence" },
-  { value: "VOTER_ID", label: "Voter ID" }, { value: "PAN", label: "PAN" }, { value: "VISA", label: "Visa" }, { value: "OTHER", label: "Other ID" },
-];
+// Same sides rule as every ID form (guests/domain/id-documents.ts).
+const ID_TYPES = ID_DOC_TYPES;
 
 function toBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -72,6 +71,7 @@ export function PendingInfoCard({
   const [idType, setIdType] = useState(existingIdType ?? "AADHAAR");
   const [front, setFront] = useState<File | null>(null);
   const [back, setBack] = useState<File | null>(null);
+  const [docName, setDocName] = useState("");
 
   const needsId = has("id") || has("id-scan");
   const fillable = items.filter((i) => i.key !== "balance");
@@ -92,7 +92,11 @@ export function PendingInfoCard({
       if (has("address")) {
         for (const [k, v] of Object.entries(addr)) if (v.trim() && v.trim() !== (address[k as keyof typeof address] ?? "")) patch[k] = v.trim();
       }
-      const wantsId = needsId && front;
+      const wantsId = needsId && (front || back);
+      if (wantsId) {
+        const problem = idDocumentProblem({ type: idType, hasFront: !!front, hasBack: !!back, documentName: docName });
+        if (problem) { setError(problem); return; }
+      }
       if (Object.keys(patch).length === 0 && !wantsId) { setError("Fill at least one of the missing details."); return; }
 
       if (Object.keys(patch).length > 0) {
@@ -102,13 +106,14 @@ export function PendingInfoCard({
       if (wantsId && front) {
         const res = await addGuestId({
           guestId, type: idType,
+          ...(docRule(idType).needsName ? { documentName: docName.trim() } : {}),
           scanBase64: await toBase64(front), scanContentType: front.type || "image/jpeg",
           ...(back ? { backScanBase64: await toBase64(back), backScanContentType: back.type || "image/jpeg" } : {}),
         });
         if (!res.ok) { setError(res.error.message); return; }
       }
       setDone(true);
-      setMobile(""); setEmail(""); setWhatsapp(""); setDob(""); setGender(""); setNationality(""); setGstin(""); setFront(null); setBack(null);
+      setMobile(""); setEmail(""); setWhatsapp(""); setDob(""); setGender(""); setNationality(""); setGstin(""); setFront(null); setBack(null); setDocName("");
       router.refresh(); // the checklist recomputes — collected items disappear
     });
   }
@@ -197,11 +202,16 @@ export function PendingInfoCard({
                 <select value={idType} onChange={(e) => setIdType(e.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-2 text-sm" aria-label="ID type" data-testid="pending-id-type">
                   {ID_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
-                <Field label={idType === "AADHAAR" ? "Front" : "Document image"}>
+                {docRule(idType).needsName && (
+                  <Field label="Document name *">
+                    <Input value={docName} onChange={(e) => setDocName(e.target.value)} placeholder="e.g. Company ID, Student ID" data-testid="pending-id-name" />
+                  </Field>
+                )}
+                <Field label={`${docRule(idType).front} *`}>
                   <Input type="file" accept="image/*,application/pdf" capture="environment" onChange={(e) => setFront(e.target.files?.[0] ?? null)} data-testid="pending-id-front" />
                 </Field>
-                {idType === "AADHAAR" && (
-                  <Field label="Back">
+                {docRule(idType).back && (
+                  <Field label={docRule(idType).backRequired ? `${docRule(idType).back} *` : docRule(idType).back!}>
                     <Input type="file" accept="image/*,application/pdf" capture="environment" onChange={(e) => setBack(e.target.files?.[0] ?? null)} data-testid="pending-id-back" />
                   </Field>
                 )}

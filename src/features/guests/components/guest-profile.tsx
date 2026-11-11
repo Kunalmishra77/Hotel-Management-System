@@ -19,10 +19,11 @@ import { RevealSheet } from "./reveal-sheet";
 import { addGuestIdFormAction, type AddIdFormState } from "../form-actions";
 import { removeGuestId } from "../id-actions";
 import type { GuestProfile as GuestProfileData } from "../queries";
+import { ID_DOC_TYPES, docRule, idDisplayName } from "../domain/id-documents";
 
 type RevealTarget = { field: "mobile" | "email" | "whatsapp"; label: string };
 
-const ID_TYPES = ["AADHAAR", "PASSPORT", "DRIVING_LICENCE", "VOTER_ID", "PAN", "OTHER"] as const;
+
 
 export function GuestProfile({
   guest,
@@ -89,7 +90,7 @@ export function GuestProfile({
             <ul className="divide-y rounded-md border" data-testid="guest-ids">
               {guest.ids.map((id) => (
                 <li key={id.id} className="flex items-center justify-between gap-2 p-3 text-sm">
-                  <span>{ID_LABEL[id.type] ?? id.type}</span>
+                  <span>{idDisplayName(id.type, id.documentName)}</span>
                   <span className="flex items-center gap-2">
                     <span className="font-mono text-muted-foreground" data-testid="masked-id">
                       {id.maskedValue ?? "Image on file"}
@@ -107,7 +108,7 @@ export function GuestProfile({
                       </a>
                     )}
                     {id.hasScan && !canRevealPii && <span className="text-xs text-muted-foreground">scan on file</span>}
-                    {canManage && <RemoveIdButton rowId={id.id} label={ID_LABEL[id.type] ?? id.type} />}
+                    {canManage && <RemoveIdButton rowId={id.id} label={idDisplayName(id.type, id.documentName)} />}
                   </span>
                 </li>
               ))}
@@ -134,14 +135,6 @@ export function GuestProfile({
   );
 }
 
-const ID_LABEL: Record<string, string> = {
-  AADHAAR: "Aadhaar",
-  PASSPORT: "Passport",
-  DRIVING_LICENCE: "Driving licence",
-  VOTER_ID: "Voter ID",
-  PAN: "PAN",
-  OTHER: "Other",
-};
 
 function ContactRow({
   label,
@@ -224,6 +217,10 @@ const ADD_INITIAL: AddIdFormState = { status: "idle" };
 function AddIdForm({ guestId }: { guestId: string }) {
   const router = useRouter();
   const [state, submit, pending] = useActionState(addGuestIdFormAction, ADD_INITIAL);
+  // The photo slots follow the document type (guests/domain/id-documents.ts):
+  // both sides for Aadhaar / Driving licence / Voter ID, a name for Other.
+  const [type, setType] = useState<string>("AADHAAR");
+  const rule = docRule(type);
 
   // A new document changes the masked list — pull the fresh server render.
   useEffect(() => {
@@ -236,9 +233,9 @@ function AddIdForm({ guestId }: { guestId: string }) {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
         <div className="space-y-1.5">
           <Label htmlFor="id-type">Type</Label>
-          <select id="id-type" name="type"
-            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm sm:w-40">
-            {ID_TYPES.map((t) => <option key={t} value={t}>{ID_LABEL[t]}</option>)}
+          <select id="id-type" name="type" value={type} onChange={(e) => setType(e.target.value)}
+            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm sm:w-44">
+            {ID_DOC_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
         </div>
         <div className="flex-1 space-y-1.5">
@@ -246,17 +243,25 @@ function AddIdForm({ guestId }: { guestId: string }) {
           <Input id="id-value" name="value" placeholder="Document number" data-testid="add-id-value" />
         </div>
       </div>
-      {/* Document photos → encrypted storage (04 FR-7). A number is optional; an ID
-          can be captured as images alone. Aadhaar scans are gated by compliance. */}
-      <div className="grid gap-2 sm:grid-cols-2">
+      {rule.needsName && (
         <div className="space-y-1.5">
-          <Label htmlFor="id-scan">Document photo — front</Label>
-          <Input id="id-scan" name="scan" type="file" accept="image/*,application/pdf" capture="environment" data-testid="add-id-scan" />
+          <Label htmlFor="id-doc-name">Document name <span className="text-destructive">*</span></Label>
+          <Input id="id-doc-name" name="documentName" required placeholder="e.g. Company ID, Student ID, Arms licence" data-testid="add-id-name" />
         </div>
+      )}
+      {/* Document photos → encrypted storage (04 FR-7). A number is optional; the
+          photos are required — both sides where the card has two (server-checked). */}
+      <div className={rule.back ? "grid gap-2 sm:grid-cols-2" : ""}>
         <div className="space-y-1.5">
-          <Label htmlFor="id-back">Document photo — back <span className="font-normal text-muted-foreground">(optional)</span></Label>
-          <Input id="id-back" name="backScan" type="file" accept="image/*,application/pdf" capture="environment" />
+          <Label htmlFor="id-scan">{rule.front} <span className="text-destructive">*</span></Label>
+          <Input id="id-scan" name="scan" type="file" accept="image/*,application/pdf" capture="environment" required data-testid="add-id-scan" />
         </div>
+        {rule.back && (
+          <div className="space-y-1.5">
+            <Label htmlFor="id-back">{rule.back} {rule.backRequired ? <span className="text-destructive">*</span> : null}</Label>
+            <Input id="id-back" name="backScan" type="file" accept="image/*,application/pdf" capture="environment" required={rule.backRequired} data-testid="add-id-back" />
+          </div>
+        )}
       </div>
       <div className="flex items-center gap-3">
         <Button type="submit" size="lg" disabled={pending} data-testid="add-id-submit">

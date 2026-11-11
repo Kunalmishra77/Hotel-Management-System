@@ -88,9 +88,12 @@ export const addGuestIdSchema = z.object({
   /** FRONT / primary document image (base64), optional. */
   scanBase64: z.string().optional().nullable(),
   scanContentType: z.string().optional().nullable(),
-  /** BACK image (base64) — e.g. the Aadhaar reverse. Optional. */
+  /** BACK image (base64) — required for Aadhaar / Driving licence / Voter ID
+   *  (domain/id-documents.ts), optional for an Other document. */
   backScanBase64: z.string().optional().nullable(),
   backScanContentType: z.string().optional().nullable(),
+  /** What an OTHER document is, e.g. "Company ID" — required for OTHER. */
+  documentName: z.string().trim().max(60).optional().nullable(),
 });
 
 export const revealPiiSchema = z.object({

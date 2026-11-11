@@ -3,8 +3,9 @@
 /**
  * Check-in wizard · Identity step (03 T6). Finalized front-desk workflow: capture
  * each ID as DOCUMENT IMAGES, not a typed number. The upload slots change with the
- * document type — Aadhaar takes a front + back, PAN/DL/Voter a single front,
- * Passport its photo page, Visa its page. A number is optional (never forced, and
+ * document type — Aadhaar, Driving licence and Voter ID take a front + back (both
+ * required), PAN a front, Passport its photo page, Visa its page; any other
+ * document is named and takes a front (+ back if it has one). A number is optional (never forced, and
  * never a full Aadhaar number by default). Images go to encrypted object storage;
  * the row keeps only an object key + checksum.
  */
@@ -19,29 +20,13 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { addGuestId } from "@/features/guests/id-actions";
+import { ID_DOC_TYPES, docRule, idDisplayName, idDocumentProblem } from "@/features/guests/domain/id-documents";
 import type { CheckInIdSummary } from "../queries";
 
-const ID_TYPES = [
-  { value: "AADHAAR", label: "Aadhaar" },
-  { value: "PASSPORT", label: "Passport" },
-  { value: "PAN", label: "PAN" },
-  { value: "DRIVING_LICENCE", label: "Driving licence" },
-  { value: "VOTER_ID", label: "Voter ID" },
-  { value: "VISA", label: "Visa" },
-  { value: "OTHER", label: "Other ID" },
-] as const;
-const LABEL: Record<string, string> = Object.fromEntries(ID_TYPES.map((t) => [t.value, t.label]));
-
-/** Which image slots each document type needs (front always; back only for Aadhaar). */
-const DOC_SLOTS: Record<string, { front: string; back?: string }> = {
-  AADHAAR: { front: "Aadhaar — front", back: "Aadhaar — back" },
-  PASSPORT: { front: "Passport — photo page" },
-  PAN: { front: "PAN — front" },
-  DRIVING_LICENCE: { front: "Driving licence — front" },
-  VOTER_ID: { front: "Voter ID — front" },
-  VISA: { front: "Visa — page" },
-  OTHER: { front: "ID — front" },
-};
+// One rule for every ID form (guests/domain/id-documents.ts): both sides for
+// Aadhaar / Driving licence / Voter ID, one for Passport / PAN / Visa, and a
+// named "Other document" with an optional back.
+const ID_TYPES = ID_DOC_TYPES;
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -110,17 +95,16 @@ export function IdentityStep({
   const [value, setValue] = useState("");
   const [front, setFront] = useState<File | null>(null);
   const [back, setBack] = useState<File | null>(null);
+  const [docName, setDocName] = useState("");
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const slots = DOC_SLOTS[type] ?? { front: "Document image" };
-  const reset = () => { setValue(""); setFront(null); setBack(null); };
+  const rule = docRule(type);
+  const reset = () => { setValue(""); setFront(null); setBack(null); setDocName(""); };
 
   const submit = () => {
-    if (!front && !value.trim()) {
-      setError("Upload the document image (or enter a number).");
-      return;
-    }
+    const problem = idDocumentProblem({ type, hasFront: !!front, hasBack: !!back, documentName: docName });
+    if (problem) { setError(problem); return; }
     setError(null);
     start(async () => {
       let scanBase64: string | undefined;
@@ -136,14 +120,15 @@ export function IdentityStep({
       }
       const res = await addGuestId({
         guestId, type,
+        ...(rule.needsName ? { documentName: docName.trim() } : {}),
         value: value.trim() || undefined,
         scanBase64, scanContentType, backScanBase64, backScanContentType,
       });
       if (!res.ok) { setError(res.error.message); return; }
-      onAdded({ id: res.data.id, type: res.data.type, maskedValue: res.data.maskedValue, hasScan: res.data.hasScan });
+      onAdded({ id: res.data.id, type: res.data.type, documentName: res.data.documentName, maskedValue: res.data.maskedValue, hasScan: res.data.hasScan });
       setType("AADHAAR");
       reset();
-      toast.success(`${LABEL[res.data.type] ?? "ID"} added`);
+      toast.success(`${idDisplayName(res.data.type, res.data.documentName)} added`);
     });
   };
 
@@ -152,7 +137,7 @@ export function IdentityStep({
       <div>
         <h3 className="text-sm font-semibold">Identity documents</h3>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          Upload the guest&apos;s ID — Aadhaar, Driving Licence, Voter ID, Passport or Other (any one is enough; a passport is needed for a foreign national). Images are stored encrypted; the number is optional.
+          Upload the guest&apos;s ID — any one is enough (a passport for a foreign national). Aadhaar, Driving licence and Voter ID need <b>both sides</b>; Passport, PAN and Visa one. Any other document: choose <b>Other document</b>, name it and upload it. Images are stored encrypted; the number is optional.
         </p>
       </div>
 
@@ -162,7 +147,7 @@ export function IdentityStep({
             <li key={id.id} className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
               <span className="flex items-center gap-2">
                 <BadgeCheck className="size-4 text-success" />
-                <span className="font-medium">{LABEL[id.type] ?? id.type}</span>
+                <span className="font-medium">{idDisplayName(id.type, id.documentName)}</span>
                 <span className="font-mono text-muted-foreground">{id.maskedValue ?? "Image on file"}</span>
               </span>
               {id.hasScan ? (
@@ -188,10 +173,18 @@ export function IdentityStep({
           </Select>
         </div>
 
-        {/* Dynamic upload slots — front always, back only when the type needs it. */}
-        <div className={slots.back ? "grid gap-3 sm:grid-cols-2" : ""}>
-          <UploadSlot id="id-front" label={slots.front} file={front} onPick={setFront} />
-          {slots.back ? <UploadSlot id="id-back" label={slots.back} file={back} onPick={setBack} /> : null}
+        {rule.needsName ? (
+          <div className="space-y-1.5">
+            <Label htmlFor="id-doc-name">Document name <span className="text-destructive">*</span></Label>
+            <Input id="id-doc-name" value={docName} onChange={(e) => setDocName(e.target.value)} placeholder="e.g. Company ID, Student ID, Arms licence" data-testid="id-doc-name" />
+          </div>
+        ) : null}
+
+        {/* Dynamic upload slots — front always; back for two-sided cards (required
+            for Aadhaar / Driving licence / Voter ID, optional for Other). */}
+        <div className={rule.back ? "grid gap-3 sm:grid-cols-2" : ""}>
+          <UploadSlot id="id-front" label={`${rule.front} *`} file={front} onPick={setFront} />
+          {rule.back ? <UploadSlot id="id-back" label={rule.backRequired ? `${rule.back} *` : rule.back} file={back} onPick={setBack} /> : null}
         </div>
 
         {/* Number — optional, secondary */}

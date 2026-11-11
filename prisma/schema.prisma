@@ -956,6 +956,9 @@ model GuestId {
   scanChecksum   String?
   backObjectKey  String? // BACK image (e.g. Aadhaar reverse) — the image-first capture workflow
   backChecksum   String?
+  // What an OTHER document is ("Company ID", "Student ID"…) — the label shown for
+  // it. Null for the named types (Aadhaar, Passport…). Not a number, not PII.
+  documentName   String?
   createdAt      DateTime @default(now())
 
   @@index([guestId])

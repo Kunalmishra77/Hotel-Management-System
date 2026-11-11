@@ -156,10 +156,15 @@ describe("createGuest (FR-1/2/5/6 / AC-1/2/3)", () => {
   });
 });
 
+// The images are the record (client, 11 Nov 2026): a front for every ID, a back
+// too for Aadhaar / Driving licence / Voter ID.
+const FRONT = { scanBase64: Buffer.from("front image").toString("base64"), scanContentType: "image/jpeg" };
+const BOTH = { ...FRONT, backScanBase64: Buffer.from("back image").toString("base64"), backScanContentType: "image/jpeg" };
+
 describe("addGuestId — Aadhaar gating (FR-3/4 / AC-4/5)", () => {
   it("stores a passport with its full value (allowed) (AC-4)", async () => {
     await actAs(USER_MANAGER_ID);
-    const res = await addGuestId({ guestId: GUEST_RAVI_ID, type: "PASSPORT", value: "M1234567" });
+    const res = await addGuestId({ guestId: GUEST_RAVI_ID, type: "PASSPORT", value: "M1234567", ...FRONT });
     expect(res.ok).toBe(true);
     if (!res.ok) return;
     expect(res.data.maskedValue).toBe("XXXX4567");
@@ -172,7 +177,7 @@ describe("addGuestId — Aadhaar gating (FR-3/4 / AC-4/5)", () => {
 
   it("stores Aadhaar as MASKED last-4 only, no full value (AC-5)", async () => {
     await actAs(USER_MANAGER_ID);
-    const res = await addGuestId({ guestId: GUEST_RAVI_ID, type: "AADHAAR", value: "1234 5678 9012" });
+    const res = await addGuestId({ guestId: GUEST_RAVI_ID, type: "AADHAAR", value: "1234 5678 9012", ...BOTH });
     expect(res.ok).toBe(true);
     if (!res.ok) return;
     expect(res.data.maskedValue).toBe("XXXX XXXX 9012");
@@ -183,16 +188,29 @@ describe("addGuestId — Aadhaar gating (FR-3/4 / AC-4/5)", () => {
     expect(row.valueHash).toBeNull();
   });
 
-  it("rejects an Aadhaar SCAN while full storage is off (AC-5)", async () => {
+  it("Aadhaar, Driving licence and Voter ID are refused without BOTH sides; Other needs its name", async () => {
     await actAs(USER_MANAGER_ID);
-    const res = await addGuestId({
-      guestId: GUEST_RAVI_ID,
-      type: "AADHAAR",
-      value: "1234 5678 9012",
-      scanBase64: Buffer.from("fake scan").toString("base64"),
-    });
-    expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.error.message).toMatch(/Aadhaar/i);
+    for (const type of ["AADHAAR", "DRIVING_LICENCE", "VOTER_ID"] as const) {
+      const frontOnly = await addGuestId({ guestId: GUEST_RAVI_ID, type, ...FRONT });
+      expect(frontOnly.ok).toBe(false);
+      if (!frontOnly.ok) expect(frontOnly.error.message).toMatch(/both sides/);
+    }
+    const numberOnly = await addGuestId({ guestId: GUEST_RAVI_ID, type: "PAN", value: "ABCDE1234F" });
+    expect(numberOnly.ok).toBe(false);
+    const unnamed = await addGuestId({ guestId: GUEST_RAVI_ID, type: "OTHER", ...FRONT });
+    expect(unnamed.ok).toBe(false);
+    if (!unnamed.ok) expect(unnamed.error.message).toMatch(/name/);
+
+    const dl = await addGuestId({ guestId: GUEST_RAVI_ID, type: "DRIVING_LICENCE", ...BOTH });
+    expect(dl.ok, JSON.stringify(dl)).toBe(true);
+    const other = await addGuestId({ guestId: GUEST_RAVI_ID, type: "OTHER", documentName: "Company ID", ...FRONT });
+    expect(other.ok, JSON.stringify(other)).toBe(true);
+    if (other.ok) {
+      expect(other.data.documentName).toBe("Company ID");
+      const row = await prisma.guestId.findUniqueOrThrow({ where: { id: other.data.id } });
+      expect(row.documentName).toBe("Company ID");
+      expect(row.backObjectKey).toBeNull(); // the back is optional for Other
+    }
   });
 });
 
@@ -330,7 +348,7 @@ describe("eraseGuest (FR-14 / AC-13/AC-14) — with in-DB probes", () => {
 
     // Give the guest an ID with a full value first, to prove its tokens clear too.
     authMock.current = await assembleClaims(prisma, USER_MANAGER_ID);
-    await addGuestId({ guestId: GUEST_MEHTA_ID, type: "PASSPORT", value: "Z9999999" });
+    await addGuestId({ guestId: GUEST_MEHTA_ID, type: "PASSPORT", value: "Z9999999", ...FRONT });
 
     await actAs(USER_ADMIN_ID);
     const res = await eraseGuest({ guestId: GUEST_MEHTA_ID, reason: "DPDP request" });
@@ -434,7 +452,7 @@ describe("searchGuests + getGuestProfile (FR-8/10 / AC-7/AC-10) — masked", () 
 
   it("returns a masked profile with masked ID values (AC-7)", async () => {
     const claims = await actAs(USER_MANAGER_ID);
-    await addGuestId({ guestId: GUEST_RAVI_ID, type: "AADHAAR", value: "1234 5678 9012" });
+    await addGuestId({ guestId: GUEST_RAVI_ID, type: "AADHAAR", value: "1234 5678 9012", ...BOTH });
 
     const profile = await getGuestProfile(claims, GUEST_RAVI_ID);
     expect(profile?.maskedMobile).toBe("XXXXXX0001");

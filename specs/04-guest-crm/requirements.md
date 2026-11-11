@@ -41,3 +41,8 @@ Multi-field search **p95 < 500ms** on 100k+ guests; create/update common mutatio
 
 ## Business rules referenced
 `business-rules.md` §16 (duplicate detection on phone/email/ID before creating a guest), §17 (history is derived, not stored here — see 05), §20 (validate→authorize→transaction→event→audit). `data-model.md` (PII encryption, masked Aadhaar, scans as reference + checksum, soft-delete). `compliance.md` (DPDP export/erase, Aadhaar masking + `COMPLIANCE_STORE_FULL_AADHAAR`, data residency).
+
+## Addendum — ID document sides (client, 11 Nov 2026)
+- **FR-ID-1** Aadhaar, Driving licence and Voter ID are captured as **front + back images, both required**. Passport (photo page), PAN and Visa take **one** image. A typed number stays optional.
+- **FR-ID-2** Any other document is captured as **Other document**: its **name is required** (`GuestId.documentName`, e.g. "Company ID"), the front image is required and the back is optional. It is listed by that name everywhere.
+- **FR-ID-3** One rule (`features/guests/domain/id-documents.ts`) drives every capture form (check-in wizard, guest profile, booking pending card) and is re-checked by `addGuestId` on the server.

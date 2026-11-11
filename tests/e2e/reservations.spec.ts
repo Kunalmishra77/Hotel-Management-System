@@ -116,6 +116,10 @@ test.describe("journey — search → book → check-in → check-out (T-32)", (
     // → Identity: capture an ID (a walk-in guest has none on file, so Continue
     // stays disabled until one is added) → Register.
     await page.getByTestId("wizard-continue").click();
+    // Aadhaar needs BOTH sides (client, 11 Nov 2026) — upload two tiny images.
+    const png = { mimeType: "image/png", buffer: Buffer.from("89504e470d0a1a0a", "hex") };
+    await page.locator("#id-front").setInputFiles({ name: "aadhaar-front.png", ...png });
+    await page.locator("#id-back").setInputFiles({ name: "aadhaar-back.png", ...png });
     await page.getByTestId("id-value").fill("123456789012");
     await page.getByTestId("add-id").click();
     await expect(page.getByTestId("captured-ids")).toBeVisible();

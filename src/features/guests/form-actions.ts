@@ -167,14 +167,12 @@ export async function addGuestIdFormAction(
   const back = await readFile(formData, "backScan");
   if (front.tooBig || back.tooBig) return { status: "error", message: "Each document image must be under 8 MB." };
 
-  // An ID needs at least a number OR a photo — never an empty row.
-  if (!value && !front.base64 && !back.base64) {
-    return { status: "error", message: "Enter the document number or attach a photo." };
-  }
-
+  // Which photos are required (both sides for Aadhaar / DL / Voter ID…) is
+  // checked by addGuestId itself — one rule for every form.
   const result = await addGuestId({
     guestId,
     type,
+    documentName: field(formData, "documentName") || undefined,
     value: value || undefined,
     scanBase64: front.base64,
     scanContentType: front.contentType,

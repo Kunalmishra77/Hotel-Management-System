@@ -283,7 +283,7 @@ export type GuestProfile = GuestListItem & {
   purposeOfVisit: string | null;
   foodPreference: string | null;
   specialRequests: string | null;
-  ids: { id: string; type: string; maskedValue: string | null; hasScan: boolean; hasBackScan: boolean }[];
+  ids: { id: string; type: string; documentName: string | null; maskedValue: string | null; hasScan: boolean; hasBackScan: boolean }[];
 };
 
 /** One guest, masked by default (T-17). Reveal goes through `revealPii`. */
@@ -315,7 +315,7 @@ export async function getGuestProfile(
       foodPreference: true,
       specialRequests: true,
       ids: {
-        select: { id: true, type: true, maskedValue: true, scanObjectKey: true, backObjectKey: true },
+        select: { id: true, type: true, documentName: true, maskedValue: true, scanObjectKey: true, backObjectKey: true },
       },
     },
   });
@@ -344,6 +344,7 @@ export async function getGuestProfile(
     ids: guest.ids.map((id) => ({
       id: id.id,
       type: id.type,
+      documentName: id.documentName,
       maskedValue: id.maskedValue,
       hasScan: id.scanObjectKey !== null,
       hasBackScan: id.backObjectKey !== null,
