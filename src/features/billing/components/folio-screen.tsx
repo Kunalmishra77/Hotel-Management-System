@@ -232,12 +232,15 @@ export function FolioScreen({
         <RoomRateForm
           pending={pending}
           hasRoomCharge={hasRoomCharge}
-          // No room charge yet (e.g. an OTA stay saved at ₹0): go through the
-          // booking's rate action, which posts every stayed night at this rate and
-          // raises the GST invoice. Otherwise re-price the posted nights here.
+          // A booking's folio goes through the booking's rate action: it re-prices the
+          // posted nights AND the booking's rate, so later nights (extend, night
+          // audit, check-out) use it too. Correcting only the bill left the booking
+          // at the old rate — an extension then billed ₹5,000 next to ₹6,000 nights.
+          // It also posts the nights of a stay saved at ₹0. A direct-sale folio
+          // (no booking) re-prices its lines only.
           onSubmit={(rate, gstMode) =>
             run(() =>
-              !hasRoomCharge && reservationId
+              reservationId
                 ? setRoomRate({ reservationId, newRatePaise: toPaise(rate), gstMode })
                 : correctRoomRate({ folioId: folio.id, newUnitPaise: toPaise(rate), gstMode, reason: "room rate correction" }),
             )

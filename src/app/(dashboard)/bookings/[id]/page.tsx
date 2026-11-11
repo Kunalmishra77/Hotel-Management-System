@@ -212,7 +212,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
           </Card>
 
           {(r.status === "IN_HOUSE" || r.status === "CONFIRMED") && canManageGuests && !r.externalHotelName && r.roomNumbers.length > 0 ? (
-            <ExtendStayCard reservationId={r.id} checkOutDate={r.checkOutDate.toISOString().slice(0, 10)} currentRatePaise={r.ratePaise} />
+            <ExtendStayCard reservationId={r.id} checkOutDate={r.checkOutDate.toISOString().slice(0, 10)} currentRatePaise={billFolio?.billedRatePaise ?? r.ratePaise} />
           ) : null}
 
           {/* A not-yet-arrived guest can swap rooms (whole unit, like for like) with

@@ -90,6 +90,7 @@ export {
   activeLines,
   activeRoomNightKeys,
   nextRoomRevision,
+  lastBilledRoomRate,
   dateKey as folioDateKey,
   type LedgerLine,
 } from "./domain/reversal";

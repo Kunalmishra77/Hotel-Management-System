@@ -9,7 +9,7 @@ import { authorize } from "@/lib/permissions";
 import type { Prisma } from "@prisma/client";
 import { folioBalance } from "./domain/balance";
 import { billParts, type BillPart, type PartContext } from "./domain/bill-parts";
-import { activeLines } from "./domain/reversal";
+import { activeLines, lastBilledRoomRate } from "./domain/reversal";
 import { outstandingAcrossJourneys, type JourneyFolio } from "./domain/journey";
 import type { SessionClaims } from "@/lib/auth/claims";
 
@@ -41,13 +41,15 @@ export type FolioView = {
   invoices: FolioInvoiceView[];
   /** The stay's separate bills — an OTA's nights vs the direct (guest) bill. One entry for a normal stay. */
   parts: BillPart[];
+  /** Pre-tax nightly rate of the latest billed night (what the guest pays now); null before any night is billed. */
+  billedRatePaise: number | null;
 };
 
 // What the folio views need — lines/payments for the ledger, plus the booking's
 // source + extensions so the stay can be split into its bills (bill-parts.ts).
 const FOLIO_VIEW_SELECT = {
   id: true,
-  lines: { select: { id: true, type: true, description: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, reversalOfId: true, businessDate: true }, orderBy: { createdAt: "asc" } },
+  lines: { select: { id: true, type: true, description: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, reversalOfId: true, businessDate: true, unitPaise: true, quantity: true, revision: true }, orderBy: { createdAt: "asc" } },
   payments: { select: { id: true, mode: true, amountPaise: true, isRefund: true, receivedAt: true, reference: true }, orderBy: { receivedAt: "asc" } },
   invoices: { select: { id: true, number: true, type: true, totalPaise: true, cancelsInvoiceId: true, issuedAt: true, customerName: true, customerGstin: true, taxableValuePaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, billPart: true }, orderBy: { issuedAt: "asc" } },
   reservation: { select: { source: true, extensions: { select: { fromDate: true, toDate: true, source: true } } } },
@@ -60,10 +62,11 @@ function toFolioView(folio: FolioViewRow): FolioView {
   return {
     id: folio.id,
     balancePaise: Number(balance),
-    lines: folio.lines.map(({ businessDate: _bd, ...l }) => ({ ...l, amountPaise: Number(l.amountPaise) })),
+    lines: folio.lines.map(({ businessDate: _bd, unitPaise: _u, quantity: _q, revision: _r, ...l }) => ({ ...l, amountPaise: Number(l.amountPaise) })),
     payments: folio.payments.map((p) => ({ ...p, amountPaise: Number(p.amountPaise), receivedAt: p.receivedAt.toISOString() })),
     invoices: folio.invoices.map((i) => ({ ...i, totalPaise: Number(i.totalPaise), taxableValuePaise: Number(i.taxableValuePaise) })),
     parts: billParts(folio.lines, folio.payments, ctx),
+    billedRatePaise: lastBilledRoomRate(folio.lines),
   };
 }
 

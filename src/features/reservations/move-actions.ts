@@ -26,6 +26,7 @@ import {
   correctRoomRate,
   activeRoomNightKeys,
   nextRoomRevision,
+  lastBilledRoomRate,
   folioDateKey,
   autoIssueInvoiceOnCheckout,
   postPaymentTx,
@@ -176,7 +177,7 @@ export async function extendStay(input: unknown): Promise<Result<MoveResult>> {
       select: {
         id: true, propertyId: true, status: true, checkInDate: true, checkOutDate: true, ratePaise: true, source: true,
         allocations: { select: { id: true, roomId: true, startDate: true, endDate: true, room: { select: { number: true } } } },
-        folio: { select: { id: true } },
+        folio: { select: { id: true, lines: { select: { id: true, type: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, businessDate: true, revision: true, reversalOfId: true, unitPaise: true, quantity: true } } } },
         property: { select: { timezone: true, state: true, dayUseEnabled: true } },
       },
     });
@@ -221,8 +222,10 @@ export async function extendStay(input: unknown): Promise<Result<MoveResult>> {
     // the whole stay is exactly how a 6→14 Oct stay at ₹2,268 lost its agreed
     // rate when it was extended at ₹2,250.) The stored rate is PRE-TAX
     // (glossary), so back GST out of a GST-inclusive figure.
+    // Left blank = "same as now": the rate actually billed on the latest night (a
+    // folio rate correction lives there), falling back to the booking's rate.
     const extensionRatePaise = data.ratePaise === undefined
-      ? r.ratePaise
+      ? (lastBilledRoomRate(r.folio?.lines ?? []) ?? r.ratePaise)
       : preTaxRatePaise(data.ratePaise, data.gstMode);
 
     // Full-stay billing: every ADDED night is billed now for an in-house guest

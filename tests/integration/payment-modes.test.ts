@@ -26,6 +26,7 @@ import { createReservation } from "@/features/reservations/actions";
 import { checkIn } from "@/features/reservations/lifecycle-actions";
 import { extendStay } from "@/features/reservations/move-actions";
 import { correctPaymentEntry } from "@/features/billing/payment-actions";
+import { correctRoomRate } from "@/features/billing/charge-actions";
 import { getFolio } from "@/features/billing/queries";
 import { revenueSegments } from "@/features/reports/queries";
 
@@ -168,6 +169,26 @@ describe("a long extension posts every night in one go (client, 10 Nov 2026)", (
     const ids = nights.map((n) => n.id);
     expect(await prisma.auditLog.count({ where: { action: "folio:room-night", entityId: { in: ids } } })).toBe(20);
     expect(await prisma.domainEvent.count({ where: { type: "FolioCharged", aggregateId: fid } })).toBeGreaterThanOrEqual(20);
+  });
+});
+
+describe("extending at 'same rate as now' (client, 11 Nov 2026)", () => {
+  it("uses the rate actually billed — a folio rate correction — not the booking's older rate", async () => {
+    await actAs(USER_RECEPTION_A_ID);
+    const res = await createReservation(body({ roomIds: [ROOM_101_ID], source: "DIRECT", checkInDate: "2028-03-05", checkOutDate: "2028-03-07", ratePaise: 500_000 }));
+    if (!res.ok) throw new Error(res.error.message);
+    created.push(res.data.id);
+    await checkIn({ reservationId: res.data.id });
+    const fid = await folioId(res.data.id);
+    // Saumen: the nights were corrected to ₹6,000 on the folio only; the booking still says ₹5,000.
+    expect((await correctRoomRate({ folioId: fid, newUnitPaise: 600_000, gstMode: "exclusive", reason: "agreed rate" })).ok).toBe(true);
+    expect((await prisma.reservation.findUniqueOrThrow({ where: { id: res.data.id } })).ratePaise).toBe(500_000);
+
+    expect((await extendStay({ reservationId: res.data.id, newCheckOutDate: "2028-03-09", source: "DIRECT" })).ok).toBe(true);
+    const lines = await prisma.folioLine.findMany({ where: { folioId: fid, type: "ROOM" }, select: { id: true, unitPaise: true, businessDate: true } });
+    const reversed = new Set((await prisma.folioLine.findMany({ where: { folioId: fid, type: "REVERSAL" }, select: { reversalOfId: true } })).map((l) => l.reversalOfId));
+    const active = lines.filter((l) => !reversed.has(l.id)).sort((a, b) => a.businessDate.getTime() - b.businessDate.getTime());
+    expect(active.map((l) => l.unitPaise)).toEqual([600_000, 600_000, 600_000, 600_000]);
   });
 });
 

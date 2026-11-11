@@ -63,6 +63,21 @@ export function activeLines<T extends LedgerLine>(lines: readonly T[]): T[] {
 }
 
 /**
+ * The nightly rate the guest is ACTUALLY being billed now: the pre-tax unit of
+ * the latest still-active ROOM night (client, 11 Nov 2026). A rate corrected on
+ * the folio lives on the lines, so "same rate as now" for an extension must come
+ * from here — the booking's stored rate can be older (Saumen: nights billed at
+ * ₹6,000 while the booking still said ₹5,000, so the extension took ₹5,000).
+ * Null when no night is billed yet.
+ */
+export function lastBilledRoomRate(lines: readonly (LedgerLine & { unitPaise: number; quantity?: number })[]): number | null {
+  const nights = activeLines(lines)
+    .filter((l) => l.type === "ROOM" && (l.quantity ?? 1) === 1 && l.unitPaise > 0)
+    .sort((a, b) => b.businessDate.getTime() - a.businessDate.getTime() || (b.revision ?? 0) - (a.revision ?? 0));
+  return nights[0]?.unitPaise ?? null;
+}
+
+/**
  * The nights that carry an ACTIVE ROOM charge, as `YYYY-MM-DD` keys — the
  * canonical "already billed" guard for check-in, the night audit, extend and
  * check-out. A reversed night is absent, so it is billable again.
