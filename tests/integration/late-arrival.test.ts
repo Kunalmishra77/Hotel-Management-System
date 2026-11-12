@@ -85,8 +85,10 @@ describe("guaranteed late arrival", () => {
 
     const held = await setArrivalGuarantee({ reservationId: r.data.id, guaranteed: true });
     expect(held.ok, JSON.stringify(held)).toBe(true);
-    const row = await prisma.reservation.findUniqueOrThrow({ where: { id: r.data.id } });
+    if (held.ok) expect(held.data.roomRestored).toBe(true); // the no-show's room comes back when free
+    const row = await prisma.reservation.findUniqueOrThrow({ where: { id: r.data.id }, include: { allocations: true } });
     expect([row.status, row.arrivalGuaranteed]).toEqual(["CONFIRMED", true]);
+    expect(row.allocations.map((a) => a.roomId)).toEqual([ROOM_102_ID]);
     await markNoShows(PROP_A_ID, day("2028-04-13"));
     expect((await prisma.reservation.findUniqueOrThrow({ where: { id: r.data.id } })).status).toBe("CONFIRMED"); // not re-no-showed
 

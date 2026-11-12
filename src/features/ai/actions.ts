@@ -23,6 +23,7 @@ import {
 import { nlSearch, type NlSearchResult } from "./nl-search";
 import { chat, type ChatResult } from "./chat";
 import { answerBusinessQuestion, type BusinessAnswer } from "./business-qa";
+import { answerAgent, type AgentAnswer } from "./agent";
 import { forecast, type ForecastOutput } from "./forecast";
 import { suggestRates } from "./pricing";
 import { updateSegments, type SegmentSummary } from "./segments";
@@ -57,6 +58,18 @@ export async function askBusiness(input: unknown): Promise<Result<BusinessAnswer
     // Establish the request context (org/scope/requestId in ALS) the canonical
     // financial queries rely on — as every other AI action does.
     return withAiContext(user, () => answerBusinessQuestion(user, { question }));
+  });
+}
+
+/**
+ * PMS Agent — answers any platform question from live data with NO external AI
+ * (client, 12 Nov 2026). Powers the floating assistant and the AI page.
+ */
+export async function askAgent(input: unknown): Promise<Result<AgentAnswer>> {
+  return toResult(async () => {
+    const { question } = askBusinessSchema.parse(input);
+    const user = await requireUser();
+    return withAiContext(user, () => answerAgent(user, { question }));
   });
 }
 

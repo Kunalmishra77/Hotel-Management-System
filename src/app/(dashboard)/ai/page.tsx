@@ -2,11 +2,10 @@ import type { Metadata } from "next";
 import { requireUser } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AskPms } from "@/features/ai/components/ask-pms";
-import { BusinessQa } from "@/features/ai/components/business-qa";
+import { PmsAgent } from "@/features/ai/components/pms-agent";
 import { InsightCards } from "@/features/ai/components/insight-cards";
 import { revenueOutlook, listSegments, type Outlook } from "@/features/ai/queries";
-import { BUSINESS_QA_SUGGESTIONS } from "@/features/ai/business-qa";
+import { AGENT_SUGGESTIONS } from "@/features/ai/domain/agent-intents";
 
 export const metadata: Metadata = { title: "Ask PMS" };
 
@@ -43,13 +42,13 @@ export default async function AiPage() {
       <div>
         <h1 className="text-xl font-semibold tracking-tight">AI Assistant</h1>
         <p className="text-sm text-muted-foreground">
-          Ask about your business in plain language, or search records. Everything is scoped to you and masked.
+          Ask in English or Hindi — bookings, guests, rooms, dues, revenue, or how to do something. Answers come from your live data; nothing leaves the platform.
         </p>
       </div>
-      <BusinessQa suggestions={BUSINESS_QA_SUGGESTIONS} />
+      {/* One assistant, no external AI: live answers + how-to (client, 12 Nov 2026). */}
       <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-base">Search &amp; assistant</CardTitle></CardHeader>
-        <CardContent><AskPms /></CardContent>
+        <CardHeader className="pb-2"><CardTitle className="text-base">Ask anything about your hotels</CardTitle></CardHeader>
+        <CardContent><PmsAgent suggestions={AGENT_SUGGESTIONS} /></CardContent>
       </Card>
       <InsightCards outlook={outlook} segments={segments} />
     </div>

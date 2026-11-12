@@ -2,13 +2,14 @@
 /**
  * Floating AI assistant (architecture v2 · Phase 7). The blueprint wants AI as a
  * floating helper across every portal — not a separate page. This mounts a
- * bottom-right launcher that opens a panel embedding the existing Ask-PMS
- * assistant. Rendered app-wide (gated to `ai:use` by the shell).
+ * bottom-right launcher that opens the PMS Agent — answers from live data with no
+ * external AI (client, 12 Nov 2026). Rendered app-wide (gated to `ai:use` by the shell).
  */
 import { useState } from "react";
 import { Bot, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { AskPms } from "./ask-pms";
+import { PmsAgent } from "./pms-agent";
+import { AGENT_SUGGESTIONS } from "../domain/agent-intents";
 
 export function AiLauncher() {
   const [open, setOpen] = useState(false);
@@ -36,7 +37,7 @@ export function AiLauncher() {
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
-              <AskPms />
+              <PmsAgent suggestions={AGENT_SUGGESTIONS} compact />
             </div>
           </div>
         </>

@@ -141,7 +141,9 @@ export async function markNoShows(
           entityType: "Reservation",
           entityId: r.id,
           propertyId,
-          before: { status: "CONFIRMED" },
+          // The released rooms are kept on the record so a later "guest still
+          // coming" restore can give the same room back (late-arrival-actions.ts).
+          before: { status: "CONFIRMED", roomIds: r.allocations.map((a) => a.roomId) },
           after: { status: "NO_SHOW", retainedAdvance: property.noShowRetainAdvance },
         });
         marked += 1;

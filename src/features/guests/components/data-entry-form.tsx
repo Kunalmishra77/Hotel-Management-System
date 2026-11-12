@@ -92,7 +92,7 @@ export function DataEntryForm() {
       <Card>
         <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><Sparkles className="size-4" /> AI-assist (optional)</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          <p className="text-sm text-muted-foreground">Paste any text from the record (or type what you can read) and auto-fill the form. Always review before saving. Auto-fill activates when an AI provider is configured.</p>
+          <p className="text-sm text-muted-foreground">Paste any text from the record (or type what you can read) — e.g. &ldquo;Name: …&rdquo;, &ldquo;Mobile: …&rdquo;, &ldquo;DOB: …&rdquo;, &ldquo;Address: …&rdquo; — and auto-fill the form. Always review before saving.</p>
           <textarea value={recordText} onChange={(e) => setRecordText(e.target.value)} rows={3}
             placeholder="e.g. Ramesh Kumar, 9812345678, Delhi, checked in 12 Jan…"
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" data-testid="data-entry-text" />

@@ -3,9 +3,10 @@
 /**
  * Historical data-entry actions (26 objective — "complete guest database" from the
  * client's existing paper records). Two steps, both server-side + authorized:
- *  1. extractGuestFieldsAction — optional AI-assist that proposes fields from the
- *     record's text (empty with the mock provider; a configured provider fills
- *     what it can read). Staff always review before saving.
+ *  1. extractGuestFieldsAction — proposes fields from the record's text with a
+ *     built-in parser (no AI needed, client 12 Nov 2026); an AI provider, if one
+ *     is ever configured, only fills what the parser left empty. Staff always
+ *     review before saving.
  *  2. dataEntryCreateGuestAction — creates the guest and, when an ID document
  *     photo is attached, stores it via the guest-ID path (encrypted, masked).
  * The source photo is captured with the record so there is an auditable original.
@@ -15,19 +16,27 @@ import { requireUser } from "@/lib/auth";
 import { authorize } from "@/lib/permissions";
 import { toResult, type Result } from "@/lib/result";
 import { extractGuestFields, type GuestFields } from "@/features/ai/guest-extract";
+import { parseGuestRecord } from "./domain/record-parse";
 import { createGuest } from "./actions";
 import { addGuestId } from "./id-actions";
 import { findSameGuest } from "./internal";
 import type { GuestFormState } from "./form-actions";
 
-/** AI-assist: propose guest fields from pasted record text (never auto-saves). */
+/** Propose guest fields from pasted record text (never auto-saves). Works with no AI. */
 export async function extractGuestFieldsAction(recordText: string): Promise<Result<GuestFields>> {
   return toResult(async () => {
     const user = await requireUser();
     authorize(user, "guest:create");
     const text = (recordText ?? "").trim();
     if (!text) return {} as GuestFields;
-    return extractGuestFields(text.slice(0, 4000));
+    const parsed = parseGuestRecord(text.slice(0, 4000));
+    // Optional extra from an AI provider: only fills gaps, and its absence or
+    // failure is silent — auto-fill never depends on it.
+    let ai: GuestFields = {};
+    try { ai = await extractGuestFields(text.slice(0, 4000)); } catch { ai = {}; }
+    const out: GuestFields = { ...parsed };
+    for (const [k, v] of Object.entries(ai) as [keyof GuestFields, string | undefined][]) if (v && !out[k]) out[k] = v;
+    return out;
   });
 }
 
