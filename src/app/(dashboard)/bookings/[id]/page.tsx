@@ -25,6 +25,7 @@ import { listProperties } from "@/features/properties/queries";
 import { CancelBookingButton } from "@/features/reservations/components/cancel-booking-button";
 import { CheckOutButton } from "@/features/reservations/components/check-out-button";
 import { ReactivateNoShowButton } from "@/features/reservations/components/reactivate-no-show-button";
+import { LateArrivalCard } from "@/features/reservations/components/late-arrival-card";
 import { getBalance } from "@/features/billing";
 import { getReservationFolio } from "@/features/billing/queries";
 import { BookingBillSummary } from "@/features/reservations/components/booking-bill-summary";
@@ -210,6 +211,13 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
               {r.needsAttention ? <p className="text-destructive sm:col-span-2">Needs attention: {r.needsAttention}</p> : null}
             </CardContent>
           </Card>
+
+          {/* Guaranteed late arrival (client, 12 Nov): offered once the check-in day has
+              come (or the booking was no-showed), so a guest who calls to say "still
+              coming, bill me from the booked date" keeps the booking and its room. */}
+          {canManageGuests && !r.externalHotelName && (r.status === "NO_SHOW" || (r.status === "CONFIRMED" && (r.arrivalGuaranteed || r.checkInDate.toISOString().slice(0, 10) <= new Date().toISOString().slice(0, 10)))) ? (
+            <LateArrivalCard reservationId={r.id} status={r.status} guaranteed={r.arrivalGuaranteed} checkInDate={r.checkInDate.toISOString().slice(0, 10)} hasRoom={r.roomNumbers.length > 0} />
+          ) : null}
 
           {(r.status === "IN_HOUSE" || r.status === "CONFIRMED") && canManageGuests && !r.externalHotelName && r.roomNumbers.length > 0 ? (
             <ExtendStayCard reservationId={r.id} checkOutDate={r.checkOutDate.toISOString().slice(0, 10)} currentRatePaise={billFolio?.billedRatePaise ?? r.ratePaise} />

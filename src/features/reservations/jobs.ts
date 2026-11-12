@@ -97,7 +97,8 @@ export async function markNoShows(
 
   const businessDay = utcEpochDay(businessDate);
   const candidates = await prisma.reservation.findMany({
-    where: { propertyId, status: "CONFIRMED" },
+    // A guaranteed late arrival keeps its room until the guest comes (client, 12 Nov).
+    where: { propertyId, status: "CONFIRMED", arrivalGuaranteed: false },
     select: { id: true, checkInDate: true, allocations: { select: { roomId: true } } },
   });
 

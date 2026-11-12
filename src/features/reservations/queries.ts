@@ -42,6 +42,8 @@ export type ReservationListItem = {
   source: string;
   /** Booked-on date (createdAt, yyyy-mm-dd) — editable with the source. */
   bookedOn: string;
+  /** Guaranteed late arrival — the room is held, billed from the check-in date. */
+  arrivalGuaranteed: boolean;
 };
 
 const LIST_SELECT = {
@@ -60,6 +62,7 @@ const LIST_SELECT = {
   externalHotelAddress: true,
   source: true,
   createdAt: true,
+  arrivalGuaranteed: true,
   guest: { select: { fullName: true } },
   allocations: { select: { id: true, roomId: true, startDate: true, endDate: true, room: { select: { id: true, number: true } } }, orderBy: { startDate: "asc" } },
 } as const;
@@ -80,6 +83,7 @@ type Row = {
   externalHotelAddress: string | null;
   source: string;
   createdAt: Date;
+  arrivalGuaranteed: boolean;
   guest: { fullName: string };
   allocations: { id: string; roomId: string; startDate: Date; endDate: Date; room: { id: string; number: string } }[];
 };
@@ -106,6 +110,7 @@ function toItem(r: Row): ReservationListItem {
     externalHotelAddress: r.externalHotelAddress,
     source: r.source,
     bookedOn: r.createdAt.toISOString().slice(0, 10),
+    arrivalGuaranteed: r.arrivalGuaranteed,
   };
 }
 
@@ -464,7 +469,8 @@ export async function arrivalsDepartures(
       where: {
         propertyId: input.propertyId,
         status: "CONFIRMED",
-        checkInDate: { gte: dayStart, lt: dayEnd },
+        // Today's arrivals + guaranteed late arrivals still to come (their date has passed).
+        OR: [{ checkInDate: { gte: dayStart, lt: dayEnd } }, { arrivalGuaranteed: true, checkInDate: { lt: dayStart } }],
       },
       select: LIST_SELECT,
       orderBy: { code: "asc" },
@@ -718,7 +724,7 @@ export async function arrivalsDeparturesPortfolio(
   } as const;
 
   const [arrivals, departures] = await Promise.all([
-    db.scoped(user).reservation.findMany({ where: { propertyId: { in: propertyIds }, status: "CONFIRMED", checkInDate: { gte: dayStart, lt: dayEnd } }, select, orderBy: { code: "asc" } }),
+    db.scoped(user).reservation.findMany({ where: { propertyId: { in: propertyIds }, status: "CONFIRMED", OR: [{ checkInDate: { gte: dayStart, lt: dayEnd } }, { arrivalGuaranteed: true, checkInDate: { lt: dayStart } }] }, select, orderBy: { code: "asc" } }),
     db.scoped(user).reservation.findMany({ where: { propertyId: { in: propertyIds }, status: "IN_HOUSE", checkOutDate: { gte: dayStart, lt: dayEnd } }, select, orderBy: { code: "asc" } }),
   ]);
 

@@ -64,3 +64,8 @@ Availability search p95 < 500ms; create/confirm p95 < 800ms; no overbooking unde
 - **FR-CI-2** Check-in is refused server-side (`completeCheckIn`) until the guest record holds: mobile, WhatsApp ("same as mobile" by default), gender, nationality, home address (street, city, country) and at least one photo ID. The refusal names what is missing.
 - **FR-CI-3** Email and date of birth are optional at check-in. When skipped, they show as optional items on the booking's Pending information card. Older guests missing WhatsApp, gender or nationality show those as required items there.
 - **FR-CI-4** The go-live importer (module 26) calls `checkIn` directly. Imported history keeps whatever the source file had.
+
+## Addendum — guaranteed late arrival (client, 12 Nov 2026)
+- **FR-LA-1** A CONFIRMED booking whose check-in day has come — or one already marked NO_SHOW — can be **held for a late arrival** (`Reservation.arrivalGuaranteed`): the guest called to say they're still coming and will pay from the booked check-in date. Holding a NO_SHOW returns it to CONFIRMED (a room is then assigned with Move / assign room, since the no-show released it).
+- **FR-LA-2** The night audit never marks a held booking NO_SHOW and never releases its room; it appears in today's arrivals every day until the guest comes.
+- **FR-LA-3** At check-in every night from the booked check-in date is billed (the normal full-stay check-in). Removing the hold returns the booking to the normal no-show rule. Every change is audited (`reservation:late-arrival`).

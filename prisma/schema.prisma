@@ -612,6 +612,11 @@ model Reservation {
   // folio with this mode at check-in. Null for old bookings (fallback: ONLINE when
   // already paid, else CASH).
   advanceMode       PaymentMode?
+  // Guaranteed late arrival (client, 12 Nov 2026): the guest called — "don't
+  // cancel, I'll come on any day and pay from the booked check-in". The night
+  // audit never no-shows it and its room stays held; check-in bills every night
+  // from `checkInDate`, as any check-in does.
+  arrivalGuaranteed Boolean      @default(false)
 
   allocations        RoomAllocation[]
   folio              Folio?

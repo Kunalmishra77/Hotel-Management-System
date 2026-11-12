@@ -137,7 +137,7 @@ export function IdentityStep({
       <div>
         <h3 className="text-sm font-semibold">Identity documents</h3>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          Upload the guest&apos;s ID — any one is enough (a passport for a foreign national). Aadhaar, Driving licence and Voter ID need <b>both sides</b>; Passport, PAN and Visa one. Any other document: choose <b>Other document</b>, name it and upload it. Images are stored encrypted; the number is optional.
+          Upload the guest&apos;s ID — any one is enough (a passport for a foreign national). Only the <b>front</b> is required; add the back too where the card has one (optional). Any other document: choose <b>Other document</b>, name it and upload it. Images are stored encrypted; the number is optional.
         </p>
       </div>
 

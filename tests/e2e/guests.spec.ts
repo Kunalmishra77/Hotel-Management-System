@@ -73,7 +73,7 @@ test.describe("journey — create → dedupe → add Aadhaar → search → reve
     // 4 · Add an Aadhaar → stored + shown as last-4 only (AC-5)
     await page.getByLabel("Type").selectOption("AADHAAR");
     await page.getByTestId("add-id-value").fill("1234 5678 9012");
-    // Aadhaar needs BOTH sides (client, 11 Nov 2026).
+    // Front required, back optional (client, 12 Nov 2026).
     const png = { mimeType: "image/png", buffer: Buffer.from("89504e470d0a1a0a", "hex") };
     await page.getByTestId("add-id-scan").setInputFiles({ name: "front.png", ...png });
     await page.getByTestId("add-id-back").setInputFiles({ name: "back.png", ...png });

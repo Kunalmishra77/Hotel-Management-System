@@ -156,8 +156,8 @@ describe("createGuest (FR-1/2/5/6 / AC-1/2/3)", () => {
   });
 });
 
-// The images are the record (client, 11 Nov 2026): a front for every ID, a back
-// too for Aadhaar / Driving licence / Voter ID.
+// The images are the record (client, 11–12 Nov 2026): a front for every ID; the
+// back is optional.
 const FRONT = { scanBase64: Buffer.from("front image").toString("base64"), scanContentType: "image/jpeg" };
 const BOTH = { ...FRONT, backScanBase64: Buffer.from("back image").toString("base64"), backScanContentType: "image/jpeg" };
 
@@ -188,12 +188,14 @@ describe("addGuestId — Aadhaar gating (FR-3/4 / AC-4/5)", () => {
     expect(row.valueHash).toBeNull();
   });
 
-  it("Aadhaar, Driving licence and Voter ID are refused without BOTH sides; Other needs its name", async () => {
+  it("the front image is required, the back optional; Other needs its name (client, 12 Nov 2026)", async () => {
     await actAs(USER_MANAGER_ID);
     for (const type of ["AADHAAR", "DRIVING_LICENCE", "VOTER_ID"] as const) {
+      const backOnly = await addGuestId({ guestId: GUEST_RAVI_ID, type, backScanBase64: BOTH.backScanBase64 });
+      expect(backOnly.ok).toBe(false);
+      if (!backOnly.ok) expect(backOnly.error.message).toMatch(/front/);
       const frontOnly = await addGuestId({ guestId: GUEST_RAVI_ID, type, ...FRONT });
-      expect(frontOnly.ok).toBe(false);
-      if (!frontOnly.ok) expect(frontOnly.error.message).toMatch(/both sides/);
+      expect(frontOnly.ok, JSON.stringify(frontOnly)).toBe(true);
     }
     const numberOnly = await addGuestId({ guestId: GUEST_RAVI_ID, type: "PAN", value: "ABCDE1234F" });
     expect(numberOnly.ok).toBe(false);

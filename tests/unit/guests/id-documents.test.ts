@@ -2,13 +2,14 @@ import { describe, expect, it } from "vitest";
 import { docRule, idDisplayName, idDocumentProblem } from "@/features/guests/domain/id-documents";
 
 describe("ID documents — which sides are needed (client, 11 Nov 2026)", () => {
-  it("Aadhaar, Driving licence and Voter ID need both sides", () => {
+  it("the front is required for every ID; the back is optional (client, 12 Nov 2026)", () => {
     for (const type of ["AADHAAR", "DRIVING_LICENCE", "VOTER_ID"]) {
-      expect(docRule(type).backRequired).toBe(true);
-      expect(idDocumentProblem({ type, hasFront: true, hasBack: false })).toMatch(/back .* both sides/);
-      expect(idDocumentProblem({ type, hasFront: false, hasBack: true })).toMatch(/front/);
-      expect(idDocumentProblem({ type, hasFront: false, hasBack: false })).toMatch(/both sides/);
+      expect(docRule(type).back).toBeTruthy(); // a back slot is offered…
+      expect(docRule(type).backRequired).toBe(false); // …but not required
+      expect(idDocumentProblem({ type, hasFront: true, hasBack: false })).toBeNull();
       expect(idDocumentProblem({ type, hasFront: true, hasBack: true })).toBeNull();
+      expect(idDocumentProblem({ type, hasFront: false, hasBack: true })).toMatch(/front/);
+      expect(idDocumentProblem({ type, hasFront: false, hasBack: false })).toMatch(/front/);
     }
   });
 
