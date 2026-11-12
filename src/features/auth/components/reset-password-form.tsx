@@ -8,7 +8,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { AuthPanel } from "./auth-panel";
 import { resetPasswordAction, type ResetState } from "../password-actions";
 
 const INITIAL: ResetState = { status: "idle" };
@@ -23,15 +23,8 @@ export function ResetPasswordForm({
   const [state, submit, pending] = useActionState(resetPasswordAction, INITIAL);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Choose a new password</CardTitle>
-        <CardDescription>
-          At least {minLength} characters. Signing in again on your other devices will be
-          required.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+    <AuthPanel title="Choose a new password" description={<>At least {minLength} characters. Signing in again on your other devices will be
+          required.</>}>
         <form action={submit} className="space-y-4">
           <input type="hidden" name="token" value={token} />
 
@@ -64,7 +57,7 @@ export function ResetPasswordForm({
             </p>
           )}
 
-          <Button type="submit" block size="lg" disabled={pending}>
+          <Button type="submit" block size="lg" disabled={pending} className="bg-brand-pine text-brand-pine-foreground hover:bg-brand-pine/90">
             {pending ? "Saving…" : "Set new password"}
           </Button>
 
@@ -77,7 +70,6 @@ export function ResetPasswordForm({
             </Link>
           </p>
         </form>
-      </CardContent>
-    </Card>
+      </AuthPanel>
   );
 }

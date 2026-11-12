@@ -14,43 +14,38 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { AuthPanel } from "./auth-panel";
 import { signInAction, verifyTotpAction, type SignInState } from "../actions";
 
 const INITIAL: SignInState = { status: "idle" };
 
 /**
- * Portal → its demo login. Clicking a portal on the landing opens THIS form with
- * the role's context + email prefilled (the email still editable — anyone can sign
- * in). Password is always typed; real RBAC decides the portal after login.
+ * Portal → its label. A portal link on the landing opens this form with the
+ * portal named; real RBAC still decides where the user lands after login.
  */
-const PORTAL_LOGINS: Record<string, { label: string; email: string }> = {
-  administrator: { label: "Administrator", email: "admin@woodpecker.example" },
-  manager: { label: "Manager", email: "manager.mg@woodpecker.example" },
-  reception: { label: "Reception", email: "reception.mg@woodpecker.example" },
-  accounts: { label: "Accounts", email: "accounts@woodpecker.example" },
-  housekeeping: { label: "Housekeeping", email: "housekeeping.mg@woodpecker.example" },
-  maintenance: { label: "Maintenance", email: "maintenance.mg@woodpecker.example" },
-  owner: { label: "Property Owner", email: "owner.mg@woodpecker.example" },
+const PORTAL_LABELS: Record<string, string> = {
+  administrator: "Administrator",
+  manager: "Manager",
+  reception: "Reception",
+  accounts: "Accounts",
+  housekeeping: "Housekeeping",
+  maintenance: "Maintenance",
+  owner: "Property Owner",
 };
 
 export function SignInForm({ next, justReset, role }: { next?: string; justReset?: boolean; role?: string }) {
   const [state, submitCredentials, credentialsPending] = useActionState(signInAction, INITIAL);
-  const portal = role ? PORTAL_LOGINS[role] : undefined;
+  const portal = role ? PORTAL_LABELS[role] : undefined;
 
   if (state.status === "totp_required" || state.status === "totp_error") {
     return <TotpStep challenge={state.challenge} next={next} state={state} />;
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{portal ? `Sign in — ${portal.label}` : "Sign in"}</CardTitle>
-        <CardDescription>
-          {portal ? `You're entering the ${portal.label} portal. Use your work email.` : "Use your work email address."}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+    <AuthPanel
+      title="Welcome back"
+      description={portal ? `Sign in to the ${portal} portal of Woodpecker PMS.` : "Sign in to Woodpecker PMS with your work email."}
+    >
         {justReset && (
           <p
             role="status"
@@ -74,7 +69,6 @@ export function SignInForm({ next, justReset, role }: { next?: string; justReset
               autoCapitalize="none"
               autoCorrect="off"
               required
-              defaultValue={portal?.email}
               aria-invalid={Boolean(state.status === "error" && state.fieldErrors?.email)}
             />
           </div>
@@ -84,7 +78,7 @@ export function SignInForm({ next, justReset, role }: { next?: string; justReset
               <Label htmlFor="password">Password</Label>
               <Link
                 href="/forgot-password"
-                className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                className="inline-flex min-h-touch items-center text-sm font-medium text-brand-pine underline-offset-4 hover:underline dark:text-brand-brass"
               >
                 Forgot password?
               </Link>
@@ -98,7 +92,7 @@ export function SignInForm({ next, justReset, role }: { next?: string; justReset
             />
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex min-h-touch items-center gap-2">
             <Checkbox id="remember" name="remember" />
             <Label htmlFor="remember" className="cursor-pointer text-sm font-normal text-muted-foreground">
               Keep me signed in on this device
@@ -111,12 +105,11 @@ export function SignInForm({ next, justReset, role }: { next?: string; justReset
             </p>
           )}
 
-          <Button type="submit" block size="lg" disabled={credentialsPending}>
+          <Button type="submit" block size="lg" disabled={credentialsPending} className="bg-brand-pine text-brand-pine-foreground hover:bg-brand-pine/90">
             {credentialsPending ? "Signing in…" : "Sign in"}
           </Button>
         </form>
-      </CardContent>
-    </Card>
+    </AuthPanel>
   );
 }
 
@@ -143,12 +136,7 @@ function TotpStep({
         : null;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Two-factor code</CardTitle>
-        <CardDescription>Enter the 6-digit code from your authenticator app.</CardDescription>
-      </CardHeader>
-      <CardContent>
+    <AuthPanel title="Two-factor code" description="Enter the 6-digit code from your authenticator app.">
         <form action={submitTotp} className="space-y-4">
           <input type="hidden" name="challenge" value={activeChallenge} />
           <input type="hidden" name="next" value={next ?? ""} />
@@ -180,7 +168,7 @@ function TotpStep({
             </p>
           )}
 
-          <Button type="submit" block size="lg" disabled={pending}>
+          <Button type="submit" block size="lg" disabled={pending} className="bg-brand-pine text-brand-pine-foreground hover:bg-brand-pine/90">
             {pending ? "Verifying…" : "Verify"}
           </Button>
 
@@ -193,7 +181,6 @@ function TotpStep({
             </Link>
           </p>
         </form>
-      </CardContent>
-    </Card>
+    </AuthPanel>
   );
 }

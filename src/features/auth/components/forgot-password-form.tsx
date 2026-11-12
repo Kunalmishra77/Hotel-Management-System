@@ -12,7 +12,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { AuthPanel } from "./auth-panel";
 import { requestPasswordResetAction, type ResetRequestState } from "../password-actions";
 
 const INITIAL: ResetRequestState = { status: "idle" };
@@ -22,30 +22,17 @@ export function ForgotPasswordForm() {
 
   if (state.status === "sent") {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Check your email</CardTitle>
-          <CardDescription>
-            If that address has an account, a reset link is on its way. The link expires in one
-            hour.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+      <AuthPanel title="Check your email" description={<>If that address has an account, a reset link is on its way. The link expires in one
+            hour.</>}>
           <Button asChild block variant="outline">
             <Link href="/sign-in">Back to sign in</Link>
           </Button>
-        </CardContent>
-      </Card>
+        </AuthPanel>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Reset your password</CardTitle>
-        <CardDescription>We&apos;ll email you a link to set a new one.</CardDescription>
-      </CardHeader>
-      <CardContent>
+    <AuthPanel title="Reset your password" description={<>We&apos;ll email you a link to set a new one.</>}>
         <form action={submit} className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="email">Email</Label>
@@ -67,7 +54,7 @@ export function ForgotPasswordForm() {
             </p>
           )}
 
-          <Button type="submit" block size="lg" disabled={pending}>
+          <Button type="submit" block size="lg" disabled={pending} className="bg-brand-pine text-brand-pine-foreground hover:bg-brand-pine/90">
             {pending ? "Sending…" : "Send reset link"}
           </Button>
 
@@ -80,7 +67,6 @@ export function ForgotPasswordForm() {
             </Link>
           </p>
         </form>
-      </CardContent>
-    </Card>
+      </AuthPanel>
   );
 }

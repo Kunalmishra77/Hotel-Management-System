@@ -10,6 +10,7 @@ const SUBJECTS: Record<string, string> = {
   CHECKOUT_THANKYOU: "Thank you for your stay",
   PRE_ARRIVAL: "We look forward to your arrival",
   INVOICE_SHARE: "Your invoice",
+  PASSWORD_RESET: "Reset your Woodpecker PMS password",
 };
 const DEFAULT_SUBJECT = "Woodpecker Apartments & Suites";
 

@@ -18,6 +18,7 @@
 import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 import { authConfig } from "@/lib/auth/auth.config";
+import { isPublicWebsiteEnabled, isWebsitePath } from "@/lib/constants/website";
 
 const { auth } = NextAuth(authConfig);
 
@@ -47,6 +48,16 @@ function isPublic(pathname: string): boolean {
 
 export default auth((req) => {
   const { pathname, search } = req.nextUrl;
+
+  // CRM-only mode: the guest website is switched off, so its pages lead to the
+  // staff sign-in (which forwards a signed-in user to the dashboard) and its
+  // public booking API answers 404. See lib/constants/website.ts.
+  if (!isPublicWebsiteEnabled() && isWebsitePath(pathname)) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    return NextResponse.redirect(new URL("/sign-in", req.nextUrl));
+  }
 
   if (isPublic(pathname)) {
     /**

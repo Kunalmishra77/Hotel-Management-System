@@ -16,6 +16,7 @@ import { hashPassword, passwordIssues, verifyPassword } from "@/lib/auth/passwor
 import { writeAudit } from "@/lib/audit";
 import { emitEvent } from "@/lib/events";
 import { logger } from "@/lib/logger";
+import { liveProvider } from "@/lib/messaging";
 import { changePasswordSchema, requestPasswordResetSchema, resetPasswordSchema } from "./schema";
 import { authDb, withUserContext } from "./internal";
 
@@ -40,13 +41,36 @@ export async function requestPasswordResetAction(
   const issued = await issuePasswordResetToken(authDb, parsed.data.email);
 
   if (issued) {
-    // Delivery is module 12's job. Until a messaging adapter is registered the
-    // link is logged — exactly the sandbox behaviour integrations.md prescribes,
-    // so dev/CI works with zero external accounts.
-    logger.info("password_reset.issued", {
-      resetUrl: `${process.env.APP_URL ?? ""}/reset-password?token=${issued.token}`,
-      expiresAt: issued.expiresAt.toISOString(),
+    const base = (process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
+    const resetUrl = `${base}/reset-password?token=${issued.token}`;
+    const minutes = Math.max(1, Math.round((issued.expiresAt.getTime() - Date.now()) / 60_000));
+    // Real delivery through the same SMTP adapter that sends guest invoices.
+    // Without SMTP settings (dev/CI) it falls back to the log — the sandbox
+    // behaviour integrations.md prescribes. The token itself is only ever logged
+    // in that sandbox case, never once a real email has gone out.
+    const result = await liveProvider("EMAIL", "smtp", {}).sendSession({
+      channel: "EMAIL",
+      toAddress: parsed.data.email,
+      templateKey: "PASSWORD_RESET",
+      body: [
+        "Hello,",
+        "",
+        "Someone asked to reset the password for your Woodpecker PMS account.",
+        "Open this link to choose a new password:",
+        "",
+        resetUrl,
+        "",
+        `The link works once and expires in ${minutes} minutes.`,
+        "If you didn't ask for this, ignore this email — your password stays the same.",
+        "",
+        "Woodpecker Apartments & Suites",
+      ].join("\n"),
     });
+    if (result.ok) {
+      logger.info("password_reset.emailed", { expiresAt: issued.expiresAt.toISOString() });
+    } else {
+      logger.warn("password_reset.not_emailed", { reason: result.error, resetUrl });
+    }
   }
 
   return { status: "sent" };
