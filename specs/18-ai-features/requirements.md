@@ -32,3 +32,10 @@ Runs fully on the `mock` provider in dev/CI (no key); chatbot/NL-search response
 
 ## Business rules referenced
 `ai-features.md` (LLM never mutates; grounding over generation; PII minimization; NL→structured query; suggestions need approval). `business-rules.md` §20–21.
+
+## Addendum — PMS Agent without an external AI (client, 12 Nov 2026)
+- **FR-AG-1** The assistant answers questions about the platform from live data with **no LLM / external API**: arrivals and check-outs (today/tomorrow), who is staying, who is in a room, vacant rooms, a guest or booking (stay, room, balance), dues/revenue/expenses/profit/occupancy/cancellations/rooms-to-clean, and step-by-step how-to's. English, Hindi and Hinglish. Deterministic intents (`features/ai/domain/agent-intents.ts`), caller-scoped and permission-checked.
+- **FR-AG-2** **Commands**: an instruction (extend, check-in, check-out, rate, payment, late-arrival hold/release, source, move/assign room, mark room clean, add a charge) becomes a proposal naming the exact booking and the change. **Nothing runs until the user presses Confirm**; the confirmed command runs through the same server action as the screen (validation, permission, event, audit unchanged). A tampered command is rejected by its schema.
+- **FR-AG-3** **Problem scan** ("koi galti hai kya"): stays in-house past check-out, missed arrivals about to be no-showed (fix: hold), bookings with no room, OTA bills whose prepayment wasn't recorded (fix: record OTA payment), checked-out bills with dues.
+- **FR-AG-4** UI: a panel docked on the right beside the page (desktop) / a sheet (phone); remembers open state and the per-user chat on the device.
+- **FR-AG-5** Guest auto-fill from text works without AI (`features/guests/domain/record-parse.ts`); an AI provider, if configured, only fills gaps.

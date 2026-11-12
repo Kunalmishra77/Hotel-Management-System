@@ -16,14 +16,18 @@ import { arrivalsDeparturesPortfolio, inHousePortfolio } from "@/features/reserv
 import { folioBalance } from "@/features/billing";
 import { answerBusinessQuestion } from "./business-qa";
 import { classify, GUIDE } from "./domain/agent-intents";
+import { parseCommand } from "./domain/agent-commands";
+import { proposeCommand, type AgentProposal } from "./agent-commands";
 export { AGENT_SUGGESTIONS } from "./domain/agent-intents";
 import type { SessionClaims } from "@/lib/auth/claims";
 
-export type AgentItem = { title: string; subtitle: string; href?: string };
+export type AgentItem = { title: string; subtitle: string; href?: string; proposal?: AgentProposal };
 export type AgentAnswer = {
   answer: string;
   items?: AgentItem[];
   steps?: string[];
+  /** An action the agent will take when the user presses Confirm (nothing runs before). */
+  proposal?: AgentProposal;
   matched: boolean;
   scopeLabel: string;
 };
@@ -69,6 +73,16 @@ export async function answerAgent(user: SessionClaims, input: { question: string
   const canView = hasPermission(user, "reservation:view");
   const canMoney = hasPermission(user, "folio:view");
   const noView: AgentAnswer = { answer: "You don't have permission to view bookings.", matched: true, scopeLabel };
+
+  // An instruction ("BK-… ko 8 Dec tak extend karo") becomes a confirmable plan.
+  const today = new Date(`${new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" })}T00:00:00Z`);
+  const command = parseCommand(input.question, today);
+  if (command) {
+    if (!canView) return noView;
+    const p = await proposeCommand(user, command);
+    return { ...p, scopeLabel };
+  }
+
   const intent = classify(input.question);
 
   switch (intent.kind) {
@@ -82,6 +96,8 @@ export async function answerAgent(user: SessionClaims, input: { question: string
           "A guest or booking — type the name or the BK- code (stay, room, balance)",
           "Dues, revenue, expenses, profit, occupancy, cancellations, rooms to clean",
           `How to do something — ${GUIDE.slice(0, 6).map((g) => g.title.toLowerCase()).join(", ")}…`,
+          "Do it for you (you confirm first): \"BK-… ko 8 Dec tak extend karo\", \"2F-3 check out\", \"BK-… me 2535 cash jama karo\", \"BK-… ka rate 6000 karo\", \"BK-… ko 3F-1 me shift karo\", \"2F-2 clean ho gaya\", \"BK-… dinner 300 add karo\", \"BK-… source MMT karo\", \"BK-… late arrival hold karo\"",
+          "Find problems and fix them — \"koi galti hai kya check karo\"",
         ],
         matched: false,
         scopeLabel,

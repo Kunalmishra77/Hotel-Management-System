@@ -87,12 +87,12 @@ export function AppShell({
         >
           {children}
         </main>
+        {/* PMS Agent — docked on the right beside the page (desktop), a sheet on phones. */}
+        {hasPermission(claims, "ai:use") && aiEnabled ? <AiLauncher userId={claims.userId} /> : null}
       </div>
 
       <BottomNav items={barItems} />
 
-      {/* Floating AI assistant — every portal, if the plan includes the AI module. */}
-      {hasPermission(claims, "ai:use") && aiEnabled ? <AiLauncher /> : null}
     </div>
   );
 }

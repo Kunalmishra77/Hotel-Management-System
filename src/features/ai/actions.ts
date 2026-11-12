@@ -24,6 +24,7 @@ import { nlSearch, type NlSearchResult } from "./nl-search";
 import { chat, type ChatResult } from "./chat";
 import { answerBusinessQuestion, type BusinessAnswer } from "./business-qa";
 import { answerAgent, type AgentAnswer } from "./agent";
+import { agentCommandSchema } from "./agent-commands";
 import { forecast, type ForecastOutput } from "./forecast";
 import { suggestRates } from "./pricing";
 import { updateSegments, type SegmentSummary } from "./segments";
@@ -71,6 +72,67 @@ export async function askAgent(input: unknown): Promise<Result<AgentAnswer>> {
     const user = await requireUser();
     return withAiContext(user, () => answerAgent(user, { question }));
   });
+}
+
+/**
+ * Run a command the user CONFIRMED in the agent. Dispatches to the very server
+ * action the screen uses — each re-validates, re-authorizes, emits its event and
+ * writes its audit row — so the agent can never do more than the user's buttons.
+ */
+export async function runAgentCommand(input: unknown): Promise<Result<{ message: string }>> {
+  const gate = await toResult(async () => {
+    const user = await requireUser();
+    authorize(user, "ai:use");
+    return agentCommandSchema.parse(input);
+  });
+  if (!gate.ok) return gate;
+  const cmd = gate.data;
+  const done = (r: { ok: boolean; error?: { message: string } }, message: string): Result<{ message: string }> =>
+    r.ok ? { ok: true, data: { message } } : { ok: false, error: r.error as never };
+  switch (cmd.action) {
+    case "extend": {
+      const { extendStay } = await import("@/features/reservations/move-actions");
+      return done(await extendStay({ reservationId: cmd.reservationId, newCheckOutDate: cmd.newCheckOutDate, ...(cmd.ratePaise ? { ratePaise: cmd.ratePaise } : {}), gstMode: cmd.gstMode, source: cmd.source }), `Extended to ${cmd.newCheckOutDate}. The extra nights are on the bill.`);
+    }
+    case "checkIn": {
+      const { completeCheckIn } = await import("@/features/reservations/check-in-gate");
+      return done(await completeCheckIn({ reservationId: cmd.reservationId }), "Checked in. The stay is billed.");
+    }
+    case "checkOut": {
+      const { checkOut } = await import("@/features/reservations/lifecycle-actions");
+      return done(await checkOut({ reservationId: cmd.reservationId }), "Checked out. GST invoice(s) issued.");
+    }
+    case "rate": {
+      const { setRoomRate } = await import("@/features/reservations/move-actions");
+      return done(await setRoomRate({ reservationId: cmd.reservationId, newRatePaise: cmd.newRatePaise, gstMode: cmd.gstMode }), "Room rate changed and the billed nights re-priced.");
+    }
+    case "payment": {
+      const { recordPayment } = await import("@/features/billing/payment-actions");
+      return done(await recordPayment({ folioId: cmd.folioId, tenders: [{ mode: cmd.mode, amountPaise: cmd.amountPaise, ...(cmd.reference ? { reference: cmd.reference } : {}) }], expectedTotalPaise: cmd.amountPaise }), "Payment recorded.");
+    }
+    case "holdLate":
+    case "releaseHold": {
+      const { setArrivalGuarantee } = await import("@/features/reservations/late-arrival-actions");
+      const r = await setArrivalGuarantee({ reservationId: cmd.reservationId, guaranteed: cmd.action === "holdLate" });
+      return done(r, cmd.action === "holdLate" ? (r.ok && r.data.roomRestored ? "Held for late arrival — the room is back on the booking." : "Held for late arrival.") : "Hold removed.");
+    }
+    case "source": {
+      const { changeBookingSource } = await import("@/features/reservations/move-actions");
+      return done(await changeBookingSource({ reservationId: cmd.reservationId, source: cmd.source }), "Booking source changed.");
+    }
+    case "move": {
+      const { reallocateRoom } = await import("@/features/reservations/move-actions");
+      return done(await reallocateRoom({ reservationId: cmd.reservationId, toRoomId: cmd.toRoomId, ...(cmd.fromRoomId ? { fromRoomId: cmd.fromRoomId } : {}) }), "Room changed.");
+    }
+    case "roomStatus": {
+      const { changeRoomStatus } = await import("@/features/rooms/status-actions");
+      return done(await changeRoomStatus({ roomId: cmd.roomId, to: cmd.to, note: "Marked clean via the PMS Agent" }), "Room marked clean — vacant and ready.");
+    }
+    case "charge": {
+      const { postFolioCharge } = await import("@/features/billing/charge-actions");
+      return done(await postFolioCharge({ folioId: cmd.folioId, type: cmd.type, description: cmd.description, unitPaise: cmd.unitPaise }), "Charge added to the bill.");
+    }
+  }
 }
 
 /** Revenue/occupancy forecast — numbers grounded, LLM phrases only (AC-7). */

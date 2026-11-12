@@ -27,8 +27,8 @@ export const AGENT_SUGGESTIONS: readonly string[] = [
   "Khali rooms",
   "Today's pending dues?",
   "This month's revenue?",
+  "Koi galti hai kya check karo",
   "Extend kaise kare?",
-  "Guest late aayega — kya kare?",
 ];
 
 
