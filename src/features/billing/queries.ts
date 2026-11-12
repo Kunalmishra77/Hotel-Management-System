@@ -34,7 +34,8 @@ export type FolioInvoiceView = {
 export type FolioView = {
   id: string;
   balancePaise: number;
-  lines: { id: string; type: string; description: string; amountPaise: number; cgstPaise: number; sgstPaise: number; igstPaise: number; reversalOfId: string | null }[];
+  /** `businessDate` (yyyy-mm-dd) = the night / day a line belongs to — shown beside each charge. */
+  lines: { id: string; type: string; description: string; amountPaise: number; cgstPaise: number; sgstPaise: number; igstPaise: number; reversalOfId: string | null; businessDate: string }[];
   payments: { id: string; mode: string; amountPaise: number; isRefund: boolean; receivedAt: string; reference: string | null }[];
   // Issued bills on this folio, oldest first — the version history (original →
   // credit note → revised). #22: lets the UI void & revise and show the chain.
@@ -62,7 +63,7 @@ function toFolioView(folio: FolioViewRow): FolioView {
   return {
     id: folio.id,
     balancePaise: Number(balance),
-    lines: folio.lines.map(({ businessDate: _bd, unitPaise: _u, quantity: _q, revision: _r, ...l }) => ({ ...l, amountPaise: Number(l.amountPaise) })),
+    lines: folio.lines.map(({ businessDate, unitPaise: _u, quantity: _q, revision: _r, ...l }) => ({ ...l, amountPaise: Number(l.amountPaise), businessDate: businessDate.toISOString().slice(0, 10) })),
     payments: folio.payments.map((p) => ({ ...p, amountPaise: Number(p.amountPaise), receivedAt: p.receivedAt.toISOString() })),
     invoices: folio.invoices.map((i) => ({ ...i, totalPaise: Number(i.totalPaise), taxableValuePaise: Number(i.taxableValuePaise) })),
     parts: billParts(folio.lines, folio.payments, ctx),

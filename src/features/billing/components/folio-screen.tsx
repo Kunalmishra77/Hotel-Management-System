@@ -25,6 +25,24 @@ import type { FolioView } from "../queries";
 
 type AddOnOption = { id: string; name: string; pricePaise: number };
 
+/** The stay this bill belongs to — shown on top so the folio is readable on its own (client, 12 Nov 2026). */
+export type FolioStay = {
+  code: string;
+  status: string;
+  checkInDate: string; // yyyy-mm-dd
+  checkOutDate: string;
+  nights: number;
+  rooms: string;
+  source: string;
+  bookedOn: string;
+  ratePaise: number;
+  checkInAt: string | null;
+  arrivalGuaranteed?: boolean;
+};
+
+const day = (ymd: string) => new Date(`${ymd}T00:00:00Z`).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+const shortDay = (ymd: string) => new Date(`${ymd}T00:00:00Z`).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "UTC" });
+
 const rupees = (p: number) => `₹${(p / 100).toLocaleString("en-IN")}`;
 const toPaise = (r: number) => Math.round(r * 100);
 
@@ -35,11 +53,13 @@ export function FolioScreen({
   guestName,
   reservationId,
   addOns = [],
+  stay,
 }: {
   folio: FolioView;
   guestName: string;
   reservationId?: string;
   addOns?: AddOnOption[];
+  stay?: FolioStay;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -89,6 +109,25 @@ export function FolioScreen({
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4 p-4">
       <h1 className="text-xl font-semibold">Folio · {guestName}</h1>
+      {stay && (
+        <Card data-testid="folio-stay">
+          <CardContent className="grid gap-x-6 gap-y-2 p-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
+            <StayFact label="Booking">
+              {reservationId ? <a href={`/bookings/${reservationId}`} className="font-mono font-medium text-primary underline underline-offset-2">{stay.code}</a> : <span className="font-mono">{stay.code}</span>}
+              <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-xs">{stay.status.replace(/_/g, " ")}</span>
+            </StayFact>
+            <StayFact label="Stay">
+              {day(stay.checkInDate)} → {day(stay.checkOutDate)} · {stay.nights} night{stay.nights === 1 ? "" : "s"}
+            </StayFact>
+            <StayFact label="Room(s)">{stay.rooms || "Not assigned"}</StayFact>
+            <StayFact label="Rate / night (pre-tax)">{rupees(stay.ratePaise)}</StayFact>
+            <StayFact label="Source">{stay.source.replace(/_/g, " ")}</StayFact>
+            <StayFact label="Booked on">{day(stay.bookedOn)}</StayFact>
+            <StayFact label="Checked in">{stay.checkInAt ? new Date(stay.checkInAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : "Not yet"}</StayFact>
+            {stay.arrivalGuaranteed ? <StayFact label="Late arrival">Room held — billed from {shortDay(stay.checkInDate)}</StayFact> : null}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Main column — charges & bills fill the width */}
@@ -105,7 +144,7 @@ export function FolioScreen({
             const corrections = folio.lines.filter((l) => l.type === "REVERSAL" || reversedIds.has(l.id));
             const lineRow = (l: typeof folio.lines[number], showReverse: boolean) => (
               <div key={l.id} className="flex items-center justify-between gap-2">
-                <span className="text-muted-foreground">{l.type} · {l.description}</span>
+                <span className="text-muted-foreground">{l.type} · {l.description} <span className="text-xs">· {shortDay(l.businessDate)}</span></span>
                 <span className="flex items-center gap-2">
                   <span className="tabular">{rupees(l.amountPaise + l.cgstPaise + l.sgstPaise + l.igstPaise)}</span>
                   {showReverse && l.type !== "TAX" && l.type !== "REVERSAL" && (
@@ -475,5 +514,14 @@ function PaymentForm({ balancePaise, onSubmit, onCancel, pending }: { balancePai
         <Button size="lg" variant="outline" onClick={onCancel}>Cancel</Button>
       </div>
     </CardContent></Card>
+  );
+}
+
+function StayFact({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="font-medium">{children}</p>
+    </div>
   );
 }

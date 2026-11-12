@@ -44,6 +44,22 @@ export default async function FolioPage({ params }: { params: Promise<{ id: stri
       guestName={reservation.guestName}
       reservationId={id}
       addOns={addOns.map((a) => ({ id: a.id, name: a.name, pricePaise: a.pricePaise }))}
+      stay={{
+        code: reservation.code,
+        status: reservation.status,
+        checkInDate: reservation.checkInDate.toISOString().slice(0, 10),
+        checkOutDate: reservation.checkOutDate.toISOString().slice(0, 10),
+        nights: reservation.nights,
+        // A split stay / mid-stay move shows each room with its dates.
+        rooms: reservation.roomPlan.length > 1
+          ? reservation.roomPlan.map((p) => `${p.number} (${p.from.slice(8)}/${p.from.slice(5, 7)}→${p.to.slice(8)}/${p.to.slice(5, 7)})`).join(", ")
+          : reservation.roomNumbers.join(", "),
+        source: reservation.source,
+        bookedOn: reservation.bookedOn,
+        ratePaise: reservation.ratePaise,
+        checkInAt: reservation.checkInAt ? reservation.checkInAt.toISOString() : null,
+        arrivalGuaranteed: reservation.arrivalGuaranteed,
+      }}
     />
   );
 }
