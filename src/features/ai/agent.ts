@@ -157,16 +157,31 @@ export async function answerAgent(user: SessionClaims, input: { question: string
     }
 
     case "vacant": {
-      const rooms = await db.scoped(user).room.findMany({
-        where: { propertyId: { in: ids }, isActive: true, status: "VACANT" },
-        select: { number: true, property: { select: { name: true } } },
-        orderBy: [{ propertyId: "asc" }, { number: "asc" }],
-      });
+      const [rooms, soon] = await Promise.all([
+        db.scoped(user).room.findMany({
+          where: { propertyId: { in: ids }, isActive: true, status: "VACANT" },
+          select: { number: true, property: { select: { name: true } } },
+          orderBy: [{ propertyId: "asc" }, { number: "asc" }],
+        }),
+        // Not sellable this minute but worth knowing when nothing is free.
+        db.scoped(user).room.findMany({
+          where: { propertyId: { in: ids }, isActive: true, status: { in: ["HOUSEKEEPING", "RESERVED"] } },
+          select: { number: true, status: true, property: { select: { name: true } } },
+        }),
+      ]);
       const byProp = new Map<string, string[]>();
       for (const r of rooms) byProp.set(r.property.name, [...(byProp.get(r.property.name) ?? []), r.number]);
       return {
-        answer: rooms.length === 0 ? `No room is vacant right now across ${scopeLabel}.` : `${rooms.length} room${rooms.length === 1 ? " is" : "s are"} vacant right now across ${scopeLabel}:`,
-        items: [...byProp.entries()].map(([p, nums]) => ({ title: p, subtitle: nums.join(", "), href: "/rooms" })),
+        answer: rooms.length === 0
+          ? `No room is vacant right now across ${scopeLabel}.${soon.length ? " These may free up:" : ""}`
+          : `${rooms.length} room${rooms.length === 1 ? " is" : "s are"} vacant right now across ${scopeLabel}:`,
+        items: rooms.length
+          ? [...byProp.entries()].map(([p, nums]) => ({ title: p, subtitle: nums.join(", "), href: "/rooms" }))
+          : soon.map((r) => ({
+              title: `${r.number} · ${r.property.name}`,
+              subtitle: r.status === "HOUSEKEEPING" ? "Being cleaned — free once housekeeping marks it clean" : "Reserved for an arriving guest",
+              href: "/rooms",
+            })),
         matched: true,
         scopeLabel,
       };

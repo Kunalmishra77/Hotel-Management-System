@@ -6,8 +6,9 @@
  * Definitions (one way, so the answer matches the screens):
  *  - check-in / stay   = a booking that actually arrived (IN_HOUSE or CHECKED_OUT)
  *                        whose check-in date falls in the period;
- *  - guests            = distinct guests across those stays; "returning" = had
- *                        an earlier stay before the period;
+ *  - guests            = distinct guests across those stays; "repeat" = a guest
+ *                        with 2+ arrived stays up to the end of the period
+ *                        (in it or before it);
  *  - room-nights       = nights of arrived stays that fall inside the period,
  *                        per room (a 2-room booking counts both rooms);
  *  - bookings          = every non-enquiry booking whose check-in date is in the
@@ -54,11 +55,12 @@ export async function answerStats(
   const cancelled = rows.filter((r) => r.status === "CANCELLED").length;
   const noShow = rows.filter((r) => r.status === "NO_SHOW").length;
   const guestIds = [...new Set(stayed.map((r) => r.guestId))];
-  const returning = guestIds.length
+  const repeat = guestIds.length
     ? await scoped.reservation.groupBy({
         by: ["guestId"],
-        where: { guestId: { in: guestIds }, propertyId: { in: hotelIds }, status: { in: ["IN_HOUSE", "CHECKED_OUT"] }, checkInDate: { lt: period.from } },
-      }).then((g) => g.length)
+        where: { guestId: { in: guestIds }, propertyId: { in: hotelIds }, status: { in: ["IN_HOUSE", "CHECKED_OUT"] }, checkInDate: { lt: period.to } },
+        _count: { _all: true },
+      }).then((g) => g.filter((x) => x._count._all >= 2).length)
     : 0;
   const roomNights = nightAllocs.reduce((sum, a) => {
     const from = Math.max(a.startDate.getTime(), period.from.getTime());
@@ -69,7 +71,7 @@ export async function answerStats(
   const where = `in ${period.label} across ${scopeLabel}`;
   const answer =
     metric === "guests"
-      ? `${n(guestIds.length, "different guest")} stayed with you ${where} — ${n(stayed.length, "check-in")} in all${returning ? `, ${returning} of them returning guests` : ""}.`
+      ? `${n(guestIds.length, "different guest")} stayed with you ${where} — ${n(stayed.length, "check-in")} in all${repeat ? `, ${repeat} of them repeat guests` : ""}.`
       : metric === "checkins"
         ? `${n(stayed.length, "check-in")} ${where}, by ${n(guestIds.length, "different guest")}.`
         : metric === "nights"
@@ -79,7 +81,7 @@ export async function answerStats(
             : `${n(rows.length, "booking")} for stays ${where}: ${stayed.length} arrived, ${upcoming} still to come, ${cancelled} cancelled, ${noShow} no-show.`;
 
   const items: StatsAnswer["items"] = [
-    { title: "Summary", subtitle: `${n(stayed.length, "check-in")} · ${n(guestIds.length, "guest")} (${returning} returning) · ${n(roomNights, "room-night")} · ${upcoming} upcoming · ${cancelled} cancelled · ${noShow} no-show`, href: "/reports" },
+    { title: "Summary", subtitle: `${n(stayed.length, "check-in")} · ${n(guestIds.length, "guest")} (${repeat} repeat) · ${n(roomNights, "room-night")} · ${upcoming} upcoming · ${cancelled} cancelled · ${noShow} no-show`, href: "/reports" },
   ];
   const byHotel = new Map<string, { stays: number; guests: Set<string> }>();
   for (const r of stayed) {
