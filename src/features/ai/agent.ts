@@ -15,6 +15,8 @@ import { formatINR } from "@/lib/utils";
 import { arrivalsDeparturesPortfolio, inHousePortfolio } from "@/features/reservations/queries";
 import { folioBalance } from "@/features/billing";
 import { answerBusinessQuestion } from "./business-qa";
+import { agentScope } from "./agent-scope";
+import { answerPrice, answerStats } from "./agent-stats";
 import { classify, GUIDE } from "./domain/agent-intents";
 import { parseCommand } from "./domain/agent-commands";
 import { proposeCommand, type AgentProposal } from "./agent-commands";
@@ -68,8 +70,8 @@ function bookingItem(r: BookingRow, canMoney: boolean): AgentItem {
 /** Answer one question. `ai:use` gates entry; each answer re-checks its own permission. */
 export async function answerAgent(user: SessionClaims, input: { question: string }): Promise<AgentAnswer> {
   authorize(user, "ai:use");
-  const ids = user.activePropertyId ? [user.activePropertyId] : [...user.accessiblePropertyIds];
-  const scopeLabel = user.activePropertyId ? "this property" : `all ${ids.length} properties`;
+  // Guest/room answers cover hotels only — cost-centres have no rooms (agent-scope.ts).
+  const { hotelIds: ids, label: scopeLabel } = await agentScope(user);
   const canView = hasPermission(user, "reservation:view");
   const canMoney = hasPermission(user, "folio:view");
   const noView: AgentAnswer = { answer: "You don't have permission to view bookings.", matched: true, scopeLabel };
@@ -86,15 +88,20 @@ export async function answerAgent(user: SessionClaims, input: { question: string
   const intent = classify(input.question);
 
   switch (intent.kind) {
+    case "unknown":
     case "help":
       return {
-        answer: "I answer from this platform's live data — no outside internet. Ask me, in English or Hindi:",
+        answer: intent.kind === "unknown"
+          ? `I didn't understand "${input.question.trim().slice(0, 80)}". I only answer about this PMS, from its live data — try one of these:`
+          : "I answer from this platform's live data — no outside internet. Ask me, in English or Hindi:",
         steps: [
           "Arrivals / check-outs today or tomorrow — \"aaj kaun aa raha hai\", \"kal ke check-out\"",
           "Who is staying now, or who is in a room — \"2F-3 me kaun hai\"",
           "Free rooms — \"khali rooms\"",
           "A guest or booking — type the name or the BK- code (stay, room, balance)",
+          "Counts for any period — \"2026 mei kitne customers aaye\", \"is mahine kitni bookings\", \"October ke room-nights\"",
           "Dues, revenue, expenses, profit, occupancy, cancellations, rooms to clean",
+          "Menu prices — \"jalebi kitne ka hai\"",
           `How to do something — ${GUIDE.slice(0, 6).map((g) => g.title.toLowerCase()).join(", ")}…`,
           "Do it for you (you confirm first): \"BK-… ko 8 Dec tak extend karo\", \"2F-3 check out\", \"BK-… me 2535 cash jama karo\", \"BK-… ka rate 6000 karo\", \"BK-… ko 3F-1 me shift karo\", \"2F-2 clean ho gaya\", \"BK-… dinner 300 add karo\", \"BK-… source MMT karo\", \"BK-… late arrival hold karo\"",
           "Find problems and fix them — \"koi galti hai kya check karo\"",
@@ -102,6 +109,17 @@ export async function answerAgent(user: SessionClaims, input: { question: string
         matched: false,
         scopeLabel,
       };
+
+    case "stats": {
+      if (!canView) return noView;
+      const st = await answerStats(user, ids, scopeLabel, intent.metric, intent.period);
+      return { answer: st.answer, items: st.items, matched: true, scopeLabel };
+    }
+
+    case "price": {
+      const pr = await answerPrice(user, ids, scopeLabel, intent.item);
+      return { answer: pr.answer, items: pr.items, matched: pr.matched, scopeLabel };
+    }
 
     case "guide":
       return { answer: `${intent.topic.title}:`, steps: intent.topic.steps, matched: true, scopeLabel };
@@ -204,7 +222,18 @@ export async function answerAgent(user: SessionClaims, input: { question: string
         rows.sort((a, b) => hits(b) - hits(a));
       }
       if (rows.length === 0) {
-        return { answer: `I couldn't find a guest matching "${intent.name}" in ${scopeLabel}. Try the guest's name, a booking code (BK-…), a room (2F-3), or ask "help".`, matched: false, scopeLabel };
+        return {
+          answer: `No guest named "${intent.name}" in ${scopeLabel}. If that wasn't a name, I didn't understand it — I can answer these:`,
+          steps: [
+            "A guest or booking — the guest's name or the BK- code",
+            "Counts — \"2026 mei kitne customers aaye\", \"is mahine kitni bookings\"",
+            "Today — \"aaj kaun aa raha hai\", \"aaj ke check-out\", \"khali rooms\", \"2F-3 me kaun hai\"",
+            "Money — \"aaj ka due\", \"is mahine ka revenue\", \"profit\"",
+            "How-to — \"extend kaise kare\", \"invoice kaise banaye\"",
+          ],
+          matched: false,
+          scopeLabel,
+        };
       }
       // Current / upcoming stays first, then the latest past ones.
       const rank = (s: string) => (s === "IN_HOUSE" ? 0 : s === "CONFIRMED" ? 1 : 2);

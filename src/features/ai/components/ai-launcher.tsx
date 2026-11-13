@@ -2,7 +2,8 @@
 /**
  * PMS Agent panel (client, 12 Nov 2026 — "right side bar me open jaise Hostinger").
  * Desktop: a panel docked on the right that sits BESIDE the page (the page narrows,
- * nothing is covered), so staff can keep working while they chat. Phone: a sheet
+ * nothing is covered), so staff can keep working while they chat. While it is
+ * docked the left menu folds to an icon rail (side-nav.tsx) so pages keep room. Phone: a sheet
  * over the page. It remembers whether it was open, and the chat history per user.
  * Rendered inside the shell's main row (gated to `ai:use` by the shell).
  */
@@ -37,7 +38,7 @@ export function AiLauncher({ userId }: { userId?: string }) {
       {open && (
         <>
           {/* Desktop: docked beside the page. */}
-          <aside aria-label="PMS Agent" className="hidden h-full w-[27rem] shrink-0 flex-col border-l bg-card md:flex" data-testid="agent-panel">
+          <aside id="pms-agent-panel" aria-label="PMS Agent" className="hidden h-full w-[24rem] shrink-0 flex-col border-l bg-card md:flex" data-testid="agent-panel">
             {header}
             <div className="flex min-h-0 flex-1 flex-col p-3"><PmsAgent suggestions={AGENT_SUGGESTIONS} storageKey={storageKey} compact /></div>
           </aside>

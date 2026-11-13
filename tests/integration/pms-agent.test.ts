@@ -78,3 +78,33 @@ describe("PMS Agent answers from live data", () => {
     await expect(answerAgent(hk, { question: "help" })).rejects.toThrow();
   });
 });
+
+describe("PMS Agent — counts and prices (client questions, 13 Nov 2026)", () => {
+  it("counts check-ins and guests for this year, including our in-house stay", async () => {
+    const a = await answerAgent(admin, { question: "is saal kitne customers aaye?" });
+    expect(a.matched).toBe(true);
+    expect(a.answer).toMatch(/different guest/);
+    expect(a.answer).not.toMatch(/couldn't find a guest/);
+    expect(a.items?.[0]?.title).toBe("Summary");
+  });
+  it("Hindi script works", async () => {
+    const a = await answerAgent(admin, { question: "इस साल कितने ग्राहक आए?" });
+    expect(a.matched).toBe(true);
+    expect(a.answer).toMatch(/check-in/);
+  });
+  it("a menu price question never lists guests", async () => {
+    const a = await answerAgent(admin, { question: "jelebi kitne rupe ka hai?" });
+    expect(a.answer).toMatch(/menu/i);
+    expect(a.answer).not.toMatch(/booking/i);
+  });
+  it("a sentence it doesn't understand gets the help list, not random guests", async () => {
+    const a = await answerAgent(admin, { question: "kitne abhi tak ye pura saal mei" });
+    expect(a.matched).toBe(false);
+    expect(a.steps?.length).toBeGreaterThan(3);
+  });
+  it("names hotels, not cost-centres, in its scope", async () => {
+    const a = await answerAgent(admin, { question: "khali rooms" });
+    expect(a.matched).toBe(true); // used to throw: orderBy propertyId "asc" read as a property id
+    expect(a.scopeLabel).not.toMatch(/properties/);
+  });
+});

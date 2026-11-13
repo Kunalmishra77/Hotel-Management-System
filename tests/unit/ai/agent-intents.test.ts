@@ -39,7 +39,7 @@ describe("PMS Agent — understanding questions without an LLM", () => {
 
   it("anything else is a guest lookup by name; empty → help", () => {
     expect(classify("Saumen Chatterjee")).toEqual({ kind: "guest", name: "saumen chatterjee" });
-    expect(classify("tarun ka balance kitna hai")).toEqual({ kind: "guest", name: "tarun kitna" });
+    expect(classify("tarun ka balance kitna hai")).toEqual({ kind: "guest", name: "tarun" });
     expect(kind("hello")).toBe("help");
     expect(kind("?")).toBe("help");
   });

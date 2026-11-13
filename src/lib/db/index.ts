@@ -109,6 +109,9 @@ function collectTargetedPropertyIds(value: unknown, depth = 0): string[] {
 
   const found: string[] = [];
   for (const [key, v] of Object.entries(value as Record<string, unknown>)) {
+    // A sort direction ({ orderBy: { propertyId: "asc" } }) targets nothing —
+    // reading it as a property id made every such query fail as out-of-scope.
+    if (key === "orderBy") continue;
     if (key === "propertyId") {
       if (typeof v === "string") found.push(v);
       else if (v && typeof v === "object") {

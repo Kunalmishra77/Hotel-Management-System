@@ -10,6 +10,7 @@
  *
  * NOT "use server": exported for the action + tests with explicit claims.
  */
+import { agentScope } from "./agent-scope";
 import { authorize, hasPermission } from "@/lib/permissions";
 import { formatINR } from "@/lib/utils";
 import { getPortfolio, perPropertyBillingRollup, portfolioBookingCounts } from "@/features/command-center/queries";
@@ -44,8 +45,9 @@ export async function answerBusinessQuestion(
 ): Promise<BusinessAnswer> {
   authorize(user, "ai:use");
   const q = input.question.trim().toLowerCase();
-  const ids = user.activePropertyId ? [user.activePropertyId] : [...user.accessiblePropertyIds];
-  const scopeLabel = user.activePropertyId ? "this property" : `all ${ids.length} properties`;
+  // Money keeps every property (centralized expenses sit on cost-centres); the
+  // label names hotels only — see agent-scope.ts.
+  const { ids, label: scopeLabel } = await agentScope(user);
   const canMoney = hasPermission(user, "report:view-financial");
   const money = (msg: string): BusinessAnswer => ({ answer: msg, scopeLabel, matched: true });
 

@@ -15,7 +15,15 @@ export type AgentIntent =
   | { kind: "vacant" }
   | { kind: "inHouse" }
   | { kind: "business" } // dues, revenue, expenses, profit, occupancy, cancellations, to-clean
-  | { kind: "guest"; name: string };
+  | { kind: "stats"; metric: StatsMetric; period: Period }
+  | { kind: "price"; item: string }
+  | { kind: "guest"; name: string }
+  | { kind: "unknown" };
+
+/** What a counting question asks about. */
+export type StatsMetric = "guests" | "checkins" | "bookings" | "nights" | "cancellations";
+/** A business-date range [from, to) as UTC-midnight dates, with a human label. */
+export type Period = { from: Date; to: Date; label: string };
 
 export type GuideTopic = { id: string; title: string; steps: string[] };
 
@@ -32,7 +40,39 @@ export const AGENT_SUGGESTIONS: readonly string[] = [
 ];
 
 
-const norm = (q: string) => q.toLowerCase().replace(/[?!.,;:'"()]/g, " ").replace(/\s+/g, " ").trim();
+/**
+ * Hindi (Devanagari) → the Hinglish the rules below already understand, so
+ * "2026 में कितने ग्राहक आए" is read like "2026 mei kitne customers aaye".
+ * Multi-word phrases first, then whole words; digits ०–९ become 0–9.
+ */
+const HINDI_PHRASES: readonly [string, string][] = [
+  ["चेक-इन", "check-in"], ["चेक इन", "check-in"], ["चेकइन", "check-in"],
+  ["चेक-आउट", "check-out"], ["चेक आउट", "check-out"], ["चेकआउट", "check-out"],
+  ["अब तक", "ab tak"], ["आ चुके", "aa chuke"],
+];
+const HINDI_WORDS: Record<string, string> = {
+  कितने: "kitne", कितना: "kitna", कितनी: "kitni", ग्राहक: "customers", ग्राहकों: "customers", कस्टमर: "customers", कस्टमर्स: "customers",
+  मेहमान: "guests", मेहमानों: "guests", गेस्ट: "guests", गेस्ट्स: "guests", लोग: "log", साल: "saal", वर्ष: "saal",
+  महीने: "mahine", महीना: "mahina", हफ्ते: "hafte", हफ़्ते: "hafte", इस: "is", पिछले: "pichle", पूरा: "pura", पूरे: "pure",
+  आज: "aaj", कल: "kal", अभी: "abhi", बुकिंग: "booking", बुकिंग्स: "bookings", कमरे: "rooms", कमरा: "room", रूम: "room", रूम्स: "rooms",
+  खाली: "khali", कमाई: "kamai", आमदनी: "income", खर्चा: "kharcha", खर्च: "kharcha", बकाया: "baaki", कौन: "kaun", क्या: "kya", कैसे: "kaise",
+  रात: "night", रातें: "nights", रातों: "nights", आए: "aaye", आये: "aaye", रुके: "ruke", दाम: "daam", कीमत: "price", रुपये: "rupaye", रुपए: "rupaye",
+  प्रॉपर्टी: "property", प्रॉपर्टीज: "properties", होटल: "hotel", होटलों: "hotels", कैंसिल: "cancel", रद्द: "cancel",
+  है: "hai", हैं: "hai", में: "mei", मे: "mei", की: "ki", का: "ka", के: "ke", को: "ko", यह: "ye", ये: "ye", हमारे: "humare", हमारी: "humari",
+  जनवरी: "january", फरवरी: "february", मार्च: "march", अप्रैल: "april", मई: "may", जून: "june", जुलाई: "july", अगस्त: "august",
+  सितंबर: "september", सितम्बर: "september", अक्टूबर: "october", नवंबर: "november", नवम्बर: "november", दिसंबर: "december", दिसम्बर: "december",
+};
+export function toLatin(text: string): string {
+  let t = text.replace(/[०-९]/g, (d) => String(d.charCodeAt(0) - 0x0966)).replace(/[।॥]/g, " ");
+  for (const [hi, en] of HINDI_PHRASES) t = t.split(hi).join(en);
+  return t.split(/(\s+)/).map((w) => {
+    const bare = w.replace(/[?!.,;:'"()]/g, "");
+    const en = HINDI_WORDS[bare];
+    return en ? w.replace(bare, en) : w;
+  }).join("");
+}
+
+const norm = (q: string) => toLatin(q).toLowerCase().replace(/[?!.,;:'"()]/g, " ").replace(/\s+/g, " ").trim();
 const any = (q: string, words: readonly string[]) => words.some((w) => q.includes(w));
 
 const HOW = ["how to", "how do", "how can", "how i ", "kaise", "kese", "kaisay", "kya karu", "kya kare", "kya karna", "steps", "process", "tarika", "method"];
@@ -138,9 +178,75 @@ export function matchGuide(question: string): GuideTopic | null {
   return best?.topic ?? null;
 }
 
+const COUNT = [" kitne ", " kitna ", " kitni ", " kitte ", "how many", "number of", " count ", " total ", " ginti "];
+const PERIOD_WORDS = [" saal", " year", " mahin", " month", " week", " hafte", " ab tak", " abhi tak", " so far", " till now", " till date", " all time"];
+const MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+const MONTH_SHORT = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+
+const utcDay = (y: number, m: number, d = 1) => new Date(Date.UTC(y, m, d));
+const monthLabel = (date: Date) => date.toLocaleDateString("en-IN", { month: "long", year: "numeric", timeZone: "UTC" });
+
+/**
+ * The period a counting question is about. `today` = the property-local
+ * business date (UTC midnight). Default — no period named — is this year so far,
+ * which is what "abhi tak kitne" means at a front desk.
+ */
+export function parsePeriod(question: string, today: Date): Period {
+  const q = ` ${norm(question)} `;
+  const y = today.getUTCFullYear();
+  const m = today.getUTCMonth();
+  const tomorrow = new Date(today.getTime() + 86_400_000);
+  const cap = (end: Date) => (end > tomorrow ? tomorrow : end);
+  const yearInQ = /\b(20\d{2})\b/.exec(q)?.[1];
+
+  // A month by name: "october", "oct 2026", "अक्टूबर" ("may" only as the full word).
+  for (let i = 0; i < 12; i++) {
+    if (q.includes(` ${MONTHS[i]}`) || (i !== 4 && new RegExp(` ${MONTH_SHORT[i]} `).test(q))) {
+      const yr = yearInQ ? Number(yearInQ) : i > m ? y - 1 : y;
+      return { from: utcDay(yr, i), to: cap(utcDay(yr, i + 1)), label: monthLabel(utcDay(yr, i)) };
+    }
+  }
+  if (yearInQ) {
+    const yr = Number(yearInQ);
+    return { from: utcDay(yr, 0), to: cap(utcDay(yr + 1, 0)), label: yr === y ? `${yr} so far` : String(yr) };
+  }
+  if (any(q, ["last month", "pichle mahin", "pichhle mahin", "previous month"])) {
+    return { from: utcDay(y, m - 1), to: utcDay(y, m), label: monthLabel(utcDay(y, m - 1)) };
+  }
+  if (any(q, ["this month", "is mahin", " mahin", " month"])) return { from: utcDay(y, m), to: tomorrow, label: `${monthLabel(today)} so far` };
+  if (any(q, ["last year", "pichle saal", "pichhle saal", "previous year"])) return { from: utcDay(y - 1, 0), to: utcDay(y, 0), label: String(y - 1) };
+  if (any(q, ["this week", "is hafte", " week", " hafte"])) {
+    const dow = (today.getUTCDay() + 6) % 7; // Monday = 0
+    return { from: new Date(today.getTime() - dow * 86_400_000), to: tomorrow, label: "this week" };
+  }
+  if (any(q, [" today ", " aaj "])) return { from: today, to: tomorrow, label: "today" };
+  if (any(q, ["all time", "kab se", "shuru se"])) return { from: utcDay(2000, 0), to: tomorrow, label: "all time" };
+  return { from: utcDay(y, 0), to: tomorrow, label: `${y} so far` };
+}
+
+function statsMetric(q: string): StatsMetric | null {
+  if (any(q, ["cancel"])) return "cancellations";
+  if (any(q, ["room night", "room-night", " nights", " night ", " raat"])) return "nights";
+  if (any(q, ["booking", "reservation"])) return "bookings";
+  if (any(q, ["check-in", "check in", "checkin", " aaye", "aa chuke", "aa gaye", "arrived", " stays", " stay ", "visit"])) return "checkins";
+  if (any(q, ["guest", "customer", "mehman", " log ", "people", "person", "client"])) return "guests";
+  return null;
+}
+
+const PRICE = [" rupe", " rupay", " rupaye", " rupee", " rs ", " daam", " price", " cost", " kitne ka ", " kitne ki ", " kitna ka ", " kitne me ", " kitne mei ", "₹"];
+const PRICE_NOISE = new Set("kitne kitna kitni ka ki ke hai h kya rupe rupay rupaye rupee rupees rs daam price cost of the what is me mei batao bata ek one plate".split(" "));
+
+/** Words that make a phrase a question, never a guest's name. */
+const QUESTION_WORDS = new Set(("kitne kitna kitni kya kyu kyun kyon kaise kab kahan kaha konsa kaunsa how what why when which where who " +
+  "abhi tak ab saal year month mahine humare hamare properties property hotel hotels sab sabhi pura pure total").split(" "));
+
+/** Hinglish glue words — never part of a name. */
+const FILLER = new Set(("ye yeh wo woh mei me mein se tak aur bhi hi wala wale wali abhi aa chuke chuka hain ho gaya gaye hua hue tha thi the " +
+  "na nahi nhi to bhi sir ji haan han ok okay theek thik sab").split(" "));
+
 // Words that carry no guest name — stripped before a name search.
 const STOP = new Set(("find search show give tell me about details detail of the a an is are was for please pls guest guests booking " +
-  "customer ka ki ke ko hai h kya kaun kon batao bata dikhao dikha dhundo dhundho dhoondo search karo info information balance due status room stay where kahan").split(" "));
+  "customer customers guests ka ki ke ko hai h kya kaun kon batao bata dikhao dikha dhundo dhundho dhoondo search karo info information balance due status room stay where kahan").split(" "));
 
 /** Classify a question into one intent. */
 export function classify(question: string): AgentIntent {
@@ -161,6 +267,25 @@ export function classify(question: string): AgentIntent {
 
   if (any(q, [" help ", "what can you", "kya kar sakte", "kya puch", "commands", " hi ", " hello ", " hey ", "namaste"])) return { kind: "help" };
 
+  // Counting questions: "2026 mei kitne customers aaye", "is mahine kitni bookings".
+  if (any(q, COUNT)) {
+    const metric = statsMetric(q);
+    const now = !any(q, PERIOD_WORDS) && !/\b20\d{2}\b/.test(q) && any(q, [" abhi ", " now ", "currently"]);
+    if (metric && now && (metric === "guests" || metric === "checkins")) return { kind: "inHouse" };
+    if (metric) {
+      const today = new Date(`${new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" })}T00:00:00Z`);
+      const period = parsePeriod(raw, today);
+      if (period.label === "today" && metric === "checkins") return { kind: "arrivals", dayOffset: 0 };
+      return { kind: "stats", metric, period };
+    }
+  }
+
+  // Price of something sold here (the POS menu): "jalebi kitne rupe ka hai".
+  if (any(q, PRICE) && !any(q, [" room", "tariff", " rate "])) {
+    const item = norm(raw).split(" ").filter((w) => w.length > 1 && !PRICE_NOISE.has(w) && !/^\d+$/.test(w)).join(" ");
+    if (item) return { kind: "price", item };
+  }
+
   const dayOffset = any(q, TOMORROW) ? 1 : 0;
   if (any(q, ["arrival", "arriving", "aane wale", "aane vale", "aa rahe", "aayenge", "check in today", "check-in today", "checkin today", "aaj check in", "kaun aa"])) return { kind: "arrivals", dayOffset };
   if (any(q, ["departure", "departing", "jaane wale", "jane wale", "ja rahe", "jayenge", "check out today", "check-out today", "checkout today", "aaj check out", "kaun ja", "leaving"])) return { kind: "departures", dayOffset };
@@ -171,7 +296,12 @@ export function classify(question: string): AgentIntent {
 
   if (any(q, HOW)) return { kind: "help" }; // a how-to we have no page for
 
-  const name = norm(raw).split(" ").filter((w) => w.length > 1 && !STOP.has(w)).join(" ");
-  if (name.length >= 3) return { kind: "guest", name };
-  return { kind: "help" };
+  // Only something that reads like a name is searched as a guest — a sentence
+  // the agent didn't understand must never come back as random guests whose
+  // names share a syllable with it ("kitne abhi tak" → "Abhishek").
+  const words = norm(raw).split(" ").filter((w) => w.length > 1);
+  const nameWords = words.filter((w) => !STOP.has(w) && !QUESTION_WORDS.has(w) && !FILLER.has(w));
+  const name = nameWords.join(" ");
+  if (nameWords.length >= 1 && nameWords.length <= 3 && name.length >= 3) return { kind: "guest", name };
+  return words.length ? { kind: "unknown" } : { kind: "help" };
 }
