@@ -84,14 +84,14 @@ export function BookingsFinder({
 
   const columns: Column<BookingFinderRow>[] = [
     { key: "code", header: "Booking", cell: (r) => <span className="font-mono text-sm font-medium">{r.code}</span>, sortValue: (r) => r.code },
-    { key: "guest", header: "Guest", cell: (r) => <span className="truncate">{r.guestName}</span>, sortValue: (r) => r.guestName.toLowerCase() },
+    { key: "guest", header: "Guest", cell: (r) => <span className="block max-w-[12rem] truncate" title={r.guestName}>{r.guestName}</span>, sortValue: (r) => r.guestName.toLowerCase() },
     ...(properties.length > 1
       ? [{ key: "property", header: "Property", cell: (r: BookingFinderRow) => <PropertyBadge name={r.propertyName} />, sortValue: (r: BookingFinderRow) => r.propertyName.toLowerCase(), hideBelow: "md" as const }]
       : []),
     { key: "rooms", header: "Room", cell: (r) => <span className="text-muted-foreground">{r.roomNumbers.join(", ") || "—"}</span>, sortValue: (r) => r.roomNumbers.join(","), hideBelow: "lg" },
     { key: "arrival", header: "Arrival", cell: (r) => <span className="tabular">{fmt(r.checkInDate)}</span>, sortValue: (r) => new Date(r.checkInDate).getTime() },
     { key: "departure", header: "Departure", cell: (r) => <span className="tabular">{fmt(r.checkOutDate)}</span>, sortValue: (r) => new Date(r.checkOutDate).getTime(), hideBelow: "sm" },
-    { key: "nights", header: "Nights", align: "right", cell: (r) => <span className="tabular">{r.nights}</span>, sortValue: (r) => r.nights, hideBelow: "lg" },
+    { key: "nights", header: "Nights", align: "right", cell: (r) => <span className="tabular">{r.nights}</span>, sortValue: (r) => r.nights, hideBelow: "xl" },
     { key: "source", header: "Source", cell: (r) => <span className="text-muted-foreground">{SOURCE_LABEL[r.source] ?? r.source}</span>, sortValue: (r) => r.source, hideBelow: "xl" },
     {
       key: "status", header: "Status", align: "right",

@@ -82,20 +82,22 @@ export function InHouseTable({ rows }: { rows: InHouseTableRow[] }) {
           })}
         </div>
       )}
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="relative sm:col-span-2 lg:col-span-1">
+      {/* Wraps instead of a fixed grid: with the agent panel docked the row is
+          narrower, and fixed columns let the date boxes run over each other. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <div className="relative min-w-[14rem] flex-[2_1_14rem]">
           <Search className="pointer-events-none absolute left-2.5 top-2.5 size-4 text-muted-foreground" aria-hidden="true" />
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search guest, property, room" className="pl-8" data-testid="inhouse-search" />
         </div>
-        <label className="flex items-center gap-2 text-xs text-muted-foreground">
+        <label className="flex min-w-[13rem] flex-[1_1_13rem] items-center gap-2 text-xs text-muted-foreground">
           <span className="shrink-0">Leaving from</span>
-          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={`${cell} w-full`} aria-label="Check-out from" />
+          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={`${cell} w-full min-w-0`} aria-label="Check-out from" />
         </label>
-        <label className="flex items-center gap-2 text-xs text-muted-foreground">
+        <label className="flex min-w-[13rem] flex-[1_1_13rem] items-center gap-2 text-xs text-muted-foreground">
           <span className="shrink-0">Leaving to</span>
-          <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={`${cell} w-full`} aria-label="Check-out to" />
+          <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={`${cell} w-full min-w-0`} aria-label="Check-out to" />
         </label>
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="flex shrink-0 flex-wrap items-center gap-4">
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={dueOnly} onChange={(e) => setDueOnly(e.target.checked)} className="size-4" /> Balance due only
           </label>

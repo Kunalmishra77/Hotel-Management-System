@@ -40,7 +40,7 @@ export function GuestsTable({
         return (
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="truncate font-semibold text-foreground">{g.fullName}</span>
+              <span className="max-w-[13rem] truncate font-semibold text-foreground" title={g.fullName}>{g.fullName}</span>
               {t && t.tier !== "NEW" ? (
                 <Badge variant={TIER_VARIANT[t.tier] ?? "secondary"} className="text-[0.65rem]">{t.label}</Badge>
               ) : null}

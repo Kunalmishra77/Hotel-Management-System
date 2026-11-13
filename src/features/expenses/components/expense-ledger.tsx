@@ -90,7 +90,7 @@ export function ExpenseLedger({ rows }: { rows: PortfolioExpenseRow[] }) {
       </div>
 
       <div className="max-h-[32rem] overflow-auto rounded-md border">
-        <table className="w-full min-w-[820px] text-sm">
+        <table className="w-full min-w-[760px] text-sm">
           <thead className="sticky top-0 z-10 bg-background">
             <tr className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
               <th className="py-2 pl-3 pr-3 font-medium">Date</th>

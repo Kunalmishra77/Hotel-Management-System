@@ -27,11 +27,18 @@ export type Column<T> = {
 
 type SortState = { key: string; dir: "asc" | "desc" } | null;
 
+/**
+ * Breakpoints are viewport-based, but while the PMS Agent panel is docked the
+ * page is ~208px narrower (panel 384px − the menu folding 240→64px). So with
+ * the panel on the page (`body:has(#pms-agent-panel)`) each column's breakpoint
+ * moves up by that much — otherwise a 9-column table ran ~300px off the card
+ * at laptop widths (13 Nov 2026).
+ */
 const HIDE_CLASS: Record<NonNullable<Column<unknown>["hideBelow"]>, string> = {
-  sm: "hidden sm:table-cell",
-  md: "hidden md:table-cell",
-  lg: "hidden lg:table-cell",
-  xl: "hidden xl:table-cell",
+  sm: "hidden sm:table-cell [body:has(#pms-agent-panel)_&]:hidden min-[848px]:[body:has(#pms-agent-panel)_&]:table-cell",
+  md: "hidden md:table-cell [body:has(#pms-agent-panel)_&]:hidden min-[976px]:[body:has(#pms-agent-panel)_&]:table-cell",
+  lg: "hidden lg:table-cell [body:has(#pms-agent-panel)_&]:hidden min-[1232px]:[body:has(#pms-agent-panel)_&]:table-cell",
+  xl: "hidden xl:table-cell [body:has(#pms-agent-panel)_&]:hidden min-[1488px]:[body:has(#pms-agent-panel)_&]:table-cell",
 };
 const ALIGN: Record<NonNullable<Column<unknown>["align"]>, string> = {
   left: "text-left",
@@ -150,7 +157,7 @@ export function DataTable<T>({
                       key={col.key}
                       aria-sort={active ? (sort!.dir === "asc" ? "ascending" : "descending") : undefined}
                       className={cn(
-                        "whitespace-nowrap px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground",
+                        "whitespace-nowrap px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground",
                         ALIGN[col.align ?? "left"],
                         col.hideBelow && HIDE_CLASS[col.hideBelow],
                       )}
@@ -203,7 +210,7 @@ export function DataTable<T>({
                       <td
                         key={col.key}
                         className={cn(
-                          "px-4 py-3 align-middle",
+                          "px-3 py-3 align-middle",
                           ALIGN[col.align ?? "left"],
                           col.hideBelow && HIDE_CLASS[col.hideBelow],
                           col.className,
