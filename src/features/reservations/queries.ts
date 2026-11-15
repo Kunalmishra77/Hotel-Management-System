@@ -3,6 +3,7 @@
  * pass claims explicitly (as in 01/02/04). No PII beyond the guest's name (which
  * front desk must see to run the board).
  */
+import { canonicalNationality, isForeignNationality } from "@/lib/nationality";
 import { db } from "@/lib/db";
 import { authorize, hasPermission } from "@/lib/permissions";
 import { availabilityGrid, type AvailabilityGrid } from "./availability-grid";
@@ -200,6 +201,8 @@ export async function searchReservations(
 
 export type CFormListItem = {
   id: string;
+  reservationId: string;
+  propertyName: string;
   reservationCode: string;
   guestName: string;
   nationality: string;
@@ -213,13 +216,15 @@ export type CFormListItem = {
 
 export async function listCForms(
   user: SessionClaims,
-  input: { propertyId: string; status?: "GENERATED" | "SUBMITTED"; cursor?: string; limit?: number },
+  input: { propertyId: string | string[]; status?: "GENERATED" | "SUBMITTED"; cursor?: string; limit?: number },
 ): Promise<{ cforms: CFormListItem[]; nextCursor: string | null }> {
-  authorize(user, "reservation:view", input.propertyId);
+  // One property, or a portfolio view across several (owner in "All hotels").
+  const ids = Array.isArray(input.propertyId) ? input.propertyId : [input.propertyId];
+  for (const id of ids) authorize(user, "reservation:view", id);
   const limit = input.limit ?? 25;
   const rows = await db.scoped(user).cForm.findMany({
     where: {
-      propertyId: input.propertyId,
+      propertyId: { in: ids },
       ...(input.status ? { status: input.status } : {}),
     },
     select: {
@@ -229,6 +234,8 @@ export async function listCForms(
       submissionRef: true,
       pdfObjectKey: true,
       createdAt: true,
+      reservationId: true,
+      property: { select: { name: true } },
       reservation: { select: { code: true, checkInDate: true, checkOutDate: true, guest: { select: { fullName: true } } } },
     },
     orderBy: [{ createdAt: "desc" }, { id: "asc" }],
@@ -241,6 +248,8 @@ export async function listCForms(
   return {
     cforms: page.map((r) => ({
       id: r.id,
+      reservationId: r.reservationId,
+      propertyName: r.property.name,
       reservationCode: r.reservation.code,
       guestName: r.reservation.guest.fullName,
       nationality: r.nationality,
@@ -253,6 +262,52 @@ export async function listCForms(
     })),
     nextCursor: hasMore ? (page[page.length - 1]?.id ?? null) : null,
   };
+}
+
+export type MissingCFormItem = {
+  reservationId: string;
+  code: string;
+  guestName: string;
+  nationality: string;
+  propertyName: string;
+  status: string;
+  checkInDate: Date;
+  checkOutDate: Date;
+};
+
+/**
+ * Foreign guests who stayed (or are staying) with NO Form C on file (client,
+ * 15 Nov 2026 audit: dozens, incl. an in-house French guest). FRRO needs one
+ * for every foreign national, so the register lists them with a "Fill Form C"
+ * action. In-house first, then the most recent check-outs.
+ */
+export async function listMissingCForms(user: SessionClaims, propertyIds: string[], sinceDays = 120): Promise<MissingCFormItem[]> {
+  for (const id of propertyIds) authorize(user, "reservation:view", id);
+  if (propertyIds.length === 0) return [];
+  const since = new Date(Date.now() - sinceDays * 86_400_000);
+  const rows = await db.scoped(user).reservation.findMany({
+    where: {
+      propertyId: { in: propertyIds },
+      status: { in: ["IN_HOUSE", "CHECKED_OUT"] },
+      checkInDate: { gte: since },
+      cform: { is: null },
+      guest: { nationality: { not: null } },
+    },
+    select: {
+      id: true, code: true, status: true, checkInDate: true, checkOutDate: true,
+      guest: { select: { fullName: true, nationality: true } },
+      property: { select: { name: true } },
+    },
+    orderBy: { checkInDate: "desc" },
+    take: 300,
+  });
+  return rows
+    .filter((r) => isForeignNationality(r.guest.nationality))
+    .sort((a, b) => (a.status === b.status ? 0 : a.status === "IN_HOUSE" ? -1 : 1))
+    .map((r) => ({
+      reservationId: r.id, code: r.code, guestName: r.guest.fullName, nationality: canonicalNationality(r.guest.nationality) ?? "",
+      propertyName: r.property.name, status: r.status, checkInDate: r.checkInDate, checkOutDate: r.checkOutDate,
+    }));
 }
 
 /** Fetch a Form C PDF's bytes (authorized, non-public — like a payslip). */

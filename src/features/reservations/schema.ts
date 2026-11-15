@@ -3,6 +3,7 @@
  * (api-conventions.md). Cross-field/date rules that need property config
  * (day-use, past-date — FR-22) live in the actions, not here.
  */
+import { canonicalNationality } from "@/lib/nationality";
 import { z } from "zod";
 
 const paise = z.number().int().min(0);
@@ -169,7 +170,7 @@ export const historicalStaySchema = z
     mobile: z.string().trim().min(1, "Mobile number is required."),
     email: z.string().trim().max(120).optional().nullable(),
     gender: z.string().trim().max(20).optional().nullable(),
-    nationality: z.string().trim().max(60).optional().nullable(),
+    nationality: z.string().trim().max(60).optional().nullable().transform((v) => (v ? canonicalNationality(v) : v)),
     address: z.string().trim().max(200).optional().nullable(),
     city: z.string().trim().max(80).optional().nullable(),
     country: z.string().trim().max(80).optional().nullable(),
@@ -406,7 +407,7 @@ const optDate = z.coerce.date().optional();
 const optStr = z.string().max(120).optional();
 export const saveCFormSchema = z.object({
   reservationId: z.string().min(1),
-  nationality: z.string().min(1).max(60),
+  nationality: z.string().min(1).max(60).transform((v) => canonicalNationality(v) ?? v),
   passportPlaceOfIssue: optStr,
   passportIssueDate: optDate,
   passportExpiryDate: optDate,

@@ -4,6 +4,7 @@
  * Contact validation is FR-6: a missing/invalid mobile, or a malformed
  * email/GSTIN, is rejected at the boundary and nothing persists.
  */
+import { canonicalNationality } from "@/lib/nationality";
 import { z } from "zod";
 import { isValidPhone, normalizeEmail } from "./domain/normalize";
 
@@ -55,7 +56,8 @@ export const createGuestSchema = z.object({
     .optional()
     .nullable()
     .or(z.literal("").transform(() => null)),
-  nationality: optionalString(60),
+  // One spelling per country ("IND"/"indian" → "India") — Form C keys off it.
+  nationality: optionalString(60).transform((v) => (v ? canonicalNationality(v) : v)),
   occupation: optionalString(60),
   addressLine: optionalString(200),
   city: optionalString(80),
@@ -158,7 +160,7 @@ export const checkInDetailsSchema = z
     email: emailSchema,
     dob: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date like 1990-05-01.").optional().nullable().or(z.literal("").transform(() => null)),
     gender: z.string().trim().min(1, "Gender is required.").max(20),
-    nationality: z.string().trim().min(1, "Nationality is required.").max(60),
+    nationality: z.string().trim().min(1, "Nationality is required.").max(60).transform((v) => canonicalNationality(v) ?? v),
     addressLine: z.string().trim().min(1, "Home address is required.").max(200),
     city: z.string().trim().min(1, "City is required.").max(80),
     state: optionalString(80),

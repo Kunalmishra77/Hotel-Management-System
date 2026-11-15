@@ -229,7 +229,8 @@ export async function saveCForm(input: unknown): Promise<Result<CFormSaved>> {
     });
     if (!r) throw new NotFoundError("Reservation not found.");
     authorize(user, "checkin:perform", r.propertyId);
-    if (r.status !== "CONFIRMED" && r.status !== "IN_HOUSE") {
+    // CHECKED_OUT too: a Form C that was missed at check-in is still owed to FRRO.
+    if (r.status !== "CONFIRMED" && r.status !== "IN_HOUSE" && r.status !== "CHECKED_OUT") {
       throw new DomainError(ErrorCode.ILLEGAL_TRANSITION, "The Form C is captured during check-in.");
     }
 

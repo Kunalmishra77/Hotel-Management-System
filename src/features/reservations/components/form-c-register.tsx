@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { markCFormSubmitted } from "../cform-actions";
-import type { CFormListItem } from "../queries";
+import type { CFormListItem, MissingCFormItem } from "../queries";
 
 function fmt(d: Date): string {
   return new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
@@ -65,7 +65,7 @@ function CFormCard({ item, canSubmit }: { item: CFormListItem; canSubmit: boolea
         <div className="min-w-0">
           <p className="truncate font-medium">{item.guestName}</p>
           <p className="text-sm text-muted-foreground">
-            {item.nationality} · {item.reservationCode}
+            {item.nationality} · {item.reservationCode} · {item.propertyName}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
             {fmt(item.checkInDate)} → {fmt(item.checkOutDate)}
@@ -136,5 +136,33 @@ export function FormCRegister({ items, canSubmit }: { items: CFormListItem[]; ca
         <CFormCard key={item.id} item={item} canSubmit={canSubmit} />
       ))}
     </ul>
+  );
+}
+
+/** Foreign guests whose Form C was never filed — each with a one-tap "Fill Form C". */
+export function MissingCForms({ items, canFill }: { items: MissingCFormItem[]; canFill: boolean }) {
+  if (items.length === 0) return null;
+  return (
+    <section className="space-y-2 rounded-xl border border-destructive/40 bg-destructive/5 p-4" data-testid="cform-missing">
+      <h2 className="text-sm font-semibold text-destructive">Form C not filed — {items.length} foreign guest{items.length === 1 ? "" : "s"}</h2>
+      <p className="text-sm text-muted-foreground">FRRO needs a Form C for every foreign national. Fill these now; in-house guests first.</p>
+      <ul className="divide-y rounded-lg border bg-card">
+        {items.map((m) => (
+          <li key={m.reservationId} className="flex flex-wrap items-center justify-between gap-3 px-3 py-2.5">
+            <div className="min-w-0">
+              <p className="truncate font-medium">{m.guestName}</p>
+              <p className="truncate text-xs text-muted-foreground">
+                {m.nationality} · <span className="font-mono">{m.code}</span> · {m.propertyName} · {fmt(m.checkInDate)} → {fmt(m.checkOutDate)} · {m.status === "IN_HOUSE" ? "in-house" : "checked out"}
+              </p>
+            </div>
+            {canFill ? (
+              <a href={`/bookings/${m.reservationId}/form-c`} className="inline-flex min-h-9 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:opacity-90" data-testid={`cform-fill-${m.code}`}>
+                Fill Form C
+              </a>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

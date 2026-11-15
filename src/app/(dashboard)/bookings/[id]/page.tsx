@@ -1,3 +1,5 @@
+import { db } from "@/lib/db";
+import { isForeignNationality } from "@/lib/nationality";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -105,6 +107,12 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
       feedbackQr = null;
     }
   }
+
+  // Foreign guest who stayed with no Form C on file (client audit, 15 Nov 2026).
+  const formCMissing =
+    (r.status === "IN_HOUSE" || r.status === "CHECKED_OUT") &&
+    isForeignNationality(guestProfile?.nationality) &&
+    !(await db.scoped(user).cForm.findFirst({ where: { reservationId: r.id }, select: { id: true } }));
 
   // Pending guest info/documents (client req #6) — surfaced before checkout so
   // reception collects what's missing. Only shown while the stay is still open.
@@ -225,6 +233,17 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
           {/* Guaranteed late arrival (client, 12 Nov): offered once the check-in day has
               come (or the booking was no-showed), so a guest who calls to say "still
               coming, bill me from the booked date" keeps the booking and its room. */}
+          {formCMissing ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/40 bg-destructive/5 p-4" data-testid="booking-cform-missing">
+              <p className="text-sm">
+                <strong className="text-destructive">Form C not filed.</strong> {guestProfile?.nationality} national — FRRO needs a Form C for this stay.
+              </p>
+              {hasPermission(user, "checkin:perform") ? (
+                <Button asChild size="sm"><Link href={`/bookings/${r.id}/form-c`}>Fill Form C</Link></Button>
+              ) : null}
+            </div>
+          ) : null}
+
           {canManageGuests && !r.externalHotelName && (r.status === "NO_SHOW" || (r.status === "CONFIRMED" && (r.arrivalGuaranteed || r.checkInDate.toISOString().slice(0, 10) <= new Date().toISOString().slice(0, 10)))) ? (
             <LateArrivalCard reservationId={r.id} status={r.status} guaranteed={r.arrivalGuaranteed} checkInDate={r.checkInDate.toISOString().slice(0, 10)} hasRoom={r.roomNumbers.length > 0} />
           ) : null}
