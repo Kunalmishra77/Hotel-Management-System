@@ -19,7 +19,6 @@ import { computeGst } from "./domain/gst";
 import { folioBalance } from "./domain/balance";
 import { activeLines, dateKey, netAmountByDate, netTaxable } from "./domain/reversal";
 import { isUniqueViolation } from "./internal";
-import { tailAllocations } from "@/features/reservations/domain/allocations";
 
 /**
  * One business date's taxable revenue for a property, NET OF REVERSALS — the
@@ -86,6 +85,16 @@ export async function postRoomCharges(
   await runWithSystemContext(property.orgId, async () => {
     for (const res of inHouse) {
       if (!res.folio) continue; // folio is ensured at check-in; skip if somehow absent
+      // Booked check-out already reached and the guest is still IN_HOUSE: almost
+      // always a check-out nobody pressed, not a guest who stayed. Client rule
+      // (15 Nov 2026): never bill or extend past the booked date automatically —
+      // the stay shows as "check-out overdue" (in-house list, departures) and
+      // check-out bills to the booked date. A guest who really stays on is
+      // extended by staff (Extend stay, or "guest stayed late" at check-out).
+      if (res.checkOutDate.getTime() <= businessDate.getTime()) {
+        skipped += 1;
+        continue;
+      }
       const rateBps = roomGstBps(res.ratePaise);
       const gst = computeGst(res.ratePaise, rateBps, property.state, property.state); // on-premise → intra
       try {
@@ -119,34 +128,6 @@ export async function postRoomCharges(
           skipped += 1; // already posted for this folio+date — idempotent re-run
         } else {
           throw e;
-        }
-      }
-
-      // Overstay: charging a night for a guest whose booked check-out has already passed
-      // means they are STILL here, so the booking + inventory must say so — extend the
-      // stay by this night and hold the room(s). Without this the allocation ended at the
-      // booked check-out, the room showed FREE, and another booking could be taken on top
-      // (overbooking). If another booking already holds a room for the night, that's a
-      // genuine oversell → flag it for reception instead of silently overbooking.
-      // Idempotent: once extended, checkOutDate > businessDate, so a re-run is a no-op.
-      if (res.checkOutDate.getTime() <= businessDate.getTime() && res.allocations.length > 0) {
-        const nextDay = new Date(businessDate.getTime() + dayMs);
-        // Only the room(s) the guest is in at check-out are held for the extra night —
-        // after a mid-stay move the old room's finished segment stays finished.
-        const tail = tailAllocations(res.allocations, res.checkOutDate);
-        const roomIds = tail.map((a) => a.roomId);
-        const conflict = await prisma.roomAllocation.count({
-          where: { roomId: { in: roomIds }, reservationId: { not: res.id }, startDate: { lt: nextDay }, endDate: { gt: businessDate } },
-        });
-        if (conflict === 0) {
-          await prisma.$transaction(async (tx) => {
-            await tx.roomAllocation.updateMany({ where: { id: { in: tail.map((a) => a.id) } }, data: { endDate: nextDay } });
-            await tx.reservation.updateMany({ where: { id: res.id }, data: { checkOutDate: nextDay, nights: { increment: 1 } } });
-            await emitEvent(tx, { type: "ReservationModified", aggregateId: res.id, propertyId, payload: { overstayExtended: true, checkOutDate: nextDay.toISOString().slice(0, 10) } });
-            await writeAudit(tx, { action: "reservation:overstay-extend", entityType: "Reservation", entityId: res.id, propertyId, after: { checkOutDate: nextDay.toISOString().slice(0, 10) } });
-          });
-        } else {
-          await prisma.reservation.updateMany({ where: { id: res.id, needsAttention: null }, data: { needsAttention: "OVERSELL" } });
         }
       }
 

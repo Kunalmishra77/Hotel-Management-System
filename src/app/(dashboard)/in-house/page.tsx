@@ -38,7 +38,7 @@ export default async function InHousePage() {
       <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
         <KpiCard label="In-house now" value={total} icon={<UserCheck />} hint="currently staying" />
         <KpiCard label="Leaving today" value={leavingToday} icon={<LogOut />} hint="due to check out" />
-        <KpiCard label="Overstay" value={overstay} icon={<AlertTriangle />} hint="past check-out, still in" className={overstay > 0 ? "border-destructive/40" : undefined} />
+        <KpiCard label="Check-out overdue" value={overstay} icon={<AlertTriangle />} hint="booked date passed — press check-out" className={overstay > 0 ? "border-destructive/40" : undefined} />
         <KpiCard label="Properties occupied" value={byProperty.length} icon={<Building2 />} hint="with guests in-house" />
         <KpiCard label="Balance due" value={formatINR(duePaise)} icon={<Wallet />} hint="across in-house folios" trend={duePaise > 0 ? "down" : "up"} />
       </div>

@@ -18,7 +18,6 @@ import { DomainError, ErrorCode, NotFoundError } from "@/lib/errors";
 import { toResult, type Result } from "@/lib/result";
 import { resolveStorageAdapter } from "@/lib/storage";
 import { getGuestProfile } from "@/features/guests/queries";
-import { extractPassportFields, type PassportFields } from "@/features/ai/passport-extract";
 import { reservationDb, withReservationContext } from "./internal";
 import { saveRegistrationCardSchema, saveCFormSchema } from "./schema";
 import { renderCForm } from "./cform";
@@ -126,44 +125,76 @@ export async function saveRegistrationCard(input: unknown): Promise<Result<Regis
 
 const ymd = (d: Date | null | undefined): string | null => (d ? d.toISOString().slice(0, 10) : null);
 
-/** Only the fields the Form C step actually consumes — see the narrowing below. */
-export type PassportExtractResult = Pick<
-  PassportFields,
-  "nationality" | "passportPlaceOfIssue" | "passportIssueDate" | "passportExpiryDate"
->;
+/** Form C fields the check-in step can pre-fill (dates as YYYY-MM-DD). */
+export type CFormPrefill = {
+  nationality: string | null;
+  passportPlaceOfIssue: string | null;
+  passportIssueDate: string | null;
+  passportExpiryDate: string | null;
+  visaType: string | null;
+  visaIssueDate: string | null;
+  visaExpiryDate: string | null;
+  arrivalFromCity: string | null;
+  arrivalFromCountry: string | null;
+  arrivalInIndiaDate: string | null;
+  nextDestination: string | null;
+  purposeOfVisit: string | null;
+  /** Where it came from: "this booking" or the earlier stay's check-in (YYYY-MM-DD). */
+  source: "this-booking" | "earlier-stay" | null;
+  sourceDate: string | null;
+};
 
 /**
- * Document-AI passport pre-fill for the Form C step (03 T7). Reads the guest's
- * passport scan reference and asks the AI layer to extract fields — deterministic
- * empties in the sandbox, so the wizard falls back to manual entry. The LLM never
- * writes anything; reception verifies before `saveCForm`.
+ * Form C pre-fill from data already on file — NO AI (client, 15 Nov 2026: the
+ * old "Document AI" fill sent no image at all, only a sentence, and errored
+ * whenever the outside AI was down). Order: the Form C already saved for THIS
+ * booking (re-opening the step), else the guest's latest Form C from an
+ * earlier stay — a returning foreign guest carries the same passport and visa.
+ * Trip-specific fields (arrival date/city, next destination) are not copied
+ * from an earlier stay.
  */
-export async function extractPassportForCheckIn(input: unknown): Promise<Result<PassportExtractResult>> {
+export async function extractPassportForCheckIn(input: unknown): Promise<Result<CFormPrefill>> {
   return toResult(async () => {
     const { reservationId } = z.object({ reservationId: z.string().min(1) }).parse(input);
     const user = await requireUser();
     const client = reservationDb(user);
     const r = await client.reservation.findFirst({
       where: { id: reservationId },
-      select: { propertyId: true, guestId: true },
+      select: { propertyId: true, guestId: true, guest: { select: { nationality: true } } },
     });
     if (!r) throw new NotFoundError("Reservation not found.");
     authorize(user, "checkin:perform", r.propertyId);
 
-    const profile = await getGuestProfile(user, r.guestId);
-    const passport = profile?.ids.find((i) => i.type === "PASSPORT");
-    const context = passport?.hasScan
-      ? `Passport document on file for ${profile?.fullName ?? "guest"}.`
-      : "No passport scan on file.";
-    const fields = await extractPassportFields(context);
-    // PII minimization (ai-features.md / compliance.md): only the fields the Form C
-    // step uses cross back to the client. A full passport number / DOB / name never
-    // leaves the server, even if a live vision provider populates them.
+    const select = {
+      reservationId: true, nationality: true, passportPlaceOfIssue: true, passportIssueDate: true, passportExpiryDate: true,
+      visaType: true, visaIssueDate: true, visaExpiryDate: true, arrivalFromCity: true, arrivalFromCountry: true,
+      arrivalInIndiaDate: true, nextDestination: true, purposeOfVisit: true,
+      reservation: { select: { checkInDate: true } },
+    } as const;
+    const own = await client.cForm.findFirst({ where: { reservationId }, select });
+    const prev = own ?? (await client.cForm.findFirst({ where: { guestId: r.guestId }, orderBy: { createdAt: "desc" }, select }));
+    const empty: CFormPrefill = {
+      nationality: r.guest.nationality, passportPlaceOfIssue: null, passportIssueDate: null, passportExpiryDate: null,
+      visaType: null, visaIssueDate: null, visaExpiryDate: null, arrivalFromCity: null, arrivalFromCountry: null,
+      arrivalInIndiaDate: null, nextDestination: null, purposeOfVisit: null, source: null, sourceDate: null,
+    };
+    if (!prev) return empty;
+    const sameTrip = prev.reservationId === reservationId;
     return {
-      nationality: fields.nationality,
-      passportPlaceOfIssue: fields.passportPlaceOfIssue,
-      passportIssueDate: fields.passportIssueDate,
-      passportExpiryDate: fields.passportExpiryDate,
+      nationality: prev.nationality || r.guest.nationality,
+      passportPlaceOfIssue: prev.passportPlaceOfIssue,
+      passportIssueDate: ymd(prev.passportIssueDate),
+      passportExpiryDate: ymd(prev.passportExpiryDate),
+      visaType: prev.visaType,
+      visaIssueDate: ymd(prev.visaIssueDate),
+      visaExpiryDate: ymd(prev.visaExpiryDate),
+      arrivalFromCity: sameTrip ? prev.arrivalFromCity : null,
+      arrivalFromCountry: sameTrip ? prev.arrivalFromCountry : null,
+      arrivalInIndiaDate: sameTrip ? ymd(prev.arrivalInIndiaDate) : null,
+      nextDestination: sameTrip ? prev.nextDestination : null,
+      purposeOfVisit: prev.purposeOfVisit,
+      source: sameTrip ? "this-booking" : "earlier-stay",
+      sourceDate: ymd(prev.reservation.checkInDate),
     };
   });
 }

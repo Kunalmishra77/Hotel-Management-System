@@ -264,7 +264,7 @@ export async function checkIn(input: unknown): Promise<Result<LifecycleResult>> 
 /** Check out (AC-16/17): balance gate (unless settled or folio:defer), rooms HOUSEKEEPING. */
 export async function checkOut(input: unknown): Promise<Result<LifecycleResult>> {
   return toResult(async () => {
-    const { reservationId, defer, asBooked } = checkOutSchema.parse(input);
+    const { reservationId, defer, asBooked, stayedLate } = checkOutSchema.parse(input);
     const user = await requireUser();
     const client = reservationDb(user);
     const r = (await client.reservation.findFirst({
@@ -301,10 +301,10 @@ export async function checkOut(input: unknown): Promise<Result<LifecycleResult>>
       // An imported past stay: the booked dates ARE what happened.
     } else if (todayDate.getTime() < r.checkOutDate.getTime()) {
       effectiveCheckOut = todayDate.getTime() < minCheckOut.getTime() ? minCheckOut : todayDate;
-    } else if (todayDate.getTime() > r.checkOutDate.getTime()) {
-      // Overstay: the guest stayed past their booked check-out (e.g. the night audit
-      // hadn't posted the extra nights yet). Bill through today so the overstay nights
-      // are charged, not silently lost at ₹0.
+    } else if (todayDate.getTime() > r.checkOutDate.getTime() && stayedLate) {
+      // Staff confirmed the guest really stayed past the booked check-out: bill
+      // every night through today. Without that confirmation a late press is a
+      // forgotten check-out and bills to the booked date (client rule, 15 Nov 2026).
       effectiveCheckOut = todayDate;
     }
     const isEarly = effectiveCheckOut.getTime() < r.checkOutDate.getTime();

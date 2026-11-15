@@ -15,6 +15,7 @@ import { PendingInfoCard } from "@/features/reservations/components/pending-info
 import { ConfirmBookingButton } from "@/features/reservations/components/confirm-booking-button";
 import { ReservationGuestsCard } from "@/features/reservations/components/reservation-guests-card";
 import { ExtendStayCard } from "@/features/reservations/components/extend-stay-card";
+import { ShortenStayCard } from "@/features/reservations/components/shorten-stay-card";
 import { SwapRoomCard } from "@/features/reservations/components/swap-room-card";
 import { EditRoomRateCard } from "@/features/reservations/components/edit-room-rate-card";
 import { ChangeSourceCard } from "@/features/reservations/components/change-source-card";
@@ -58,6 +59,9 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
   const canConfirm = r.status === "ENQUIRY" && hasPermission(user, "reservation:create");
   const canCheckIn = r.status === "CONFIRMED" && hasPermission(user, "checkin:perform");
   const canCheckOut = r.status === "IN_HOUSE" && hasPermission(user, "checkout:perform");
+  // Booked check-out already passed (IST business day) but never pressed.
+  const todayIst = new Date(`${new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" })}T00:00:00Z`);
+  const checkOutOverdue = r.status === "IN_HOUSE" && r.checkOutDate.getTime() < todayIst.getTime();
   const canManageGuests = hasPermission(user, "reservation:modify");
   // Cross-property transfer: only for a single-room in-house guest, when the user can
   // both modify the origin and create at a destination, and other properties exist.
@@ -145,7 +149,13 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                 </Link>
               </Button>
             ) : null}
-            {canCheckOut ? <CheckOutButton reservationId={r.id} canDefer={hasPermission(user, "folio:defer")} /> : null}
+            {canCheckOut ? (
+              <CheckOutButton
+                reservationId={r.id}
+                canDefer={hasPermission(user, "folio:defer")}
+                overdueSince={checkOutOverdue ? r.checkOutDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", timeZone: "UTC" }) : undefined}
+              />
+            ) : null}
             {canFolio ? (
               <Button asChild variant={canCheckIn ? "outline" : "default"} size="sm">
                 <Link href={`/bookings/${r.id}/folio`} data-testid="open-folio">
@@ -221,6 +231,12 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
 
           {(r.status === "IN_HOUSE" || r.status === "CONFIRMED") && canManageGuests && !r.externalHotelName && r.roomNumbers.length > 0 ? (
             <ExtendStayCard reservationId={r.id} checkOutDate={r.checkOutDate.toISOString().slice(0, 10)} currentRatePaise={billFolio?.billedRatePaise ?? r.ratePaise} />
+          ) : null}
+
+          {/* In-house guest leaving before the booked date: move the check-out now so
+              the room is sellable for the unused nights (client, 15 Nov 2026). */}
+          {r.status === "IN_HOUSE" && canManageGuests && !r.externalHotelName && r.roomNumbers.length > 0 ? (
+            <ShortenStayCard reservationId={r.id} checkInDate={r.checkInDate.toISOString().slice(0, 10)} checkOutDate={r.checkOutDate.toISOString().slice(0, 10)} />
           ) : null}
 
           {/* A not-yet-arrived guest can swap rooms (whole unit, like for like) with

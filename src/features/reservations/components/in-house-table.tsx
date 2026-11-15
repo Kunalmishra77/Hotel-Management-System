@@ -147,7 +147,7 @@ export function InHouseTable({ rows }: { rows: InHouseTableRow[] }) {
                   <td className="py-2.5 px-3 whitespace-nowrap">{formatDayMonth(r.checkInDate)}</td>
                   <td className="py-2.5 px-3 whitespace-nowrap">
                     {formatDayMonth(r.checkOutDate)}
-                    {overdue ? <span className="ml-1 rounded-full bg-destructive/10 px-1.5 py-0.5 text-[11px] font-medium text-destructive">Overstay</span>
+                    {overdue ? <span className="ml-1 rounded-full bg-destructive/10 px-1.5 py-0.5 text-[11px] font-medium text-destructive">Check-out overdue</span>
                       : isToday(r.checkOutDate) ? <span className="ml-1 text-xs text-amber-600">(today)</span> : null}
                   </td>
                   <td className="py-2.5 px-3 text-right tabular">

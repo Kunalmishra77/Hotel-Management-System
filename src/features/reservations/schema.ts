@@ -381,6 +381,13 @@ export const checkOutSchema = z.object({
    * left a balance and stayed IN_HOUSE.
    */
   asBooked: z.boolean().default(false),
+  /**
+   * The check-out is pressed AFTER the booked date. Default (false): the guest
+   * left on the booked date and staff simply forgot — bill to the booked date
+   * (client rule, 15 Nov 2026). True: the guest really stayed on — bill every
+   * night through today.
+   */
+  stayedLate: z.boolean().default(false),
 });
 
 /** Registration card + e-signature captured during check-in (03 T6). The
@@ -411,7 +418,14 @@ export const saveCFormSchema = z.object({
   arrivalInIndiaDate: optDate,
   nextDestination: optStr,
   purposeOfVisit: optStr,
-});
+})
+  // Dates that contradict each other are a typo, never a real passport/visa.
+  .refine((d) => !d.passportIssueDate || !d.passportExpiryDate || d.passportExpiryDate > d.passportIssueDate, {
+    message: "Passport expiry must be after its issue date.", path: ["passportExpiryDate"],
+  })
+  .refine((d) => !d.visaIssueDate || !d.visaExpiryDate || d.visaExpiryDate > d.visaIssueDate, {
+    message: "Visa expiry must be after its issue date.", path: ["visaExpiryDate"],
+  });
 export type SaveCFormInput = z.infer<typeof saveCFormSchema>;
 
 // FRRO submission tracking (03 FR-26). The reference is the e-FRRO portal ack the

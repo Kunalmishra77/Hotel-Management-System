@@ -7,6 +7,11 @@
  * and the user holds `folio:defer`, a second "Check out & defer balance" action
  * completes the check-out and flags the balance as deferred (audited) — the
  * mechanism the error message points to. POS-pending is never deferrable.
+ *
+ * Overdue check-out (booked date already passed — client rule, 15 Nov 2026):
+ * the button first asks what happened. "Left on <booked date>" bills to the
+ * booked date (the usual case: staff forgot to press it); "Stayed till today"
+ * bills every night through today.
  */
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -14,16 +19,29 @@ import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { checkOut } from "../lifecycle-actions";
 
-export function CheckOutButton({ reservationId, canDefer = false }: { reservationId: string; canDefer?: boolean }) {
+export function CheckOutButton({
+  reservationId,
+  canDefer = false,
+  overdueSince,
+}: {
+  reservationId: string;
+  canDefer?: boolean;
+  /** Booked check-out (e.g. "31 Oct") when it has already passed; omit otherwise. */
+  overdueSince?: string;
+}) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [balanceBlock, setBalanceBlock] = useState(false);
+  const [asking, setAsking] = useState(false);
+  const [stayedLate, setStayedLate] = useState(false);
   const [pending, start] = useTransition();
 
-  function submit(defer: boolean) {
+  function submit(defer: boolean, late = stayedLate) {
     setError(null);
+    setAsking(false);
+    setStayedLate(late);
     start(async () => {
-      const res = await checkOut({ reservationId, defer });
+      const res = await checkOut({ reservationId, defer, stayedLate: late });
       if (!res.ok) {
         // Offer the defer path only for an unsettled balance (POS-pending must be resolved).
         setBalanceBlock(!defer && res.error.code === "BALANCE_UNSETTLED" && canDefer);
@@ -36,10 +54,31 @@ export function CheckOutButton({ reservationId, canDefer = false }: { reservatio
 
   return (
     <div className="flex flex-col items-end gap-1.5">
-      {!balanceBlock ? (
-        <Button type="button" size="sm" disabled={pending} onClick={() => submit(false)} data-testid="check-out">
-          <LogOut /> {pending ? "Checking out…" : "Check out"}
+      {!balanceBlock && !asking ? (
+        <Button
+          type="button"
+          size="sm"
+          disabled={pending}
+          onClick={() => (overdueSince ? setAsking(true) : submit(false))}
+          data-testid="check-out"
+          className={overdueSince ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : undefined}
+        >
+          <LogOut /> {pending ? "Checking out…" : overdueSince ? `Check out (was due ${overdueSince})` : "Check out"}
         </Button>
+      ) : null}
+      {asking && overdueSince ? (
+        <div className="flex max-w-sm flex-col items-end gap-1.5 rounded-lg border border-destructive/40 bg-destructive/5 p-2.5 text-right" data-testid="check-out-overdue">
+          <p className="text-xs text-foreground">
+            Check-out was due on <strong>{overdueSince}</strong>. When did the guest leave?
+          </p>
+          <Button type="button" size="sm" disabled={pending} onClick={() => submit(false, false)} data-testid="check-out-as-booked">
+            <LogOut /> Left on {overdueSince} — bill till then
+          </Button>
+          <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => submit(false, true)} data-testid="check-out-stayed-late">
+            Stayed till today — bill the extra nights
+          </Button>
+          <button type="button" className="text-xs text-muted-foreground underline" onClick={() => setAsking(false)}>Cancel</button>
+        </div>
       ) : null}
       {error && !balanceBlock ? <span role="alert" className="max-w-xs text-right text-xs text-destructive">{error}</span> : null}
       {balanceBlock ? (

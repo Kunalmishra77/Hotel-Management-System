@@ -104,6 +104,11 @@ export function MovementList({
                   <span className="min-w-0">
                     <span className="block truncate font-medium">{r.guestName}</span>
                     <span className="block truncate text-xs text-muted-foreground">{r.propertyName} · Room {r.rooms}</span>
+                    {r.overdueSince ? (
+                      <span className="mt-0.5 inline-block rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-medium text-destructive">
+                        Check-out overdue · was due {new Date(`${r.overdueSince}T00:00:00Z`).toLocaleDateString("en-IN", { day: "2-digit", month: "short", timeZone: "UTC" })}
+                      </span>
+                    ) : null}
                   </span>
                   {showBalance && r.balancePaise > 0 ? (
                     <span className="shrink-0 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">{formatINR(r.balancePaise)} due</span>

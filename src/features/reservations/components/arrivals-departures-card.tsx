@@ -54,9 +54,13 @@ export function ArrivalsDeparturesCard({
                       {formatDayMonth(it.checkInDate)}–{formatDayMonth(it.checkOutDate)}
                     </p>
                   </div>
-                  <Badge variant={STATUS_VARIANT[it.status] ?? "secondary"}>
-                    {it.needsAttention ? "Needs attention" : it.status.replace("_", "-").toLowerCase()}
-                  </Badge>
+                  {it.status === "IN_HOUSE" && new Date(it.checkOutDate).getTime() < new Date(`${new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" })}T00:00:00Z`).getTime() ? (
+                    <Badge variant="destructive">Check-out overdue</Badge>
+                  ) : (
+                    <Badge variant={STATUS_VARIANT[it.status] ?? "secondary"}>
+                      {it.needsAttention ? "Needs attention" : it.status.replace("_", "-").toLowerCase()}
+                    </Badge>
+                  )}
                 </Link>
               </li>
             ))}

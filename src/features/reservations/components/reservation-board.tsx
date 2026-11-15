@@ -14,6 +14,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatDayMonth } from "@/lib/utils";
 import { checkOut } from "../lifecycle-actions";
+import { CheckOutButton } from "./check-out-button";
+
+/** "31 Oct" when an in-house booking's check-out date has passed (IST), else null. */
+function overdueLabel(r: { status: string; checkOutDate: Date | string }): string | null {
+  if (r.status !== "IN_HOUSE") return null;
+  const today = new Date(`${new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" })}T00:00:00Z`);
+  const out = new Date(r.checkOutDate);
+  return out.getTime() < today.getTime() ? out.toLocaleDateString("en-IN", { day: "2-digit", month: "short", timeZone: "UTC" }) : null;
+}
 import { ReservationDrawer } from "./reservation-drawer";
 import type { ReservationListItem } from "../queries";
 
@@ -89,6 +98,11 @@ function ReservationCard({ r, onOpen, canCheckIn, canCheckOut }: { r: Reservatio
             {r.needsAttention && (
               <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-medium text-destructive">{r.needsAttention}</span>
             )}
+            {overdueLabel(r) && (
+              <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-medium text-destructive" data-testid={`overdue-${r.code}`}>
+                Check-out overdue · was due {overdueLabel(r)}
+              </span>
+            )}
           </div>
           <p className="text-sm text-muted-foreground">
             <span className="font-mono text-xs">{r.code}</span>
@@ -104,8 +118,10 @@ function ReservationCard({ r, onOpen, canCheckIn, canCheckOut }: { r: Reservatio
             </Button>
           )}
           {canCheckOut && r.status === "IN_HOUSE" && (
-            <Button size="sm" disabled={pending} onClick={() => act(() => checkOut({ reservationId: r.id }))}
-              data-testid={`checkout-${r.code}`}>Check out</Button>
+            overdueLabel(r)
+              ? <CheckOutButton reservationId={r.id} overdueSince={overdueLabel(r) ?? undefined} />
+              : <Button size="sm" disabled={pending} onClick={() => act(() => checkOut({ reservationId: r.id }))}
+                  data-testid={`checkout-${r.code}`}>Check out</Button>
           )}
         </div>
         {error && <p role="alert" className="w-full text-sm text-destructive" data-testid={`error-${r.code}`}>{error}</p>}

@@ -479,7 +479,10 @@ export async function arrivalsDepartures(
       where: {
         propertyId: input.propertyId,
         status: "IN_HOUSE",
-        checkOutDate: { gte: dayStart, lt: dayEnd },
+        // Today's departures AND any check-out that was due earlier but never
+        // pressed — the night audit no longer extends those (client rule,
+        // 15 Nov 2026), so they must stay in front of reception until done.
+        checkOutDate: { lt: dayEnd },
       },
       select: LIST_SELECT,
       orderBy: { code: "asc" },
@@ -697,6 +700,8 @@ export type TodayMovement = {
   propertyName: string;
   rooms: string;
   balancePaise: number;
+  /** Departures only: the booked check-out date (YYYY-MM-DD) when it has already passed. */
+  overdueSince?: string;
 };
 
 /**
@@ -716,7 +721,7 @@ export async function arrivalsDeparturesPortfolio(
   const dayStart = new Date(day * 86_400_000);
   const dayEnd = new Date((day + 1) * 86_400_000);
   const select = {
-    id: true, code: true,
+    id: true, code: true, checkOutDate: true,
     guest: { select: { fullName: true } },
     property: { select: { name: true } },
     allocations: { select: { room: { select: { number: true } } } },
@@ -725,7 +730,8 @@ export async function arrivalsDeparturesPortfolio(
 
   const [arrivals, departures] = await Promise.all([
     db.scoped(user).reservation.findMany({ where: { propertyId: { in: propertyIds }, status: "CONFIRMED", OR: [{ checkInDate: { gte: dayStart, lt: dayEnd } }, { arrivalGuaranteed: true, checkInDate: { lt: dayStart } }] }, select, orderBy: { code: "asc" } }),
-    db.scoped(user).reservation.findMany({ where: { propertyId: { in: propertyIds }, status: "IN_HOUSE", checkOutDate: { gte: dayStart, lt: dayEnd } }, select, orderBy: { code: "asc" } }),
+    // Includes overdue check-outs (booked date passed, never checked out).
+    db.scoped(user).reservation.findMany({ where: { propertyId: { in: propertyIds }, status: "IN_HOUSE", checkOutDate: { lt: dayEnd } }, select, orderBy: [{ checkOutDate: "asc" }, { code: "asc" }] }),
   ]);
 
   const toMovement = (r: (typeof arrivals)[number]): TodayMovement => ({
@@ -735,6 +741,7 @@ export async function arrivalsDeparturesPortfolio(
     propertyName: r.property?.name ?? "—",
     rooms: r.allocations.map((a) => a.room.number).filter(Boolean).join(", ") || "—",
     balancePaise: r.folio ? Number(folioBalance(r.folio.lines, r.folio.payments)) : 0,
+    ...(r.checkOutDate < dayStart ? { overdueSince: r.checkOutDate.toISOString().slice(0, 10) } : {}),
   });
 
   return { arrivals: arrivals.map(toMovement), departures: departures.map(toMovement) };
