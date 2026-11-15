@@ -13,6 +13,7 @@ import { BackButton } from "@/components/layout/back-button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { NotificationBell } from "@/features/notifications/components/notification-bell";
 import { AiLauncher } from "@/features/ai/components/ai-launcher";
+import { VersionWatcher } from "./version-watcher";
 import { hasPermission } from "@/lib/permissions";
 import type { SessionClaims } from "@/lib/auth/claims";
 import type { PropertyOption } from "../actions";
@@ -92,6 +93,7 @@ export function AppShell({
       </div>
 
       <BottomNav items={barItems} />
+      <VersionWatcher />
 
     </div>
   );
