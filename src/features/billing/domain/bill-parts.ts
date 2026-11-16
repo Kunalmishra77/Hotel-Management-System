@@ -43,8 +43,11 @@ const gross = (l: PartLine) => Number(l.amountPaise) + l.cgstPaise + l.sgstPaise
 const isRoundOff = (l: PartLine) => l.type === "MISC" && l.description === "Round off";
 /** Prefix of the line that keeps a prepaid stay's unused nights (early departure). */
 export const EARLY_DEPARTURE_PREFIX = "Early departure charge";
-/** That line is the price of nights, so it follows the nights' channel, not "extras → direct". */
-const isRetention = (l: PartLine) => l.type === "MISC" && (l.description ?? "").startsWith(EARLY_DEPARTURE_PREFIX);
+/** Prefix of the line that keeps money received above the bill (client, 16 Nov 2026: "hotel kept it"). */
+export const EXCESS_RETAINED_PREFIX = "Excess payment retained";
+/** Those lines are the price of nights, so they follow the nights' channel, not "extras → direct". */
+const isRetention = (l: PartLine) =>
+  l.type === "MISC" && [EARLY_DEPARTURE_PREFIX, EXCESS_RETAINED_PREFIX].some((p) => (l.description ?? "").startsWith(p));
 
 export const partOfSource = (source: string | null): string => (source && OTA_SOURCES.has(source) ? source : DIRECT_PART);
 export const isGuestBill = (part: string | null): boolean => part === null || part === DIRECT_PART;

@@ -77,7 +77,7 @@ export { roundOffPaise } from "./domain/money";
  *  Public so reports split revenue by source the same way invoices split bills. */
 export {
   billParts, assignParts, lineSource, otaPaymentPart, sourceForNight, partOfSource, isGuestBill, billPartLabel,
-  DIRECT_PART, OTA_SOURCES, EARLY_DEPARTURE_PREFIX, type BillPart, type PartContext, type PartLine, type StaySpan,
+  DIRECT_PART, OTA_SOURCES, EARLY_DEPARTURE_PREFIX, EXCESS_RETAINED_PREFIX, type BillPart, type PartContext, type PartLine, type StaySpan,
 } from "./domain/bill-parts";
 
 /**

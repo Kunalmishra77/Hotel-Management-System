@@ -77,6 +77,12 @@ describe("bill parts — OTA nights on their own bill, everything paid at the ho
     expect([a.get(keep.id), a.get(food.id)]).toEqual(["AIRBNB", "DIRECT"]);
   });
 
+  it("money kept above an OTA bill ('Excess payment retained') also stays on the OTA bill", () => {
+    const bc: PartContext = { bookingSource: "BOOKING_COM", extensions: [] };
+    const extra = line("MISC", 200_000, "2026-10-03", null, "Excess payment retained — received more than billed");
+    expect(assignParts([night("2026-10-02"), extra], bc).get(extra.id)).toBe("BOOKING_COM");
+  });
+
   it("a direct booking is one direct bill (unchanged), and a direct sale has no reservation", () => {
     expect(billParts([night("2026-10-01"), line("FOOD", 100, "2026-10-01")], [pay("CASH", 1)], { bookingSource: "WALK_IN", extensions: [] }).map((p) => p.part)).toEqual(["DIRECT"]);
     expect(billParts([line("POS", 100, "2026-10-01")], [], { bookingSource: null, extensions: [] }).map((p) => p.part)).toEqual(["DIRECT"]);
