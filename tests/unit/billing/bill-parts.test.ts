@@ -69,6 +69,14 @@ describe("bill parts — OTA nights on their own bill, everything paid at the ho
     expect([a.get(r1.id), a.get(r2.id)]).toEqual(["DIRECT", "MAKEMYTRIP"]);
   });
 
+  it("an early-departure charge on a prepaid OTA stay stays on the OTA bill, not the direct one (Archana)", () => {
+    const air: PartContext = { bookingSource: "AIRBNB", extensions: [] };
+    const keep = line("MISC", 3_000_000, "2026-11-16", null, "Early departure charge — 12 unused night(s) from 16 Nov (prepaid, non-refundable)");
+    const food = line("FOOD", 30_000, "2026-11-15");
+    const a = assignParts([night("2026-11-15"), keep, food], air);
+    expect([a.get(keep.id), a.get(food.id)]).toEqual(["AIRBNB", "DIRECT"]);
+  });
+
   it("a direct booking is one direct bill (unchanged), and a direct sale has no reservation", () => {
     expect(billParts([night("2026-10-01"), line("FOOD", 100, "2026-10-01")], [pay("CASH", 1)], { bookingSource: "WALK_IN", extensions: [] }).map((p) => p.part)).toEqual(["DIRECT"]);
     expect(billParts([line("POS", 100, "2026-10-01")], [], { bookingSource: null, extensions: [] }).map((p) => p.part)).toEqual(["DIRECT"]);

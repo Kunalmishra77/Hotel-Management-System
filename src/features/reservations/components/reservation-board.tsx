@@ -16,6 +16,17 @@ import { formatDayMonth } from "@/lib/utils";
 import { checkOut } from "../lifecycle-actions";
 import { CheckOutButton } from "./check-out-button";
 
+/** OTA channels — prepaid, usually non-refundable (mirrors billing's bill-parts list). */
+const OTA_SOURCES = new Set(["AIRBNB", "BOOKING_COM", "AGODA", "MAKEMYTRIP", "GOIBIBO", "EXPEDIA"]);
+
+/** "28 Nov" when an in-house guest is checking out before the booked date (IST), else null. */
+function earlyLabel(r: { status: string; checkOutDate: Date | string }): string | null {
+  if (r.status !== "IN_HOUSE") return null;
+  const today = new Date(`${new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" })}T00:00:00Z`);
+  const out = new Date(r.checkOutDate);
+  return out.getTime() > today.getTime() ? out.toLocaleDateString("en-IN", { day: "2-digit", month: "short", timeZone: "UTC" }) : null;
+}
+
 /** "31 Oct" when an in-house booking's check-out date has passed (IST), else null. */
 function overdueLabel(r: { status: string; checkOutDate: Date | string }): string | null {
   if (r.status !== "IN_HOUSE") return null;
@@ -118,8 +129,9 @@ function ReservationCard({ r, onOpen, canCheckIn, canCheckOut }: { r: Reservatio
             </Button>
           )}
           {canCheckOut && r.status === "IN_HOUSE" && (
-            overdueLabel(r)
-              ? <CheckOutButton reservationId={r.id} overdueSince={overdueLabel(r) ?? undefined} />
+            overdueLabel(r) || earlyLabel(r)
+              ? <CheckOutButton reservationId={r.id} overdueSince={overdueLabel(r) ?? undefined}
+                  leavingEarly={earlyLabel(r) ? { until: earlyLabel(r)!, ota: OTA_SOURCES.has(r.source) } : undefined} />
               : <Button size="sm" disabled={pending} onClick={() => act(() => checkOut({ reservationId: r.id }))}
                   data-testid={`checkout-${r.code}`}>Check out</Button>
           )}

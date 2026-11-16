@@ -41,6 +41,10 @@ export type PartPayment = { mode: string; reference: string | null; amountPaise:
 const dayKey = (d: Date) => d.toISOString().slice(0, 10);
 const gross = (l: PartLine) => Number(l.amountPaise) + l.cgstPaise + l.sgstPaise + l.igstPaise;
 const isRoundOff = (l: PartLine) => l.type === "MISC" && l.description === "Round off";
+/** Prefix of the line that keeps a prepaid stay's unused nights (early departure). */
+export const EARLY_DEPARTURE_PREFIX = "Early departure charge";
+/** That line is the price of nights, so it follows the nights' channel, not "extras → direct". */
+const isRetention = (l: PartLine) => l.type === "MISC" && (l.description ?? "").startsWith(EARLY_DEPARTURE_PREFIX);
 
 export const partOfSource = (source: string | null): string => (source && OTA_SOURCES.has(source) ? source : DIRECT_PART);
 export const isGuestBill = (part: string | null): boolean => part === null || part === DIRECT_PART;
@@ -63,7 +67,7 @@ export function sourceForNight(bookingSource: string, extensions: readonly StayS
 export function lineSource(line: PartLine, byId: ReadonlyMap<string, PartLine>, ctx: PartContext): string {
   if (!ctx.bookingSource) return DIRECT_PART;
   const base = line.type === "REVERSAL" && line.reversalOfId ? (byId.get(line.reversalOfId) ?? line) : line;
-  if (base.type === "ROOM") return sourceForNight(ctx.bookingSource, ctx.extensions, base.businessDate);
+  if (base.type === "ROOM" || isRetention(base)) return sourceForNight(ctx.bookingSource, ctx.extensions, base.businessDate);
   return OTA_SOURCES.has(ctx.bookingSource) ? DIRECT_PART : ctx.bookingSource;
 }
 

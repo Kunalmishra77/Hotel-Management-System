@@ -389,6 +389,14 @@ export const checkOutSchema = z.object({
    * night through today.
    */
   stayedLate: z.boolean().default(false),
+  /**
+   * Early departure (client, 16 Nov 2026 — Archana, Airbnb prepaid 13 nights,
+   * left after 1): "refund" (default) takes the unused nights off and leaves
+   * any prepaid excess as a refund due; "retain" keeps the prepaid money as a
+   * non-refundable early-departure charge (capped at the prepaid excess, so it
+   * never creates a new amount due).
+   */
+  unusedNights: z.enum(["refund", "retain"]).default("refund"),
 });
 
 /** Registration card + e-signature captured during check-in (03 T6). The

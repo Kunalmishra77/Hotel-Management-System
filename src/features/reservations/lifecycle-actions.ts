@@ -26,6 +26,7 @@ import {
   activeLines,
   activeRoomNightKeys,
   nextRoomRevision,
+  EARLY_DEPARTURE_PREFIX,
   type BillingPostTx, type BillingBulkTx } from "@/features/billing";
 import { canTransition } from "./domain/transitions";
 import { allocationsOn, earlyCheckoutPlan, tailAllocations } from "./domain/allocations";
@@ -264,7 +265,7 @@ export async function checkIn(input: unknown): Promise<Result<LifecycleResult>> 
 /** Check out (AC-16/17): balance gate (unless settled or folio:defer), rooms HOUSEKEEPING. */
 export async function checkOut(input: unknown): Promise<Result<LifecycleResult>> {
   return toResult(async () => {
-    const { reservationId, defer, asBooked, stayedLate } = checkOutSchema.parse(input);
+    const { reservationId, defer, asBooked, stayedLate, unusedNights } = checkOutSchema.parse(input);
     const user = await requireUser();
     const client = reservationDb(user);
     const r = (await client.reservation.findFirst({
@@ -374,7 +375,7 @@ export async function checkOut(input: unknown): Promise<Result<LifecycleResult>>
             );
             const unused = await tx.folioLine.findMany({
               where: { folioId: folio.id, type: "ROOM", businessDate: { gte: effectiveCheckOut } },
-              select: { id: true, description: true, unitPaise: true, amountPaise: true, taxRateBps: true, cgstPaise: true, sgstPaise: true, igstPaise: true, hsnSac: true, placeOfSupplyState: true },
+              select: { id: true, description: true, businessDate: true, unitPaise: true, amountPaise: true, taxRateBps: true, cgstPaise: true, sgstPaise: true, igstPaise: true, hsnSac: true, placeOfSupplyState: true },
             });
             // One insert for every unused night (already-reversed ones skipped) — a long
             // stay leaving early must not outlive the transaction.
@@ -390,6 +391,34 @@ export async function checkOut(input: unknown): Promise<Result<LifecycleResult>>
                   businessDate: new Date(), reversalOfId: l.id, postedById: user.userId,
                 })),
               });
+            }
+
+            // Prepaid & non-refundable (typical OTA): keep the money for the unused
+            // nights as an early-departure charge. The nights stay reversed, so the
+            // room is free and occupancy is true; the charge carries the nights' GST
+            // and goes on the bill those nights were sold on (bill-parts.ts).
+            if (unusedNights === "retain" && toReverse.length) {
+              const all = await tx.folioLine.findMany({ where: { folioId: folio.id }, select: { amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true } });
+              const pays = await tx.payment.findMany({ where: { folioId: folio.id }, select: { amountPaise: true, isRefund: true } });
+              const credit = -Number(folioBalance(all, pays)); // prepaid money not yet used
+              const unusedGross = toReverse.reduce((s, l) => s + Number(l.amountPaise) + l.cgstPaise + l.sgstPaise + l.igstPaise, 0);
+              const keep = Math.min(credit, unusedGross);
+              if (keep > 0) {
+                const bps = toReverse[0]!.taxRateBps;
+                const pre = Math.round((keep * 10_000) / (10_000 + bps));
+                const gst = keep - pre;
+                const cgst = Math.floor(gst / 2);
+                const first = toReverse.map((l) => l.businessDate).sort((a, b) => a.getTime() - b.getTime())[0] ?? effectiveCheckOut;
+                const fmtD = (d: Date) => d.toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "UTC" });
+                await tx.folioLine.create({ data: {
+                  folioId: folio.id, type: "MISC",
+                  description: `${EARLY_DEPARTURE_PREFIX} — ${toReverse.length} unused night(s) from ${fmtD(first)} (prepaid, non-refundable)`,
+                  quantity: 1, unitPaise: pre, amountPaise: BigInt(pre), taxRateBps: bps,
+                  cgstPaise: cgst, sgstPaise: gst - cgst, igstPaise: 0,
+                  hsnSac: toReverse[0]!.hsnSac, placeOfSupplyState: toReverse[0]!.placeOfSupplyState,
+                  businessDate: first, postedById: user.userId,
+                } });
+              }
             }
           }
 

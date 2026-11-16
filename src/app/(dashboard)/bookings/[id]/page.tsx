@@ -1,3 +1,4 @@
+import { OTA_SOURCES } from "@/features/billing";
 import { db } from "@/lib/db";
 import { isForeignNationality } from "@/lib/nationality";
 import type { Metadata } from "next";
@@ -162,6 +163,11 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                 reservationId={r.id}
                 canDefer={hasPermission(user, "folio:defer")}
                 overdueSince={checkOutOverdue ? r.checkOutDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", timeZone: "UTC" }) : undefined}
+                leavingEarly={
+                  r.status === "IN_HOUSE" && r.checkOutDate.getTime() > todayIst.getTime()
+                    ? { until: r.checkOutDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", timeZone: "UTC" }), ota: OTA_SOURCES.has(r.source) }
+                    : undefined
+                }
               />
             ) : null}
             {canFolio ? (

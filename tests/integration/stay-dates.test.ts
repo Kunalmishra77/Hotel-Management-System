@@ -127,3 +127,35 @@ describe("leaving earlier (shorten an in-house stay)", () => {
     expect(past.ok).toBe(false);
   });
 });
+
+describe("early departure on a prepaid stay (Archana, Airbnb, 16 Nov 2026)", () => {
+  const balanceOf = async (folioId: string) => {
+    const lines = await prisma.folioLine.findMany({ where: { folioId }, select: { amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true } });
+    const pays = await prisma.payment.findMany({ where: { folioId }, select: { amountPaise: true, isRefund: true } });
+    let b = 0n;
+    for (const l of lines) b += BigInt(l.amountPaise) + BigInt(l.cgstPaise + l.sgstPaise + l.igstPaise);
+    for (const p of pays) b += p.isRefund ? p.amountPaise : -p.amountPaise;
+    return Number(b);
+  };
+
+  it("'refund' bills only the nights stayed and leaves the prepaid excess as a credit", async () => {
+    const s = await inHouseStay(-1, 5); // 6 nights prepaid in full; leaving today after 1 night
+    const res = await checkOut({ reservationId: s.id, unusedNights: "refund" });
+    expect(res.ok, JSON.stringify(res)).toBe(true);
+    expect(await activeRoomNights(s.folioId)).toEqual([ymd(d(-1))]);
+    expect(await balanceOf(s.folioId)).toBe(-5 * (RATE + 12_500));
+  });
+
+  it("'retain' keeps the prepaid money as a non-refundable early-departure charge — balance ₹0, room nights still reversed", async () => {
+    const s = await inHouseStay(-1, 5);
+    const res = await checkOut({ reservationId: s.id, unusedNights: "retain" });
+    expect(res.ok, JSON.stringify(res)).toBe(true);
+    expect(await activeRoomNights(s.folioId)).toEqual([ymd(d(-1))]);
+    expect(await balanceOf(s.folioId)).toBe(0);
+    const charge = await prisma.folioLine.findFirst({ where: { folioId: s.folioId, type: "MISC", description: { startsWith: "Early departure charge" } } });
+    expect(charge).not.toBeNull();
+    expect(Number(charge!.amountPaise) + charge!.cgstPaise + charge!.sgstPaise).toBe(5 * (RATE + 12_500));
+    const r = await prisma.reservation.findUniqueOrThrow({ where: { id: s.id }, include: { allocations: true } });
+    expect(r.allocations.map((a) => ymd(a.endDate))).toEqual([ymd(d(0))]); // room free from today
+  });
+});
