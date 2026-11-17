@@ -34,10 +34,13 @@ export function ExtendStayCard({
   reservationId,
   checkOutDate,
   currentRatePaise,
+  bookingSource,
 }: {
   reservationId: string;
   checkOutDate: string;
   currentRatePaise?: number;
+  /** The booking's own channel — an extension on a different one needs its own rate. */
+  bookingSource?: string;
 }) {
   // Start on the night after the current check-out — "extend today" means the
   // guest leaves tomorrow, and picking the current check-out itself did nothing.
@@ -50,11 +53,16 @@ export function ExtendStayCard({
   const [paidMode, setPaidMode] = useState<string>("");
   // Most extensions are agreed at the desk, so Direct is the default channel.
   const [source, setSource] = useState<string>("DIRECT");
-  const paidIncomplete = payment === "paid" && (!(Number(paidAmount) > 0) || !paidMode);
   const fmt = (ymd: string) => new Date(`${ymd}T00:00:00Z`).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "UTC" });
   // Say WHY the button is off instead of leaving a dead button.
+  // A different channel almost always means a different price (OTA night vs a
+  // direct offer at the desk) — "same as now" carried the OTA rate onto Anand
+  // Agarwal's direct night (17 Nov 2026), so the rate must be typed then.
+  const channelChanged = !!bookingSource && source !== bookingSource;
   const blocker = !date
     ? "Pick the new check-out date."
+    : channelChanged && !(Number(rate) > 0)
+      ? "These nights are on a different channel from the booking — type their nightly rate (and pick GST included / on top)."
     : date <= checkOutDate
       ? `The new check-out must be after the current one (${fmt(checkOutDate)}) — e.g. ${fmt(nextDay)} for one more night.`
       : payment === "paid" && !(Number(paidAmount) > 0)
@@ -118,7 +126,7 @@ export function ExtendStayCard({
             <Label htmlFor="extend-rate">Rate / night for the extra nights (₹)</Label>
             <Input id="extend-rate" type="number" inputMode="decimal" step="0.01" min={0} value={rate} onChange={(e) => setRate(e.target.value)} placeholder="same as now" className="w-52" data-testid="extend-rate" />
           </div>
-          <Button type="button" onClick={submit} disabled={pending || !date || date <= checkOutDate || paidIncomplete} data-testid="extend-submit">
+          <Button type="button" onClick={submit} disabled={pending || !!blocker} data-testid="extend-submit">
             {pending ? "Extending…" : "Extend stay"}
           </Button>
         </div>

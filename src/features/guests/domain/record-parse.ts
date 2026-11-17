@@ -1,3 +1,4 @@
+import { INDIAN_STATES } from "@/lib/constants/indian-states";
 /**
  * Auto-fill a guest from pasted record text WITHOUT any AI (client, 12 Nov 2026:
  * "autofill keh raha hai AI not enabled — hum AI use hi nahi kar rahe").
@@ -11,11 +12,7 @@ export type ParsedGuest = Partial<Record<
   string
 >>;
 
-const STATES = [
-  "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka",
-  "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu",
-  "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi", "Jammu and Kashmir", "Ladakh", "Chandigarh", "Puducherry",
-];
+const STATES = INDIAN_STATES;
 
 // label (lower-case, as typed before ":" / "-") → field
 const LABELS: [RegExp, keyof ParsedGuest][] = [

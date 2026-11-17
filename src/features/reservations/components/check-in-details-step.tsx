@@ -12,6 +12,7 @@
  * optional for them and whatever their old record lacks shows on the booking's
  * pending card (client, 6 Nov 2026).
  */
+import { INDIAN_STATES } from "@/lib/constants/indian-states";
 import { useState, useTransition, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Check } from "lucide-react";
@@ -143,7 +144,8 @@ export function DetailsStep({
         <Input value={addr.addressLine} onChange={(e) => setAddr({ ...addr, addressLine: e.target.value })} placeholder="House / street / area" aria-label="Home address" className="h-11" data-testid="ci-address" />
         <div className="grid gap-3 sm:grid-cols-2">
           <Input value={addr.city} onChange={(e) => setAddr({ ...addr, city: e.target.value })} placeholder="City *" aria-label="City" className="h-11" data-testid="ci-city" />
-          <Input value={addr.state} onChange={(e) => setAddr({ ...addr, state: e.target.value })} placeholder="State" aria-label="State" className="h-11" />
+          <Input value={addr.state} onChange={(e) => setAddr({ ...addr, state: e.target.value })} placeholder="State" aria-label="State" className="h-11" list="ci-states" autoComplete="address-level1" data-testid="ci-state" />
+          <datalist id="ci-states">{INDIAN_STATES.map((s) => <option key={s} value={s} />)}</datalist>
           <Input inputMode="numeric" value={addr.pincode} onChange={(e) => setAddr({ ...addr, pincode: e.target.value })} placeholder="PIN / ZIP" aria-label="PIN code" className="h-11" />
           <select value={addr.country} onChange={(e) => setAddr({ ...addr, country: e.target.value })} className={selectCls} aria-label="Country" data-testid="ci-country">
             {withCurrent(countryNames, details.country).map((c) => <option key={c} value={c}>{c}</option>)}

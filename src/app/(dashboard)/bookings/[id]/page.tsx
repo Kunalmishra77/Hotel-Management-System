@@ -255,7 +255,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
           ) : null}
 
           {(r.status === "IN_HOUSE" || r.status === "CONFIRMED") && canManageGuests && !r.externalHotelName && r.roomNumbers.length > 0 ? (
-            <ExtendStayCard reservationId={r.id} checkOutDate={r.checkOutDate.toISOString().slice(0, 10)} currentRatePaise={billFolio?.billedRatePaise ?? r.ratePaise} />
+            <ExtendStayCard reservationId={r.id} checkOutDate={r.checkOutDate.toISOString().slice(0, 10)} currentRatePaise={billFolio?.billedRatePaise ?? r.ratePaise} bookingSource={r.source} />
           ) : null}
 
           {/* In-house guest leaving before the booked date: move the check-out now so

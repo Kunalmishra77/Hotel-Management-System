@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { changeBookingSource } from "../move-actions";
+import { changeExtensionSource } from "../extension-actions";
 import { SOURCE_OPTIONS as SOURCES, sourceOptionLabel } from "../source-options";
 
 
@@ -73,16 +74,42 @@ export function ChangeSourceCard({
             <ul className="mt-1 space-y-0.5 text-muted-foreground">
               <li>Original booking: <span className="text-foreground">{sourceOptionLabel(currentSource)}</span></li>
               {extensions.map((e) => (
-                <li key={e.from}>
-                  Extension {short(e.from)} → {short(e.to)} ({nightsOf(e)} night{nightsOf(e) === 1 ? "" : "s"}): <span className="text-foreground">{sourceOptionLabel(e.source)}</span>
-                </li>
+                <ExtensionSourceRow key={e.from} reservationId={reservationId} ext={e} />
               ))}
             </ul>
-            <p className="mt-1 text-xs text-muted-foreground">Revenue reports credit each extension&apos;s nights to its own source. &ldquo;Change source&rdquo; above changes the original booking only.</p>
+            <p className="mt-1 text-xs text-muted-foreground">Each extension&apos;s nights count for its own channel and go on that channel&apos;s bill. &ldquo;Change source&rdquo; above changes the original booking only; fix an extension&apos;s channel on its own line.</p>
           </div>
         ) : null}
         {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
       </CardContent>
     </Card>
+  );
+}
+
+/** One extension line with its own channel picker (client, 17 Nov 2026). */
+function ExtensionSourceRow({ reservationId, ext }: { reservationId: string; ext: ExtensionSpan }) {
+  const router = useRouter();
+  const [source, setSource] = useState(ext.source);
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const save = () =>
+    start(async () => {
+      setError(null);
+      const res = await changeExtensionSource({ reservationId, fromDate: ext.from, source });
+      if (res.ok) router.refresh();
+      else setError(res.error.message);
+    });
+  return (
+    <li className="flex flex-wrap items-center gap-2 py-0.5" data-testid={`ext-source-${ext.from}`}>
+      <span>Extension {short(ext.from)} → {short(ext.to)} ({nightsOf(ext)} night{nightsOf(ext) === 1 ? "" : "s"}):</span>
+      <select value={source} onChange={(e) => setSource(e.target.value)} aria-label={`Channel for the extension from ${short(ext.from)}`}
+        className="h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground">
+        {SOURCES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+      </select>
+      {source !== ext.source ? (
+        <Button size="sm" variant="outline" disabled={pending} onClick={save} className="h-8">{pending ? "Saving…" : "Save"}</Button>
+      ) : null}
+      {error ? <span role="alert" className="text-xs text-destructive">{error}</span> : null}
+    </li>
   );
 }

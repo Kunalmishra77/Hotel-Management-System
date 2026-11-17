@@ -8,6 +8,7 @@
  * MASKED and stay blank — leave them blank to keep, or type a new value to
  * correct. Validation + persistence are server-side (updateGuest).
  */
+import { INDIAN_STATES } from "@/lib/constants/indian-states";
 import { useActionState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -85,7 +86,7 @@ export function EditGuestForm({ guest, suggestions }: { guest: GuestEditData; su
 
       {/* Autocomplete from past guests — type to filter, tap to fill. */}
       <datalist id="dl-city">{sugg.cities.map((c) => <option key={c} value={c} />)}</datalist>
-      <datalist id="dl-state">{sugg.states.map((c) => <option key={c} value={c} />)}</datalist>
+      <datalist id="dl-state">{[...new Set([...INDIAN_STATES, ...sugg.states])].map((c) => <option key={c} value={c} />)}</datalist>
       <datalist id="dl-country">{sugg.countries.map((c) => <option key={c} value={c} />)}</datalist>
       <datalist id="dl-company">{sugg.companies.map((c) => <option key={c} value={c} />)}</datalist>
       <datalist id="dl-gstin">{sugg.gstins.map((c) => <option key={c} value={c} />)}</datalist>

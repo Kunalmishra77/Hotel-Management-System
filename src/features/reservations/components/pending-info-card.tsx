@@ -8,6 +8,7 @@
  * wade through ~20 fields to add one email — and couldn't take the ID scan, the
  * item most often missing.
  */
+import { INDIAN_STATES } from "@/lib/constants/indian-states";
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -191,7 +192,7 @@ export function PendingInfoCard({
                 {/* City / state / PIN already on file are pre-filled, not asked again. */}
                 <div className="grid grid-cols-2 gap-2">
                   {!address.city && <Input value={addr.city} onChange={(e) => setAddr({ ...addr, city: e.target.value })} placeholder="City" aria-label="City" />}
-                  {!address.state && <Input value={addr.state} onChange={(e) => setAddr({ ...addr, state: e.target.value })} placeholder="State" aria-label="State" />}
+                  {!address.state && <><Input value={addr.state} onChange={(e) => setAddr({ ...addr, state: e.target.value })} placeholder="State" aria-label="State" list="pending-states" autoComplete="address-level1" /><datalist id="pending-states">{INDIAN_STATES.map((s) => <option key={s} value={s} />)}</datalist></>}
                   {!address.pincode && <Input inputMode="numeric" value={addr.pincode} onChange={(e) => setAddr({ ...addr, pincode: e.target.value })} placeholder="PIN code" aria-label="PIN code" />}
                 </div>
               </div>

@@ -25,6 +25,7 @@ import { assembleClaims } from "@/lib/auth/claims";
 import { checkOut } from "@/features/reservations/lifecycle-actions";
 import { shortenStay } from "@/features/reservations/shorten-actions";
 import { postRoomCharges } from "@/features/billing/night-audit";
+import { changeExtensionSource } from "@/features/reservations/extension-actions";
 
 const prisma = createPrismaClient();
 const DAY = 86_400_000;
@@ -157,5 +158,18 @@ describe("early departure on a prepaid stay (Archana, Airbnb, 16 Nov 2026)", () 
     expect(Number(charge!.amountPaise) + charge!.cgstPaise + charge!.sgstPaise).toBe(5 * (RATE + 12_500));
     const r = await prisma.reservation.findUniqueOrThrow({ where: { id: s.id }, include: { allocations: true } });
     expect(r.allocations.map((a) => ymd(a.endDate))).toEqual([ymd(d(0))]); // room free from today
+  });
+});
+
+describe("an extension's channel can be corrected (Anand Agarwal, 17 Nov 2026)", () => {
+  it("changes only that extension's source", async () => {
+    const s = await inHouseStay(-1, 1);
+    await prisma.stayExtension.create({ data: { propertyId: PROP_A_ID, reservationId: s.id, fromDate: d(0), toDate: d(1), source: "MAKEMYTRIP", ratePaise: RATE } });
+    const res = await changeExtensionSource({ reservationId: s.id, fromDate: ymd(d(0)), source: "DIRECT" });
+    expect(res.ok, JSON.stringify(res)).toBe(true);
+    const ext = await prisma.stayExtension.findMany({ where: { reservationId: s.id } });
+    expect(ext.map((e) => e.source)).toEqual(["DIRECT"]);
+    const missing = await changeExtensionSource({ reservationId: s.id, fromDate: ymd(d(5)), source: "DIRECT" });
+    expect(missing.ok).toBe(false);
   });
 });
