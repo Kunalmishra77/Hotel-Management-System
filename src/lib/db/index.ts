@@ -144,6 +144,8 @@ const READ_OPS = new Set([
 ]);
 const WRITE_OPS = new Set(["update", "updateMany", "delete", "deleteMany", "upsert"]);
 const CREATE_OPS = new Set(["create", "createMany", "createManyAndReturn"]);
+/** Single-row writes whose `where` is a WhereUniqueInput. */
+const UNIQUE_WRITE_OPS = new Set(["update", "delete", "upsert"]);
 
 /**
  * A Prisma client whose every query on a property-scoped model is confined to
@@ -178,6 +180,15 @@ export function scopedClient(actor: ScopedActor, base: PrismaClient = prisma) {
 
           if (READ_OPS.has(operation) || WRITE_OPS.has(operation)) {
             const where = (a.where ?? {}) as AnyArgs;
+            // update / delete / upsert take a UNIQUE where: the unique field (id)
+            // must stay at the top level, with the scope added beside it (Prisma's
+            // extended where-unique). Wrapping it in AND hid the id and every such
+            // call on a property-scoped model failed — e.g. "Change source"
+            // (found 17 Nov 2026). Same filter, same tenancy guarantee.
+            if (UNIQUE_WRITE_OPS.has(operation)) {
+              const prior = where.AND === undefined ? [] : Array.isArray(where.AND) ? where.AND : [where.AND];
+              return query({ ...a, where: { ...where, AND: [...prior, filter] } });
+            }
             const scopedWhere = { AND: [where, filter] };
 
             if (operation === "findUnique" || operation === "findUniqueOrThrow") {

@@ -36,7 +36,14 @@ export function preTaxRatePaise(enteredPaise: number, gstMode: "inclusive" | "ex
   if (gstMode !== "inclusive") return enteredPaise;
   for (const band of ROOM_TARIFF_BANDS) {
     const candidate = Math.round((enteredPaise * 10_000) / (10_000 + band.bps));
-    if (roomGstBps(candidate) === band.bps) return candidate;
+    if (roomGstBps(candidate) !== band.bps) continue;
+    // Nearest pre-tax value whose total (+ CGST + SGST, each rounded half-up)
+    // is EXACTLY the inclusive figure — ₹2,400 incl. bills ₹2,400.00 (17 Nov 2026).
+    for (const delta of [0, 1, -1, 2, -2]) {
+      const c = candidate + delta;
+      if (c + 2 * Math.round((c * band.bps) / 20_000) === enteredPaise) return c;
+    }
+    return candidate;
   }
   // Unreachable with the shipped bands (the top band is unbounded); the lowest
   // band is the safe fallback if a future config leaves a gap.

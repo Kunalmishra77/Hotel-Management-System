@@ -20,7 +20,7 @@ vi.mock("@/lib/auth", () => ({
 }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {}, revalidateTag: () => {} }));
 
-import { PROP_A_ID, GUEST_MEHTA_ID, USER_ADMIN_ID, ROOM_CATEGORY_A_DELUXE_ID } from "../../prisma/seed/fixtures";
+import { PROP_A_ID, GUEST_MEHTA_ID, USER_ADMIN_ID } from "../../prisma/seed/fixtures";
 import { assembleClaims } from "@/lib/auth/claims";
 import { checkOut } from "@/features/reservations/lifecycle-actions";
 import { shortenStay } from "@/features/reservations/shorten-actions";
@@ -34,11 +34,16 @@ const d = (offset: number) => new Date(today.getTime() + offset * DAY);
 const ymd = (x: Date) => x.toISOString().slice(0, 10);
 const RATE = 250_000;
 let roomSeq = 0;
+const createdRooms: string[] = [];
+// Its own room category, so the rooms this suite creates never change the seed
+// categories' room counts that other suites assert on.
+const TEST_CATEGORY_ID = "cat_test_stay_dates";
 
 /** An IN_HOUSE stay on its own fresh room, every booked night billed (as check-in does). */
 async function inHouseStay(fromOffset: number, toOffset: number) {
   const tag = `${Date.now().toString(36)}${roomSeq++}`;
-  const room = await prisma.room.create({ data: { propertyId: PROP_A_ID, categoryId: ROOM_CATEGORY_A_DELUXE_ID, number: `T${tag}`.slice(0, 12), status: "OCCUPIED" } });
+  const room = await prisma.room.create({ data: { propertyId: PROP_A_ID, categoryId: TEST_CATEGORY_ID, number: `T${tag}`.slice(0, 12), status: "OCCUPIED" } });
+  createdRooms.push(room.id);
   const checkInDate = d(fromOffset);
   const checkOutDate = d(toOffset);
   const r = await prisma.reservation.create({
@@ -69,11 +74,19 @@ const activeRoomNights = async (folioId: string) => {
 };
 
 beforeAll(async () => {
+  await prisma.roomCategory.upsert({
+    where: { id: TEST_CATEGORY_ID },
+    update: {},
+    create: { id: TEST_CATEGORY_ID, propertyId: PROP_A_ID, name: "Test — stay dates", baseRatePaise: RATE, gstBps: 500 },
+  });
   const c = await assembleClaims(prisma, USER_ADMIN_ID);
   if (!c) throw new Error("no claims");
   h.user = { ...c, activePropertyId: PROP_A_ID };
 });
 afterAll(async () => {
+  // Folio rows are append-only, so the test rooms stay — but deactivated, so
+  // room counts / boards / occupancy in other suites aren't polluted.
+  if (createdRooms.length) await prisma.room.updateMany({ where: { id: { in: createdRooms } }, data: { isActive: false, status: "VACANT" } });
   await prisma.$disconnect();
 });
 

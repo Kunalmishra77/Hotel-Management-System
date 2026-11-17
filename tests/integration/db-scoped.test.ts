@@ -189,6 +189,15 @@ describe("db.scoped — writes (FR-8/9)", () => {
     expect(b.status).toBe("VACANT");
   });
 
+  it("update() by id works in scope and is refused out of scope (17 Nov 2026 'Change source' bug)", async () => {
+    const scoped = db.scoped(await actorFor(USER_RECEPTION_A_ID));
+    const a = await scoped.room.update({ where: { id: ROOM_A }, data: { status: "OCCUPIED" } });
+    expect(a.status).toBe("OCCUPIED");
+    await expect(scoped.room.update({ where: { id: ROOM_B }, data: { status: "OCCUPIED" } })).rejects.toThrow();
+    const b = await prisma.room.findUniqueOrThrow({ where: { id: ROOM_B } });
+    expect(b.status).toBe("VACANT");
+  });
+
   it("cannot delete out of scope", async () => {
     const scoped = db.scoped(await actorFor(USER_RECEPTION_A_ID));
     const { count } = await scoped.room.deleteMany({ where: { id: ROOM_B } });

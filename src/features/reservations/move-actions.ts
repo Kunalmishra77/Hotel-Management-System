@@ -67,7 +67,10 @@ export async function changeBookingSource(input: unknown): Promise<Result<{ id: 
     const bookedOnChanged = newBookedOn !== null && newBookedOn.toISOString().slice(0, 10) !== r.createdAt.toISOString().slice(0, 10);
     return withReservationContext(user, () =>
       client.$transaction(async (tx) => {
-        await tx.reservation.update({
+        // updateMany: the property-scoped client adds a property filter, which a
+        // unique `update` where-clause can't take ("Change source" failed with
+        // "Something went wrong" — found 17 Nov 2026).
+        await tx.reservation.updateMany({
           where: { id: r.id },
           data: { source: data.source, ...(bookedOnChanged ? { createdAt: newBookedOn } : {}) },
         });

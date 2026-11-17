@@ -67,7 +67,21 @@ export function preTaxRoomPaise(enteredPaise: number, gstMode: "inclusive" | "ex
   if (gstMode !== "inclusive") return enteredPaise;
   for (const band of ROOM_TARIFF_BANDS) {
     const candidate = roundPaiseHalfUp((enteredPaise * 10_000) / (10_000 + band.bps));
-    if (roomGstBps(candidate) === band.bps) return candidate;
+    if (roomGstBps(candidate) === band.bps) return exactInclusive(enteredPaise, band.bps, candidate);
   }
   return roundPaiseHalfUp((enteredPaise * 10_000) / (10_000 + roomGstBps(enteredPaise)));
+}
+
+/**
+ * The pre-tax value nearest `candidate` whose total (+ CGST + SGST, each rounded
+ * half-up) is EXACTLY the GST-inclusive figure entered — ₹2,400 incl. must bill
+ * ₹2,400.00, not ₹2,399.99 (client, 17 Nov 2026). Falls back to `candidate`.
+ */
+export function exactInclusive(enteredPaise: number, bps: number, candidate: number): number {
+  for (const delta of [0, 1, -1, 2, -2]) {
+    const c = candidate + delta;
+    const half = roundPaiseHalfUp(new Decimal(c).times(bps).div(20_000));
+    if (c + 2 * half === enteredPaise) return c;
+  }
+  return candidate;
 }
