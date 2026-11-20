@@ -11,6 +11,7 @@ import { toResult, type Result } from "@/lib/result";
 import { findFreeRooms, type AvailableRoom, type RoomFinder } from "./availability";
 import { availabilityGrid, type AvailabilityGrid } from "./availability-grid";
 import { reservationDb } from "./internal";
+import { findRoomsForDates, type RoomFinderResult } from "./room-finder";
 import { searchAvailabilitySchema } from "./schema";
 
 export type AvailabilityResult = { rooms: AvailableRoom[] };
@@ -44,5 +45,21 @@ export async function searchAvailabilityGrid(input: unknown): Promise<Result<Ava
     const user = await requireUser();
     authorize(user, "reservation:view", data.propertyId);
     return availabilityGrid(reservationDb(user), { ...data, showGuest: hasPermission(user, "reservation:view") });
+  });
+}
+
+const finderSchema = z.object({ from: ymd, to: ymd }).refine((d) => d.to > d.from, { message: "Check-out must be after check-in." });
+
+/**
+ * "Which room is free from X to Y?" across every hotel in view (Rooms → Find a
+ * room, client 20 Nov 2026). In "All hotels" it covers all hotels; with one
+ * property chosen, just that one.
+ */
+export async function findRoomsForDatesAction(input: unknown): Promise<Result<RoomFinderResult>> {
+  return toResult(async () => {
+    const data = finderSchema.parse(input);
+    const user = await requireUser();
+    const propertyIds = user.activePropertyId ? [user.activePropertyId] : [...user.accessiblePropertyIds];
+    return findRoomsForDates(user, { from: data.from, to: data.to, propertyIds });
   });
 }

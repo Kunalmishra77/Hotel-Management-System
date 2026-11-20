@@ -17,8 +17,9 @@ import { folioBalance } from "@/features/billing";
 import { answerBusinessQuestion } from "./business-qa";
 import { agentScope } from "./agent-scope";
 import { answerPrice, answerStats } from "./agent-stats";
+import { findRoomsForDates } from "@/features/reservations/room-finder";
 import { classify, GUIDE } from "./domain/agent-intents";
-import { parseCommand } from "./domain/agent-commands";
+import { parseCommand, parseDateRange } from "./domain/agent-commands";
 import { proposeCommand, type AgentProposal } from "./agent-commands";
 export { AGENT_SUGGESTIONS } from "./domain/agent-intents";
 import type { SessionClaims } from "@/lib/auth/claims";
@@ -157,6 +158,26 @@ export async function answerAgent(user: SessionClaims, input: { question: string
     }
 
     case "vacant": {
+      // "25 nov se 25 dec tak koi room khali hai?" → the Find-a-room answer.
+      const asked = parseDateRange(input.question, today);
+      if (asked) {
+        const fr = await findRoomsForDates(user, { from: asked.from, to: asked.to, propertyIds: ids });
+        const fmtD = (ymd: string) => new Date(`${ymd}T00:00:00Z`).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "UTC" });
+        const items: AgentItem[] = [];
+        for (const h of fr.hotels) {
+          for (const r of h.whole) items.push({ title: `${r.number} · ${h.propertyName}`, subtitle: `Free all ${fr.nights} nights · ${r.categoryName} · ${formatINR(r.ratePaise)}/night + GST · est. ${formatINR(r.estimatePaise)}`, href: `/bookings/new?property=${h.propertyId}&in=${fr.from}&out=${fr.to}&room=${r.id}` });
+          if (h.split) items.push({ title: `${h.propertyName} — with a room change`, subtitle: h.split.segments.map((sg) => `${sg.number} ${fmtD(sg.from)}→${fmtD(sg.to)}`).join(", "), href: `/bookings/new?property=${h.propertyId}&in=${fr.from}&out=${fr.to}` });
+        }
+        const whole = fr.hotels.reduce((n, h) => n + h.whole.length, 0);
+        return {
+          answer: whole > 0
+            ? `${whole} room${whole === 1 ? " is" : "s are"} free for every night ${fmtD(fr.from)} → ${fmtD(fr.to)} (${fr.nights} nights) across ${scopeLabel}:`
+            : `No single room is free for all of ${fmtD(fr.from)} → ${fmtD(fr.to)} across ${scopeLabel}.${items.length ? " It works with a room change:" : " Open Rooms → Find a room to see rooms free for part of it."}`,
+          items,
+          matched: true,
+          scopeLabel,
+        };
+      }
       const [rooms, soon] = await Promise.all([
         db.scoped(user).room.findMany({
           where: { propertyId: { in: ids }, isActive: true, status: "VACANT" },

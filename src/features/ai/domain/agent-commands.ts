@@ -145,3 +145,19 @@ export function parseCommand(raw: string, today: Date): ParsedCommand | null {
   }
   return null;
 }
+
+/**
+ * A date range in a question — "25 nov se 25 dec", "from 25/11 to 2/12",
+ * "25 Nov - 3 Dec" → [check-in, check-out]. Null unless both ends parse and
+ * the second is after the first.
+ */
+export function parseDateRange(text: string, today: Date): { from: string; to: string } | null {
+  const parts = text.toLowerCase().split(/\s(?:se|to|till|until|tak|and)\s|\s[-–]\s/);
+  if (parts.length < 2) return null;
+  const from = parseDate(parts[0]!, today);
+  const to = parseDate(parts.slice(1).join(" "), today);
+  if (!from || !to) return null;
+  // "25 dec" after a November check-in stays this year; if it went backwards, it's next year's.
+  const toFixed = to <= from ? `${Number(to.slice(0, 4)) + 1}${to.slice(4)}` : to;
+  return toFixed > from ? { from, to: toFixed } : null;
+}

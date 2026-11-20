@@ -13,6 +13,7 @@ import { NoProperty } from "@/features/platform/components/no-property";
 import { roomAvailabilityCalendar } from "@/features/reservations/queries";
 import { GRID_MAX_NIGHTS } from "@/features/reservations/availability-grid";
 import { AvailabilityGridTable } from "@/features/reservations/components/availability-grid-table";
+import { RoomFinder } from "@/features/reservations/components/room-finder";
 
 export const metadata: Metadata = { title: "Rooms" };
 
@@ -43,6 +44,7 @@ export default async function RoomsPage({
           <h1 className="text-xl font-semibold tracking-tight">Rooms</h1>
           <p className="text-sm text-muted-foreground">Live room availability across all properties, by room type. Choose a hotel below to manage its rooms.</p>
         </div>
+        <RoomFinder canBook={can(user, "reservation:create", null)} />
         <RoomsOverviewAllView data={overview} />
         <div>
           <h2 className="mb-3 text-sm font-semibold text-muted-foreground">Open a property</h2>
@@ -120,6 +122,8 @@ export default async function RoomsPage({
           )}
         </div>
       </div>
+
+      <RoomFinder canBook={can(user, "reservation:create", propertyId)} />
 
       <dl className="grid grid-cols-2 gap-2 xs:grid-cols-4 lg:grid-cols-8" data-testid="room-stats">
         {stats.map((s) => (

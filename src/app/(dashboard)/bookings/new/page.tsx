@@ -9,7 +9,13 @@ export const metadata: Metadata = { title: "New booking" };
 
 /** 03 T-28 — the booking stepper (AC-1/2/4). Property-first: the user picks the
  *  property, then that property's room categories. */
-export default async function NewBookingPage() {
+export default async function NewBookingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ property?: string; in?: string; out?: string; room?: string }>;
+}) {
+  // Rooms → Find a room opens this pre-filled (client, 20 Nov 2026).
+  const sp = await searchParams;
   const user = await requirePermission("reservation:create");
   const ids = [...user.accessiblePropertyIds];
   if (ids.length === 0) notFound();
@@ -22,7 +28,10 @@ export default async function NewBookingPage() {
     db.unscoped().roomCategory.findMany({ where: { propertyId: { in: ids }, rooms: { some: { isActive: true } } }, select: { id: true, name: true, propertyId: true }, orderBy: { name: "asc" } }),
   ]);
   if (properties.length === 0) notFound();
-  const defaultPropertyId = properties.some((p) => p.id === user.activePropertyId) ? user.activePropertyId! : properties[0]!.id;
+  const ymd = (v?: string) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined);
+  const askedProperty = sp.property && properties.some((p) => p.id === sp.property) ? sp.property : undefined;
+  const defaultPropertyId = askedProperty ?? (properties.some((p) => p.id === user.activePropertyId) ? user.activePropertyId! : properties[0]!.id);
+  const prefill = ymd(sp.in) && ymd(sp.out) ? { checkInDate: ymd(sp.in)!, checkOutDate: ymd(sp.out)!, roomId: sp.room } : undefined;
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-4 p-4">
@@ -32,7 +41,7 @@ export default async function NewBookingPage() {
           Booking at another (off-site) property?
         </Link>
       </div>
-      <BookingForm properties={properties} categories={categories} defaultPropertyId={defaultPropertyId} />
+      <BookingForm properties={properties} categories={categories} defaultPropertyId={defaultPropertyId} prefill={prefill} />
     </div>
   );
 }

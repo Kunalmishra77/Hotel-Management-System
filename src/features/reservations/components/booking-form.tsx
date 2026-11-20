@@ -7,7 +7,7 @@
  * money). Mobile-first: numeric keypads, ≥44px actions. Amounts are entered in ₹
  * and submitted as integer paise in hidden fields.
  */
-import { useState, useTransition, useActionState } from "react";
+import { useEffect, useState, useTransition, useActionState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,16 +42,21 @@ export function BookingForm({
   properties,
   categories,
   defaultPropertyId,
+  prefill,
 }: {
   properties: PropertyOpt[];
   categories: Category[];
   defaultPropertyId: string;
+  /** From Rooms → Find a room: dates (and a room) already chosen. */
+  prefill?: { checkInDate: string; checkOutDate: string; roomId?: string };
 }) {
   const [propertyId, setPropertyId] = useState(defaultPropertyId);
   const propertyCategories = categories.filter((c) => c.propertyId === propertyId);
   const timezone = properties.find((p) => p.id === propertyId)?.timezone ?? "Asia/Kolkata";
-  const [checkInDate, setCheckIn] = useState("");
-  const [checkOutDate, setCheckOut] = useState("");
+  const [checkInDate, setCheckIn] = useState(prefill?.checkInDate ?? "");
+  const [checkOutDate, setCheckOut] = useState(prefill?.checkOutDate ?? "");
+  // The room picked in Find a room — selected once the availability search returns it.
+  const [pendingRoomId, setPendingRoomId] = useState<string | null>(prefill?.roomId ?? null);
   // Date guards: no past check-in; check-out can be the SAME day (day-use) or later —
   // a guest who arrives and leaves today books check-in = check-out = today.
   const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: timezone });
@@ -250,6 +255,19 @@ export function BookingForm({
       setGrid(g && g.ok ? g.data : null);
     });
   };
+
+  // Pre-filled from Find a room: check availability straight away, then select the room.
+  useEffect(() => {
+    if (prefill) runSearch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on open
+  }, []);
+  useEffect(() => {
+    if (!pendingRoomId || !rooms) return;
+    const r = rooms.find((x) => x.id === pendingRoomId);
+    if (r) applySelection([r]);
+    setPendingRoomId(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- react to the search result only
+  }, [rooms]);
 
   const runGuestSearch = (q: string) => {
     setGuestQuery(q);

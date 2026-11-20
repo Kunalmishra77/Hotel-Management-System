@@ -26,6 +26,7 @@ import { checkOut } from "@/features/reservations/lifecycle-actions";
 import { shortenStay } from "@/features/reservations/shorten-actions";
 import { postRoomCharges } from "@/features/billing/night-audit";
 import { changeExtensionSource } from "@/features/reservations/extension-actions";
+import { findRoomsForDates } from "@/features/reservations/room-finder";
 
 const prisma = createPrismaClient();
 const DAY = 86_400_000;
@@ -184,5 +185,27 @@ describe("an extension's channel can be corrected (Anand Agarwal, 17 Nov 2026)",
     expect(ext.map((e) => e.source)).toEqual(["DIRECT"]);
     const missing = await changeExtensionSource({ reservationId: s.id, fromDate: ymd(d(5)), source: "DIRECT" });
     expect(missing.ok).toBe(false);
+  });
+});
+
+describe("Rooms → Find a room (client, 20 Nov 2026)", () => {
+  it("lists a room free for every night as whole, and a partly-booked room with its free and taken nights", async () => {
+    // Far-future window so no other suite's bookings overlap. inHouseStay() makes a fresh
+    // room booked [600, 603); a second fresh room stays empty.
+    const busy = await inHouseStay(600, 603);
+    const room = (await prisma.reservation.findUniqueOrThrow({ where: { id: busy.id }, include: { allocations: true } })).allocations[0]!.roomId;
+    const freeRoom = await prisma.room.create({ data: { propertyId: PROP_A_ID, categoryId: TEST_CATEGORY_ID, number: `F${Date.now().toString(36)}`.slice(0, 12) } });
+    createdRooms.push(freeRoom.id);
+
+    const res = await findRoomsForDates(h.user!, { from: ymd(d(598)), to: ymd(d(606)), propertyIds: [PROP_A_ID] });
+    const hotel = res.hotels.find((x) => x.propertyId === PROP_A_ID)!;
+    expect(res.nights).toBe(8);
+    const whole = hotel.whole.find((r) => r.id === freeRoom.id);
+    expect(whole).toBeDefined();
+    expect(whole!.estimatePaise).toBe(8 * (RATE + 12_500)); // ₹2,500 room type + 5% GST × 8
+    const part = hotel.partial.find((r) => r.id === room)!;
+    expect(part.freeNights).toBe(5);
+    expect(part.free).toEqual([{ from: ymd(d(598)), to: ymd(d(600)) }, { from: ymd(d(603)), to: ymd(d(606)) }]);
+    expect(part.busy).toEqual([expect.objectContaining({ from: ymd(d(600)), to: ymd(d(603)), reservationId: busy.id })]);
   });
 });
