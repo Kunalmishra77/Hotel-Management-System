@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import type { FolioInvoiceView } from "../queries";
 import { billPartLabel, isGuestBill } from "../domain/bill-parts";
-import { BillToFields, billToPayload, billToProblem, emptyBillTo, type BillToValue } from "./bill-to-fields";
+import { BillToFields, billToPayload, billToProblem, emptyBillTo, rememberCompany, type BillToValue } from "./bill-to-fields";
 
 const rupees = (paise: number) => `₹${(paise / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const day = (d: Date | string) => new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
@@ -161,6 +161,7 @@ export function BillToForm({
       onSubmit={(e) => {
         e.preventDefault();
         if (problem || seqBad) return;
+        rememberCompany(value);
         onSubmit({ ...billToPayload(value), ...(seq.trim() ? { seq: Number(seq.trim()) } : {}), ...(mode === "correct" ? { reason: reason.trim() } : {}) });
       }}
       data-testid="bill-to-form"

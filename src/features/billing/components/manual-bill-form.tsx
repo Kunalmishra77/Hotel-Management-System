@@ -15,7 +15,7 @@ import { formatINR } from "@/lib/utils";
 import { manualBillTotal, manualLine, manualRoundOff } from "../domain/manual-bill";
 import { createManualBill, correctManualBill } from "../manual-bill-actions";
 import type { ManualBillDraft } from "../manual-bill-queries";
-import { BillToFields, billToPayload, billToProblem, emptyBillTo, type BillToValue } from "./bill-to-fields";
+import { BillToFields, billToPayload, billToProblem, emptyBillTo, rememberCompany, type BillToValue } from "./bill-to-fields";
 
 /** Common lines with their SAC and usual GST rate — staff can change both. */
 const PRESETS = [
@@ -88,7 +88,7 @@ export function ManualBillForm({
       const res = draft
         ? await correctManualBill({ invoiceId: draft.invoiceId, ...base, reason: reason.trim() })
         : await createManualBill({ propertyId, ...base, ...(seq.trim() ? { seq: Number(seq.trim()) } : {}), ...(paidMode ? { paidMode } : {}) });
-      if (res.ok) setDone(res.data);
+      if (res.ok) { rememberCompany(billTo); setDone(res.data); }
       else setError(res.error.message);
     });
   };

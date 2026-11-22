@@ -6,10 +6,19 @@
  * (Rule 46); the state fills itself from the GSTIN's first two digits, and the
  * guest who stayed can be printed under the company.
  */
+import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { GSTIN_RE, normalizeGstin, stateFromGstin } from "@/lib/gstin";
 import { INDIAN_STATES } from "@/lib/constants/indian-states";
+import { saveBillingCompany, searchBillingCompanies, type BillingCompany } from "@/features/corporate/billing-companies";
+
+/** After a company GST bill is issued: remember the company for next time (best-effort). */
+export function rememberCompany(v: BillToValue): void {
+  const g = normalizeGstin(v.customerGstin);
+  if (!v.company || !GSTIN_RE.test(g)) return;
+  void saveBillingCompany({ name: v.customerName.trim(), gstin: g, address: v.customerAddress.trim() || undefined, state: v.customerState.trim() || undefined }).catch(() => {});
+}
 
 export type BillToValue = {
   customerName: string;
@@ -52,6 +61,23 @@ export function BillToFields({ value, onChange, idPrefix = "bt" }: { value: Bill
   const g = normalizeGstin(value.customerGstin);
   const gstinBad = g !== "" && !GSTIN_RE.test(g);
   const id = (k: string) => `${idPrefix}-${k}`;
+  // Saved companies matching what's typed (2+ letters), company bills only.
+  const [matches, setMatches] = useState<BillingCompany[]>([]);
+  const [picked, setPicked] = useState(false);
+  const q = value.customerName.trim();
+  useEffect(() => {
+    if (!value.company || picked || q.length < 2) { setMatches([]); return; }
+    let live = true;
+    const t = setTimeout(() => {
+      void searchBillingCompanies({ q }).then((r) => { if (live && r.ok) setMatches(r.data); }).catch(() => {});
+    }, 250);
+    return () => { live = false; clearTimeout(t); };
+  }, [q, value.company, picked]);
+  const pick = (c: BillingCompany) => {
+    setPicked(true);
+    setMatches([]);
+    set({ customerName: c.name, customerGstin: c.gstin ?? "", customerAddress: c.address ?? "", customerState: c.state ?? (c.gstin ? stateFromGstin(c.gstin) ?? "" : ""), company: true });
+  };
   return (
     <div className="space-y-3">
       <label className="flex min-h-11 items-center gap-2 text-sm">
@@ -60,7 +86,19 @@ export function BillToFields({ value, onChange, idPrefix = "bt" }: { value: Bill
       </label>
       <div className="space-y-1.5">
         <Label htmlFor={id("name")}>{value.company ? "Company name" : "Name on the bill"}</Label>
-        <Input id={id("name")} value={value.customerName} onChange={(e) => set({ customerName: e.target.value })} placeholder={value.company ? "e.g. NuMed Systems Pvt Ltd" : "Guest name"} data-testid="bill-to-name" />
+        <Input id={id("name")} value={value.customerName} onChange={(e) => { setPicked(false); set({ customerName: e.target.value }); }} placeholder={value.company ? "Type 2 letters to pick a saved company" : "Guest name"} autoComplete="off" data-testid="bill-to-name" />
+        {matches.length > 0 ? (
+          <ul className="rounded-md border bg-popover text-sm shadow-sm" role="listbox" aria-label="Saved companies" data-testid="company-matches">
+            {matches.map((c) => (
+              <li key={c.id}>
+                <button type="button" role="option" aria-selected={false} className="flex min-h-11 w-full flex-col items-start px-3 py-1.5 text-left hover:bg-muted" onClick={() => pick(c)}>
+                  <span className="font-medium">{c.name}</span>
+                  <span className="text-xs text-muted-foreground">{[c.gstin, c.state].filter(Boolean).join(" · ")}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">

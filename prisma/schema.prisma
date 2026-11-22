@@ -2175,6 +2175,8 @@ model Corporate {
   orgId            String
   name             String
   gstin            String?
+  address          String? // billing address printed on company GST bills
+  state            String?
   contactName      String?
   contactPhone     String?
   contactEmail     String?
@@ -2185,6 +2187,7 @@ model Corporate {
   createdAt        DateTime         @default(now())
 
   @@index([orgId])
+  @@index([orgId, gstin])
 }
 
 model NegotiatedRate {
