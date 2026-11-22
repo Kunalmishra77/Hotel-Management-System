@@ -2211,3 +2211,21 @@ model TravelAgent {
 
   @@index([orgId])
 }
+
+// What each OTA keeps from a booking (client, 22 Nov 2026) — org-level settings,
+// read by Reports → Channels. Rates in basis points (1800 = 18%).
+model ChannelDeduction {
+  id                 String   @id @default(cuid())
+  orgId              String
+  source             String // BookingSource, e.g. "MAKEMYTRIP"
+  commissionBps      Int      @default(0)
+  commissionOnGross  Boolean  @default(false) // commission on the GST-inclusive amount
+  gstOnCommissionBps Int      @default(1800)
+  tcsBps             Int      @default(50) // CGST Act §52
+  tdsBps             Int      @default(10) // Income-tax §194-O
+  updatedById        String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([orgId, source])
+}

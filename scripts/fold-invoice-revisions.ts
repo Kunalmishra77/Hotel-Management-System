@@ -14,11 +14,15 @@
  *
  *   npx tsx scripts/fold-invoice-revisions.ts               (dry run)
  *   CONFIRM=YES npx tsx scripts/fold-invoice-revisions.ts   (apply)
+ *   SINCE=2026-11-01 …  only chains whose every invoice is on/after that India-time
+ *   date — i.e. months whose GST return is not filed yet (a fold re-dates the bill
+ *   to its original date, which changes an already-filed month: CA's call).
  */
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 const APPLY = process.env.CONFIRM === "YES";
+const SINCE = process.env.SINCE ? new Date(`${process.env.SINCE}T00:00:00+05:30`) : null;
 
 type Inv = Awaited<ReturnType<typeof load>>[number];
 async function load() {
@@ -66,6 +70,12 @@ async function main() {
     }
   }
 
+  const touched = (p: Plan) => (p.kind === "fold" ? [p.live, p.root, ...p.supersede] : [p.keep, ...p.supersede]);
+  const held = SINCE ? plans.filter((p) => touched(p).some((i) => i.issuedAt < SINCE)) : [];
+  if (SINCE) {
+    for (const p of held) console.log(`HELD  ${p.kind === "fold" ? `${seq(p.live.number)} → ${seq(p.root.number)}` : `dup ${seq(p.keep.number)}`} · ${p.kind === "fold" ? p.live.customerName : p.keep.customerName} (touches a month before ${process.env.SINCE})`);
+    plans.splice(0, plans.length, ...plans.filter((p) => !held.includes(p)));
+  }
   for (const p of plans) {
     if (p.kind === "fold") console.log(`fold  ${seq(p.live.number).padStart(5)}${p.live.billPart ? `[${p.live.billPart}]` : ""} → ${seq(p.root.number)} (dated ${p.root.issuedAt.toISOString().slice(0, 10)}) ₹${Number(p.live.totalPaise) / 100} · ${p.live.customerName} · supersedes ${p.supersede.map((s) => seq(s.number)).join(",")}`);
     else console.log(`dup   keep ${seq(p.keep.number)} · supersede ${p.supersede.map((s) => seq(s.number)).join(",")} · ${p.keep.customerName}`);

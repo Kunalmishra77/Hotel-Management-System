@@ -167,6 +167,9 @@ export const DOMAIN_EVENT_TYPES = [
   "ImportantDateChanged",
   "OwnerPayoutRecorded",
   "OwnerPayoutPaid",
+
+  // 08 reports — OTA deduction settings (22 Nov 2026)
+  "ChannelDeductionChanged",
 ] as const;
 
 export type DomainEventType = (typeof DOMAIN_EVENT_TYPES)[number];

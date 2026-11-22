@@ -69,3 +69,5 @@ Every business state change emits an immutable event (persisted to `DomainEvent`
 - **Ordering**: `DomainEvent.seq` (monotonic) gives deterministic per-aggregate order even for multiple events in one transaction. Cross-aggregate order not assumed.
 - **At-least-once** delivery with idempotent consumers (dedupe on event id). **Inbox** dedupes inbound provider events on provider id.
 - **Accounting (22)** consumes `InvoiceIssued`, `PaymentReceived`, `PaymentRefunded`, `ExpenseRecorded`, `PayrollFinalized` — **not** raw `FolioCharged` (avoids double entries).
+
+| `ChannelDeductionChanged` | 08 reports | An OTA commission / TCS / TDS setting changed (22 Nov 2026) |

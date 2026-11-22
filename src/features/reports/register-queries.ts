@@ -13,7 +13,8 @@
 import { db } from "@/lib/db";
 import { authorize } from "@/lib/permissions";
 import { localDayInstants } from "@/lib/local-day";
-import { activeLines } from "@/features/billing";
+import { activeLines, lineSource, OTA_SOURCES } from "@/features/billing";
+import { DEFAULT_DEDUCTION, type DeductionRule } from "./domain/ota-deduction";
 import type { SessionClaims } from "@/lib/auth/claims";
 
 export type RegisterBasis = "checkin" | "stay" | "booked";
@@ -39,6 +40,8 @@ export type BookingRegisterEntry = {
   paidPaise: number;
   balancePaise: number;
   invoices: string;
+  /** The OTA-sold part of the stay, per channel (its nights' charges ex-GST + GST) — what commission applies to. */
+  otaParts: { source: string; basePaise: number; gstPaise: number }[];
 };
 
 const ymd = (d: Date) => d.toISOString().slice(0, 10);
@@ -59,11 +62,12 @@ export async function bookingRegister(
     select: {
       id: true, propertyId: true, code: true, status: true, source: true, checkInDate: true, checkOutDate: true,
       nights: true, ratePaise: true, createdAt: true,
+      extensions: { select: { fromDate: true, toDate: true, source: true } },
       guest: { select: { fullName: true, companyName: true } },
       allocations: { select: { room: { select: { number: true } } }, orderBy: { startDate: "asc" } },
       folio: {
         select: {
-          lines: { select: { id: true, type: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, businessDate: true, revision: true, reversalOfId: true } },
+          lines: { select: { id: true, type: true, description: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, businessDate: true, revision: true, reversalOfId: true } },
           payments: { select: { amountPaise: true, isRefund: true } },
           invoices: { where: { supersededById: null }, select: { id: true, number: true, type: true, cancelsInvoiceId: true } },
         },
@@ -78,6 +82,18 @@ export async function bookingRegister(
     for (const l of lines) { charges += Number(l.amountPaise); tax += l.cgstPaise + l.sgstPaise + l.igstPaise; }
     let paid = 0;
     for (const p of r.folio?.payments ?? []) paid += (p.isRefund ? -1 : 1) * Number(p.amountPaise);
+    // Which channel sold each line (billing's rule — the same split as the bills).
+    const all = r.folio?.lines ?? [];
+    const byId = new Map(all.map((l) => [l.id, l]));
+    const ctx = { bookingSource: r.source, extensions: r.extensions };
+    const ota = new Map<string, { basePaise: number; gstPaise: number }>();
+    for (const l of lines) {
+      const s = lineSource(l, byId, ctx);
+      if (!OTA_SOURCES.has(s)) continue;
+      const acc = ota.get(s) ?? { basePaise: 0, gstPaise: 0 };
+      acc.basePaise += Number(l.amountPaise); acc.gstPaise += l.cgstPaise + l.sgstPaise + l.igstPaise;
+      ota.set(s, acc);
+    }
     const invs = r.folio?.invoices ?? [];
     const credited = new Set(invs.map((i) => i.cancelsInvoiceId).filter(Boolean));
     const liveNumbers = invs.filter((i) => i.type === "TAX_INVOICE" && !credited.has(i.id)).map((i) => i.number.replace("WASPL :", "").replace(/\/ \d\d-\d\d$/, ""));
@@ -88,6 +104,7 @@ export async function bookingRegister(
       bookedOn: r.createdAt.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }), ratePaise: r.ratePaise,
       chargesPaise: charges, taxPaise: tax, billPaise: charges + tax, paidPaise: paid, balancePaise: charges + tax - paid,
       invoices: liveNumbers.join(", "),
+      otaParts: [...ota.entries()].map(([source, v]) => ({ source, ...v })),
     };
   });
 }
@@ -136,4 +153,15 @@ export async function collectionsRegister(
       receivedBy: (p.receivedById && nameOf.get(p.receivedById)) || "—", forLabel, reservationId: res?.id ?? null,
     };
   });
+}
+
+/** Each OTA's deduction rule (the hotel's settings, else the defaults). */
+export async function channelDeductionRules(user: SessionClaims): Promise<Record<string, DeductionRule & { set: boolean }>> {
+  const rows = await db.scoped(user).channelDeduction.findMany({ where: { orgId: user.orgId } });
+  const out: Record<string, DeductionRule & { set: boolean }> = {};
+  for (const s of OTA_SOURCES) out[s] = { ...DEFAULT_DEDUCTION, set: false };
+  for (const r of rows) {
+    out[r.source] = { commissionBps: r.commissionBps, commissionOnGross: r.commissionOnGross, gstOnCommissionBps: r.gstOnCommissionBps, tcsBps: r.tcsBps, tdsBps: r.tdsBps, set: true };
+  }
+  return out;
 }

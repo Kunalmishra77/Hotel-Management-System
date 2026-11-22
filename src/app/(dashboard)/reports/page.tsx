@@ -14,7 +14,9 @@ import { ExportReportButton } from "@/features/reports/components/export-report-
 import { ReportTabs, REPORT_TYPES, type ReportType } from "@/features/reports/components/report-tabs";
 import { ReportTable, type ReportColumn, type ReportRow } from "@/features/reports/components/report-table";
 import { ExportTableButton } from "@/features/reports/components/export-table-button";
-import { bookingRegister, collectionsRegister, type RegisterBasis, type BookingRegisterEntry } from "@/features/reports/register-queries";
+import { bookingRegister, collectionsRegister, channelDeductionRules, type RegisterBasis, type BookingRegisterEntry } from "@/features/reports/register-queries";
+import { OtaDeductionSettings } from "@/features/reports/components/ota-deduction-settings";
+import { otaDeduction, addDeduction, ZERO_DEDUCTION, type Deduction } from "@/features/reports/domain/ota-deduction";
 import { BookingRegisterView } from "@/features/reports/components/booking-register-view";
 import { CollectionsView } from "@/features/reports/components/collections-view";
 import Link from "next/link";
@@ -152,11 +154,34 @@ async function OccupancySection({ user, month, propertyIds, from, to }: SectionI
 }
 
 async function SourceSection({ user, month, propertyIds, from, to }: SectionInput) {
-  const [segments, register] = await Promise.all([
+  const [segments, register, rules] = await Promise.all([
     revenueSegments(user, { propertyIds, from, to }),
     bookingRegister(user, { propertyIds, from, to, basis: "checkin" }),
+    channelDeductionRules(user),
   ]);
   const channelRows = channelPerformance(register);
+  // What each OTA kept: per booking, on the nights that channel sold (cancelled /
+  // no-show bookings with no charges add nothing).
+  const byOta = new Map<string, Deduction & { bookings: number }>();
+  for (const r of register) {
+    for (const part of r.otaParts) {
+      const rule = rules[part.source];
+      if (!rule || part.basePaise <= 0) continue;
+      const prev = byOta.get(part.source) ?? { ...ZERO_DEDUCTION, bookings: 0 };
+      byOta.set(part.source, { ...addDeduction(prev, otaDeduction(part.basePaise, part.gstPaise, rule)), bookings: prev.bookings + 1 });
+    }
+  }
+  const otaRows: ReportRow[] = [...byOta.entries()].map(([src, d]) => ({
+    source: sourceLabel(src) + (rules[src]?.set ? "" : " (commission not set)"), bookings: d.bookings, gross: d.grossPaise, commission: d.commissionPaise,
+    gst: d.gstOnCommissionPaise, tcs: d.tcsPaise, tds: d.tdsPaise, deduction: d.deductionPaise, net: d.netPaise,
+  }));
+  const otaTotal = [...byOta.values()].reduce((a, d) => ({ ...addDeduction(a, d), bookings: a.bookings + d.bookings }), { ...ZERO_DEDUCTION, bookings: 0 });
+  const otaColumns: ReportColumn[] = [
+    { key: "source", label: "Channel" }, { key: "bookings", label: "Bookings", format: "text", align: "right" },
+    { key: "gross", label: "Sale incl. GST", format: "money" }, { key: "commission", label: "Commission", format: "money" },
+    { key: "gst", label: "GST on commission", format: "money" }, { key: "tcs", label: "TCS", format: "money" }, { key: "tds", label: "TDS", format: "money" },
+    { key: "deduction", label: "OTA keeps", format: "money" }, { key: "net", label: "Net to hotel", format: "money" },
+  ];
   const columns: ReportColumn[] = [
     { key: "source", label: "Booking source" },
     { key: "revenue", label: "Revenue", format: "money" },
@@ -172,6 +197,9 @@ async function SourceSection({ user, month, propertyIds, from, to }: SectionInpu
   const corpRows: ReportRow[] = segments.corporates.map((c) => ({ name: c.name, roomNights: c.roomNights, revenue: c.revenuePaise }));
   return (
     <>
+      <ReportSection title={`What each OTA keeps · ${month}`} subtitle="Per channel, on the nights it sold: commission, GST on commission (input credit), TCS and TDS (tax credit), and what reaches the hotel. Rates from the settings below." filename={`ota-deductions-${month}.csv`} columns={otaColumns} rows={otaRows}
+        totalsRow={{ source: "All OTAs", bookings: otaTotal.bookings, gross: otaTotal.grossPaise, commission: otaTotal.commissionPaise, gst: otaTotal.gstOnCommissionPaise, tcs: otaTotal.tcsPaise, tds: otaTotal.tdsPaise, deduction: otaTotal.deductionPaise, net: otaTotal.netPaise }} />
+      <OtaDeductionSettings rules={rules} canEdit={hasPermission(user, "settings:manage")} />
       <ReportSection title={`Bookings by channel · ${month}`} subtitle="Bookings checking in during the period, per channel: cancellations, room-nights, billed and still due." filename={`channels-${month}.csv`} columns={CHANNEL_COLUMNS} rows={channelRows.rows} totalsRow={channelRows.totals} />
       <ReportSection title={`Revenue by source · ${month}`} subtitle="Where the period's revenue came from (net of discounts, ex-tax)." filename={`revenue-by-source-${month}.csv`} columns={columns} rows={rows} totalsRow={totalsRow} />
       {corpRows.length > 0 ? (
