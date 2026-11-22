@@ -30,3 +30,10 @@ Reports load within budget on 10+ properties / years of history via snapshots + 
 
 ## Business rules referenced
 `business-rules.md` §15 (closed = snapshot, open = live), §20–21 (authorize/audit; no divergent recompute); `reporting.md` (every metric definition).
+
+## Addendum — first-class registers (client, 22 Nov 2026)
+- **FR-R-1** Period = This month / Last month / any month / custom date range; changing a filter keeps the report tab.
+- **FR-R-2 Booking register**: every booking of the period (by check-in date, by any night stayed in the period, or by booked-on date) with guest, company, hotel, room, source, status, dates, nights, rate, charges ex-GST, GST, bill, paid, balance, current invoice numbers — read from the folio (never re-estimated). Search + source/status/dues filters; the summary tiles and the CSV follow the filters; each row opens the booking.
+- **FR-R-3 Daily collections**: every payment/refund in the period with mode, who received it and what it was for; totals per mode and a day × mode grid (evening cash match).
+- **FR-R-4 Channels**: per booking source — bookings, cancelled, no-show, room-nights, billed ex-GST, average per room-night, paid, still due (OTA commission columns follow once the client's rates arrive).
+- **FR-R-5 GST**: B2B (with GSTIN) vs B2C split for GSTR-1; corrected bills count once at their current revision.

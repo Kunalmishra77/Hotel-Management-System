@@ -3,7 +3,7 @@ import { localToday } from "@/lib/local-day";
 import { requirePermission } from "@/lib/auth/guard";
 import { hasPermission } from "@/lib/permissions";
 import { NoProperty } from "@/features/platform/components/no-property";
-import { profitReport, revenueSegments, bookingsReport, roomsReport, gstReport, gstInvoiceRegister, bookingsRegister } from "@/features/reports/queries";
+import { profitReport, revenueSegments, bookingsReport, roomsReport, gstReport, gstInvoiceRegister } from "@/features/reports/queries";
 import { perPropertyStats } from "@/features/analytics/queries";
 import { perPropertyBillingRollup } from "@/features/command-center/queries";
 import { listAccessibleProperties } from "@/features/platform/actions";
@@ -14,10 +14,20 @@ import { ExportReportButton } from "@/features/reports/components/export-report-
 import { ReportTabs, REPORT_TYPES, type ReportType } from "@/features/reports/components/report-tabs";
 import { ReportTable, type ReportColumn, type ReportRow } from "@/features/reports/components/report-table";
 import { ExportTableButton } from "@/features/reports/components/export-table-button";
+import { bookingRegister, collectionsRegister, type RegisterBasis, type BookingRegisterEntry } from "@/features/reports/register-queries";
+import { BookingRegisterView } from "@/features/reports/components/booking-register-view";
+import { CollectionsView } from "@/features/reports/components/collections-view";
+import Link from "next/link";
 
 export const metadata: Metadata = { title: "Reports" };
 
 const MONTH_RE = /^\d{4}-\d{2}$/;
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const BASES: { key: RegisterBasis; label: string }[] = [
+  { key: "checkin", label: "Check-in in the period" },
+  { key: "stay", label: "Staying any night in the period" },
+  { key: "booked", label: "Booked in the period" },
+];
 const monthEnd = (month: string): Date => {
   const [y, m] = month.split("-").map(Number);
   return new Date(Date.UTC(y!, m!, 0));
@@ -41,7 +51,7 @@ const bpsToPct = (bps: number) => Math.round(bps / 100);
 export default async function ReportsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ report?: string; month?: string; properties?: string }>;
+  searchParams: Promise<{ report?: string; month?: string; properties?: string; from?: string; to?: string; basis?: string }>;
 }) {
   const user = await requirePermission("report:view-financial");
   const properties = await listAccessibleProperties();
@@ -66,8 +76,15 @@ export default async function ReportsPage({
   const costCenterIds = (await listCostCenters(user)).map((p) => p.id);
   const overheadPropertyIds = requested.length === 0 ? costCenterIds : [];
 
-  const from = new Date(`${month}-01T00:00:00.000Z`);
-  const to = month === currentMonth ? localToday() : monthEnd(month);
+  // A custom range (from/to) overrides the month.
+  const range = sp.from && sp.to && DAY_RE.test(sp.from) && DAY_RE.test(sp.to) && sp.from <= sp.to ? { from: sp.from, to: sp.to } : null;
+  const from = range ? new Date(`${range.from}T00:00:00.000Z`) : new Date(`${month}-01T00:00:00.000Z`);
+  const to = range ? new Date(`${range.to}T00:00:00.000Z`) : month === currentMonth ? localToday() : monthEnd(month);
+  const periodLabel = range ? `${range.from} to ${range.to}` : month;
+  const basis: RegisterBasis = BASES.some((b) => b.key === sp.basis) ? (sp.basis as RegisterBasis) : "checkin";
+  const keep = new URLSearchParams();
+  if (range) { keep.set("from", range.from); keep.set("to", range.to); } else keep.set("month", month);
+  if (propsParam) keep.set("properties", propsParam);
 
   const scopeLabel = propertyIds.length === 1
     ? (properties.find((p) => p.id === propertyIds[0])?.name ?? "1 property")
@@ -75,21 +92,23 @@ export default async function ReportsPage({
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-4 p-4">
-      <ReportsFilterBar properties={properties} selected={propertyIds} month={month} />
-      <ReportTabs active={reportType} month={month} properties={propsParam} />
+      <ReportsFilterBar properties={properties} selected={propertyIds} month={month} range={range} />
+      <ReportTabs active={reportType} query={keep.toString()} />
 
       {reportType === "profit" ? (
         await ProfitSection({ user, month, propertyIds, from, to, scopeLabel, propertyCount: propertyIds.length, overheadPropertyIds })
       ) : reportType === "occupancy" ? (
-        await OccupancySection({ user, month, propertyIds, from, to })
+        await OccupancySection({ user, month: periodLabel, propertyIds, from, to })
       ) : reportType === "bookings" ? (
-        await BookingsSection({ user, month, propertyIds, from, to, nameOf })
+        await BookingsSection({ user, month: periodLabel, propertyIds, from, to, nameOf, basis, keep: keep.toString() })
+      ) : reportType === "collections" ? (
+        await CollectionsSection({ user, month: periodLabel, propertyIds, from, to, nameOf })
       ) : reportType === "rooms" ? (
         await RoomsSection({ user, month, propertyIds, from, to, nameOf })
       ) : reportType === "source" ? (
-        await SourceSection({ user, month, propertyIds, from, to })
+        await SourceSection({ user, month: periodLabel, propertyIds, from, to })
       ) : reportType === "gst" ? (
-        await GstSection({ user, month, propertyIds, from, to, nameOf })
+        await GstSection({ user, month: periodLabel, propertyIds, from, to, nameOf })
       ) : (
         await DuesSection({ user, propertyIds })
       )}
@@ -133,7 +152,11 @@ async function OccupancySection({ user, month, propertyIds, from, to }: SectionI
 }
 
 async function SourceSection({ user, month, propertyIds, from, to }: SectionInput) {
-  const segments = await revenueSegments(user, { propertyIds, from, to });
+  const [segments, register] = await Promise.all([
+    revenueSegments(user, { propertyIds, from, to }),
+    bookingRegister(user, { propertyIds, from, to, basis: "checkin" }),
+  ]);
+  const channelRows = channelPerformance(register);
   const columns: ReportColumn[] = [
     { key: "source", label: "Booking source" },
     { key: "revenue", label: "Revenue", format: "money" },
@@ -149,6 +172,7 @@ async function SourceSection({ user, month, propertyIds, from, to }: SectionInpu
   const corpRows: ReportRow[] = segments.corporates.map((c) => ({ name: c.name, roomNights: c.roomNights, revenue: c.revenuePaise }));
   return (
     <>
+      <ReportSection title={`Bookings by channel · ${month}`} subtitle="Bookings checking in during the period, per channel: cancellations, room-nights, billed and still due." filename={`channels-${month}.csv`} columns={CHANNEL_COLUMNS} rows={channelRows.rows} totalsRow={channelRows.totals} />
       <ReportSection title={`Revenue by source · ${month}`} subtitle="Where the period's revenue came from (net of discounts, ex-tax)." filename={`revenue-by-source-${month}.csv`} columns={columns} rows={rows} totalsRow={totalsRow} />
       {corpRows.length > 0 ? (
         <ReportSection title="Top corporate clients & travel agents" subtitle="By revenue over the period." filename={`corporate-revenue-${month}.csv`} columns={corpColumns} rows={corpRows} />
@@ -157,7 +181,7 @@ async function SourceSection({ user, month, propertyIds, from, to }: SectionInpu
   );
 }
 
-async function BookingsSection({ user, month, propertyIds, from, to, nameOf }: SectionInput & { nameOf: (id: string) => string }) {
+async function BookingsSection({ user, month, propertyIds, from, to, nameOf, basis, keep }: SectionInput & { nameOf: (id: string) => string; basis: RegisterBasis; keep: string }) {
   const rows = await bookingsReport(user, { propertyIds, from, to });
   const columns: ReportColumn[] = [
     { key: "property", label: "Property", format: "property" },
@@ -173,30 +197,43 @@ async function BookingsSection({ user, month, propertyIds, from, to, nameOf }: S
   const sum = (k: keyof (typeof rows)[number]) => rows.reduce((n, r) => n + (r[k] as number), 0);
   const totalsRow: ReportRow = { property: "All properties", total: sum("total"), confirmed: sum("confirmed"), inHouse: sum("inHouse"), checkedOut: sum("checkedOut"), cancelled: sum("cancelled"), noShow: sum("noShow"), roomNights: sum("roomNights") };
 
-  // Detailed register — one row per booking.
-  const register = await bookingsRegister(user, { propertyIds, from, to });
-  const regColumns: ReportColumn[] = [
-    { key: "code", label: "Booking" },
-    { key: "guest", label: "Guest" },
-    { key: "property", label: "Property", format: "property" },
-    { key: "source", label: "Source" },
-    { key: "status", label: "Status" },
-    { key: "checkIn", label: "Check-in" },
-    { key: "checkOut", label: "Check-out" },
-    { key: "nights", label: "Nights", format: "text", align: "right" },
-    { key: "rate", label: "Rate/night", format: "money" },
-  ];
-  const regRows: ReportRow[] = register.map((b) => ({
-    code: b.code, guest: b.guestName, property: nameOf(b.propertyId), source: sourceLabel(b.source), status: b.status,
-    checkIn: b.checkInDate.toISOString().slice(0, 10), checkOut: b.checkOutDate.toISOString().slice(0, 10),
-    nights: b.nights, rate: b.ratePaise,
-  }));
+  // The detailed register — one row per booking with its money (folio truth).
+  const register = await bookingRegister(user, { propertyIds, from, to, basis });
+  const names = Object.fromEntries(propertyIds.map((id) => [id, nameOf(id)]));
 
   return (
     <div className="space-y-6">
-      <ReportSection title={`Bookings · ${month}`} subtitle="Bookings in the period (by check-in date), per property and status." filename={`bookings-${month}.csv`} columns={columns} rows={tableRows} totalsRow={totalsRow} />
-      <ReportSection title="Booking register · per booking" subtitle="Every booking in the period with guest, source, dates and rate — the detailed list." filename={`booking-register-${month}.csv`} columns={regColumns} rows={regRows} />
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-base font-semibold">Booking register · {month}</h2>
+          <p className="text-sm text-muted-foreground">Every booking with its bill, payments, balance and invoice number. Click a booking to open it.</p>
+        </div>
+        <nav className="flex flex-wrap gap-1.5" aria-label="Which bookings">
+          {BASES.map((b) => (
+            <Link key={b.key} href={`/reports?report=bookings&${keep}&basis=${b.key}`} aria-current={b.key === basis ? "page" : undefined}
+              className={`min-h-touch inline-flex items-center rounded-full border px-3 text-sm ${b.key === basis ? "border-primary bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+              {b.label}
+            </Link>
+          ))}
+        </nav>
+        <BookingRegisterView rows={register} propertyNames={names} filename={`booking-register-${month}.csv`} />
+      </section>
+      <ReportSection title={`Bookings by hotel · ${month}`} subtitle="Bookings checking in during the period, per hotel and status." filename={`bookings-${month}.csv`} columns={columns} rows={tableRows} totalsRow={totalsRow} />
     </div>
+  );
+}
+
+async function CollectionsSection({ user, month, propertyIds, from, to, nameOf }: SectionInput & { nameOf: (id: string) => string }) {
+  const rows = await collectionsRegister(user, { propertyIds, from, to });
+  const names = Object.fromEntries(propertyIds.map((id) => [id, nameOf(id)]));
+  return (
+    <section className="space-y-3">
+      <div>
+        <h2 className="text-base font-semibold">Daily collections · {month}</h2>
+        <p className="text-sm text-muted-foreground">Every payment and refund received — by mode, by day, and who received it. Use it to match the cash drawer each evening.</p>
+      </div>
+      <CollectionsView rows={rows} propertyNames={names} filename={`collections-${month}.csv`} />
+    </section>
   );
 }
 
@@ -270,8 +307,20 @@ async function GstSection({ user, month, propertyIds, from, to, nameOf }: Sectio
     total: register.reduce((n, i) => n + i.totalPaise, 0),
   };
 
+  // GSTR-1 split: B2B = invoices to a GSTIN holder; B2C = everyone else.
+  const split = (b2b: boolean) => register.filter((i) => !!i.customerGstin === b2b);
+  const splitRow = (label: string, list: typeof register): ReportRow => ({
+    kind: label, count: list.filter((i) => i.type !== "CREDIT_NOTE").length,
+    taxable: list.reduce((n, i) => n + i.taxablePaise, 0), cgst: list.reduce((n, i) => n + i.cgstPaise, 0),
+    sgst: list.reduce((n, i) => n + i.sgstPaise, 0), igst: list.reduce((n, i) => n + i.igstPaise, 0), total: list.reduce((n, i) => n + i.totalPaise, 0),
+  });
+  const splitColumns: ReportColumn[] = [
+    { key: "kind", label: "Type" }, { key: "count", label: "Invoices", format: "text", align: "right" }, { key: "taxable", label: "Taxable", format: "money" },
+    { key: "cgst", label: "CGST", format: "money" }, { key: "sgst", label: "SGST", format: "money" }, { key: "igst", label: "IGST", format: "money" }, { key: "total", label: "Total", format: "money" },
+  ];
   return (
     <div className="space-y-6">
+      <ReportSection title={`B2B vs B2C · ${month}`} subtitle="For GSTR-1: company bills with a GSTIN (B2B) and all other bills (B2C). Corrected bills count once, at their current version." filename={`gst-b2b-b2c-${month}.csv`} columns={splitColumns} rows={[splitRow("B2B (with GSTIN)", split(true)), splitRow("B2C", split(false))]} totalsRow={splitRow("Total", register)} />
       <ReportSection title={`GST summary · ${month}`} subtitle="GST collected per property from issued invoices (credit notes net out originals)." filename={`gst-summary-${month}.csv`} columns={columns} rows={tableRows} totalsRow={totalsRow} />
       <ReportSection title="GST register · per invoice" subtitle="Every invoice with its CGST / SGST / IGST breakup — the detailed register for filing." filename={`gst-register-${month}.csv`} columns={regColumns} rows={regRows} totalsRow={regTotals} />
     </div>
@@ -308,4 +357,39 @@ function ReportSection({ title, subtitle, filename, columns, rows, totalsRow }: 
       <ReportTable columns={columns} rows={rows} totalsRow={totalsRow} />
     </section>
   );
+}
+
+const CHANNEL_COLUMNS: ReportColumn[] = [
+  { key: "source", label: "Channel" },
+  { key: "bookings", label: "Bookings", format: "text", align: "right" },
+  { key: "cancelled", label: "Cancelled", format: "text", align: "right" },
+  { key: "noShow", label: "No-show", format: "text", align: "right" },
+  { key: "roomNights", label: "Room-nights", format: "text", align: "right" },
+  { key: "charges", label: "Billed (ex-GST)", format: "money" },
+  { key: "avg", label: "Avg / room-night", format: "money" },
+  { key: "paid", label: "Paid", format: "money" },
+  { key: "due", label: "Still due", format: "money" },
+];
+
+/** Per-channel performance of the period's bookings (from the booking register). */
+function channelPerformance(register: BookingRegisterEntry[]): { rows: ReportRow[]; totals: ReportRow } {
+  type Acc = { bookings: number; cancelled: number; noShow: number; roomNights: number; charges: number; paid: number; due: number };
+  const zero = (): Acc => ({ bookings: 0, cancelled: 0, noShow: 0, roomNights: 0, charges: 0, paid: 0, due: 0 });
+  const by = new Map<string, Acc>();
+  const all = zero();
+  for (const r of register) {
+    for (const a of [by.get(r.source) ?? zero(), all]) {
+      a.bookings += 1;
+      if (r.status === "CANCELLED") a.cancelled += 1;
+      else if (r.status === "NO_SHOW") a.noShow += 1;
+      else a.roomNights += r.nights;
+      a.charges += r.chargesPaise; a.paid += r.paidPaise; a.due += Math.max(0, r.balancePaise);
+      if (a !== all) by.set(r.source, a);
+    }
+  }
+  const row = (source: string, a: Acc): ReportRow => ({ source, ...a, avg: a.roomNights ? Math.round(a.charges / a.roomNights) : 0 });
+  return {
+    rows: [...by.entries()].sort((x, y) => y[1].charges - x[1].charges).map(([k, a]) => row(sourceLabel(k), a)),
+    totals: row("All channels", all),
+  };
 }
