@@ -19,8 +19,8 @@ import { DomainError, ErrorCode, NotFoundError } from "@/lib/errors";
 import { toResult, type Result } from "@/lib/result";
 import { db } from "@/lib/db";
 import { financialYearOf } from "./domain/money";
-import { assignParts, billParts, isGuestBill, billPartLabel, type PartContext } from "./domain/bill-parts";
-import { formatInvoiceNumber } from "./domain/invoice-number";
+import { billParts, isGuestBill, billPartLabel, type PartContext } from "./domain/bill-parts";
+import { billLines, claimInvoiceNumber, insertInvoice, nextFreeNumber } from "./invoice-issue";
 import { attachInvoicePdf } from "./invoice-pdf-store";
 import { billingDb, withBillingContext } from "./internal";
 import { searchInvoices, type InvoiceListItem } from "./queries";
@@ -148,118 +148,43 @@ export async function generateInvoice(input: unknown, opts: { renderPdf?: boolea
       select: { code: true, gstin: true, state: true, timezone: true },
     });
 
-    // A reversed line + its REVERSAL cancel out (net zero), so the invoice shows
-    // only the ACTIVE lines — a clean bill with no reversal clutter for the guest.
-    // Excluding both of a cancelling pair leaves the totals unchanged.
-    // One stay can carry separate bills (an OTA's nights vs everything paid at the
-    // hotel — bill-parts.ts); each gets its own invoice. With one bill, it's that one.
-    const ctx: PartContext = { bookingSource: folio.reservation?.source ?? null, extensions: folio.reservation?.extensions ?? [] };
-    const parts = billParts(folio.lines, folio.payments, ctx).filter((p) => p.lineIds.length > 0);
-    let billPart: string;
-    if (data.billPart) {
-      if (!parts.some((p) => p.part === data.billPart)) {
-        const msg = `This stay has no ${billPartLabel(data.billPart)} charges to invoice.`;
-        throw new DomainError(ErrorCode.VALIDATION_FAILED, msg, { publicMessage: msg });
-      }
-      billPart = data.billPart;
-    } else if (parts.length > 1) {
-      const msg = `This stay has separate bills (${parts.map((p) => p.label).join(" and ")}) — generate each one on its own.`;
-      throw new DomainError(ErrorCode.VALIDATION_FAILED, msg, { publicMessage: msg });
-    } else {
-      billPart = parts[0]?.part ?? "DIRECT";
-    }
-    const assigned = assignParts(folio.lines, ctx);
-    const reversedIds = new Set(folio.lines.filter((l) => l.reversalOfId).map((l) => l.reversalOfId));
-    const activeLines = folio.lines.filter((l) => l.type !== "REVERSAL" && !reversedIds.has(l.id) && assigned.get(l.id) === billPart);
-
-    // Totals are net-of-discount (discount lines are negative), tax-excluded taxable.
-    // The whole-rupee "Round off" line (added at check-out) is NOT taxable value —
-    // it only adjusts the grand total, so it's excluded from taxable/tax and added
-    // back to the total (standard Indian GST invoice presentation).
-    const isRoundOff = (l: { type: string; description: string }) => l.type === "MISC" && l.description === "Round off";
-    let taxable = 0n, cgst = 0, sgst = 0, igst = 0, roundOff = 0n;
-    for (const l of activeLines) {
-      if (isRoundOff(l)) { roundOff += BigInt(l.amountPaise); continue; }
-      taxable += BigInt(l.amountPaise);
-      cgst += l.cgstPaise; sgst += l.sgstPaise; igst += l.igstPaise;
-    }
-    const totalPaise = taxable + BigInt(cgst + sgst + igst) + roundOff;
-    // Don't issue an empty ₹0 bill (no billable charges) — it just clutters the
-    // register and burns a gap-free invoice number. Add charges first.
-    if (totalPaise === 0n) {
-      throw new DomainError(ErrorCode.VALIDATION_FAILED, "No charges to invoice — add charges to the folio first.");
-    }
+    // The bill's active lines + totals (one bill per channel on a split stay — bill-parts.ts).
+    const bill = billLines(folio, data.billPart);
+    const { billPart } = bill;
     const fy = financialYearOf(new Date(), property.timezone);
-    const placeOfSupply = igst > 0 ? (data.billToState ?? property.state) : property.state;
+    const placeOfSupply = bill.igst > 0 ? (data.billToState ?? property.state) : property.state;
+    const billTo = {
+      customerName: data.customerName, customerGstin: data.customerGstin ?? null, customerAddress: data.customerAddress ?? null,
+      customerState: data.customerState ?? null, customerPhone: data.customerPhone ?? null, guestName: data.guestName ?? null,
+    };
 
-    // The numbering tx runs UNSCOPED: the scope extension wraps compound-unique
-    // `where`s (InvoiceSeries upsert/update) into an AND filter Prisma rejects.
-    // Scope is already enforced — authorize() checked invoice:generate on this
-    // folio's property, and every write below pins propertyId explicitly.
+    // The numbering tx runs UNSCOPED: compound-unique series writes don't survive the
+    // scope extension. Scope is already enforced — authorize() checked
+    // invoice:generate on this folio's property, and every write pins propertyId.
     const result = await withBillingContext(user, () =>
       db.unscoped().$transaction(async (tx) => {
-        // One live tax invoice per bill. A second one for the same supply double-counts
-        // it (3 folios had 2–3 live invoices). A revised bill goes through Void &
-        // revise: the credit note cancels the old invoice, then this issues the new one.
-        // Checked INSIDE the numbering transaction so a double-click can't race it.
-        // One live invoice PER BILL; an older whole-stay invoice (billPart null)
-        // covers every bill, so it must be voided first.
-        const existing = await tx.invoice.findMany({ where: { folioId: folio.id }, select: { id: true, number: true, type: true, cancelsInvoiceId: true, billPart: true } });
+        // One live tax invoice per bill (a second one double-counts the supply). A
+        // correction goes through "Correct bill" (same number, next revision).
+        // Checked INSIDE the transaction so a double-click can't race it. An older
+        // whole-stay invoice (billPart null) covers every bill.
+        const existing = await tx.invoice.findMany({ where: { folioId: folio.id, supersededById: null }, select: { id: true, number: true, type: true, cancelsInvoiceId: true, billPart: true } });
         const credited = new Set(existing.filter((i) => i.cancelsInvoiceId).map((i) => i.cancelsInvoiceId));
         const live = existing.find((i) => i.type === "TAX_INVOICE" && !credited.has(i.id) && (i.billPart === null || i.billPart === billPart));
         if (live) {
-          const msg = `This bill already has invoice ${live.number}. Use "Void & revise" on it to issue a corrected one.`;
+          const msg = `This bill already has invoice ${live.number}. Use "Correct bill" on it — it keeps the same number.`;
           throw new DomainError(ErrorCode.CONFLICT, msg, { publicMessage: msg });
         }
-        // One company-wide (org-level) gap-free series — a single running number
-        // across all properties, prefixed "WASPL". Allocated under a row lock.
-        await tx.companyInvoiceSeries.upsert({
-          where: { orgId_financialYear: { orgId: user.orgId, financialYear: fy } },
-          create: { orgId: user.orgId, financialYear: fy, prefix: "WASPL", nextNumber: 1 },
-          update: {},
+        const { number, revision } = await claimInvoiceNumber(tx, { orgId: user.orgId, financialYear: fy, folioId: folio.id, billPart, ...(data.seq !== undefined ? { seq: data.seq } : {}) });
+        const { invoiceId } = await insertInvoice(tx, {
+          propertyId: folio.propertyId, folioId: folio.id, number, revision, financialYear: fy, billPart, billTo,
+          placeOfSupply, issuedById: user.userId, taxable: bill.taxable, cgst: bill.cgst, sgst: bill.sgst, igst: bill.igst,
+          totalPaise: bill.totalPaise, lines: bill.lines, action: "invoice:generate",
+          ...(data.seq !== undefined ? { reason: `bill number typed: ${number}` } : {}),
         });
-        const series = await tx.companyInvoiceSeries.update({
-          where: { orgId_financialYear: { orgId: user.orgId, financialYear: fy } },
-          data: { nextNumber: { increment: 1 } },
-          select: { prefix: true, nextNumber: true },
-        });
-        const number = formatInvoiceNumber({ prefix: series.prefix, financialYear: fy, nextNumber: series.nextNumber - 1 });
-
-        const invoice = await tx.invoice.create({
-          data: {
-            propertyId: folio.propertyId, folioId: folio.id, number, financialYear: fy,
-            type: data.type, cancelsInvoiceId: data.cancelsInvoiceId ?? null,
-            customerName: data.customerName, customerGstin: data.customerGstin ?? null,
-            placeOfSupply, taxableValuePaise: taxable, cgstPaise: cgst, sgstPaise: sgst, igstPaise: igst,
-            totalPaise, pdfObjectKey: null, issuedById: user.userId, billPart,
-          },
-          select: { id: true },
-        });
-        // Freeze the invoiced lines (06 FR-21). The PDF renders from these, so the
-        // document can never be stale or inconsistent with its own totals.
-        if (activeLines.length > 0) {
-          await tx.invoiceLine.createMany({
-            data: activeLines.map((l, idx) => ({
-              invoiceId: invoice.id,
-              type: String(l.type),
-              description: l.description,
-              quantity: l.quantity,
-              unitPaise: l.unitPaise,
-              amountPaise: l.amountPaise,
-              taxRateBps: l.taxRateBps,
-              cgstPaise: l.cgstPaise,
-              sgstPaise: l.sgstPaise,
-              igstPaise: l.igstPaise,
-              hsnSac: l.hsnSac,
-              sortOrder: idx,
-            })),
-          });
-        }
-        await emitEvent(tx, { type: "InvoiceIssued", aggregateId: invoice.id, propertyId: folio.propertyId, payload: { number, totalPaise: Number(totalPaise), type: data.type, billPart } });
-        await writeAudit(tx, { action: "invoice:generate", entityType: "Invoice", entityId: invoice.id, propertyId: folio.propertyId, after: { number, totalPaise: Number(totalPaise), billPart } });
-        return { invoiceId: invoice.id, number };
+        return { invoiceId, number };
       }),
     );
+    const { taxable, cgst, sgst, igst, totalPaise } = bill;
 
     // AFTER commit: render + store the styled PDF (retryable; a failure leaves a
     // valid invoice with pdfObjectKey null — it renders on first download). Skipped
@@ -267,7 +192,7 @@ export async function generateInvoice(input: unknown, opts: { renderPdf?: boolea
     if (renderPdf) {
       await attachInvoicePdf(result.invoiceId, folio.id, {
         number: result.number, issuedAt: new Date(),
-        customerName: data.customerName, customerGstin: data.customerGstin ?? null, placeOfSupply,
+        ...billTo, placeOfSupply,
         taxablePaise: Number(taxable), cgstPaise: cgst, sgstPaise: sgst, igstPaise: igst, totalPaise: Number(totalPaise),
         billPart,
       });
@@ -297,7 +222,7 @@ export async function autoIssueInvoiceOnCheckout(reservationId: string, opts: { 
         id: true,
         lines: { select: { id: true, type: true, description: true, businessDate: true, reversalOfId: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true } },
         payments: { select: { mode: true, reference: true, amountPaise: true, isRefund: true } },
-        invoices: { select: { id: true, type: true, cancelsInvoiceId: true, billPart: true } },
+        invoices: { where: { supersededById: null }, select: { id: true, type: true, cancelsInvoiceId: true, billPart: true } },
         reservation: { select: { source: true, extensions: { select: { fromDate: true, toDate: true, source: true } }, guest: { select: { fullName: true, gstNumber: true } } } },
       },
     });
@@ -356,7 +281,10 @@ export async function voidInvoice(input: unknown): Promise<Result<InvoiceResult>
         // Only a live TAX invoice can be voided, and only once — a double-click or a
         // stale tab must not issue a second credit note (books would go negative)
         // nor "void" a credit note. Re-checked inside the numbering transaction.
-        const target = await tx.invoice.findUnique({ where: { id: original.id }, select: { type: true } });
+        const target = await tx.invoice.findUnique({ where: { id: original.id }, select: { type: true, supersededById: true } });
+        if (target?.supersededById) {
+          throw new DomainError(ErrorCode.CONFLICT, "This bill was corrected — cancel its current version instead.", { publicMessage: "This bill was corrected — cancel its current version instead." });
+        }
         if (target?.type !== "TAX_INVOICE") {
           throw new DomainError(ErrorCode.VALIDATION_FAILED, "Only a tax invoice can be voided.", { publicMessage: "Only a tax invoice can be voided." });
         }
@@ -365,18 +293,8 @@ export async function voidInvoice(input: unknown): Promise<Result<InvoiceResult>
           const msg = `This invoice is already voided by credit note ${prior.number}.`;
           throw new DomainError(ErrorCode.CONFLICT, msg, { publicMessage: msg });
         }
-        // Credit note draws from the SAME company-wide series as the invoice.
-        await tx.companyInvoiceSeries.upsert({
-          where: { orgId_financialYear: { orgId: user.orgId, financialYear: original.financialYear } },
-          create: { orgId: user.orgId, financialYear: original.financialYear, prefix: "WASPL", nextNumber: 1 },
-          update: {},
-        });
-        const series = await tx.companyInvoiceSeries.update({
-          where: { orgId_financialYear: { orgId: user.orgId, financialYear: original.financialYear } },
-          data: { nextNumber: { increment: 1 } },
-          select: { prefix: true, nextNumber: true },
-        });
-        const number = formatInvoiceNumber({ prefix: series.prefix, financialYear: original.financialYear, nextNumber: series.nextNumber - 1 });
+        // Credit note draws its own number from the SAME company-wide series.
+        const number = await nextFreeNumber(tx, { orgId: user.orgId, financialYear: original.financialYear });
         const total = -original.totalPaise;
         const creditNote = await tx.invoice.create({
           data: {

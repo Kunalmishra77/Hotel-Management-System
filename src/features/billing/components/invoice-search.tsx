@@ -122,6 +122,9 @@ export function InvoiceSearch({ properties, gstOnly: initialGst = false }: { pro
                     <td className="py-2.5 pl-3 pr-3 font-mono text-xs">
                       {r.number}
                       {!isGuestBill(r.billPart) ? <span className="mt-0.5 block font-sans text-[11px] text-muted-foreground">{billPartLabel(r.billPart)} bill · hotel copy</span> : null}
+                      {r.manual || r.revision > 0 ? (
+                        <span className="mt-0.5 block font-sans text-[11px] text-muted-foreground">{[r.manual ? "Manual bill" : "", r.revision > 0 ? `corrected${r.revision > 1 ? ` ×${r.revision}` : ""}` : ""].filter(Boolean).join(" · ")}</span>
+                      ) : null}
                     </td>
                     <td className="py-2.5 px-3 whitespace-nowrap text-muted-foreground">{fmtDate(r.issuedAt)}</td>
                     <td className="py-2.5 px-3 font-medium">{r.customerName}</td>
@@ -132,8 +135,10 @@ export function InvoiceSearch({ properties, gstOnly: initialGst = false }: { pro
                       <div className="flex items-center justify-end gap-3">
                         <a href={`/api/invoices/${r.id}`} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">View</a>
                         <a href={`/api/invoices/${r.id}?download=1`} className="text-primary underline underline-offset-4">Download</a>
-                        {r.reservationId ? (
-                          <a href={`/bookings/${r.reservationId}/folio`} className="text-primary underline underline-offset-4" title="Open the bill to void & re-issue with a corrected name / GSTIN">Revise</a>
+                        {r.manual ? (
+                          <a href={`/billing/manual?invoice=${r.id}`} className="text-primary underline underline-offset-4" title="Correct this manual bill — it keeps the same number">Correct</a>
+                        ) : r.reservationId ? (
+                          <a href={`/bookings/${r.reservationId}/folio`} className="text-primary underline underline-offset-4" title="Open the bill to correct it — it keeps the same number">Correct</a>
                         ) : null}
                         {/* Only the direct bill goes to the guest; an OTA bill is the hotel's copy. */}
                         {isGuestBill(r.billPart) ? <button type="button" onClick={() => void share(r.id)} className="text-primary underline underline-offset-4">Share</button> : null}

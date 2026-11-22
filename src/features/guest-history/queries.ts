@@ -120,7 +120,7 @@ export async function getGuestHistory(user: SessionClaims, guestId: string): Pro
   const [snapshot, invoices, payments, feedback] = await Promise.all([
     prisma.guestStatsSnapshot.findUnique({ where: { guestId } }),
     prisma.invoice.findMany({
-      where: { folio: { reservation: { guestId, property: { orgId: user.orgId } } } },
+      where: { supersededById: null, folio: { reservation: { guestId, property: { orgId: user.orgId } } } },
       select: { number: true, type: true, totalPaise: true, pdfObjectKey: true },
       orderBy: { issuedAt: "desc" },
       take: 50,

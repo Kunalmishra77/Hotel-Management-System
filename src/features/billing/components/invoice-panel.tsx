@@ -2,12 +2,12 @@
 
 /**
  * Bills on a folio — pick any invoice to see who it was billed to and its tax
- * breakup, open / download its PDF, or void & revise it; and the "Bill to" form
- * used when issuing (or re-issuing) a GST invoice, so the name and GSTIN can be
- * corrected on the revised bill (client: "pick any invoice, edit and re-issue").
+ * breakup, open / download its PDF, correct it or cancel it; and the "Bill to"
+ * form used when issuing or correcting a GST invoice.
  *
- * A tax invoice is never edited in place (GST): voiding issues a credit note on
- * the same series, then a new invoice is generated with the corrected details.
+ * One bill, one number (client, 22 Nov 2026 — specs/06 FR-RV-1): "Correct bill"
+ * re-issues the SAME number as the next revision (the old one is kept, superseded).
+ * "Cancel bill" (credit note) is only for a stay that was cancelled or refunded.
  */
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -16,22 +16,23 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import type { FolioInvoiceView } from "../queries";
 import { billPartLabel, isGuestBill } from "../domain/bill-parts";
+import { BillToFields, billToPayload, billToProblem, emptyBillTo, type BillToValue } from "./bill-to-fields";
 
 const rupees = (paise: number) => `₹${(paise / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const day = (d: Date | string) => new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-/** 15-character GSTIN: 2-digit state, PAN, entity, Z, checksum. */
-const GSTIN_RE = /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
 
 export function InvoiceHistory({
   invoices,
   pending,
   canVoid,
   onVoid,
+  onCorrect,
 }: {
   invoices: FolioInvoiceView[];
   pending: boolean;
   canVoid: boolean;
   onVoid: (inv: { id: string; number: string }) => void;
+  onCorrect: (inv: FolioInvoiceView) => void;
 }) {
   const voidedIds = new Set(invoices.filter((i) => i.cancelsInvoiceId).map((i) => i.cancelsInvoiceId!));
   const numberOf = new Map(invoices.map((i) => [i.id, i.number]));
@@ -51,7 +52,7 @@ export function InvoiceHistory({
       ? `Credit note · cancels ${inv.cancelsInvoiceId ? (numberOf.get(inv.cancelsInvoiceId) ?? "a bill") : "a bill"}`
       : voided
         ? `Tax invoice · VOIDED by ${creditFor.get(inv.id) ?? "credit note"}`
-        : "Tax invoice");
+        : "Tax invoice") + (inv.revision > 0 ? ` · corrected${inv.revision > 1 ? ` ×${inv.revision}` : ""}` : "");
     return (
       <li key={inv.id} className={cn("rounded-md border", open && "border-primary")}>
         <button
@@ -88,14 +89,19 @@ export function InvoiceHistory({
                 <a href={`/api/invoices/${inv.id}?download=1`} data-testid="invoice-download">Download</a>
               </Button>
               {live && canVoid && (
-                <Button size="sm" disabled={pending} onClick={() => onVoid({ id: inv.id, number: inv.number })} data-testid="void-invoice">
-                  Void &amp; revise
+                <Button size="sm" disabled={pending} onClick={() => onCorrect(inv)} data-testid="correct-invoice">
+                  Correct bill
+                </Button>
+              )}
+              {live && canVoid && (
+                <Button size="sm" variant="ghost" disabled={pending} onClick={() => onVoid({ id: inv.id, number: inv.number })} data-testid="void-invoice">
+                  Cancel bill (credit note)
                 </Button>
               )}
             </div>
             {live && canVoid && (
               <p className="text-xs text-muted-foreground">
-                A tax invoice can&apos;t be edited (GST). Void &amp; revise issues a credit note against it; then correct the charges and press <b>Generate GST invoice</b> — you can change the name and GSTIN there.
+                <b>Correct bill</b> re-issues this bill with the <b>same number</b> from the current charges (change the name, GSTIN or address there). <b>Cancel bill</b> is only for a stay that was cancelled or refunded.
               </p>
             )}
           </div>
@@ -122,43 +128,75 @@ export function InvoiceHistory({
   );
 }
 
+export type BillToSubmit = ReturnType<typeof billToPayload> & { seq?: number; reason?: string };
+
+/**
+ * Issue a bill (mode "generate": the number may be typed — blank = next free
+ * number) or correct one (mode "correct": the number stays the same, a reason is
+ * required). FR-RV-1/3.
+ */
 export function BillToForm({
-  defaultName,
-  defaultGstin,
+  initial,
+  mode = "generate",
+  number,
   pending,
   onSubmit,
   onCancel,
 }: {
-  defaultName: string;
-  defaultGstin: string;
+  initial: BillToValue;
+  mode?: "generate" | "correct";
+  number?: string;
   pending: boolean;
-  onSubmit: (name: string, gstin: string | undefined) => void;
+  onSubmit: (v: BillToSubmit) => void;
   onCancel: () => void;
 }) {
-  const [name, setName] = useState(defaultName);
-  const [gstin, setGstin] = useState(defaultGstin);
-  const g = gstin.trim().toUpperCase();
-  const gstinBad = g !== "" && !GSTIN_RE.test(g);
+  const [value, setValue] = useState<BillToValue>(initial);
+  const [seq, setSeq] = useState("");
+  const [reason, setReason] = useState("");
+  const problem = billToProblem(value) ?? (mode === "correct" && !reason.trim() ? "Say what is being corrected." : null);
+  const seqBad = seq.trim() !== "" && !/^\d{1,7}$/.test(seq.trim());
   return (
     <form
       className="space-y-3 rounded-md border p-3"
-      onSubmit={(e) => { e.preventDefault(); if (!name.trim() || gstinBad) return; onSubmit(name.trim(), g || undefined); }}
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (problem || seqBad) return;
+        onSubmit({ ...billToPayload(value), ...(seq.trim() ? { seq: Number(seq.trim()) } : {}), ...(mode === "correct" ? { reason: reason.trim() } : {}) });
+      }}
       data-testid="bill-to-form"
     >
-      <p className="text-sm font-medium">Bill to</p>
-      <div className="space-y-1.5">
-        <Label htmlFor="bill-to-name">Name on the invoice</Label>
-        <Input id="bill-to-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Guest or company name" data-testid="bill-to-name" />
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="bill-to-gstin">Customer GSTIN (company bills only)</Label>
-        <Input id="bill-to-gstin" value={gstin} onChange={(e) => setGstin(e.target.value)} placeholder="e.g. 07AAHCT9474D1Z0" autoCapitalize="characters" data-testid="bill-to-gstin" />
-        {gstinBad && <p role="alert" className="text-xs text-destructive">A GSTIN is 15 characters, e.g. 07AAHCT9474D1Z0.</p>}
-      </div>
+      <p className="text-sm font-medium">{mode === "correct" ? `Correct bill ${number ?? ""}` : "Bill to"}</p>
+      {mode === "correct" ? (
+        <p className="text-xs text-muted-foreground">The bill keeps its number and date — it is re-issued from the folio&apos;s current charges with the details below. The earlier version stays in history.</p>
+      ) : null}
+      <BillToFields value={value} onChange={setValue} />
+      {mode === "generate" ? (
+        <div className="space-y-1.5">
+          <Label htmlFor="bill-to-seq">Bill number (optional)</Label>
+          <Input id="bill-to-seq" inputMode="numeric" value={seq} onChange={(e) => setSeq(e.target.value)} placeholder="Blank = next number" className="w-44" data-testid="bill-to-seq" />
+          {seqBad ? <p role="alert" className="text-xs text-destructive">Type only the number, e.g. 853.</p> : null}
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          <Label htmlFor="bill-to-reason">What is being corrected?</Label>
+          <Input id="bill-to-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. company name and GSTIN added" data-testid="bill-to-reason" />
+        </div>
+      )}
+      {problem && value.customerName.trim() ? <p className="text-xs text-muted-foreground">{problem}</p> : null}
       <div className="flex gap-2">
-        <Button type="submit" disabled={pending || !name.trim() || gstinBad} data-testid="bill-to-submit">Issue GST invoice</Button>
+        <Button type="submit" disabled={pending || !!problem || seqBad} data-testid="bill-to-submit">{mode === "correct" ? "Re-issue bill" : "Issue GST invoice"}</Button>
         <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>
       </div>
     </form>
   );
+}
+
+/** A folio invoice's bill-to as the form's starting value. */
+export function billToFromInvoice(inv: FolioInvoiceView | null, fallbackName: string): BillToValue {
+  if (!inv) return emptyBillTo(fallbackName);
+  return {
+    customerName: inv.customerName, customerGstin: inv.customerGstin ?? "", customerAddress: inv.customerAddress ?? "",
+    customerState: inv.customerState ?? "", customerPhone: inv.customerPhone ?? "", guestName: inv.guestName ?? "",
+    company: !!(inv.customerGstin || inv.customerAddress),
+  };
 }

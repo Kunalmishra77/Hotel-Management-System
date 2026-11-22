@@ -13,6 +13,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { InvoiceSearch } from "@/features/billing/components/invoice-search";
 import { OpenFoliosTable } from "@/features/billing/components/open-folios-table";
 import { formatINR } from "@/lib/utils";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = { title: "Billing" };
 
@@ -53,7 +55,7 @@ export default async function BillingPage({
 
   return (
     <div className="mx-auto w-full max-w-[1600px]">
-      <PageHeader title="Billing" description="Outstanding dues, collections and GST tax invoices for this property." />
+      <PageHeader title="Billing" description="Outstanding dues, collections and GST tax invoices for this property." actions={<Button asChild size="sm"><Link href="/billing/manual" data-testid="new-manual-bill">New manual bill</Link></Button>} />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" data-testid="billing-kpis">
         <KpiCard label="Outstanding dues" value={formatINR(overview.outstandingPaise)} icon={<Wallet />} hint="Balance to collect" tooltip="Money guests still owe — Σ folio balances (charges + tax − payments)." trend={overview.outstandingPaise > 0 ? "down" : "up"} />

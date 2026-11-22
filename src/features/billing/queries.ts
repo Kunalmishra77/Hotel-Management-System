@@ -23,6 +23,12 @@ export type FolioInvoiceView = {
   /** Bill-to on the invoice — prefills a revised bill. */
   customerName: string;
   customerGstin: string | null;
+  customerAddress: string | null;
+  customerState: string | null;
+  customerPhone: string | null;
+  guestName: string | null;
+  /** 0 = as first issued; n = the n-th correction of the SAME number (FR-RV-1). */
+  revision: number;
   taxableValuePaise: number;
   cgstPaise: number;
   sgstPaise: number;
@@ -52,7 +58,7 @@ const FOLIO_VIEW_SELECT = {
   id: true,
   lines: { select: { id: true, type: true, description: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, reversalOfId: true, businessDate: true, unitPaise: true, quantity: true, revision: true }, orderBy: { createdAt: "asc" } },
   payments: { select: { id: true, mode: true, amountPaise: true, isRefund: true, receivedAt: true, reference: true }, orderBy: { receivedAt: "asc" } },
-  invoices: { select: { id: true, number: true, type: true, totalPaise: true, cancelsInvoiceId: true, issuedAt: true, customerName: true, customerGstin: true, taxableValuePaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, billPart: true }, orderBy: { issuedAt: "asc" } },
+  invoices: { where: { supersededById: null }, select: { id: true, number: true, revision: true, type: true, totalPaise: true, cancelsInvoiceId: true, issuedAt: true, customerAddress: true, customerState: true, customerPhone: true, guestName: true, customerName: true, customerGstin: true, taxableValuePaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, billPart: true }, orderBy: { issuedAt: "asc" } },
   reservation: { select: { source: true, extensions: { select: { fromDate: true, toDate: true, source: true } } } },
 } as const;
 type FolioViewRow = Prisma.FolioGetPayload<{ select: typeof FOLIO_VIEW_SELECT }>;
@@ -95,6 +101,9 @@ export type InvoiceListItem = {
   reservationId: string | null;
   /** Which bill of a split stay ("DIRECT" / an OTA source); null = whole stay. */
   billPart: string | null;
+  /** A manual bill (no stay) — corrected on its own page. */
+  manual: boolean;
+  revision: number;
 };
 
 /**
@@ -117,7 +126,7 @@ export async function searchInvoices(
   // ₹0 invoices are hidden here — they stay in the DB (GST: issued invoices are
   // permanent + gap-free) and appear in the dedicated GST register export for filing.
   const cancelled = await db.scoped(user).invoice.findMany({
-    where: { type: "CREDIT_NOTE", cancelsInvoiceId: { not: null } },
+    where: { type: "CREDIT_NOTE", cancelsInvoiceId: { not: null }, supersededById: null },
     select: { cancelsInvoiceId: true },
   });
   const cancelledIds = cancelled.map((c) => c.cancelsInvoiceId!).filter(Boolean);
@@ -125,6 +134,7 @@ export async function searchInvoices(
     where: {
       type: "TAX_INVOICE",
       totalPaise: { not: 0 },
+      supersededById: null, // only the current revision of a corrected bill (FR-RV-1)
       ...(cancelledIds.length ? { id: { notIn: cancelledIds } } : {}),
       ...(input.propertyId ? { propertyId: input.propertyId } : {}),
       ...(input.gstOnly ? { customerGstin: { not: null } } : {}),
@@ -138,7 +148,7 @@ export async function searchInvoices(
           }
         : {}),
     },
-    select: { id: true, number: true, customerName: true, customerGstin: true, totalPaise: true, issuedAt: true, propertyId: true, billPart: true, folio: { select: { reservationId: true } } },
+    select: { id: true, number: true, revision: true, customerName: true, customerGstin: true, totalPaise: true, issuedAt: true, propertyId: true, billPart: true, folio: { select: { reservationId: true, kind: true } } },
     orderBy: [{ issuedAt: "desc" }, { id: "asc" }],
     take: limit + 1,
     ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
@@ -165,6 +175,8 @@ export async function searchInvoices(
       issuedAt: r.issuedAt,
       reservationId: r.folio.reservationId,
       billPart: r.billPart,
+      manual: r.folio.kind === "MANUAL",
+      revision: r.revision,
     })),
     nextCursor: hasMore ? (page[page.length - 1]?.id ?? null) : null,
   };
@@ -364,7 +376,7 @@ export async function billingOverview(user: SessionClaims, propertyId: string): 
     }),
     // Count only REAL tax invoices (exclude credit notes + empty ₹0 ones) so the
     // portal figure isn't inflated by voided/fake bills.
-    scoped.invoice.count({ where: { propertyId, type: "TAX_INVOICE", totalPaise: { not: 0 }, issuedAt: { gte: monthStart } } }),
+    scoped.invoice.count({ where: { propertyId, type: "TAX_INVOICE", totalPaise: { not: 0 }, supersededById: null, issuedAt: { gte: monthStart } } }),
   ]);
 
   const charges = new Map<string, bigint>();

@@ -88,11 +88,23 @@ export const refundSchema = z.object({
   reason: z.string().min(1).max(300),
 });
 
+/** Optional bill-to details printed on the invoice (FR-MB-2). Blank → omitted. */
+const optText = (max: number) => z.string().trim().max(max).optional().transform((v) => (v ? v : undefined));
+export const billToFields = {
+  customerAddress: optText(300),
+  customerState: optText(60),
+  customerPhone: optText(20),
+  guestName: optText(120),
+};
+
 export const generateInvoiceSchema = z.object({
   folioId: z.string().min(1),
   customerName: z.string().min(1).max(200),
   customerGstin: z.string().max(20).optional(),
   billToState: z.string().max(60).optional(),
+  ...billToFields,
+  /** Typed bill sequence number (FR-RV-3); omitted = next free number. */
+  seq: z.coerce.number().int().positive().max(9_999_999).optional(),
   type: z.enum(["TAX_INVOICE", "CREDIT_NOTE"]).default("TAX_INVOICE"),
   cancelsInvoiceId: z.string().optional(),
   /** Which bill of the stay to invoice — "DIRECT" or an OTA source (bill-parts.ts).

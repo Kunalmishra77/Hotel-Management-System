@@ -79,7 +79,7 @@ export async function runStructuredQuery(user: SessionClaims, query: StructuredQ
     }
     case "invoice": {
       const rows = await db.scoped(user).invoice.findMany({
-        where: where as Prisma.InvoiceWhereInput,
+        where: { AND: [where as Prisma.InvoiceWhereInput, { supersededById: null }] },
         select: { id: true, number: true, customerName: true, totalPaise: true, issuedAt: true },
         orderBy: (orderBy as Prisma.InvoiceOrderByWithRelationInput) ?? { issuedAt: "desc" },
         take: limit,

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { Wallet, ReceiptText, HandCoins, FileText } from "lucide-react";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +16,7 @@ export function PortfolioBilling({ rollup, properties, gstOnly = false }: { roll
   const t = rollup.totals;
   return (
     <div className="mx-auto w-full max-w-[1600px]">
-      <PageHeader title="Billing" description="Consolidated dues, collections and invoices across every property." />
+      <PageHeader title="Billing" description="Consolidated dues, collections and invoices across every property." actions={<Button asChild size="sm"><Link href="/billing/manual" data-testid="new-manual-bill">New manual bill</Link></Button>} />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard label="Outstanding dues" value={formatINR(t.outstandingPaise)} icon={<Wallet />} hint="Portfolio-wide" trend={t.outstandingPaise > 0 ? "down" : "up"} />

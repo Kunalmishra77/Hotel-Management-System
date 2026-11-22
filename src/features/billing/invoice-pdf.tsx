@@ -40,6 +40,10 @@ export type InvoicePdfData = {
   paymentMethods: string | null;
   customerName: string;
   customerGstin: string | null;
+  /** Bill-to address (+ state) — required on a B2B invoice (Rule 46). */
+  customerAddress?: string | null;
+  /** Company bill: the guest who stayed, printed under the company. */
+  guestName?: string | null;
   customerEmail: string | null;
   customerMobile: string | null;
   placeOfSupply: string;
@@ -125,6 +129,8 @@ const pct = (bps: number) => (bps / 100).toFixed(2);
 
 /** Consolidate ROOM lines into one row (qty = nights); keep each extra line. */
 function displayLines(lines: InvoicePdfLine[], stayLabel: string): InvoicePdfLine[] {
+  // A manual bill (no stay) prints its lines exactly as typed.
+  if (!stayLabel) return lines;
   const room = lines.filter((l) => l.type === "ROOM");
   const others = lines.filter((l) => l.type !== "ROOM");
   const out: InvoicePdfLine[] = [];
@@ -212,6 +218,8 @@ function InvoiceDoc({ data }: { data: InvoicePdfData }) {
                   "(Make My Trip)". Shown only for OTA-sourced bookings. */}
               {isOtaSource(data.bookingSource) ? <Text style={s.otaTag}>{"  "}({data.bookingSource})</Text> : null}
             </Text>
+            {data.customerAddress ? <Text style={s.small}>{data.customerAddress}</Text> : null}
+            {data.guestName ? <Text style={s.small}>Guest: {data.guestName}</Text> : null}
             {(data.customerMobile || data.customerEmail) ? (
               <Text style={s.small}>
                 {data.customerMobile ? `Mobile: ${data.customerMobile}` : ""}
@@ -237,7 +245,7 @@ function InvoiceDoc({ data }: { data: InvoicePdfData }) {
           {disp.map((l, i) => (
             <View key={i} style={s.trow} wrap={false}>
               <Text style={[s.td, s.cSl]}>{i + 1}</Text>
-              <Text style={[s.td, s.cDesc]}>{l.type === "ROOM" ? l.description : `${l.type.replace(/_/g, " ")}${l.description && l.description !== l.type ? ` — ${l.description}` : ""}`}</Text>
+              <Text style={[s.td, s.cDesc]}>{l.type === "ROOM" || !data.stayLabel ? l.description : `${l.type.replace(/_/g, " ")}${l.description && l.description !== l.type ? ` — ${l.description}` : ""}`}</Text>
               <Text style={[s.td, s.cHsn]}>{l.hsnSac ?? "—"}</Text>
               <Text style={[s.td, s.cQty]}>{l.quantity}</Text>
               <Text style={[s.td, s.cRate]}>{money(l.unitPaise)}</Text>

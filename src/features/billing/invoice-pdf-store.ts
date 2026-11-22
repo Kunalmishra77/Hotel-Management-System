@@ -20,6 +20,10 @@ type PdfMeta = {
   issuedAt: Date;
   customerName: string;
   customerGstin?: string | null;
+  customerAddress?: string | null;
+  customerState?: string | null;
+  customerPhone?: string | null;
+  guestName?: string | null;
   placeOfSupply: string;
   taxablePaise: number;
   cgstPaise: number;
@@ -82,7 +86,9 @@ export async function attachInvoicePdf(invoiceId: string, folioId: string, meta:
     if (!property) return null;
 
     const rooms = folio.reservation?.allocations.map((a) => a.room.number).filter(Boolean).join(", ") ?? "";
-    const stayLabel = `Stay of Guest ${meta.customerName}${rooms ? ` in Room ${rooms}` : ""} at ${property.name}${property.city ? `, ${property.city}` : ""}`;
+    // A company bill names the guest who stayed; a manual bill (no stay) has no stay line.
+    const stayGuest = meta.guestName || meta.customerName;
+    const stayLabel = !folio.reservation ? "" : `Stay of Guest ${stayGuest}${rooms ? ` in Room ${rooms}` : ""} at ${property.name}${property.city ? `, ${property.city}` : ""}`;
     // A part invoice (one bill of a split stay) shows ITS channel, ITS payment
     // modes and the dates of ITS nights — the direct bill handed to the guest
     // never mentions the OTA nights or the OTA's money.
@@ -102,7 +108,7 @@ export async function attachInvoicePdf(invoiceId: string, folioId: string, meta:
     const stayFrom = part && nights.length ? new Date(nights[0]!) : (folio.reservation?.checkInDate ?? null);
     const stayTo = part && nights.length ? new Date(nights.at(-1)! + 86_400_000) : (folio.reservation?.checkOutDate ?? null);
     // Guest contact for the consignee block (stored encrypted; shown to the guest on their own bill).
-    const customerMobile = decryptOptional(folio.reservation?.guest?.mobile ?? null);
+    const customerMobile = meta.customerPhone || decryptOptional(folio.reservation?.guest?.mobile ?? null);
     const customerEmail = decryptOptional(folio.reservation?.guest?.email ?? null);
 
     const bytes = await renderInvoicePdf({
@@ -117,6 +123,8 @@ export async function attachInvoicePdf(invoiceId: string, folioId: string, meta:
       paymentMethods: modes.length > 0 ? modes.join(", ") : null,
       customerName: meta.customerName,
       customerGstin: meta.customerGstin ?? null,
+      customerAddress: [meta.customerAddress, meta.customerState].filter(Boolean).join(", ") || null,
+      guestName: meta.guestName && meta.guestName !== meta.customerName ? meta.guestName : null,
       customerEmail,
       customerMobile,
       placeOfSupply: meta.placeOfSupply,
@@ -159,6 +167,7 @@ export async function ensureInvoicePdf(invoiceId: string): Promise<string | null
     select: {
       id: true, folioId: true, pdfObjectKey: true, number: true, issuedAt: true, type: true, cancelsInvoiceId: true, billPart: true,
       customerName: true, customerGstin: true, placeOfSupply: true,
+      customerAddress: true, customerState: true, customerPhone: true, guestName: true,
       taxableValuePaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, totalPaise: true,
     },
   });
@@ -174,6 +183,10 @@ export async function ensureInvoicePdf(invoiceId: string): Promise<string | null
     issuedAt: inv.issuedAt,
     customerName: inv.customerName,
     customerGstin: inv.customerGstin,
+    customerAddress: inv.customerAddress,
+    customerState: inv.customerState,
+    customerPhone: inv.customerPhone,
+    guestName: inv.guestName,
     placeOfSupply: inv.placeOfSupply,
     taxablePaise: Number(inv.taxableValuePaise),
     cgstPaise: inv.cgstPaise,

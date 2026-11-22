@@ -54,3 +54,12 @@ The money core — highest test rigor. Test-first for ALL domain fns. Each ends 
 
 ## Done
 - [x] T-30 `/review-module` clean; every AC → green test; reconciliation test passes; DoD satisfied. Money module — no `PLAUSIBLE`-only coverage; all money paths CONFIRMED by tests.
+
+## Addendum 22 Nov 2026 — revisions, editable number, manual bills
+- [x] T-RV-1 Migration: Invoice `revision`, `supersededById/At` (write-once in trigger), bill-to fields; unique (propertyId, number, revision). (FR-RV-1, FR-MB-2)
+- [x] T-RV-2 Domain `invoice-number`: parse seq, claim rules (unit tests). Issue helper shared by generate / revise / manual. (FR-RV-1..3)
+- [x] T-RV-3 `reviseInvoice` + UI "Correct bill"; generate takes optional number; all registers exclude superseded. (FR-RV-1..3)
+- [x] T-RV-4 `createManualBill` / `correctManualBill` + Manual bill page. (FR-MB-1)
+- [x] T-RV-5 Backfill script (dry-run → CONFIRM). (FR-RV-4)
+- [x] T-RV-6 Integration tests: revise keeps number, typed-number conflict, manual bill totals, superseded hidden. 
+- [ ] T-RV-7 (follow-up, 22-accounting-sync — not live yet) a revision must UPDATE the original voucher in Tally/Zoho (same number), not push a second one.

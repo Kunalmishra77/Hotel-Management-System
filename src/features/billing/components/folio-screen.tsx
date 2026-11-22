@@ -16,7 +16,9 @@ import { postFolioCharge, applyDiscount, reverseFolioLine, correctRoomRate } fro
 import { recordPayment, correctPaymentEntry } from "../payment-actions";
 import { PaymentCorrectionForm } from "./payment-correction";
 import { generateInvoice, voidInvoice } from "../invoice-actions";
-import { BillToForm, InvoiceHistory } from "./invoice-panel";
+import { BillToForm, InvoiceHistory, billToFromInvoice, type BillToSubmit } from "./invoice-panel";
+import { reviseInvoice } from "../invoice-revise-actions";
+import type { FolioInvoiceView } from "../queries";
 import { BillPartsCard } from "./bill-parts-card";
 import { addAddOnToReservation } from "@/features/add-ons/actions";
 import { setRoomRate } from "@/features/reservations/move-actions";
@@ -69,6 +71,7 @@ export function FolioScreen({
   const [invoice, setInvoice] = useState<{ id: string; number: string } | null>(null);
   const [reverseTarget, setReverseTarget] = useState<{ id: string; description: string } | null>(null);
   const [voidTarget, setVoidTarget] = useState<{ id: string; number: string } | null>(null);
+  const [fixTarget, setFixTarget] = useState<FolioInvoiceView | null>(null);
   // A stay with an OTA's nights AND hotel-paid charges has separate bills
   // (bill-parts.ts); each is invoiced on its own from the bills card.
   const split = folio.parts.filter((p) => p.lineIds.length > 0).length > 1;
@@ -88,10 +91,10 @@ export function FolioScreen({
   // A revised bill starts from the last bill's name/GSTIN (it may have been a
   // company bill); a first bill starts from the guest's name.
   const lastBill = [...folio.invoices].reverse().find((i) => i.type === "TAX_INVOICE") ?? null;
-  const generate = (customerName: string, customerGstin: string | undefined) => {
+  const generate = (v: BillToSubmit) => {
     setError(null);
     start(async () => {
-      const res = await generateInvoice({ folioId: folio.id, customerName, customerGstin, ...(invoicePart ? { billPart: invoicePart } : {}) });
+      const res = await generateInvoice({ folioId: folio.id, ...v, ...(invoicePart ? { billPart: invoicePart } : {}) });
       if (res.ok) { setInvoice({ id: res.data.invoiceId, number: res.data.number }); setMode("none"); router.refresh(); }
       else setError(res.error.message);
     });
@@ -227,12 +230,12 @@ export function FolioScreen({
           <CardHeader className="pb-3"><CardTitle className="text-base">Bills &amp; version history</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm" data-testid="invoice-history">
             {/* Tap any bill: who it was billed to, tax breakup, PDF, download, void & revise. */}
-            <InvoiceHistory invoices={folio.invoices} pending={pending} canVoid onVoid={setVoidTarget} />
+            <InvoiceHistory invoices={folio.invoices} pending={pending} canVoid onVoid={setVoidTarget} onCorrect={(inv) => { setFixTarget(inv); setMode("none"); }} />
             {invoiceStale && activeInvoice && (
               <div className="mt-1 rounded-md border border-warning/50 bg-warning/10 p-2.5 text-sm" data-testid="invoice-stale">
                 <p className="font-medium text-warning">⚠ Bill {activeInvoice.number} is out of date</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  It was issued for {rupees(activeInvoice.totalPaise)}, but the folio now totals {rupees(folioChargeTotalPaise)} — newer charges (e.g. food) aren&apos;t on it. <b>Void &amp; revise</b>, then <b>Generate GST invoice</b> to issue one bill with everything.
+                  It was issued for {rupees(activeInvoice.totalPaise)}, but the folio now totals {rupees(folioChargeTotalPaise)} — newer charges (e.g. food) aren&apos;t on it. Open the bill and press <b>Correct bill</b> — it keeps the same number.
                 </p>
               </div>
             )}
@@ -243,6 +246,24 @@ export function FolioScreen({
 
         {/* Actions rail — sticky on desktop */}
         <div className="space-y-3 lg:sticky lg:top-2 lg:self-start">
+      {fixTarget && (
+        <BillToForm
+          mode="correct"
+          number={fixTarget.number}
+          initial={billToFromInvoice(fixTarget, guestName)}
+          pending={pending}
+          onSubmit={(v) => {
+            const id = fixTarget.id;
+            setError(null);
+            start(async () => {
+              const res = await reviseInvoice({ invoiceId: id, ...v });
+              if (res.ok) { setFixTarget(null); setInvoice({ id: res.data.invoiceId, number: res.data.number }); router.refresh(); }
+              else setError(res.error.message);
+            });
+          }}
+          onCancel={() => setFixTarget(null)}
+        />
+      )}
       {voidTarget && (
         <VoidForm number={voidTarget.number} pending={pending}
           onSubmit={(reason) => { const id = voidTarget.id; setVoidTarget(null); run(() => voidInvoice({ invoiceId: id, reason })); }}
@@ -289,8 +310,7 @@ export function FolioScreen({
       )}
       {mode === "invoice" && (
         <BillToForm
-          defaultName={lastBill?.customerName ?? guestName}
-          defaultGstin={lastBill?.customerGstin ?? ""}
+          initial={billToFromInvoice(lastBill, guestName)}
           pending={pending}
           onSubmit={generate}
           onCancel={() => { setMode("none"); setInvoicePart(undefined); }}

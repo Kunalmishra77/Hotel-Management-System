@@ -222,7 +222,7 @@ export async function gstInvoiceRegister(
 ): Promise<GstInvoiceRow[]> {
   authorize(user, "report:view-financial", input.propertyIds[0] ?? null);
   const invoices = await db.scoped(user).invoice.findMany({
-    where: { propertyId: { in: input.propertyIds }, issuedAt: issuedWithin(input.from, input.to) },
+    where: { propertyId: { in: input.propertyIds }, issuedAt: issuedWithin(input.from, input.to), supersededById: null },
     select: {
       propertyId: true, number: true, issuedAt: true, type: true, customerName: true,
       customerGstin: true, placeOfSupply: true, taxableValuePaise: true, cgstPaise: true,
@@ -299,7 +299,7 @@ export async function gstReport(
 ): Promise<GstReportRow[]> {
   authorize(user, "report:view-financial", input.propertyIds[0] ?? null);
   const invoices = await db.scoped(user).invoice.findMany({
-    where: { propertyId: { in: input.propertyIds }, issuedAt: issuedWithin(input.from, input.to) },
+    where: { propertyId: { in: input.propertyIds }, issuedAt: issuedWithin(input.from, input.to), supersededById: null },
     select: { propertyId: true, taxableValuePaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true, totalPaise: true, type: true },
   });
   const map = new Map<string, GstReportRow>();
