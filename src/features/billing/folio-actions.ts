@@ -58,7 +58,9 @@ export async function ensureDirectSaleFolio(input: unknown): Promise<Result<{ fo
     const client = billingDb(user);
 
     const existing = await client.folio.findFirst({
-      where: { propertyId, kind: "DIRECT_SALE", isClosed: false },
+      // A house folio that already carries a bill is spent (a walk-in = one bill): if a
+      // sale crashed before closing it, reusing it would refuse every later walk-in's bill.
+      where: { propertyId, kind: "DIRECT_SALE", isClosed: false, invoices: { none: { type: "TAX_INVOICE" } } },
       select: { id: true },
     });
     if (existing) return { folioId: existing.id };

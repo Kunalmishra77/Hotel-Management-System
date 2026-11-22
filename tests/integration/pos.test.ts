@@ -255,7 +255,7 @@ describe("settle direct — walk-in (T-9, FR-6, AC-7)", () => {
     expect(order.settlementInvoiceId).toBe(res.data.invoiceId);
 
     const invoice = await prisma.invoice.findUniqueOrThrow({ where: { id: res.data.invoiceId } });
-    expect(invoice.number).toMatch(/WMG\/\d{4}-\d{2}\/\d{5}/);
+    expect(invoice.number).toMatch(/^WASPL :\d+\/ \d{2}-\d{2}$/); // company-wide WASPL series
     const folio = await prisma.folio.findUniqueOrThrow({ where: { id: invoice.folioId } });
     expect(folio.kind).toBe("DIRECT_SALE");
   });
