@@ -34,7 +34,9 @@ async function actAs(userId: string): Promise<SessionClaims> {
   return claims;
 }
 async function folioWithCharge(unitPaise = 100_000): Promise<string> {
-  const f = await prisma.folio.create({ data: { propertyId: PROP_A_ID, kind: "DIRECT_SALE", reservationId: null }, select: { id: true } });
+  // kind MANUAL, not DIRECT_SALE: an open DIRECT_SALE folio would be picked up as
+  // the POS house folio by other suites (ensureDirectSaleFolio) and collide.
+  const f = await prisma.folio.create({ data: { propertyId: PROP_A_ID, kind: "MANUAL", reservationId: null }, select: { id: true } });
   const r = await postFolioCharge({ folioId: f.id, type: "LAUNDRY", description: "Laundry", unitPaise });
   if (!r.ok) throw new Error(r.error.message);
   return f.id;
