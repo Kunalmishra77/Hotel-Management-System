@@ -18,6 +18,7 @@ import { toResult, type Result } from "@/lib/result";
 import { db } from "@/lib/db";
 import { attachInvoicePdf } from "./invoice-pdf-store";
 import { billLines, insertInvoice } from "./invoice-issue";
+import { billParts } from "./domain/bill-parts";
 import { billingDb, withBillingContext } from "./internal";
 import { billToFields } from "./schema";
 
@@ -65,6 +66,11 @@ export async function reviseInvoice(input: unknown): Promise<Result<ReviseResult
     // An old whole-stay bill (part null) on a stay that is now split is corrected
     // into the guest's Direct bill; the OTA's nights get their own bill.
     const bill = billLines(folio, target.billPart, { fallbackToDirect: true });
+    // Bills of this stay whose part no longer has any line (e.g. a ₹-6.46 "Direct
+    // bill" that was only a discount, now on the OTA bill) are absorbed into this
+    // revision — superseded by it, so the stay never keeps a stale bill.
+    const ctx = { bookingSource: folio.reservation?.source ?? null, extensions: folio.reservation?.extensions ?? [] };
+    const liveParts = new Set(billParts(folio.lines, folio.payments, ctx).filter((p) => p.lineIds.length > 0).map((p) => p.part));
     const billTo = {
       customerName: data.customerName, customerGstin: data.customerGstin ?? null, customerAddress: data.customerAddress ?? null,
       customerState: data.customerState ?? null, customerPhone: data.customerPhone ?? null, guestName: data.guestName ?? null,
@@ -77,13 +83,16 @@ export async function reviseInvoice(input: unknown): Promise<Result<ReviseResult
         if (await tx.invoice.findFirst({ where: { cancelsInvoiceId: target.id }, select: { id: true } })) {
           fail("This bill was cancelled with a credit note — generate the bill again instead (it keeps the number).");
         }
+        const others = await tx.invoice.findMany({ where: { folioId: folio.id, type: "TAX_INVOICE", supersededById: null, id: { not: target.id }, billPart: { not: null } }, select: { id: true, billPart: true } });
+        const credited = new Set((await tx.invoice.findMany({ where: { folioId: folio.id, cancelsInvoiceId: { not: null } }, select: { cancelsInvoiceId: true } })).map((c) => c.cancelsInvoiceId));
+        const absorbed = others.filter((o) => !credited.has(o.id) && !liveParts.has(o.billPart!)).map((o) => o.id);
         const top = await tx.invoice.aggregate({ where: { number: target.number, propertyId: target.propertyId }, _max: { revision: true } });
         const revision = (top._max.revision ?? 0) + 1;
         const { invoiceId } = await insertInvoice(tx, {
           propertyId: target.propertyId, folioId: folio.id, number: target.number, revision, financialYear: target.financialYear,
           billPart: bill.billPart, billTo, placeOfSupply: target.placeOfSupply, issuedAt: target.issuedAt, issuedById: user.userId,
           taxable: bill.taxable, cgst: bill.cgst, sgst: bill.sgst, igst: bill.igst, totalPaise: bill.totalPaise, lines: bill.lines,
-          supersedes: [target.id], action: "invoice:revise", reason: data.reason, manual: folio.kind === "MANUAL",
+          supersedes: [target.id, ...absorbed], action: "invoice:revise", reason: data.reason, manual: folio.kind === "MANUAL",
         });
         return { invoiceId, revision };
       }),

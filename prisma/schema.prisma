@@ -2220,6 +2220,8 @@ model ChannelDeduction {
   source             String // BookingSource, e.g. "MAKEMYTRIP"
   commissionBps      Int      @default(0)
   commissionOnGross  Boolean  @default(false) // commission on the GST-inclusive amount
+  extraFeeBps        Int      @default(0) // e.g. Expedia "Accelerator" — same base as commission
+  extraFeeLabel      String?
   gstOnCommissionBps Int      @default(1800)
   tcsBps             Int      @default(50) // CGST Act §52
   tdsBps             Int      @default(10) // Income-tax §194-O

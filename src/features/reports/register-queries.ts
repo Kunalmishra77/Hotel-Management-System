@@ -156,12 +156,68 @@ export async function collectionsRegister(
 }
 
 /** Each OTA's deduction rule (the hotel's settings, else the defaults). */
-export async function channelDeductionRules(user: SessionClaims): Promise<Record<string, DeductionRule & { set: boolean }>> {
+export async function channelDeductionRules(user: SessionClaims): Promise<Record<string, DeductionRule & { set: boolean; extraFeeLabel?: string | null }>> {
   const rows = await db.scoped(user).channelDeduction.findMany({ where: { orgId: user.orgId } });
-  const out: Record<string, DeductionRule & { set: boolean }> = {};
+  const out: Record<string, DeductionRule & { set: boolean; extraFeeLabel?: string | null }> = {};
   for (const s of OTA_SOURCES) out[s] = { ...DEFAULT_DEDUCTION, set: false };
   for (const r of rows) {
-    out[r.source] = { commissionBps: r.commissionBps, commissionOnGross: r.commissionOnGross, gstOnCommissionBps: r.gstOnCommissionBps, tcsBps: r.tcsBps, tdsBps: r.tdsBps, set: true };
+    out[r.source] = { commissionBps: r.commissionBps, commissionOnGross: r.commissionOnGross, extraFeeBps: r.extraFeeBps, extraFeeLabel: r.extraFeeLabel, gstOnCommissionBps: r.gstOnCommissionBps, tcsBps: r.tcsBps, tdsBps: r.tdsBps, set: true };
   }
   return out;
+}
+
+export type CompanyDueItem = {
+  company: string;
+  gstin: string | null;
+  label: string; // booking code · guest, or "Manual bill 853"
+  reservationId: string | null;
+  invoiceId: string | null;
+  propertyId: string;
+  date: string; // check-out, or the bill date
+  billPaise: number;
+  paidPaise: number;
+  duePaise: number;
+};
+
+type MoneyFolio = { lines: { amountPaise: bigint; cgstPaise: number; sgstPaise: number; igstPaise: number }[]; payments: { amountPaise: bigint; isRefund: boolean }[] };
+function billAndPaid(f: MoneyFolio): { bill: number; paid: number } {
+  const bill = f.lines.reduce((n, l) => n + Number(l.amountPaise) + l.cgstPaise + l.sgstPaise + l.igstPaise, 0);
+  const paid = f.payments.reduce((n, p) => n + (p.isRefund ? -1 : 1) * Number(p.amountPaise), 0);
+  return { bill, paid };
+}
+
+/**
+ * What companies owe (client, 23 Nov 2026 — credit companies): every stay on
+ * company credit and every unpaid manual bill, with its balance from the folio.
+ * A current figure, not period-scoped.
+ */
+export async function companyDues(user: SessionClaims, input: { propertyIds: string[] }): Promise<CompanyDueItem[]> {
+  authorize(user, "report:view-financial", input.propertyIds[0] ?? null);
+  const scoped = db.scoped(user);
+  const money = { lines: { select: { amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true } }, payments: { select: { amountPaise: true, isRefund: true } } } as const;
+  const [stays, manual] = await Promise.all([
+    scoped.reservation.findMany({
+      where: { propertyId: { in: input.propertyIds }, corporateId: { not: null }, status: { notIn: ["CANCELLED", "NO_SHOW"] } },
+      select: { id: true, code: true, propertyId: true, checkOutDate: true, guest: { select: { fullName: true } }, corporate: { select: { name: true, gstin: true } }, folio: { select: money } },
+    }),
+    scoped.folio.findMany({
+      where: { propertyId: { in: input.propertyIds }, kind: "MANUAL" },
+      select: { propertyId: true, ...money, invoices: { where: { type: "TAX_INVOICE", supersededById: null }, select: { id: true, number: true, customerName: true, customerGstin: true, issuedAt: true }, take: 1 } },
+    }),
+  ]);
+  const out: CompanyDueItem[] = [];
+  for (const r of stays) {
+    if (!r.folio || !r.corporate) continue;
+    const { bill, paid } = billAndPaid(r.folio);
+    if (bill - paid <= 0) continue;
+    out.push({ company: r.corporate.name, gstin: r.corporate.gstin, label: `${r.code} · ${r.guest.fullName}`, reservationId: r.id, invoiceId: null, propertyId: r.propertyId, date: ymd(r.checkOutDate), billPaise: bill, paidPaise: paid, duePaise: bill - paid });
+  }
+  for (const f of manual) {
+    const inv = f.invoices[0];
+    if (!inv) continue;
+    const { bill, paid } = billAndPaid(f);
+    if (bill - paid <= 0) continue;
+    out.push({ company: inv.customerName, gstin: inv.customerGstin, label: `Manual bill ${inv.number.replace("WASPL :", "").replace(/\/ \d\d-\d\d$/, "")}`, reservationId: null, invoiceId: inv.id, propertyId: f.propertyId, date: inv.issuedAt.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }), billPaise: bill, paidPaise: paid, duePaise: bill - paid });
+  }
+  return out.sort((a, b) => a.company.localeCompare(b.company) || a.date.localeCompare(b.date));
 }

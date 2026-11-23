@@ -56,9 +56,12 @@ export function FolioScreen({
   reservationId,
   addOns = [],
   stay,
+  company = null,
 }: {
   folio: FolioView;
   guestName: string;
+  /** Company credit on this stay: a first bill is made out to the company. */
+  company?: { name: string; gstin: string | null; address: string | null; state: string | null } | null;
   reservationId?: string;
   addOns?: AddOnOption[];
   stay?: FolioStay;
@@ -310,7 +313,10 @@ export function FolioScreen({
       )}
       {mode === "invoice" && (
         <BillToForm
-          initial={billToFromInvoice(lastBill, guestName)}
+          initial={lastBill || !company ? billToFromInvoice(lastBill, guestName) : {
+            customerName: company.name, customerGstin: company.gstin ?? "", customerAddress: company.address ?? "",
+            customerState: company.state ?? "", customerPhone: "", guestName, company: true,
+          }}
           pending={pending}
           onSubmit={generate}
           onCancel={() => { setMode("none"); setInvoicePart(undefined); }}

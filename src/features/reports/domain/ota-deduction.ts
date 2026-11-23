@@ -12,6 +12,8 @@ export type DeductionRule = {
   commissionBps: number;
   /** Commission on the GST-inclusive amount instead of the pre-GST value. */
   commissionOnGross: boolean;
+  /** A second fee on the same base (Expedia's "Accelerator 7%"). */
+  extraFeeBps: number;
   gstOnCommissionBps: number;
   tcsBps: number;
   tdsBps: number;
@@ -19,10 +21,10 @@ export type DeductionRule = {
 
 /** Until the hotel enters a channel's commission: none (never a guessed figure);
  *  TCS / TDS at the statutory rates, editable. */
-export const DEFAULT_DEDUCTION: DeductionRule = { commissionBps: 0, commissionOnGross: false, gstOnCommissionBps: 1800, tcsBps: 50, tdsBps: 10 };
+export const DEFAULT_DEDUCTION: DeductionRule = { commissionBps: 0, commissionOnGross: false, extraFeeBps: 0, gstOnCommissionBps: 1800, tcsBps: 50, tdsBps: 10 };
 
 export type Deduction = {
-  grossPaise: number; commissionPaise: number; gstOnCommissionPaise: number; tcsPaise: number; tdsPaise: number;
+  grossPaise: number; commissionPaise: number; extraFeePaise: number; gstOnCommissionPaise: number; tcsPaise: number; tdsPaise: number;
   deductionPaise: number; netPaise: number;
 };
 
@@ -30,19 +32,21 @@ const pct = (paise: number | Decimal, bps: number) => new Decimal(paise).times(b
 
 export function otaDeduction(basePaise: number, gstPaise: number, rule: DeductionRule): Deduction {
   const gross = basePaise + gstPaise;
-  const commission = pct(rule.commissionOnGross ? gross : basePaise, rule.commissionBps);
-  const gstOnCommission = pct(commission, rule.gstOnCommissionBps);
+  const feeBase = rule.commissionOnGross ? gross : basePaise;
+  const commission = pct(feeBase, rule.commissionBps);
+  const extraFee = pct(feeBase, rule.extraFeeBps);
+  const gstOnCommission = pct(commission + extraFee, rule.gstOnCommissionBps);
   const tcs = pct(basePaise, rule.tcsBps);
   const tds = pct(basePaise, rule.tdsBps);
-  const deduction = commission + gstOnCommission + tcs + tds;
-  return { grossPaise: gross, commissionPaise: commission, gstOnCommissionPaise: gstOnCommission, tcsPaise: tcs, tdsPaise: tds, deductionPaise: deduction, netPaise: gross - deduction };
+  const deduction = commission + extraFee + gstOnCommission + tcs + tds;
+  return { grossPaise: gross, commissionPaise: commission, extraFeePaise: extraFee, gstOnCommissionPaise: gstOnCommission, tcsPaise: tcs, tdsPaise: tds, deductionPaise: deduction, netPaise: gross - deduction };
 }
 
 export function addDeduction(a: Deduction, b: Deduction): Deduction {
   return {
-    grossPaise: a.grossPaise + b.grossPaise, commissionPaise: a.commissionPaise + b.commissionPaise,
+    grossPaise: a.grossPaise + b.grossPaise, commissionPaise: a.commissionPaise + b.commissionPaise, extraFeePaise: a.extraFeePaise + b.extraFeePaise,
     gstOnCommissionPaise: a.gstOnCommissionPaise + b.gstOnCommissionPaise, tcsPaise: a.tcsPaise + b.tcsPaise,
     tdsPaise: a.tdsPaise + b.tdsPaise, deductionPaise: a.deductionPaise + b.deductionPaise, netPaise: a.netPaise + b.netPaise,
   };
 }
-export const ZERO_DEDUCTION: Deduction = { grossPaise: 0, commissionPaise: 0, gstOnCommissionPaise: 0, tcsPaise: 0, tdsPaise: 0, deductionPaise: 0, netPaise: 0 };
+export const ZERO_DEDUCTION: Deduction = { grossPaise: 0, commissionPaise: 0, extraFeePaise: 0, gstOnCommissionPaise: 0, tcsPaise: 0, tdsPaise: 0, deductionPaise: 0, netPaise: 0 };

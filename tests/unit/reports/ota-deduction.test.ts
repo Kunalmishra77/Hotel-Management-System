@@ -20,4 +20,10 @@ describe("OTA deduction breakdown", () => {
     expect(d.commissionPaise).toBe(0);
     expect(d.deductionPaise).toBe(500 + 100);
   });
+  it("Expedia statement (Jarl-era screenshot): 18% + Accelerator 7%, no GST/TCS/TDS → payout ₹2,399.20", () => {
+    const d = otaDeduction(299_900, 14_995, { commissionBps: 1800, commissionOnGross: false, extraFeeBps: 700, gstOnCommissionBps: 0, tcsBps: 0, tdsBps: 0 });
+    expect(d.commissionPaise).toBe(53_982);
+    expect(d.extraFeePaise).toBe(20_993);
+    expect(d.netPaise).toBe(239_920);
+  });
 });

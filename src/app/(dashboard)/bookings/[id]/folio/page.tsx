@@ -5,6 +5,7 @@ import { requirePermission } from "@/lib/auth/guard";
 import { db } from "@/lib/db";
 import { getReservation } from "@/features/reservations/queries";
 import { getFolio } from "@/features/billing/queries";
+import { getCompanyCredit } from "@/features/reservations/company-credit";
 import { listActiveAddOns } from "@/features/add-ons/queries";
 import { FolioScreen } from "@/features/billing/components/folio-screen";
 import { CreateBillButton } from "@/features/billing/components/create-bill-button";
@@ -37,12 +38,13 @@ export default async function FolioPage({ params }: { params: Promise<{ id: stri
 
   const folio = await getFolio(user, folioRow.id);
   if (!folio) notFound();
-  const addOns = await listActiveAddOns(folioRow.propertyId);
+  const [addOns, company] = await Promise.all([listActiveAddOns(folioRow.propertyId), getCompanyCredit(user, id)]);
   return (
     <FolioScreen
       folio={folio}
       guestName={reservation.guestName}
       reservationId={id}
+      company={company}
       addOns={addOns.map((a) => ({ id: a.id, name: a.name, pricePaise: a.pricePaise }))}
       stay={{
         code: reservation.code,

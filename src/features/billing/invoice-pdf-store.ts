@@ -58,7 +58,7 @@ export async function attachInvoicePdf(invoiceId: string, folioId: string, meta:
         payments: { select: { mode: true, reference: true, amountPaise: true, isRefund: true } },
         reservation: {
           select: {
-            checkInDate: true, checkOutDate: true, source: true,
+            checkInDate: true, checkOutDate: true, source: true, corporateId: true,
             extensions: { select: { fromDate: true, toDate: true, source: true } },
             allocations: { select: { room: { select: { number: true } } } },
             guest: { select: { mobile: true, email: true } },
@@ -102,6 +102,12 @@ export async function attachInvoicePdf(invoiceId: string, folioId: string, meta:
       ? (billParts(folio.lines, folio.payments, ctx).find((b) => b.part === part)?.paymentModes ?? [])
       : folio.payments.filter((p) => !p.isRefund).map((p) => p.mode);
     const modes = [...new Set(partModes.map((m) => PAYMENT_MODE_LABEL[m] ?? m))];
+    // A stay on company credit: what's still due is payable by the company (23 Nov 2026).
+    if (folio.reservation?.corporateId) {
+      const all = billParts(folio.lines, folio.payments, ctx);
+      const due = part ? (all.find((b) => b.part === part)?.balancePaise ?? 0) : all.reduce((n, b) => n + b.balancePaise, 0);
+      if (due > 0) modes.push("Credit (payable by company)");
+    }
     // Nights on this bill: first → last + 1. A bill with no room night (food only) keeps the stay dates.
     const reversedNights = new Set(partLines.filter((l) => l.reversalOfId).map((l) => l.reversalOfId));
     const nights = partLines.filter((l) => l.type === "ROOM" && !reversedNights.has(l.id)).map((l) => l.businessDate.getTime()).sort((a, b) => a - b);

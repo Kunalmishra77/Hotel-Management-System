@@ -74,23 +74,31 @@ export function lineSource(line: PartLine, byId: ReadonlyMap<string, PartLine>, 
   return OTA_SOURCES.has(ctx.bookingSource) ? DIRECT_PART : ctx.bookingSource;
 }
 
-/** The bill every folio line goes on (id → part), round-off placed per the rule above. */
+/**
+ * The bill every folio line goes on (id → part).
+ * Adjustments — the whole-rupee round-off and discounts — have no channel of their
+ * own: they belong to the Direct bill only when it carries real charges (food,
+ * laundry, direct nights…). When it doesn't, they go to the biggest OTA bill, so a
+ * discount on an OTA stay ("no change", client 23 Nov 2026) never becomes a
+ * separate ₹-6.46 "Direct bill".
+ */
 export function assignParts(lines: readonly PartLine[], ctx: PartContext): Map<string, string> {
   const byId = new Map(lines.map((l) => [l.id, l]));
   const out = new Map<string, string>();
-  const roundOffs: PartLine[] = [];
+  const adjustments: PartLine[] = [];
   for (const l of lines) {
     const base = l.type === "REVERSAL" && l.reversalOfId ? (byId.get(l.reversalOfId) ?? l) : l;
-    if (isRoundOff(base)) { roundOffs.push(l); continue; }
-    out.set(l.id, partOfSource(lineSource(l, byId, ctx)));
+    const part = partOfSource(lineSource(l, byId, ctx));
+    if (isRoundOff(base) || (base.type === "DISCOUNT" && part === DIRECT_PART)) { adjustments.push(l); continue; }
+    out.set(l.id, part);
   }
-  if (roundOffs.length) {
+  if (adjustments.length) {
     const totals = new Map<string, number>();
     for (const l of lines) { const p = out.get(l.id); if (p) totals.set(p, (totals.get(p) ?? 0) + gross(l)); }
-    const directHasCharges = (totals.get(DIRECT_PART) ?? 0) !== 0;
+    const directHasCharges = (totals.get(DIRECT_PART) ?? 0) > 0;
     const biggestOta = [...totals.entries()].filter(([k]) => k !== DIRECT_PART).sort((a, b) => b[1] - a[1])[0]?.[0];
     const home = directHasCharges || !biggestOta ? DIRECT_PART : biggestOta;
-    for (const l of roundOffs) out.set(l.id, home);
+    for (const l of adjustments) out.set(l.id, home);
   }
   return out;
 }

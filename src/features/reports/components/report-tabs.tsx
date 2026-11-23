@@ -14,6 +14,7 @@ export const REPORT_TYPES = [
   { key: "rooms", label: "Rooms" },
   { key: "gst", label: "GST summary" },
   { key: "dues", label: "Outstanding dues" },
+  { key: "companies", label: "Company dues" },
 ] as const;
 
 export type ReportType = (typeof REPORT_TYPES)[number]["key"];

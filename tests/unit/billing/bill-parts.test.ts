@@ -97,3 +97,17 @@ describe("bill parts — OTA nights on their own bill, everything paid at the ho
     expect(otaPaymentPart(pay("ONLINE", 1, "ADVANCE:x"), { bookingSource: "DIRECT", extensions: [] }, [])).toBeNull();
   });
 });
+
+describe("discounts on an OTA stay (Jarl Meijer, client 23 Nov 2026)", () => {
+  it("a 'no change' discount with no direct charges stays on the OTA bill — no ₹-6.46 Direct bill", () => {
+    const lines = [night("2026-11-20"), { ...line("DISCOUNT", -646, "2026-11-21", null, "no change"), cgstPaise: 0, sgstPaise: 0 }];
+    const parts = billParts(lines, [pay("CASH", 305_000)], bcom).filter((p) => p.lineIds.length > 0);
+    expect(parts.map((p) => p.part)).toEqual(["BOOKING_COM"]);
+  });
+  it("with real direct charges (food) the discount stays on the Direct bill", () => {
+    const food = line("FOOD", 50_000, "2026-11-20");
+    const disc = { ...line("DISCOUNT", -5_000, "2026-11-20"), cgstPaise: 0, sgstPaise: 0 };
+    const map = assignParts([night("2026-11-20"), food, disc], bcom);
+    expect(map.get(disc.id)).toBe("DIRECT");
+  });
+});

@@ -22,6 +22,8 @@ import { ShortenStayCard } from "@/features/reservations/components/shorten-stay
 import { SwapRoomCard } from "@/features/reservations/components/swap-room-card";
 import { EditRoomRateCard } from "@/features/reservations/components/edit-room-rate-card";
 import { ChangeSourceCard } from "@/features/reservations/components/change-source-card";
+import { CompanyCreditCard } from "@/features/reservations/components/company-credit-card";
+import { getCompanyCredit } from "@/features/reservations/company-credit";
 import { TransferPropertyCard } from "@/features/reservations/components/transfer-property-card";
 import { RelocatePropertyCard } from "@/features/reservations/components/relocate-property-card";
 import { MoveRoomCard } from "@/features/reservations/components/move-room-card";
@@ -66,6 +68,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
   const todayIst = new Date(`${new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" })}T00:00:00Z`);
   const checkOutOverdue = r.status === "IN_HOUSE" && r.checkOutDate.getTime() < todayIst.getTime();
   const canManageGuests = hasPermission(user, "reservation:modify");
+  const companyCredit = await getCompanyCredit(user, r.id);
   // Cross-property transfer: only for a single-room in-house guest, when the user can
   // both modify the origin and create at a destination, and other properties exist.
   const canTransfer = r.status === "IN_HOUSE" && r.roomNumbers.length === 1 && canManageGuests && hasPermission(user, "reservation:create");
@@ -290,6 +293,10 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
 
           {canManageGuests && !r.externalHotelName ? (
             <ChangeSourceCard reservationId={r.id} currentSource={r.source} currentBookedOn={r.bookedOn} extensions={extensions} />
+          ) : null}
+
+          {canManageGuests && !r.externalHotelName && r.status !== "CANCELLED" && r.status !== "NO_SHOW" ? (
+            <CompanyCreditCard reservationId={r.id} company={companyCredit} />
           ) : null}
 
           {statement?.isTransfer ? <CombinedStatementCard statement={statement} /> : null}

@@ -20,6 +20,8 @@ const saveSchema = z.object({
   source: z.string().refine((s) => OTA_SOURCES.has(s), "Not an online channel"),
   commissionBps: bps,
   commissionOnGross: z.boolean(),
+  extraFeeBps: bps.default(0),
+  extraFeeLabel: z.string().trim().max(40).optional().transform((v) => v || null),
   gstOnCommissionBps: bps,
   tcsBps: bps,
   tdsBps: bps,
@@ -44,7 +46,7 @@ export async function saveChannelDeduction(input: unknown): Promise<Result<{ sou
         await emitEvent(tx, { type: "ChannelDeductionChanged", aggregateId: row.id, payload: { source, ...rates } });
         await writeAudit(tx, {
           action: "settings:channel-deduction", entityType: "ChannelDeduction", entityId: row.id,
-          before: before ? { commissionBps: before.commissionBps, commissionOnGross: before.commissionOnGross, gstOnCommissionBps: before.gstOnCommissionBps, tcsBps: before.tcsBps, tdsBps: before.tdsBps } : null,
+          before: before ? { commissionBps: before.commissionBps, commissionOnGross: before.commissionOnGross, extraFeeBps: before.extraFeeBps, gstOnCommissionBps: before.gstOnCommissionBps, tcsBps: before.tcsBps, tdsBps: before.tdsBps } : null,
           after: { source, ...rates },
         });
         return { source };

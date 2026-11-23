@@ -40,6 +40,11 @@ export function InvoiceHistory({
   const current = invoices.filter((i) => i.type === "TAX_INVOICE" && !voidedIds.has(i.id));
   const trail = invoices.filter((i) => voidedIds.has(i.id) || i.type === "CREDIT_NOTE");
   const [selected, setSelected] = useState<string | null>(current.length === 1 ? current[0]!.id : null);
+  // Separate bills of one stay (OTA copy + Direct bill) are normal; two live bills
+  // for the SAME part (or a whole-stay bill beside a part bill) are not.
+  const partKeys = current.map((i) => i.billPart ?? "WHOLE");
+  const dupParts = partKeys.some((k, i) => partKeys.indexOf(k) !== i) || (partKeys.includes("WHOLE") && partKeys.length > 1)
+    ? [...new Set(partKeys)].map((k) => (k === "WHOLE" ? "whole stay" : billPartLabel(k))).join(", ") : null;
 
   const row = (inv: FolioInvoiceView) => {
     const isCredit = inv.type === "CREDIT_NOTE";
@@ -112,9 +117,9 @@ export function InvoiceHistory({
 
   return (
     <div className="space-y-2">
-      {current.length > 1 && (
+      {dupParts && (
         <p className="rounded-md border border-warning/50 bg-warning/10 p-2 text-xs" data-testid="multiple-live-invoices">
-          This bill has {current.length} live tax invoices for the same stay. Keep the correct one and void the others.
+          This stay has two live bills for the same part ({dupParts}). Keep the correct one and cancel the other.
         </p>
       )}
       {current.length > 0 ? <ul className="space-y-2">{current.map(row)}</ul> : <p className="text-muted-foreground">No current bill yet — press Generate GST invoice.</p>}

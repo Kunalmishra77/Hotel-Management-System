@@ -51,13 +51,14 @@ type LoadedReservation = {
   checkInDate: Date;
   checkOutDate: Date;
   allocations: { id: string; roomId: string; startDate: Date; endDate: Date }[];
+  corporateId: string | null;
 };
 
 const LOAD_SELECT = {
   id: true, propertyId: true, code: true, status: true, nights: true,
   ratePaise: true, discountPaise: true, extraBedPaise: true, taxPaise: true,
   otherChargesPaise: true, advancePaise: true, advanceMode: true, settlementIntent: true,
-  checkInDate: true, checkOutDate: true,
+  checkInDate: true, checkOutDate: true, corporateId: true,
   allocations: { select: { id: true, roomId: true, startDate: true, endDate: true } },
 } as const;
 
@@ -468,7 +469,9 @@ export async function checkOut(input: unknown): Promise<Result<LifecycleResult>>
         }
 
         // Deferring an unsettled balance is an elevated, permissioned act (AC-16/17).
-        if (balancePaise > 0 && (!defer || !hasPermission(user, "folio:defer"))) {
+        // A stay on company credit leaves with its balance due: the company pays later
+        // and the balance shows under Reports → Company dues (client, 23 Nov 2026).
+        if (balancePaise > 0 && !r.corporateId && (!defer || !hasPermission(user, "folio:defer"))) {
           throw new DomainError(ErrorCode.BALANCE_UNSETTLED, undefined, { details: { balancePaise } });
         }
 

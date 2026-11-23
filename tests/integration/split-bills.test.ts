@@ -25,12 +25,14 @@ import { assembleClaims } from "@/lib/auth/claims";
 import { createReservation } from "@/features/reservations/actions";
 import { checkIn } from "@/features/reservations/lifecycle-actions";
 import { extendStay } from "@/features/reservations/move-actions";
-import { postFolioCharge } from "@/features/billing/charge-actions";
+import { postFolioCharge, applyDiscount } from "@/features/billing/charge-actions";
+import { reviseInvoice } from "@/features/billing/invoice-revise-actions";
 import { autoIssueInvoiceOnCheckout, generateInvoice, shareInvoice } from "@/features/billing/invoice-actions";
 import { getFolio } from "@/features/billing/queries";
 
 const prisma = createPrismaClient();
 let resId = "";
+let jarlId = "";
 
 beforeAll(async () => {
   const c = await assembleClaims(prisma, USER_ADMIN_ID);
@@ -43,6 +45,10 @@ afterAll(async () => {
   if (resId) {
     await prisma.roomAllocation.deleteMany({ where: { reservationId: resId } });
     await prisma.reservation.updateMany({ where: { id: resId }, data: { status: "CHECKED_OUT" } });
+  }
+  if (jarlId) {
+    await prisma.roomAllocation.deleteMany({ where: { reservationId: jarlId } });
+    await prisma.reservation.updateMany({ where: { id: jarlId }, data: { status: "CHECKED_OUT" } });
   }
   await resetRoomsA(prisma);
   await prisma.$disconnect();
@@ -93,5 +99,34 @@ describe("an OTA stay extended directly gets two bills", () => {
     const shareOta = await shareInvoice({ invoiceId: byPart.MAKEMYTRIP!.id });
     expect(shareOta.ok).toBe(false);
     if (!shareOta.ok) expect(shareOta.error.message).toMatch(/hotel's copy/);
+  });
+});
+
+describe("a discount on an OTA stay is not a bill (Jarl Meijer, client 23 Nov 2026)", () => {
+  it("one OTA bill carries the discount; correcting it absorbs an old discount-only Direct bill", async () => {
+    const r = await createReservation({
+      propertyId: PROP_A_ID, guestId: GUEST_MEHTA_ID, source: "BOOKING_COM", adults: 1, children: 0, roomIds: [ROOM_103_ID],
+      checkInDate: "2027-12-20", checkOutDate: "2027-12-21", ratePaise: 214_900,
+    });
+    expect(r.ok, JSON.stringify(r)).toBe(true);
+    if (!r.ok) return;
+    jarlId = r.data.id;
+    expect((await checkIn({ reservationId: jarlId })).ok).toBe(true);
+    const folioId = (await prisma.folio.findFirstOrThrow({ where: { reservationId: jarlId }, select: { id: true } })).id;
+    expect((await applyDiscount({ folioId, reason: "no change", amountPaise: 646, mode: "FINANCIAL" })).ok).toBe(true);
+
+    const folio = await getFolio(h.user!, folioId);
+    expect(folio?.parts.filter((p) => p.lineIds.length > 0).map((p) => p.part)).toEqual(["BOOKING_COM"]);
+    const inv = await generateInvoice({ folioId, customerName: "Jarl", billPart: "BOOKING_COM" });
+    if (!inv.ok) throw new Error(inv.error.message);
+    // A Direct bill would be negative — refused.
+    expect((await generateInvoice({ folioId, customerName: "Jarl", billPart: "DIRECT" })).ok).toBe(false);
+
+    // Legacy: before the fix a ₹-6.46 Direct bill was issued. Correcting the OTA bill absorbs it.
+    const legacy = await prisma.invoice.create({ data: { propertyId: PROP_A_ID, folioId, number: `LEGACY-${Date.now()}`, financialYear: "2027-28", billPart: "DIRECT", customerName: "Jarl", placeOfSupply: "Karnataka", taxableValuePaise: -646n, totalPaise: -646n } });
+    const fixed = await reviseInvoice({ invoiceId: inv.data.invoiceId, customerName: "Jarl Meijer", reason: "absorb discount bill" });
+    if (!fixed.ok) throw new Error(fixed.error.message);
+    expect(fixed.data.number).toBe(inv.data.number);
+    expect((await prisma.invoice.findUniqueOrThrow({ where: { id: legacy.id } })).supersededById).toBe(fixed.data.invoiceId);
   });
 });

@@ -13,7 +13,7 @@ import { BOOKING_SOURCE_LABEL } from "@/lib/constants/company";
 import { saveChannelDeduction } from "../ota-deduction-actions";
 import type { DeductionRule } from "../domain/ota-deduction";
 
-type Rules = Record<string, DeductionRule & { set: boolean }>;
+type Rules = Record<string, DeductionRule & { set: boolean; extraFeeLabel?: string | null }>;
 const toPct = (bps: number) => String(bps / 100);
 const toBps = (pct: string) => Math.round(Number(pct) * 100);
 
@@ -22,12 +22,12 @@ export function OtaDeductionSettings({ rules, canEdit }: { rules: Rules; canEdit
     <details className="rounded-lg border bg-card p-3" open={Object.values(rules).every((r) => !r.set)} data-testid="ota-settings">
       <summary className="cursor-pointer text-sm font-semibold">OTA commission settings</summary>
       <p className="mt-1 text-xs text-muted-foreground">
-        Enter each channel&apos;s commission from its contract or payout statement. TCS (0.5%) and TDS (0.1%) are what OTAs withhold by law — both come back as tax credit. GST on commission is claimable as input credit.
+        Enter each channel&apos;s commission from its contract or payout statement; &ldquo;Other fee&rdquo; is any second deduction such as Expedia&apos;s Accelerator. TCS (0.5%) and TDS (0.1%) are what OTAs withhold by law — both come back as tax credit. GST on commission is claimable as input credit.
       </p>
       <div className="mt-3 overflow-x-auto">
-        <table className="w-full min-w-[720px] text-sm">
+        <table className="w-full min-w-[860px] text-sm">
           <thead><tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
-            {["Channel", "Commission %", "Commission on", "GST on commission %", "TCS %", "TDS %", ""].map((h) => <th key={h} className="px-2 py-1.5 font-medium">{h}</th>)}
+            {["Channel", "Commission %", "Commission on", "Other fee %", "GST on commission %", "TCS %", "TDS %", ""].map((h) => <th key={h} className="px-2 py-1.5 font-medium">{h}</th>)}
           </tr></thead>
           <tbody>
             {Object.entries(rules).map(([source, rule]) => <Row key={source} source={source} rule={rule} canEdit={canEdit} />)}
@@ -38,18 +38,18 @@ export function OtaDeductionSettings({ rules, canEdit }: { rules: Rules; canEdit
   );
 }
 
-function Row({ source, rule, canEdit }: { source: string; rule: DeductionRule & { set: boolean }; canEdit: boolean }) {
+function Row({ source, rule, canEdit }: { source: string; rule: DeductionRule & { set: boolean; extraFeeLabel?: string | null }; canEdit: boolean }) {
   const router = useRouter();
-  const [v, setV] = useState({ c: toPct(rule.commissionBps), gross: rule.commissionOnGross, g: toPct(rule.gstOnCommissionBps), tcs: toPct(rule.tcsBps), tds: toPct(rule.tdsBps) });
+  const [v, setV] = useState({ c: toPct(rule.commissionBps), gross: rule.commissionOnGross, x: toPct(rule.extraFeeBps), xl: rule.extraFeeLabel ?? "", g: toPct(rule.gstOnCommissionBps), tcs: toPct(rule.tcsBps), tds: toPct(rule.tdsBps) });
   const [msg, setMsg] = useState<string | null>(null);
   const [pending, start] = useTransition();
-  const bad = [v.c, v.g, v.tcs, v.tds].some((x) => x.trim() === "" || !Number.isFinite(Number(x)) || Number(x) < 0 || Number(x) > 100);
+  const bad = [v.c, v.x, v.g, v.tcs, v.tds].some((x) => x.trim() === "" || !Number.isFinite(Number(x)) || Number(x) < 0 || Number(x) > 100);
   const save = () => start(async () => {
-    const res = await saveChannelDeduction({ source, commissionBps: toBps(v.c), commissionOnGross: v.gross, gstOnCommissionBps: toBps(v.g), tcsBps: toBps(v.tcs), tdsBps: toBps(v.tds) });
+    const res = await saveChannelDeduction({ source, commissionBps: toBps(v.c), commissionOnGross: v.gross, extraFeeBps: toBps(v.x), extraFeeLabel: v.xl, gstOnCommissionBps: toBps(v.g), tcsBps: toBps(v.tcs), tdsBps: toBps(v.tds) });
     setMsg(res.ok ? "Saved" : res.error.message);
     if (res.ok) router.refresh();
   });
-  const num = (k: "c" | "g" | "tcs" | "tds", label: string) => (
+  const num = (k: "c" | "x" | "g" | "tcs" | "tds", label: string) => (
     <Input type="number" step="0.01" min="0" max="100" inputMode="decimal" value={v[k]} disabled={!canEdit} aria-label={`${label} for ${source}`} className="w-24"
       onChange={(e) => setV({ ...v, [k]: e.target.value })} />
   );
@@ -62,6 +62,10 @@ function Row({ source, rule, canEdit }: { source: string; rule: DeductionRule & 
           <option value="net">Amount before GST</option>
           <option value="gross">Amount incl. GST</option>
         </select>
+      </td>
+      <td className="px-2 py-2">
+        {num("x", "Other fee")}
+        <Input value={v.xl} disabled={!canEdit} placeholder="e.g. Accelerator" aria-label={`Other fee name for ${source}`} className="mt-1 w-28" onChange={(e) => setV({ ...v, xl: e.target.value })} />
       </td>
       <td className="px-2 py-2">{num("g", "GST on commission")}</td>
       <td className="px-2 py-2">{num("tcs", "TCS")}</td>

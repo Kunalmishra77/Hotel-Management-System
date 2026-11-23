@@ -62,6 +62,8 @@ export function billLines(folio: FolioForBill, requestedPart?: string | null, op
   }
   const totalPaise = taxable + BigInt(cgst + sgst + igst) + roundOff;
   if (totalPaise === 0n) fail("No charges to invoice — add charges to the folio first.");
+  // A bill is never negative: a discount with nothing to discount is not a bill.
+  if (totalPaise < 0n) fail("This bill would be negative — it has only a discount. The discount belongs on the stay's other bill.");
   return { billPart, lines, taxable, cgst, sgst, igst, totalPaise };
 }
 

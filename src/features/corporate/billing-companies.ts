@@ -21,7 +21,8 @@ export type BillingCompany = { id: string; name: string; gstin: string | null; a
 const searchSchema = z.object({ q: z.string().trim().max(100) });
 const saveSchema = z.object({
   name: z.string().trim().min(1).max(200),
-  gstin: z.string().transform(normalizeGstin).refine(isValidGstin, "Invalid GSTIN"),
+  // Optional: a credit company is often entered "as it comes" (client, 23 Nov 2026).
+  gstin: z.string().optional().transform((v) => (v ? normalizeGstin(v) : undefined)).refine((v) => v === undefined || isValidGstin(v), "Invalid GSTIN"),
   address: z.string().trim().max(300).optional(),
   state: z.string().trim().max(60).optional(),
 });
@@ -41,7 +42,7 @@ export async function searchBillingCompanies(input: unknown): Promise<Result<Bil
   });
 }
 
-/** Save the company of a GST bill — matched by GSTIN (one company per GSTIN). */
+/** Save the company of a bill — matched by GSTIN (one company per GSTIN), else by exact name. */
 export async function saveBillingCompany(input: unknown): Promise<Result<{ id: string; created: boolean }>> {
   return toResult(async () => {
     const data = saveSchema.parse(input);
@@ -49,7 +50,10 @@ export async function saveBillingCompany(input: unknown): Promise<Result<{ id: s
     authorize(user, "invoice:generate", null);
     return withCorporateContext(user, () =>
       corporateDb(user).$transaction(async (tx) => {
-        const existing = await tx.corporate.findFirst({ where: { orgId: user.orgId, gstin: data.gstin }, select: { id: true, name: true, address: true, state: true } });
+        const existing = await tx.corporate.findFirst({
+          where: data.gstin ? { orgId: user.orgId, gstin: data.gstin } : { orgId: user.orgId, gstin: null, name: { equals: data.name, mode: "insensitive" } },
+          select: { id: true, name: true, address: true, state: true },
+        });
         const fields = { name: data.name, address: data.address ?? existing?.address ?? null, state: data.state ?? existing?.state ?? null };
         if (existing) {
           if (existing.name === fields.name && existing.address === fields.address && existing.state === fields.state) return { id: existing.id, created: false };
@@ -57,9 +61,9 @@ export async function saveBillingCompany(input: unknown): Promise<Result<{ id: s
           await writeAudit(tx, { action: "corporate:update-billing", entityType: "Corporate", entityId: existing.id, before: { name: existing.name, address: existing.address, state: existing.state }, after: fields });
           return { id: existing.id, created: false };
         }
-        const corp = await tx.corporate.create({ data: { orgId: user.orgId, gstin: data.gstin, creditLimitPaise: 0n, ...fields }, select: { id: true } });
+        const corp = await tx.corporate.create({ data: { orgId: user.orgId, gstin: data.gstin ?? null, creditLimitPaise: 0n, ...fields }, select: { id: true } });
         await emitEvent(tx, { type: "CorporateCreated", aggregateId: corp.id, payload: { name: data.name, creditLimitPaise: 0, from: "gst-bill" } });
-        await writeAudit(tx, { action: "corporate:create", entityType: "Corporate", entityId: corp.id, after: { name: data.name, gstin: data.gstin, from: "gst-bill" } });
+        await writeAudit(tx, { action: "corporate:create", entityType: "Corporate", entityId: corp.id, after: { name: data.name, gstin: data.gstin ?? null, from: "gst-bill" } });
         return { id: corp.id, created: true };
       }),
     );

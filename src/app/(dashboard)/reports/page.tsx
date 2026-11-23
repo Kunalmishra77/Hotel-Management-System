@@ -14,12 +14,13 @@ import { ExportReportButton } from "@/features/reports/components/export-report-
 import { ReportTabs, REPORT_TYPES, type ReportType } from "@/features/reports/components/report-tabs";
 import { ReportTable, type ReportColumn, type ReportRow } from "@/features/reports/components/report-table";
 import { ExportTableButton } from "@/features/reports/components/export-table-button";
-import { bookingRegister, collectionsRegister, channelDeductionRules, type RegisterBasis, type BookingRegisterEntry } from "@/features/reports/register-queries";
+import { bookingRegister, collectionsRegister, channelDeductionRules, companyDues, type RegisterBasis, type BookingRegisterEntry } from "@/features/reports/register-queries";
 import { OtaDeductionSettings } from "@/features/reports/components/ota-deduction-settings";
 import { otaDeduction, addDeduction, ZERO_DEDUCTION, type Deduction } from "@/features/reports/domain/ota-deduction";
 import { BookingRegisterView } from "@/features/reports/components/booking-register-view";
 import { CollectionsView } from "@/features/reports/components/collections-view";
 import Link from "next/link";
+import { formatINR } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Reports" };
 
@@ -103,6 +104,8 @@ export default async function ReportsPage({
         await OccupancySection({ user, month: periodLabel, propertyIds, from, to })
       ) : reportType === "bookings" ? (
         await BookingsSection({ user, month: periodLabel, propertyIds, from, to, nameOf, basis, keep: keep.toString() })
+      ) : reportType === "companies" ? (
+        await CompanyDuesSection({ user, propertyIds, nameOf })
       ) : reportType === "collections" ? (
         await CollectionsSection({ user, month: periodLabel, propertyIds, from, to, nameOf })
       ) : reportType === "rooms" ? (
@@ -172,13 +175,14 @@ async function SourceSection({ user, month, propertyIds, from, to }: SectionInpu
     }
   }
   const otaRows: ReportRow[] = [...byOta.entries()].map(([src, d]) => ({
-    source: sourceLabel(src) + (rules[src]?.set ? "" : " (commission not set)"), bookings: d.bookings, gross: d.grossPaise, commission: d.commissionPaise,
+    source: sourceLabel(src) + (rules[src]?.set ? "" : " (commission not set)"), bookings: d.bookings, gross: d.grossPaise, commission: d.commissionPaise, extra: d.extraFeePaise,
     gst: d.gstOnCommissionPaise, tcs: d.tcsPaise, tds: d.tdsPaise, deduction: d.deductionPaise, net: d.netPaise,
   }));
   const otaTotal = [...byOta.values()].reduce((a, d) => ({ ...addDeduction(a, d), bookings: a.bookings + d.bookings }), { ...ZERO_DEDUCTION, bookings: 0 });
   const otaColumns: ReportColumn[] = [
     { key: "source", label: "Channel" }, { key: "bookings", label: "Bookings", format: "text", align: "right" },
     { key: "gross", label: "Sale incl. GST", format: "money" }, { key: "commission", label: "Commission", format: "money" },
+    { key: "extra", label: "Other fee", format: "money" },
     { key: "gst", label: "GST on commission", format: "money" }, { key: "tcs", label: "TCS", format: "money" }, { key: "tds", label: "TDS", format: "money" },
     { key: "deduction", label: "OTA keeps", format: "money" }, { key: "net", label: "Net to hotel", format: "money" },
   ];
@@ -198,7 +202,7 @@ async function SourceSection({ user, month, propertyIds, from, to }: SectionInpu
   return (
     <>
       <ReportSection title={`What each OTA keeps · ${month}`} subtitle="Per channel, on the nights it sold: commission, GST on commission (input credit), TCS and TDS (tax credit), and what reaches the hotel. Rates from the settings below." filename={`ota-deductions-${month}.csv`} columns={otaColumns} rows={otaRows}
-        totalsRow={{ source: "All OTAs", bookings: otaTotal.bookings, gross: otaTotal.grossPaise, commission: otaTotal.commissionPaise, gst: otaTotal.gstOnCommissionPaise, tcs: otaTotal.tcsPaise, tds: otaTotal.tdsPaise, deduction: otaTotal.deductionPaise, net: otaTotal.netPaise }} />
+        totalsRow={{ source: "All OTAs", bookings: otaTotal.bookings, gross: otaTotal.grossPaise, commission: otaTotal.commissionPaise, extra: otaTotal.extraFeePaise, gst: otaTotal.gstOnCommissionPaise, tcs: otaTotal.tcsPaise, tds: otaTotal.tdsPaise, deduction: otaTotal.deductionPaise, net: otaTotal.netPaise }} />
       <OtaDeductionSettings rules={rules} canEdit={hasPermission(user, "settings:manage")} />
       <ReportSection title={`Bookings by channel · ${month}`} subtitle="Bookings checking in during the period, per channel: cancellations, room-nights, billed and still due." filename={`channels-${month}.csv`} columns={CHANNEL_COLUMNS} rows={channelRows.rows} totalsRow={channelRows.totals} />
       <ReportSection title={`Revenue by source · ${month}`} subtitle="Where the period's revenue came from (net of discounts, ex-tax)." filename={`revenue-by-source-${month}.csv`} columns={columns} rows={rows} totalsRow={totalsRow} />
@@ -420,4 +424,57 @@ function channelPerformance(register: BookingRegisterEntry[]): { rows: ReportRow
     rows: [...by.entries()].sort((x, y) => y[1].charges - x[1].charges).map(([k, a]) => row(sourceLabel(k), a)),
     totals: row("All channels", all),
   };
+}
+
+async function CompanyDuesSection({ user, propertyIds, nameOf }: { user: SectionInput["user"]; propertyIds: string[]; nameOf: (id: string) => string }) {
+  const items = await companyDues(user, { propertyIds });
+  const byCompany = new Map<string, { gstin: string | null; count: number; bill: number; paid: number; due: number; oldest: string }>();
+  for (const i of items) {
+    const a = byCompany.get(i.company) ?? { gstin: i.gstin, count: 0, bill: 0, paid: 0, due: 0, oldest: i.date };
+    a.count += 1; a.bill += i.billPaise; a.paid += i.paidPaise; a.due += i.duePaise;
+    if (i.date < a.oldest) a.oldest = i.date;
+    byCompany.set(i.company, a);
+  }
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  const daysSince = (d: string) => Math.max(0, Math.round((Date.parse(today) - Date.parse(d)) / 86_400_000));
+  const columns: ReportColumn[] = [
+    { key: "company", label: "Company" }, { key: "gstin", label: "GSTIN" }, { key: "count", label: "Bills", format: "text", align: "right" },
+    { key: "bill", label: "Billed", format: "money" }, { key: "paid", label: "Received", format: "money" }, { key: "due", label: "Due", format: "money" },
+    { key: "oldest", label: "Oldest since" },
+  ];
+  const rows: ReportRow[] = [...byCompany.entries()].sort((a, b) => b[1].due - a[1].due).map(([company, a]) => ({
+    company, gstin: a.gstin ?? "", count: a.count, bill: a.bill, paid: a.paid, due: a.due, oldest: `${a.oldest} (${daysSince(a.oldest)} days)`,
+  }));
+  const total = items.reduce((n, i) => n + i.duePaise, 0);
+  const detailColumns: ReportColumn[] = [
+    { key: "company", label: "Company" }, { key: "label", label: "Booking / bill" }, { key: "property", label: "Hotel", format: "property" },
+    { key: "date", label: "Date" }, { key: "bill", label: "Bill", format: "money" }, { key: "paid", label: "Received", format: "money" }, { key: "due", label: "Due", format: "money" },
+  ];
+  const detailRows: ReportRow[] = items.map((i) => ({ company: i.company, label: i.label, property: nameOf(i.propertyId), date: i.date, bill: i.billPaise, paid: i.paidPaise, due: i.duePaise }));
+  return (
+    <div className="space-y-6">
+      <ReportSection title="Company dues (current)" subtitle="What each credit company still owes — stays on company credit and unpaid manual bills. When a company pays, record it with Take payment on the booking." filename="company-dues.csv" columns={columns} rows={rows} totalsRow={{ company: "All companies", due: total, count: items.length }} />
+      {items.length > 0 ? (
+        <section className="space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold">Every bill due</h3>
+            <ExportTableButton filename="company-dues-detail.csv" columns={detailColumns} rows={detailRows} />
+          </div>
+          <ul className="divide-y rounded-lg border text-sm">
+            {items.map((i) => (
+              <li key={i.reservationId ?? i.invoiceId ?? i.label} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                <span>
+                  <span className="font-medium">{i.company}</span>{" · "}
+                  {i.reservationId ? <Link href={`/bookings/${i.reservationId}`} className="text-primary underline-offset-2 hover:underline">{i.label}</Link>
+                    : i.invoiceId ? <Link href={`/billing/manual?invoice=${i.invoiceId}`} className="text-primary underline-offset-2 hover:underline">{i.label}</Link> : i.label}
+                  <span className="text-muted-foreground"> · {nameOf(i.propertyId)} · {i.date}</span>
+                </span>
+                <span className="font-medium tabular-nums text-destructive">{formatINR(i.duePaise)}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+    </div>
+  );
 }

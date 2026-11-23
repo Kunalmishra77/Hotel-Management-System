@@ -223,7 +223,7 @@ export async function autoIssueInvoiceOnCheckout(reservationId: string, opts: { 
         lines: { select: { id: true, type: true, description: true, businessDate: true, reversalOfId: true, amountPaise: true, cgstPaise: true, sgstPaise: true, igstPaise: true } },
         payments: { select: { mode: true, reference: true, amountPaise: true, isRefund: true } },
         invoices: { where: { supersededById: null }, select: { id: true, type: true, cancelsInvoiceId: true, billPart: true } },
-        reservation: { select: { source: true, extensions: { select: { fromDate: true, toDate: true, source: true } }, guest: { select: { fullName: true, gstNumber: true } } } },
+        reservation: { select: { source: true, extensions: { select: { fromDate: true, toDate: true, source: true } }, guest: { select: { fullName: true, gstNumber: true } }, corporate: { select: { name: true, gstin: true, address: true, state: true } } } },
       },
     });
     if (!folio || folio.lines.length === 0) return;
@@ -232,15 +232,20 @@ export async function autoIssueInvoiceOnCheckout(reservationId: string, opts: { 
     const live = folio.invoices.filter((i) => i.type === "TAX_INVOICE" && !credited.has(i.id));
     if (live.some((i) => i.billPart === null)) return; // an older whole-stay invoice already covers it
     const ctx: PartContext = { bookingSource: folio.reservation?.source ?? null, extensions: folio.reservation?.extensions ?? [] };
-    const parts = billParts(folio.lines, folio.payments, ctx).filter((p) => p.lineIds.length > 0 && p.chargesPaise !== 0);
+    // Never a ₹0 or negative bill (a discount alone is not a bill — client, 23 Nov 2026).
+    const parts = billParts(folio.lines, folio.payments, ctx).filter((p) => p.lineIds.length > 0 && p.chargesPaise > 0);
     const guest = folio.reservation?.guest;
+    // A stay on company credit is billed to the company, naming the guest (23 Nov 2026).
+    const company = folio.reservation?.corporate;
+    const billTo = company
+      ? { customerName: company.name, customerGstin: company.gstin ?? undefined, customerAddress: company.address ?? undefined, customerState: company.state ?? undefined, guestName: guest?.fullName }
+      : { customerName: guest?.fullName ?? "Guest", customerGstin: guest?.gstNumber ?? undefined };
     // One invoice per bill (an OTA's nights / the direct bill), each best-effort.
     for (const p of parts) {
       if (live.some((i) => i.billPart === p.part)) continue;
       await generateInvoice({
         folioId: folio.id,
-        customerName: guest?.fullName ?? "Guest",
-        customerGstin: guest?.gstNumber ?? undefined,
+        ...billTo,
         billPart: p.part,
       }, { renderPdf: opts.renderPdf !== false });
     }
