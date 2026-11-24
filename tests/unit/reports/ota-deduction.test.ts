@@ -26,4 +26,12 @@ describe("OTA deduction breakdown", () => {
     expect(d.extraFeePaise).toBe(20_993);
     expect(d.netPaise).toBe(239_920);
   });
+  it("MMT host voucher NH73039534032550 (Sneha Dey, 3 nights): 15% on pre-GST + 18% GST on it + TCS 0.5% + TDS 0.1% → ₹7,222.96 within paise", () => {
+    const d = otaDeduction(833_094, 41_655, { commissionBps: 1500, commissionOnGross: false, extraFeeBps: 0, gstOnCommissionBps: 1800, tcsBps: 50, tdsBps: 10 });
+    expect(d.grossPaise).toBe(874_749);
+    expect(d.tcsPaise).toBe(4_165); // voucher ₹41.65
+    expect(d.tdsPaise).toBe(833); // voucher ₹8.33
+    // MMT rounds commission per night (₹1,249.62 / GST ₹224.93); per booking we land 3 paise off.
+    expect(Math.abs(d.netPaise - 722_296)).toBeLessThanOrEqual(5);
+  });
 });

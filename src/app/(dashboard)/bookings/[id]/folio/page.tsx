@@ -11,6 +11,8 @@ import { FolioScreen } from "@/features/billing/components/folio-screen";
 import { CreateBillButton } from "@/features/billing/components/create-bill-button";
 import { hasPermission } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
+import { otaPayoutForStay } from "@/features/reports/ota-payout";
+import { OtaPayoutCard } from "@/features/reports/components/ota-payout-card";
 
 export const metadata: Metadata = { title: "Folio" };
 
@@ -21,47 +23,65 @@ export default async function FolioPage({ params }: { params: Promise<{ id: stri
   const reservation = await getReservation(user, id);
   if (!reservation) notFound();
 
-  const folioRow = await db.scoped(user).folio.findFirst({ where: { reservationId: id }, select: { id: true, propertyId: true } });
+  const folioRow = await db
+    .scoped(user)
+    .folio.findFirst({ where: { reservationId: id }, select: { id: true, propertyId: true } });
   if (!folioRow) {
     return (
       <div className="mx-auto w-full max-w-2xl space-y-4 p-4">
         <h1 className="text-xl font-semibold">Folio</h1>
         <p className="text-sm text-muted-foreground">
-          No bill yet for this stay. If it was saved as history only (no rate) but you need to add charges
-          the guest already paid for — e.g. food — create the bill, then add the charges.
+          No bill yet for this stay. If it was saved as history only (no rate) but you need to add
+          charges the guest already paid for — e.g. food — create the bill, then add the charges.
         </p>
         {hasPermission(user, "folio:charge") ? <CreateBillButton reservationId={id} /> : null}
-        <Button asChild variant="outline"><Link href={`/bookings/${id}`}>Back to booking</Link></Button>
+        <Button asChild variant="outline">
+          <Link href={`/bookings/${id}`}>Back to booking</Link>
+        </Button>
       </div>
     );
   }
 
   const folio = await getFolio(user, folioRow.id);
   if (!folio) notFound();
-  const [addOns, company] = await Promise.all([listActiveAddOns(folioRow.propertyId), getCompanyCredit(user, id)]);
+  const [addOns, company, payouts] = await Promise.all([
+    listActiveAddOns(folioRow.propertyId),
+    getCompanyCredit(user, id),
+    // What the OTA remits after its commission — owner/accounts only (financial).
+    hasPermission(user, "report:view-financial") ? otaPayoutForStay(user, id) : Promise.resolve([]),
+  ]);
   return (
-    <FolioScreen
-      folio={folio}
-      guestName={reservation.guestName}
-      reservationId={id}
-      company={company}
-      addOns={addOns.map((a) => ({ id: a.id, name: a.name, pricePaise: a.pricePaise }))}
-      stay={{
-        code: reservation.code,
-        status: reservation.status,
-        checkInDate: reservation.checkInDate.toISOString().slice(0, 10),
-        checkOutDate: reservation.checkOutDate.toISOString().slice(0, 10),
-        nights: reservation.nights,
-        // A split stay / mid-stay move shows each room with its dates.
-        rooms: reservation.roomPlan.length > 1
-          ? reservation.roomPlan.map((p) => `${p.number} (${p.from.slice(8)}/${p.from.slice(5, 7)}→${p.to.slice(8)}/${p.to.slice(5, 7)})`).join(", ")
-          : reservation.roomNumbers.join(", "),
-        source: reservation.source,
-        bookedOn: reservation.bookedOn,
-        ratePaise: reservation.ratePaise,
-        checkInAt: reservation.checkInAt ? reservation.checkInAt.toISOString() : null,
-        arrivalGuaranteed: reservation.arrivalGuaranteed,
-      }}
-    />
+    <>
+      <FolioScreen
+        folio={folio}
+        guestName={reservation.guestName}
+        reservationId={id}
+        company={company}
+        addOns={addOns.map((a) => ({ id: a.id, name: a.name, pricePaise: a.pricePaise }))}
+        stay={{
+          code: reservation.code,
+          status: reservation.status,
+          checkInDate: reservation.checkInDate.toISOString().slice(0, 10),
+          checkOutDate: reservation.checkOutDate.toISOString().slice(0, 10),
+          nights: reservation.nights,
+          // A split stay / mid-stay move shows each room with its dates.
+          rooms:
+            reservation.roomPlan.length > 1
+              ? reservation.roomPlan
+                  .map(
+                    (p) =>
+                      `${p.number} (${p.from.slice(8)}/${p.from.slice(5, 7)}→${p.to.slice(8)}/${p.to.slice(5, 7)})`,
+                  )
+                  .join(", ")
+              : reservation.roomNumbers.join(", "),
+          source: reservation.source,
+          bookedOn: reservation.bookedOn,
+          ratePaise: reservation.ratePaise,
+          checkInAt: reservation.checkInAt ? reservation.checkInAt.toISOString() : null,
+          arrivalGuaranteed: reservation.arrivalGuaranteed,
+        }}
+      />
+      <OtaPayoutCard payouts={payouts} />
+    </>
   );
 }
