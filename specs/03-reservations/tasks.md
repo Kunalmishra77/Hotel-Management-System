@@ -61,3 +61,9 @@ Ordered, small, test-first for domain. Each ends at `rules/definition-of-done.md
 
 ## Done
 - [x] T-33 `/review-module` clean; every AC mapped to a green test; DoD satisfied.
+
+## Addendum 2026-11-24 — OTA voucher paste (FR-OV-1..3)
+- [x] T-43 Pure `domain/ota-voucher.ts` (Go-MMT voucher; stacked + two-column text) + unit tests `tests/unit/reservations/ota-voucher.test.ts`.
+- [x] T-44 `channelRef` on `bookingFields`, persisted; duplicate guard in `createBooking`; integration test `tests/integration/ota-voucher-booking.test.ts`.
+- [x] T-45 `OtaVoucherPaste` card on the booking form (fills source/dates/guests/rate/prepaid/notes, runs availability).
+- [ ] T-46 Booking.com / Agoda / Expedia / Airbnb formats — from real sample emails.

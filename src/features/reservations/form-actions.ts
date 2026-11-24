@@ -91,6 +91,7 @@ export async function createReservationFormAction(
     ...(str(formData, "advanceMode") ? { advanceMode: str(formData, "advanceMode") as "CASH" } : {}),
     settlementIntent,
     notes: notes || undefined,
+    ...(str(formData, "channelRef") ? { channelRef: str(formData, "channelRef") } : {}),
   });
 
   if (!result.ok) return { status: "error", message: result.error.message };

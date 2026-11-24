@@ -66,6 +66,19 @@ export async function createBooking(
 
   const nights = computeNights(data.checkInDate, data.checkOutDate, property.timezone);
 
+  // One OTA booking id is entered once (client, 24 Nov 2026 — pasted vouchers): a
+  // second paste of the same voucher must not take a second room.
+  if (data.channelRef) {
+    const dup = await client.reservation.findFirst({
+      where: { propertyId: data.propertyId, channelRef: data.channelRef, status: { notIn: ["CANCELLED", "NO_SHOW"] } },
+      select: { code: true },
+    });
+    if (dup) {
+      const msg = `This OTA booking (${data.channelRef}) is already in the system as ${dup.code}.`;
+      throw new DomainError(ErrorCode.CONFLICT, msg, { publicMessage: msg });
+    }
+  }
+
   const rooms = await client.room.findMany({
     where: { id: { in: data.roomIds }, propertyId: data.propertyId },
     select: {
@@ -165,6 +178,7 @@ export async function createBooking(
                 advanceMode: data.advancePaise > 0 ? (data.advanceMode ?? null) : null,
                 settlementIntent: data.settlementIntent,
                 notes: data.notes ?? null,
+                channelRef: data.channelRef ?? null,
               },
               select: { id: true, code: true, status: true, nights: true },
             });

@@ -50,6 +50,9 @@ const bookingFields = {
   travelAgentId: z.string().min(1).optional(),
   expectedArrival: z.string().max(40).optional(),
   notes: z.string().max(1000).optional(),
+  /** The OTA's own booking id (e.g. MMT "NH7303…"), filled from a pasted voucher —
+   *  one OTA booking is entered once (guarded in createBooking). */
+  channelRef: z.string().trim().min(3).max(60).optional(),
 };
 
 export const createReservationSchema = z

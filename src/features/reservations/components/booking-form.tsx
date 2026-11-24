@@ -31,6 +31,8 @@ import {
 } from "../form-actions";
 import type { AvailableRoom } from "../availability";
 import { countryFromPhone } from "@/lib/phone-country";
+import { OtaVoucherPaste } from "./ota-voucher-paste";
+import type { OtaVoucher } from "../domain/ota-voucher";
 
 type Category = { id: string; name: string; propertyId: string };
 type PropertyOpt = { id: string; name: string; timezone: string };
@@ -185,6 +187,10 @@ export function BookingForm({
   const [gstInclusive, setGstInclusive] = useState(false);
 
   const [state, submit, pending] = useActionState(createReservationFormAction, INITIAL);
+  // Filled from a pasted OTA voucher (OtaVoucherPaste).
+  const [channelRef, setChannelRef] = useState("");
+  const [notes, setNotes] = useState("");
+  const [autoSearch, setAutoSearch] = useState(0);
 
   const nights =
     checkInDate && checkOutDate
@@ -274,6 +280,33 @@ export function BookingForm({
     startGuestSearch(async () => setGuests(await searchGuestsForBooking(q)));
   };
 
+  // A pasted voucher fills everything it knows; staff still pick the room and
+  // confirm the guest. The rate is the voucher's pre-GST room charge per night with
+  // GST added on top, so the bill lands on the voucher's gross.
+  const applyVoucher = (v: OtaVoucher) => {
+    setSource(v.source);
+    setCheckIn(v.checkInDate);
+    setCheckOut(v.checkOutDate);
+    setAdults(v.adults);
+    setChildren(v.children);
+    setGstInclusive(false);
+    setRate(v.ratePaise / 100);
+    setRateTouched(true);
+    setSettlement(v.prepaid ? "ALREADY_PAID" : "PAY_AT_HOTEL");
+    setAdvanceTouched(false);
+    setAdvance(0);
+    if (v.prepaid) setAdvanceMode("ONLINE");
+    setChannelRef(v.channelRef);
+    setNotes(`${v.source === "GOIBIBO" ? "Goibibo" : "MakeMyTrip"} ${v.channelRef}${v.pnr ? ` · PNR ${v.pnr}` : ""}`);
+    if (v.guestName) { runGuestSearch(v.guestName); setNgName(v.guestName); }
+    setAutoSearch((n) => n + 1);
+  };
+  // After the voucher set the dates, look up free rooms (state is current here).
+  useEffect(() => {
+    if (autoSearch > 0 && checkInDate && checkOutDate) runSearch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once per pasted voucher
+  }, [autoSearch]);
+
   return (
     <form action={submit} className="space-y-4" data-testid="booking-form">
       <input type="hidden" name="propertyId" value={propertyId} />
@@ -290,6 +323,9 @@ export function BookingForm({
       <input type="hidden" name="taxPaise" value={taxPaise} />
       <input type="hidden" name="advancePaise" value={advancePaise} />
       <input type="hidden" name="advanceMode" value={advancePaise > 0 ? advanceMode : ""} />
+      <input type="hidden" name="channelRef" value={channelRef} />
+
+      <OtaVoucherPaste onApply={applyVoucher} />
 
       <Card>
         <CardHeader className="pb-3"><CardTitle className="text-base">Property, dates & occupancy</CardTitle></CardHeader>
@@ -557,7 +593,7 @@ export function BookingForm({
             </label>
 
             <Labeled label="Notes / special requests">
-              <Textarea name="notes" placeholder="ETA, preferences, ID pending, VIP…" data-testid="booking-notes" />
+              <Textarea name="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="ETA, preferences, ID pending, VIP…" data-testid="booking-notes" />
             </Labeled>
 
             <dl className="space-y-1 rounded-md border bg-muted/40 p-3 text-sm" data-testid="bill-preview">
