@@ -8,6 +8,9 @@ import Link from "next/link";
 import { formatINR } from "@/lib/utils";
 import type { OtaPayout } from "../ota-payout";
 
+/** OTA statements are to the paisa — so is this card. */
+const P = { showPaise: true };
+
 
 export function OtaPayoutCard({ payouts }: { payouts: OtaPayout[] }) {
   if (payouts.length === 0) return null;
@@ -31,9 +34,9 @@ export function OtaPayoutCard({ payouts }: { payouts: OtaPayout[] }) {
               </p>
             ) : null}
             <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-sm tabular-nums">
-              <dt>Guest paid {p.label} (room {formatINR(p.basePaise)} + GST {formatINR(p.gstPaise)})</dt><dd className="text-right">{formatINR(p.grossPaise)}</dd>
-              {rows.map(([label, v]) => (<Fragment key={label}><dt className="text-muted-foreground">{label}</dt><dd className="text-right text-muted-foreground">−{formatINR(v)}</dd></Fragment>))}
-              <dt className="border-t pt-1 font-semibold">{p.label} pays you</dt><dd className="border-t pt-1 text-right font-semibold" data-testid="ota-payout-net">{formatINR(p.netPaise)}</dd>
+              <dt>Guest paid {p.label} (room {formatINR(p.basePaise, P)} + GST {formatINR(p.gstPaise, P)})</dt><dd className="text-right">{formatINR(p.grossPaise, P)}</dd>
+              {rows.map(([label, v]) => (<Fragment key={label}><dt className="text-muted-foreground">{label}</dt><dd className="text-right text-muted-foreground">−{formatINR(v, P)}</dd></Fragment>))}
+              <dt className="border-t pt-1 font-semibold">{p.label} pays you</dt><dd className="border-t pt-1 text-right font-semibold" data-testid="ota-payout-net">{formatINR(p.netPaise, P)}</dd>
             </dl>
             <p className="text-xs text-muted-foreground">The bill stays at the guest&apos;s price — GST is due on that. The difference is {p.label}&apos;s cost, shown in Reports → Channels. Estimate from the channel&apos;s rule; the OTA&apos;s statement can differ by a few paise.</p>
           </section>
