@@ -34,6 +34,7 @@ import { ReactivateNoShowButton } from "@/features/reservations/components/react
 import { LateArrivalCard } from "@/features/reservations/components/late-arrival-card";
 import { getBalance } from "@/features/billing";
 import { getReservationFolio } from "@/features/billing/queries";
+import { getPreArrivalAdvance } from "@/features/reservations/pre-arrival-advance";
 import { BookingBillSummary } from "@/features/reservations/components/booking-bill-summary";
 import { Badge } from "@/components/ui/badge";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
@@ -93,11 +94,12 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
   // Cancellation is a PRE-ARRIVAL action only (domain: IN_HOUSE → only CHECKED_OUT).
   // An in-house guest is checked out / recorded as early departure — never cancelled.
   const canCancel = hasPermission(user, "reservation:cancel") && ["ENQUIRY", "CONFIRMED"].includes(r.status);
-  const [balancePaise, guestPanel, billFolio, guestProfile] = await Promise.all([
+  const [balancePaise, guestPanel, billFolio, guestProfile, advance] = await Promise.all([
     canFolio ? getBalance(user, id) : Promise.resolve(null),
     getReservationGuestPanel(user, id),
     canFolio ? getReservationFolio(user, id) : Promise.resolve(null),
     getGuestProfile(user, r.guestId),
+    canFolio ? getPreArrivalAdvance(user, id) : Promise.resolve(null),
   ]);
 
   // Guest feedback QR (#26) — shown while in-house / after checkout so reception can
@@ -386,7 +388,24 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {balancePaise === null ? (
+                {advance ? (
+                  // The advance reaches the folio only at check-in — until then the
+                  // folio reads ₹0, so show what was taken and what is still due.
+                  <div className="space-y-1" data-testid="pre-arrival-advance">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Advance received</p>
+                    <p className="font-display text-3xl font-bold tabular text-success">
+                      {formatINR(advance.advancePaise)}
+                      {advance.mode ? <span className="ml-2 text-sm font-medium text-muted-foreground">{advance.mode}</span> : null}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Stay total {formatINR(advance.estimatedTotalPaise)} · <span className="font-medium text-foreground">{formatINR(advance.dueAtCheckInPaise)} to collect at check-in</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground">The advance goes into the bill automatically at check-in.</p>
+                    <Button asChild variant="outline" size="sm" className="mt-3 w-full">
+                      <Link href={`/bookings/${r.id}/folio`}>Open folio</Link>
+                    </Button>
+                  </div>
+                ) : balancePaise === null ? (
                   <p className="text-sm text-muted-foreground">No folio yet — one is created at check-in.</p>
                 ) : (
                   <>

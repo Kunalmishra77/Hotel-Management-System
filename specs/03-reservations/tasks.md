@@ -67,3 +67,4 @@ Ordered, small, test-first for domain. Each ends at `rules/definition-of-done.md
 - [x] T-44 `channelRef` on `bookingFields`, persisted; duplicate guard in `createBooking`; integration test `tests/integration/ota-voucher-booking.test.ts`.
 - [x] T-45 `OtaVoucherPaste` card on the booking form (fills source/dates/guests/rate/prepaid/notes, runs availability).
 - [ ] T-46 Booking.com / Agoda / Expedia / Airbnb formats — from real sample emails.
+- [x] **T-47** (client, 26 Nov 2026 — "₹2,000 advance liya, show kyu nahi") Booking page shows the advance taken before check-in (amount, mode, stay total, to collect at check-in) — `reservations/pre-arrival-advance.ts`; check-in does not post the advance again when the same amount was already entered by hand with Take payment (`lifecycle-actions` T4 guard; test `payment-modes` "not posted twice").

@@ -165,7 +165,22 @@ export async function checkIn(input: unknown): Promise<Result<LifecycleResult>> 
         if (r.advancePaise > 0) {
           const reference = `ADVANCE:${r.id}`;
           const already = await tx.payment.findFirst({ where: { folioId, reference }, select: { id: true } });
-          if (!already) {
+          // Before arrival the folio read ₹0, so staff sometimes recorded the same
+          // advance again with Take payment (client, 26 Nov 2026 — Satyam Sahay).
+          // A pre-arrival payment of exactly the advance IS the advance: posting it
+          // again would credit the guest twice.
+          const enteredByHand = already
+            ? null
+            : await tx.payment.findFirst({
+                where: {
+                  folioId,
+                  isRefund: false,
+                  amountPaise: BigInt(r.advancePaise),
+                  OR: [{ reference: null }, { NOT: { reference: { startsWith: "ADVANCE:" } } }],
+                },
+                select: { id: true },
+              });
+          if (!already && !enteredByHand) {
             await postPaymentTx(tx as unknown as BillingPostTx, {
               folioId,
               propertyId: r.propertyId,

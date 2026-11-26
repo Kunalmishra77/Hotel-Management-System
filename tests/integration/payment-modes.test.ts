@@ -25,7 +25,7 @@ import { assembleClaims } from "@/lib/auth/claims";
 import { createReservation } from "@/features/reservations/actions";
 import { checkIn } from "@/features/reservations/lifecycle-actions";
 import { extendStay } from "@/features/reservations/move-actions";
-import { correctPaymentEntry } from "@/features/billing/payment-actions";
+import { correctPaymentEntry, recordPayment } from "@/features/billing/payment-actions";
 import { correctRoomRate } from "@/features/billing/charge-actions";
 import { getFolio } from "@/features/billing/queries";
 import { revenueSegments } from "@/features/reports/queries";
@@ -70,6 +70,19 @@ describe("booking advance mode", () => {
     const pay = await prisma.payment.findFirstOrThrow({ where: { folioId: await folioId(res.data.id), reference: `ADVANCE:${res.data.id}` } });
     expect(pay.mode).toBe("UPI");
     expect(Number(pay.amountPaise)).toBe(100_000);
+  });
+
+  it("an advance already entered with Take payment before arrival is not posted twice at check-in (client, 26 Nov 2026)", async () => {
+    await actAs(USER_RECEPTION_A_ID);
+    const res = await createReservation(body({ roomIds: [ROOM_101_ID], source: "DIRECT", advancePaise: 110_000 }));
+    if (!res.ok) throw new Error(res.error.message);
+    created.push(res.data.id);
+    const fid = await folioId(res.data.id);
+    // Staff saw a ₹0 folio and recorded the same ₹1,100 by hand.
+    expect((await recordPayment({ folioId: fid, tenders: [{ mode: "UPI", amountPaise: 110_000 }] })).ok).toBe(true);
+    expect((await checkIn({ reservationId: res.data.id })).ok).toBe(true);
+    const pays = await prisma.payment.findMany({ where: { folioId: fid, isRefund: false } });
+    expect(pays.map((p) => Number(p.amountPaise))).toEqual([110_000]);
   });
 
   it("'Already paid' for the whole bill (OTA prepaid) leaves nothing due", async () => {
